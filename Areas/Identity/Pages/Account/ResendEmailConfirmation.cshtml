@@ -1,0 +1,45 @@
+@page
+@model ResendEmailConfirmationModel
+@{
+    ViewData["Title"] = "Reenviar confirmación";
+    Layout = "_LoginLayout";
+}
+
+<div class="flex flex-col items-center mb-8">
+    <div class="w-10 h-10 bg-codelco-orange flex items-center justify-center rounded-sm">
+        <span class="material-symbols-outlined text-white text-2xl">mail</span>
+    </div>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-lg shadow-sm p-8">
+    <h2 class="text-xl font-semibold text-slate-800 mb-2 text-center">Reenviar confirmación de correo</h2>
+    <p class="text-sm text-slate-600 mb-6 text-center">Ingrese su correo y le enviaremos nuevamente el enlace de confirmación.</p>
+
+    <form method="post" class="space-y-5">
+        <div asp-validation-summary="ModelOnly" class="text-red-600 text-sm" role="alert"></div>
+
+        <div class="space-y-1.5">
+            <label asp-for="Input.Email" class="block text-sm font-medium text-slate-700">Correo electrónico</label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span class="material-icons text-codelco-orange text-xl">person</span>
+                </div>
+                <input asp-for="Input.Email" class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded text-slate-900 text-sm focus:ring-2 focus:ring-codelco-orange/20 focus:border-codelco-orange outline-none transition-all" autocomplete="username" placeholder="usuario@ejemplo.com" />
+            </div>
+            <span asp-validation-for="Input.Email" class="text-red-600 text-sm"></span>
+        </div>
+
+        <button type="submit" class="w-full py-3 px-4 bg-codelco-orange hover:bg-[#E55A16] text-white font-bold rounded shadow-sm transition-colors flex items-center justify-center gap-2 uppercase tracking-wide text-sm">
+            <span class="material-icons text-sm">send</span>
+            Reenviar enlace
+        </button>
+    </form>
+
+    <div class="mt-6 pt-6 border-t border-slate-100 text-center">
+        <a asp-page="./Login" class="text-codelco-orange font-medium hover:underline text-sm">Volver al inicio de sesión</a>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

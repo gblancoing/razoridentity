@@ -1,0 +1,33 @@
+@page
+@model AccessDeniedModel
+@{
+    ViewData["Title"] = "Acceso denegado";
+    Layout = "_LoginLayout";
+}
+
+<div class="flex flex-col items-center mb-8">
+    <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 bg-red-500 flex items-center justify-center rounded-sm">
+            <span class="material-icons text-white text-2xl">block</span>
+        </div>
+        <div class="text-left border-l border-slate-300 pl-3">
+            <h1 class="text-xl font-bold text-slate-800 leading-none">RitWeb</h1>
+            <p class="text-sm font-medium text-slate-500 uppercase tracking-wider mt-1">Acceso denegado</p>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-lg shadow-sm p-8 text-center">
+    <div class="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+        <span class="material-icons text-red-500 text-4xl">shield</span>
+    </div>
+    <h2 class="text-xl font-semibold text-slate-800 mb-2">No tiene acceso a este recurso</h2>
+    <p class="text-slate-600 text-sm mb-6">Su cuenta no tiene los permisos necesarios para ver esta página. Contacte al administrador si cree que es un error.</p>
+    <a asp-area="" asp-page="/Index" class="inline-flex items-center justify-center gap-2 w-full py-3 px-4 bg-codelco-orange hover:bg-[#E55A16] text-white font-bold rounded shadow-sm transition-colors">
+        <span class="material-icons text-lg">home</span>
+        Volver al inicio
+    </a>
+    <div class="mt-6">
+        <a asp-area="Identity" asp-page="/Account/Login" class="text-sm text-codelco-orange font-medium hover:underline">Iniciar sesión con otra cuenta</a>
+    </div>
+</div>

@@ -1,0 +1,21 @@
+@page
+@model RegisterConfirmationModel
+@{
+    ViewData["Title"] = "Registro completado";
+    Layout = "_LoginLayout";
+}
+
+<div class="flex flex-col items-center mb-8">
+    <div class="w-10 h-10 bg-codelco-orange flex items-center justify-center rounded-sm">
+        <span class="material-symbols-outlined text-white text-2xl">mail</span>
+    </div>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-lg shadow-sm p-8 text-center">
+    <h2 class="text-xl font-semibold text-slate-800 mb-2">Revise su correo</h2>
+    <p class="text-sm text-slate-600 mb-6">
+        Hemos enviado un enlace de confirmación a <strong>@Model.Email</strong>.
+        Haga clic en el enlace para activar su cuenta. Revise también la carpeta de spam.
+    </p>
+    <a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl" class="text-codelco-orange font-medium hover:underline text-sm">Volver al inicio de sesión</a>
+</div>

@@ -1,0 +1,27 @@
+@using Microsoft.AspNetCore.Identity
+
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+
+<ul class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 list-none py-2 md:py-0">
+@if (SignInManager.IsSignedIn(User))
+{
+    <li>
+        <a id="manage" class="text-slate-600 hover:text-codelco-orange transition-colors" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hola @UserManager.GetUserName(User)!</a>
+    </li>
+    <li>
+        <form id="logoutForm" class="inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/Index", new { area = "" })" method="post">
+            <button id="logout" type="submit" class="text-slate-600 hover:text-codelco-orange hover:underline transition-colors bg-transparent border-0 cursor-pointer p-0 text-left">Cerrar sesión</button>
+        </form>
+    </li>
+}
+else
+{
+    <li>
+        <a class="text-slate-600 hover:text-codelco-orange transition-colors" id="register" asp-area="Identity" asp-page="/Account/Register">Registrarse</a>
+    </li>
+    <li>
+        <a class="text-slate-600 hover:text-codelco-orange transition-colors" id="login" asp-area="Identity" asp-page="/Account/Login">Acceder</a>
+    </li>
+}
+</ul>

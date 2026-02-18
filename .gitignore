@@ -1,0 +1,17 @@
+## .NET / Visual Studio / Rider
+bin/
+obj/
+.vs/
+.vscode/
+
+## User secrets / local settings
+**/secrets.json
+**/appsettings.*.local.json
+
+## OS
+Thumbs.db
+Desktop.ini
+
+## Logs
+*.log
+

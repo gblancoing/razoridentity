@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+/* Escanear vistas Razor para generar solo las clases usadas */
+@source "../Pages/**/*.cshtml";
+@source "../Areas/**/*.cshtml";
