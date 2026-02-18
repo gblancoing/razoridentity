@@ -3,6 +3,7 @@ bin/
 obj/
 .vs/
 .vscode/
+*.csproj.user
 
 ## User secrets / local settings
 **/secrets.json
