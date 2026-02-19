@@ -1,6 +1,7 @@
 @page
 @model IndexModel
 @{
+    Layout = "_ManageLayout";
     ViewData["Title"] = "Mi perfil";
     ViewData["ActivePage"] = ManageNavPages.Index;
     var displayName = Model.Username ?? Model.Email ?? "Usuario";
@@ -14,11 +15,6 @@
 
     <partial name="_StatusMessage" for="StatusMessage" />
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-        <aside class="lg:col-span-3">
-            <partial name="_ManageNav" />
-        </aside>
-        <div class="lg:col-span-9 space-y-6">
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
         @* Ficha del usuario *@
         <div class="lg:col-span-2">
@@ -85,8 +81,6 @@
                     </button>
                 </form>
             </div>
-        </div>
-    </div>
         </div>
     </div>
 </div>

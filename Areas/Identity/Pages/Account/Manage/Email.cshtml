@@ -1,6 +1,7 @@
 @page
 @model EmailModel
 @{
+    Layout = "_ManageLayout";
     ViewData["Title"] = "Correo electrónico";
     ViewData["ActivePage"] = ManageNavPages.Email;
 }
@@ -13,11 +14,7 @@
 
     <partial name="_StatusMessage" for="StatusMessage" />
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-        <aside class="lg:col-span-3">
-            <partial name="_ManageNav" />
-        </aside>
-        <div class="lg:col-span-9 space-y-6">
+    <div class="space-y-6">
             <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                     <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Correo actual</h2>
@@ -60,7 +57,6 @@
                     </button>
                 </form>
             </div>
-        </div>
     </div>
 </div>
 

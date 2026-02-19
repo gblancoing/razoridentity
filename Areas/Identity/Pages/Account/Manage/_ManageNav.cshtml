@@ -1,37 +1,66 @@
 @inject SignInManager<IdentityUser> SignInManager
 @{
     var hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
-    string Active(string page) => ManageNavPages.PageNavClass(ViewContext, page) == "active" ? "active" : null;
-    string NavItemClass(string page) => Active(page) == "active"
-        ? "flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-codelco-orange bg-codelco-orange/5 text-codelco-orange"
-        : "flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors border-l-4 border-transparent";
-}
-<nav class="space-y-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" aria-label="Menú de cuenta">
-    <a id="profile" asp-page="./Index" class="@NavItemClass(ManageNavPages.Index)">
-        <span class="material-icons text-xl text-inherit">person</span>
-        Perfil
-    </a>
-    <a id="email" asp-page="./Email" class="@NavItemClass(ManageNavPages.Email)">
-        <span class="material-icons text-xl text-inherit">email</span>
-        Correo electrónico
-    </a>
-    <a id="change-password" asp-page="./ChangePassword" class="@NavItemClass(ManageNavPages.ChangePassword)">
-        <span class="material-icons text-xl text-inherit">lock</span>
-        Contraseña
-    </a>
-    @if (hasExternalLogins)
+    var userName = User.Identity?.Name ?? "Usuario";
+    var userInitials = userName.Length >= 2 ? userName.Substring(0, 2).ToUpperInvariant() : "U";
+    string Active(string page) => ManageNavPages.PageNavClass(ViewContext, page) == "active" ? "active" : "";
+    string NavItemClass(string page)
     {
-        <a id="external-login" asp-page="./ExternalLogins" class="@NavItemClass(ManageNavPages.ExternalLogins)">
-            <span class="material-icons text-xl text-inherit">link</span>
-            Inicios de sesión externos
-        </a>
+        if (Active(page) == "active")
+            return "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md bg-ritweb-teal text-white transition-all group relative";
+        return "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all group";
     }
-    <a id="two-factor" asp-page="./TwoFactorAuthentication" class="@NavItemClass(ManageNavPages.TwoFactorAuthentication)">
-        <span class="material-icons text-xl text-inherit">verified_user</span>
-        Autenticación 2FA
-    </a>
-    <a id="personal-data" asp-page="./PersonalData" class="@NavItemClass(ManageNavPages.PersonalData)">
-        <span class="material-icons text-xl text-inherit">badge</span>
-        Datos personales
-    </a>
-</nav>
+    string NavItemBar(string page) => Active(page) == "active" ? "absolute right-0 top-0 bottom-0 w-1 bg-codelco-orange rounded-l-full" : "";
+}
+<div class="flex flex-col flex-1 overflow-hidden">
+    <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto" aria-label="Menú de cuenta">
+        <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Mi cuenta</p>
+        <a id="profile" asp-page="./Index" class="@NavItemClass(ManageNavPages.Index)">
+            <span class="material-icons text-[20px] flex-shrink-0 text-inherit">person</span>
+            <span class="truncate">Perfil</span>
+            <div class="@NavItemBar(ManageNavPages.Index)"></div>
+        </a>
+        <a id="email" asp-page="./Email" class="@NavItemClass(ManageNavPages.Email)">
+            <span class="material-icons text-[20px] flex-shrink-0 text-inherit">email</span>
+            <span class="truncate">Correo electrónico</span>
+            <div class="@NavItemBar(ManageNavPages.Email)"></div>
+        </a>
+        <a id="change-password" asp-page="./ChangePassword" class="@NavItemClass(ManageNavPages.ChangePassword)">
+            <span class="material-icons text-[20px] flex-shrink-0 text-inherit">lock</span>
+            <span class="truncate">Contraseña</span>
+            <div class="@NavItemBar(ManageNavPages.ChangePassword)"></div>
+        </a>
+        @if (hasExternalLogins)
+        {
+            <a id="external-login" asp-page="./ExternalLogins" class="@NavItemClass(ManageNavPages.ExternalLogins)">
+                <span class="material-icons text-[20px] flex-shrink-0 text-inherit">link</span>
+                <span class="truncate">Inicios de sesión externos</span>
+                <div class="@NavItemBar(ManageNavPages.ExternalLogins)"></div>
+            </a>
+        }
+        <a id="two-factor" asp-page="./TwoFactorAuthentication" class="@NavItemClass(ManageNavPages.TwoFactorAuthentication)">
+            <span class="material-icons text-[20px] flex-shrink-0 text-inherit">verified_user</span>
+            <span class="truncate">Autenticación 2FA</span>
+            <div class="@NavItemBar(ManageNavPages.TwoFactorAuthentication)"></div>
+        </a>
+        <a id="personal-data" asp-page="./PersonalData" class="@NavItemClass(ManageNavPages.PersonalData)">
+            <span class="material-icons text-[20px] flex-shrink-0 text-inherit">badge</span>
+            <span class="truncate">Datos personales</span>
+            <div class="@NavItemBar(ManageNavPages.PersonalData)"></div>
+        </a>
+    </nav>
+    <div class="p-4 border-t border-slate-200">
+        <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+            <div class="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 flex-shrink-0">@userInitials</div>
+            <div class="overflow-hidden min-w-0 flex-1">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">Mi cuenta</p>
+                <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">@userName</p>
+            </div>
+            <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/Index", new { area = "" })" method="post" class="flex-shrink-0 ml-auto">
+                <button type="submit" class="p-1.5 rounded text-slate-400 hover:bg-slate-200 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-colors" title="Cerrar sesión">
+                    <span class="material-icons text-xl">logout</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

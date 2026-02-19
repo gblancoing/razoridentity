@@ -1,6 +1,7 @@
 @page
 @model PersonalDataModel
 @{
+    Layout = "_ManageLayout";
     ViewData["Title"] = "Datos personales";
     ViewData["ActivePage"] = ManageNavPages.PersonalData;
 }
@@ -13,11 +14,7 @@
 
     <partial name="_StatusMessage" for="StatusMessage" />
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-        <aside class="lg:col-span-3">
-            <partial name="_ManageNav" />
-        </aside>
-        <div class="lg:col-span-9">
+    <div>
             <form method="post" class="space-y-6">
                 <div asp-validation-summary="ModelOnly" class="rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm p-3" role="alert"></div>
 
@@ -112,7 +109,6 @@
                     </p>
                 </div>
             </div>
-        </div>
     </div>
 </div>
 
