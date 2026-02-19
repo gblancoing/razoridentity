@@ -61,41 +61,48 @@
     <main class="flex-1" role="main">
         @RenderBody()
     </main>
+    @{
+        var pagePath = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+        var isInicio = string.Equals(pagePath, "Index", StringComparison.OrdinalIgnoreCase) || string.Equals(pagePath, "/Index", StringComparison.OrdinalIgnoreCase);
+    }
     <footer class="bg-slate-800 text-slate-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
-                    <h3 class="text-lg font-bold text-white mb-3">RitWeb</h3>
-                    <p class="text-sm leading-relaxed">Sistema web especializado para el registro de alertas e inspecciones en terreno, diseñado para proyectos mineros y constructivos. Solución tecnológica integrada para optimizar procesos y maximizar la eficiencia operacional.</p>
-                    <div class="flex gap-3 mt-4">
-                        <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Facebook"><span class="material-icons text-sm">facebook</span></a>
-                        <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="LinkedIn"><span class="material-icons text-sm">linkedin</span></a>
-                        <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Instagram"><span class="material-icons text-sm">instagram</span></a>
+        @if (isInicio)
+        {
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                        <h3 class="text-lg font-bold text-white mb-3">RitWeb</h3>
+                        <p class="text-sm leading-relaxed">Sistema web especializado para el registro de alertas e inspecciones en terreno, diseñado para proyectos mineros y constructivos. Solución tecnológica integrada para optimizar procesos y maximizar la eficiencia operacional.</p>
+                        <div class="flex gap-3 mt-4">
+                            <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Facebook"><span class="material-icons text-sm">facebook</span></a>
+                            <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="LinkedIn"><span class="material-icons text-sm">linkedin</span></a>
+                            <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Instagram"><span class="material-icons text-sm">instagram</span></a>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white mb-3">Funcionalidades</h3>
+                        <ul class="space-y-2 text-sm">
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Registro de Alertas</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Inspecciones en Terreno</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Observaciones de Calidad</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Reportabilidad en Tiempo Real</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Gestión Móvil</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white mb-3">Características</h3>
+                        <ul class="space-y-2 text-sm">
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Reportabilidad Avanzada</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Control de Accesos (ACL)</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Backup Personalizado</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Múltiples Proyectos</li>
+                            <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Equipos Colaborativos</li>
+                        </ul>
                     </div>
                 </div>
-                <div>
-                    <h3 class="text-lg font-bold text-white mb-3">Funcionalidades</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Registro de Alertas</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Inspecciones en Terreno</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Observaciones de Calidad</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Reportabilidad en Tiempo Real</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Gestión Móvil</li>
-                    </ul>
-                </div>
-                <div>
-                    <h3 class="text-lg font-bold text-white mb-3">Características</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Reportabilidad Avanzada</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Control de Accesos (ACL)</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Backup Personalizado</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Múltiples Proyectos</li>
-                        <li class="flex items-center gap-2"><span class="text-ritweb-teal">✓</span> Equipos Colaborativos</li>
-                    </ul>
-                </div>
             </div>
-        </div>
-        <div class="border-t border-slate-700">
+        }
+        <div class="@(isInicio ? "border-t border-slate-700" : "")">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-slate-400">
                 © @DateTime.Now.Year RitWeb - Reporte Interno En Terreno. Todos los derechos reservados. <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/Privacy">Privacidad</a>
             </div>

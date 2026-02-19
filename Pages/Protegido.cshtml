@@ -3,33 +3,118 @@
 @{
     ViewData["Title"] = "Administración (Super Admin)";
     var t = Model.Tab ?? "usuarios";
-}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Contenido Protegido</h1>
-        <p class="mt-1.5 text-slate-600 text-sm leading-relaxed max-w-2xl">Solo usuarios con rol Super_Admin. CRUD de Países, Regiones, Proyectos, Centros de costo, Disciplinas y asignación de usuarios (centro y disciplina).</p>
-    </div>
-
-    @if (Model.ErrorApi != null)
+    var userEmail = Model.CurrentUserEmail ?? "Admin";
+    var userInitials = Model.CurrentUserInitials ?? "SA";
+    string NavLink(string tab, string icon, string label)
     {
-        <div class="mb-6 rounded-xl bg-amber-50 border border-amber-200/80 p-4 text-amber-800 text-sm shadow-sm flex items-start gap-3">
-            <span class="material-icons text-amber-600 text-xl flex-shrink-0">warning</span>
-            <span>@Model.ErrorApi</span>
-        </div>
+        var active = t == tab;
+        return active
+            ? "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md bg-ritweb-teal text-white transition-all relative"
+            : "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-all";
     }
-
-    <nav class="flex flex-wrap gap-1 border-b border-slate-200 mb-0" aria-label="Pestañas de administración">
-        <a asp-page="/Protegido" asp-route-tab="usuarios" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "usuarios" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Sostenedor de usuarios</a>
-        <a asp-page="/Protegido" asp-route-tab="paises" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "paises" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Países</a>
-        <a asp-page="/Protegido" asp-route-tab="regiones" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "regiones" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Regiones</a>
-        <a asp-page="/Protegido" asp-route-tab="proyectos" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "proyectos" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Proyectos</a>
-        <a asp-page="/Protegido" asp-route-tab="centros" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "centros" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Centros de costo</a>
-        <a asp-page="/Protegido" asp-route-tab="disciplinas" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "disciplinas" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Disciplinas</a>
-        <a asp-page="/Protegido" asp-route-tab="usuarioscentro" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "usuarioscentro" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Usuarios por centro</a>
-        <a asp-page="/Protegido" asp-route-tab="usuariosdisciplina" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "usuariosdisciplina" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Usuarios por disciplina</a>
-    </nav>
-
-    <div class="bg-white border border-slate-200 border-t-0 rounded-b-xl shadow-md p-6 sm:p-8">
+    string NavLinkBar(string tab) => t == tab ? "absolute right-0 top-0 bottom-0 w-1 bg-codelco-orange rounded-l-full" : "";
+}
+<div class="flex min-h-screen bg-slate-50">
+    <aside id="sidebar" class="fixed left-0 top-0 z-20 h-screen w-72 bg-slate-100 border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out" aria-label="Menú de administración">
+        <div class="p-4 flex items-center justify-between gap-2 border-b border-slate-200">
+            <a asp-page="/Protegido" asp-route-tab="usuarios" class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 bg-ritweb-teal rounded-lg flex items-center justify-center text-white font-bold text-xl flex-shrink-0">R</div>
+                <div class="min-w-0 sidebar-logo-text">
+                    <h1 class="font-bold text-lg leading-tight tracking-tight text-slate-800 truncate">RitWeb</h1>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Codelco Admin</p>
+                </div>
+            </a>
+            <button type="button" id="sidebar-toggle" class="p-2 rounded-md text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors flex-shrink-0" aria-label="Minimizar o expandir menú">
+                <span class="material-icons sidebar-icon-expand">chevron_left</span>
+                <span class="material-icons sidebar-icon-collapse hidden">chevron_right</span>
+            </button>
+        </div>
+        <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+            <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider sidebar-label">Administración</p>
+            <a asp-page="/Protegido" asp-route-tab="usuarios" class="@NavLink("usuarios", "group", "Sostenedor de usuarios")">
+                <span class="material-icons text-[20px] flex-shrink-0">group</span>
+                <span class="sidebar-text truncate">Sostenedor de usuarios</span>
+                <div class="@NavLinkBar("usuarios")"></div>
+            </a>
+            <a asp-page="/Protegido" asp-route-tab="paises" class="@NavLink("paises", "public", "Países")">
+                <span class="material-icons text-[20px] flex-shrink-0">public</span>
+                <span class="sidebar-text truncate">Países</span>
+                <div class="@NavLinkBar("paises")"></div>
+            </a>
+            <a asp-page="/Protegido" asp-route-tab="regiones" class="@NavLink("regiones", "map", "Regiones")">
+                <span class="material-icons text-[20px] flex-shrink-0">map</span>
+                <span class="sidebar-text truncate">Regiones</span>
+                <div class="@NavLinkBar("regiones")"></div>
+            </a>
+            <a asp-page="/Protegido" asp-route-tab="proyectos" class="@NavLink("proyectos", "assignment", "Proyectos")">
+                <span class="material-icons text-[20px] flex-shrink-0">assignment</span>
+                <span class="sidebar-text truncate">Proyectos</span>
+                <div class="@NavLinkBar("proyectos")"></div>
+            </a>
+            <a asp-page="/Protegido" asp-route-tab="centros" class="@NavLink("centros", "payments", "Centros de costo")">
+                <span class="material-icons text-[20px] flex-shrink-0">payments</span>
+                <span class="sidebar-text truncate">Centros de costo</span>
+                <div class="@NavLinkBar("centros")"></div>
+            </a>
+            <a asp-page="/Protegido" asp-route-tab="disciplinas" class="@NavLink("disciplinas", "engineering", "Disciplinas")">
+                <span class="material-icons text-[20px] flex-shrink-0">engineering</span>
+                <span class="sidebar-text truncate">Disciplinas</span>
+                <div class="@NavLinkBar("disciplinas")"></div>
+            </a>
+            <div class="pt-4 mt-4 border-t border-slate-200">
+                <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider sidebar-label">Asignaciones</p>
+                <a asp-page="/Protegido" asp-route-tab="usuarioscentro" class="@NavLink("usuarioscentro", "apartment", "Usuarios por centro")">
+                    <span class="material-icons text-[20px] flex-shrink-0">apartment</span>
+                    <span class="sidebar-text truncate">Usuarios por centro</span>
+                    <div class="@NavLinkBar("usuarioscentro")"></div>
+                </a>
+                <a asp-page="/Protegido" asp-route-tab="usuariosdisciplina" class="@NavLink("usuariosdisciplina", "shield", "Usuarios por disciplina")">
+                    <span class="material-icons text-[20px] flex-shrink-0">shield</span>
+                    <span class="sidebar-text truncate">Usuarios por disciplina</span>
+                    <div class="@NavLinkBar("usuariosdisciplina")"></div>
+                </a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-200">
+            <div class="flex items-center gap-3 p-2 rounded-lg">
+                <div class="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-xs font-bold text-slate-700 flex-shrink-0">@userInitials</div>
+                <div class="min-w-0 flex-1 sidebar-label">
+                    <p class="text-sm font-semibold text-slate-800 truncate">Super Admin</p>
+                    <p class="text-[10px] text-slate-500 truncate">@userEmail</p>
+                </div>
+                <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/Index", new { area = "" })" method="post" class="flex-shrink-0">
+                    <button type="submit" class="p-1.5 rounded text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors" title="Cerrar sesión">
+                        <span class="material-icons text-xl">logout</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+    <main id="main-content" class="flex-1 ml-72 p-8 lg:p-12 transition-all duration-300 ease-in-out min-h-screen">
+        @if (Model.ErrorApi != null)
+        {
+            <div class="mb-6 rounded-xl bg-amber-50 border border-amber-200/80 p-4 text-amber-800 text-sm shadow-sm flex items-start gap-3">
+                <span class="material-icons text-amber-600 text-xl flex-shrink-0">warning</span>
+                <span>@Model.ErrorApi</span>
+            </div>
+        }
+        <header class="mb-10">
+            <div class="flex justify-between items-start mb-2">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900">Contenido Protegido</h2>
+                <div class="flex gap-2">
+                    <button type="button" class="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors" aria-label="Notificaciones">
+                        <span class="material-icons text-slate-600">notifications</span>
+                    </button>
+                    <button type="button" class="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors" onclick="document.documentElement.classList.toggle('dark')" aria-label="Modo oscuro">
+                        <span class="material-icons text-slate-600">dark_mode</span>
+                    </button>
+                </div>
+            </div>
+            <p class="text-slate-500 max-w-2xl">
+                Solo usuarios con rol Super_Admin. CRUD de Países, Regiones, Proyectos, Centros de costo, Disciplinas y asignación de usuarios (centro y disciplina).
+            </p>
+        </header>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 sm:p-8">
 
         @* Sostenedor de usuarios: rol, disciplina, centro, proyecto *@
         @if (t == "usuarios")
@@ -168,7 +253,7 @@
                         <form method="post" asp-page-handler="UpdateRegion" class="flex flex-wrap items-end gap-3">
                             <input type="hidden" name="id" value="@edit.Id" />
                             <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-64" required /></label>
-                            <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">País</span><select name="paisId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-48" required>@foreach (var pa in Model.Paises) { <option value="@pa.Id" selected="@(pa.Id == edit.PaisId ? "selected" : null)">@pa.Nombre</option> }</select></label>
+                            <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">País</span><select name="paisId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-48" required>@foreach (var pa in Model.Paises) { @if (pa.Id == edit.PaisId) { <option value="@pa.Id" selected>@pa.Nombre</option> } else { <option value="@pa.Id">@pa.Nombre</option> } }</select></label>
                             <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
                             <a asp-page="/Protegido" asp-route-tab="regiones" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
                         </form>
@@ -212,7 +297,7 @@
                     <form method="post" asp-page-handler="UpdateProyecto" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
                         <input type="hidden" name="id" value="@edit.Id" />
                         <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" required /></label>
-                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Región</span><select name="regionId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var re in Model.Regiones) { <option value="@re.Id" selected="@(re.Id == edit.RegionId ? "selected" : null)">@re.Nombre</option> }</select></label>
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Región</span><select name="regionId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var re in Model.Regiones) { @if (re.Id == edit.RegionId) { <option value="@re.Id" selected>@re.Nombre</option> } else { <option value="@re.Id">@re.Nombre</option> } }</select></label>
                         <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
                         <a asp-page="/Protegido" asp-route-tab="proyectos" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
                     </form>
@@ -253,7 +338,7 @@
                     <form method="post" asp-page-handler="UpdateCentro" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
                         <input type="hidden" name="id" value="@edit.Id" />
                         <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" required /></label>
-                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Proyecto</span><select name="proyectoId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var pr in Model.Proyectos) { <option value="@pr.Id" selected="@(pr.Id == edit.ProyectoId ? "selected" : null)">@pr.Nombre</option> }</select></label>
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Proyecto</span><select name="proyectoId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var pr in Model.Proyectos) { @if (pr.Id == edit.ProyectoId) { <option value="@pr.Id" selected>@pr.Nombre</option> } else { <option value="@pr.Id">@pr.Nombre</option> } }</select></label>
                         <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
                         <a asp-page="/Protegido" asp-route-tab="centros" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
                     </form>
@@ -339,8 +424,8 @@
                         @foreach (var uc in Model.UsuariosCentro)
                         {
                             var centroNombre = Model.CentrosCosto.FirstOrDefault(c => c.Id == uc.CentroCostoId)?.Nombre ?? "-";
-                            var userEmail = Model.Usuarios.FirstOrDefault(u => u.Id == uc.UserId)?.Email ?? uc.UserId;
-                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@uc.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@userEmail</td><td class="px-4 py-3 text-sm text-slate-600">@centroNombre</td>
+                            var emailFila = Model.Usuarios.FirstOrDefault(u => u.Id == uc.UserId)?.Email ?? uc.UserId;
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@uc.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@emailFila</td><td class="px-4 py-3 text-sm text-slate-600">@centroNombre</td>
                                 <td class="px-4 py-3">
                                     <form method="post" asp-page-handler="DeleteUsuarioCentro" class="inline"><input type="hidden" name="id" value="@uc.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Quitar esta asignación?');">Quitar</button></form>
                                 </td></tr>
@@ -376,8 +461,8 @@
                         @foreach (var ud in Model.UsuariosDisciplina)
                         {
                             var disciplinaNombre = Model.Disciplinas.FirstOrDefault(d => d.Id == ud.DisciplinaId)?.Nombre ?? "-";
-                            var userEmail = Model.Usuarios.FirstOrDefault(u => u.Id == ud.UserId)?.Email ?? ud.UserId;
-                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@ud.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@userEmail</td><td class="px-4 py-3 text-sm text-slate-600">@disciplinaNombre</td>
+                            var emailFila = Model.Usuarios.FirstOrDefault(u => u.Id == ud.UserId)?.Email ?? ud.UserId;
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@ud.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@emailFila</td><td class="px-4 py-3 text-sm text-slate-600">@disciplinaNombre</td>
                                 <td class="px-4 py-3">
                                     <form method="post" asp-page-handler="DeleteUsuarioDisciplina" class="inline"><input type="hidden" name="id" value="@ud.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Quitar esta asignación?');">Quitar</button></form>
                                 </td></tr>
@@ -386,5 +471,64 @@
                 </table>
             </div>
         }
-    </div>
+        </div>
+        <div class="h-1 bg-codelco-orange/20">
+            <div class="h-full bg-codelco-orange w-1/4"></div>
+        </div>
+        <footer class="mt-12 text-center text-slate-400 text-xs">
+            © @DateTime.Now.Year RitWeb Codelco. Todos los derechos reservados.
+        </footer>
+    </main>
 </div>
+<style>
+    #sidebar.sidebar-collapsed nav a { justify-content: center; padding-left: 0; padding-right: 0; }
+    #sidebar.sidebar-collapsed .px-4 { padding-left: 0.5rem; padding-right: 0.5rem; }
+</style>
+<script>
+(function () {
+    var STORAGE_KEY = 'protegido-sidebar-collapsed';
+    var sidebar = document.getElementById('sidebar');
+    var main = document.getElementById('main-content');
+    var toggle = document.getElementById('sidebar-toggle');
+    var iconExpand = document.querySelector('.sidebar-icon-expand');
+    var iconCollapse = document.querySelector('.sidebar-icon-collapse');
+    var labels = document.querySelectorAll('.sidebar-label');
+    var texts = document.querySelectorAll('.sidebar-text');
+    var logoTexts = document.querySelectorAll('.sidebar-logo-text');
+
+    function isCollapsed() { return localStorage.getItem(STORAGE_KEY) === '1'; }
+
+    function applyState(collapsed) {
+        if (collapsed) {
+            sidebar.classList.add('sidebar-collapsed', 'w-20');
+            sidebar.classList.remove('w-72');
+            main.classList.remove('ml-72');
+            main.classList.add('ml-20');
+            if (iconExpand) iconExpand.classList.add('hidden');
+            if (iconCollapse) iconCollapse.classList.remove('hidden');
+            labels.forEach(function (el) { el.classList.add('hidden'); });
+            texts.forEach(function (el) { el.classList.add('hidden'); });
+            logoTexts.forEach(function (el) { el.classList.add('hidden'); });
+        } else {
+            sidebar.classList.remove('sidebar-collapsed', 'w-20');
+            sidebar.classList.add('w-72');
+            main.classList.remove('ml-20');
+            main.classList.add('ml-72');
+            if (iconExpand) iconExpand.classList.remove('hidden');
+            if (iconCollapse) iconCollapse.classList.add('hidden');
+            labels.forEach(function (el) { el.classList.remove('hidden'); });
+            texts.forEach(function (el) { el.classList.remove('hidden'); });
+            logoTexts.forEach(function (el) { el.classList.remove('hidden'); });
+        }
+    }
+
+    if (toggle && sidebar && main) {
+        applyState(isCollapsed());
+        toggle.addEventListener('click', function () {
+            var collapsed = !isCollapsed();
+            localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+            applyState(collapsed);
+        });
+    }
+})();
+</script>

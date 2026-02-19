@@ -32,6 +32,11 @@ namespace RazorIdentity.Pages
         public string? ErrorApi { get; set; }
         public string Tab { get; set; } = "usuarios";
 
+        /// <summary>Email o nombre del usuario actual (para el sidebar).</summary>
+        public string? CurrentUserEmail { get; set; }
+        /// <summary>Iniciales del usuario actual (para el avatar en el sidebar).</summary>
+        public string? CurrentUserInitials { get; set; }
+
         /// <summary>Filtro de búsqueda para la pestaña Usuarios.</summary>
         public string? UsuarioBusqueda { get; set; }
 
@@ -122,6 +127,10 @@ namespace RazorIdentity.Pages
             EditDisciplinaId = editDisciplinaId;
             EditUsuarioCentroId = editUsuarioCentroId;
             await CargarDatosAsync(usuarioBusqueda);
+            var user = await _userManager.GetUserAsync(User);
+            var email = user?.Email ?? user?.UserName;
+            CurrentUserEmail = email ?? "Admin";
+            CurrentUserInitials = (CurrentUserEmail.Length >= 2 ? CurrentUserEmail.Substring(0, 2) : "SA").ToUpperInvariant();
         }
 
         public async Task<IActionResult> OnPostCreatePaisAsync(string nombre)
