@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
+using RazorIdentity.Services;
 
 namespace RazorIdentity.Areas.Identity.Pages.Account
 {
@@ -137,8 +138,8 @@ namespace RazorIdentity.Areas.Identity.Pages.Account
                         values: new { area = "Identity", userId = userId, code = code, returnUrl = returnUrl },
                         protocol: Request.Scheme);
 
-                    await _emailSender.SendEmailAsync(Input.Email, "Confirmar su correo - RazorIdentity",
-                        $"Confirme su cuenta <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>haciendo clic aquí</a>.");
+                    var htmlConfirmacion = EmailTemplateHelper.BuildConfirmacionCorreoHtml(callbackUrl);
+                    await _emailSender.SendEmailAsync(Input.Email, "Confirmar su correo - RazorIdentity", htmlConfirmacion);
 
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {

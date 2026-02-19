@@ -1,5 +1,6 @@
 #nullable disable
 
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace RazorIdentity.Areas.Identity.Pages.Account

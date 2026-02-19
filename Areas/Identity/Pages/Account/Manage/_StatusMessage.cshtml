@@ -1,0 +1,8 @@
+@model string
+@if (!string.IsNullOrEmpty(Model))
+{
+    <div class="rounded-xl p-4 mb-6 flex items-start gap-3 bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm shadow-sm">
+        <span class="material-icons flex-shrink-0 text-emerald-600">check_circle</span>
+        <span>@Model</span>
+    </div>
+}

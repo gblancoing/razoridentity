@@ -1,0 +1,121 @@
+@page
+@model PersonalDataModel
+@{
+    ViewData["Title"] = "Datos personales";
+    ViewData["ActivePage"] = ManageNavPages.PersonalData;
+}
+
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Datos personales</h1>
+        <p class="mt-1 text-slate-500 text-sm">Complete o actualice su información personal, dirección y enlaces profesionales.</p>
+    </div>
+
+    <partial name="_StatusMessage" for="StatusMessage" />
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        <aside class="lg:col-span-3">
+            <partial name="_ManageNav" />
+        </aside>
+        <div class="lg:col-span-9">
+            <form method="post" class="space-y-6">
+                <div asp-validation-summary="ModelOnly" class="rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm p-3" role="alert"></div>
+
+                @* Bloque: Información y dirección *@
+                <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                        <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Información y dirección</h2>
+                        <p class="text-slate-500 text-xs mt-0.5">Nombre completo y dirección.</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label asp-for="Input.FullName" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <input asp-for="Input.FullName" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Ej: Juan Pérez" />
+                                <span asp-validation-for="Input.FullName" class="text-red-600 text-xs mt-1 block"></span>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label asp-for="Input.Address" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <input asp-for="Input.Address" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Calle, número, depto/oficina" />
+                                <span asp-validation-for="Input.Address" class="text-red-600 text-xs mt-1 block"></span>
+                            </div>
+                            <div>
+                                <label asp-for="Input.City" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <input asp-for="Input.City" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Ciudad" />
+                                <span asp-validation-for="Input.City" class="text-red-600 text-xs mt-1 block"></span>
+                            </div>
+                            <div>
+                                <label asp-for="Input.RegionOrState" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <input asp-for="Input.RegionOrState" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Región o estado" />
+                                <span asp-validation-for="Input.RegionOrState" class="text-red-600 text-xs mt-1 block"></span>
+                            </div>
+                            <div>
+                                <label asp-for="Input.PostalCode" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <input asp-for="Input.PostalCode" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Código postal" />
+                                <span asp-validation-for="Input.PostalCode" class="text-red-600 text-xs mt-1 block"></span>
+                            </div>
+                            <div>
+                                <label asp-for="Input.Country" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <input asp-for="Input.Country" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="País" />
+                                <span asp-validation-for="Input.Country" class="text-red-600 text-xs mt-1 block"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* Bloque: Enlaces (LinkedIn, web, etc.) *@
+                <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                        <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Enlaces y redes</h2>
+                        <p class="text-slate-500 text-xs mt-0.5">Vincule su perfil de LinkedIn, sitio web u otros enlaces.</p>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label asp-for="Input.LinkedInUrl" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                            <input asp-for="Input.LinkedInUrl" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="https://www.linkedin.com/in/su-perfil" />
+                            <span asp-validation-for="Input.LinkedInUrl" class="text-red-600 text-xs mt-1 block"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Input.WebsiteUrl" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                            <input asp-for="Input.WebsiteUrl" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="https://www.misitio.com" />
+                            <span asp-validation-for="Input.WebsiteUrl" class="text-red-600 text-xs mt-1 block"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Input.OtherLinks" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                            <input asp-for="Input.OtherLinks" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Twitter, GitHub, etc. (separados por coma si aplica)" />
+                            <span asp-validation-for="Input.OtherLinks" class="text-red-600 text-xs mt-1 block"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Input.BioOrNotes" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                            <textarea asp-for="Input.BioOrNotes" rows="3" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Biografía breve o notas"></textarea>
+                            <span asp-validation-for="Input.BioOrNotes" class="text-red-600 text-xs mt-1 block"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit" class="py-3 px-6 rounded-lg text-sm font-semibold text-white bg-ritweb-teal hover:bg-teal-700 shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-ritweb-teal focus:ring-offset-2">
+                        Guardar datos personales
+                    </button>
+                </div>
+            </form>
+
+            @* Información sobre descarga/eliminación *@
+            <div class="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Descargar o eliminar datos</h2>
+                </div>
+                <div class="p-6">
+                    <p class="text-slate-600 text-sm">
+                        Puede solicitar una copia de sus datos personales o la eliminación de su cuenta y datos asociados.
+                        Estas opciones no están implementadas en esta versión; contacte al administrador si lo necesita.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

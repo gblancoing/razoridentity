@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using RazorIdentity.Services;
 
 namespace RazorIdentity.Areas.Identity.Pages.Account
 {
@@ -65,11 +66,8 @@ namespace RazorIdentity.Areas.Identity.Pages.Account
                     values: new { area = "Identity", code, userId = user.Id },
                     protocol: Request.Scheme);
 
-                await _emailSender.SendEmailAsync(
-                    Input.Email,
-                    "Recuperar contraseña - RazorIdentity",
-                    $"Para restablecer su contraseña <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>haga clic aquí</a>. " +
-                    "El enlace es válido por tiempo limitado.");
+                var htmlRecuperar = EmailTemplateHelper.BuildRecuperarPasswordHtml(callbackUrl);
+                await _emailSender.SendEmailAsync(Input.Email, "Recuperar contraseña - RazorIdentity", htmlRecuperar);
 
                 _logger.LogInformation("Enlace de recuperación de contraseña enviado a {Email}", Input.Email);
                 return RedirectToPage("./ForgotPasswordConfirmation");

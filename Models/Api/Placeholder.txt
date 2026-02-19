@@ -1,0 +1,1 @@
+Aquí puedes agregar DTOs o modelos que devuelva Rit_Api (ej. para deserializar respuestas JSON).

@@ -1,9 +1,390 @@
 @page
 @model RazorIdentity.Pages.ProtegidoModel
 @{
-    ViewData["Title"] = "Contenido Protegido";
+    ViewData["Title"] = "Administración (Super Admin)";
+    var t = Model.Tab ?? "usuarios";
 }
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h1 class="text-2xl font-bold text-slate-800">Contenido Protegido</h1>
-    <p class="mt-2 text-slate-600">Solo usuarios con rol Admin pueden ver esta página.</p>
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Contenido Protegido</h1>
+        <p class="mt-1.5 text-slate-600 text-sm leading-relaxed max-w-2xl">Solo usuarios con rol Super_Admin. CRUD de Países, Regiones, Proyectos, Centros de costo, Disciplinas y asignación de usuarios (centro y disciplina).</p>
+    </div>
+
+    @if (Model.ErrorApi != null)
+    {
+        <div class="mb-6 rounded-xl bg-amber-50 border border-amber-200/80 p-4 text-amber-800 text-sm shadow-sm flex items-start gap-3">
+            <span class="material-icons text-amber-600 text-xl flex-shrink-0">warning</span>
+            <span>@Model.ErrorApi</span>
+        </div>
+    }
+
+    <nav class="flex flex-wrap gap-1 border-b border-slate-200 mb-0" aria-label="Pestañas de administración">
+        <a asp-page="/Protegido" asp-route-tab="usuarios" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "usuarios" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Sostenedor de usuarios</a>
+        <a asp-page="/Protegido" asp-route-tab="paises" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "paises" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Países</a>
+        <a asp-page="/Protegido" asp-route-tab="regiones" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "regiones" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Regiones</a>
+        <a asp-page="/Protegido" asp-route-tab="proyectos" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "proyectos" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Proyectos</a>
+        <a asp-page="/Protegido" asp-route-tab="centros" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "centros" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Centros de costo</a>
+        <a asp-page="/Protegido" asp-route-tab="disciplinas" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "disciplinas" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Disciplinas</a>
+        <a asp-page="/Protegido" asp-route-tab="usuarioscentro" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "usuarioscentro" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Usuarios por centro</a>
+        <a asp-page="/Protegido" asp-route-tab="usuariosdisciplina" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors @(t == "usuariosdisciplina" ? "bg-white text-ritweb-teal border border-slate-200 border-b-0 -mb-px shadow-sm" : "text-slate-600 hover:text-ritweb-teal hover:bg-slate-50")">Usuarios por disciplina</a>
+    </nav>
+
+    <div class="bg-white border border-slate-200 border-t-0 rounded-b-xl shadow-md p-6 sm:p-8">
+
+        @* Sostenedor de usuarios: rol, disciplina, centro, proyecto *@
+        @if (t == "usuarios")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-1">Sostenedor de usuarios</h2>
+            <p class="text-sm text-slate-600 mb-6">
+                Aquí puede <strong>editar el rol</strong> de cada usuario y registrar nuevos. Para asignar <strong>centro de costo</strong> use la pestaña <a asp-page="/Protegido" asp-route-tab="usuarioscentro" class="text-ritweb-teal hover:text-teal-700 font-medium transition-colors">Usuarios por centro</a>. Para asignar <strong>disciplina</strong> use la pestaña <a asp-page="/Protegido" asp-route-tab="usuariosdisciplina" class="text-ritweb-teal hover:text-teal-700 font-medium transition-colors">Usuarios por disciplina</a>. Para gestionar <strong>proyectos</strong> (CRUD) use la pestaña <a asp-page="/Protegido" asp-route-tab="proyectos" class="text-ritweb-teal hover:text-teal-700 font-medium transition-colors">Proyectos</a>.
+            </p>
+            @if (!string.IsNullOrEmpty(Model.MensajeUsuarios))
+            {
+                <div class="mb-6 rounded-xl p-4 text-sm flex items-start gap-3 @(Model.MensajeUsuariosEsError ? "bg-red-50 border border-red-200/80 text-red-800 shadow-sm" : "bg-emerald-50 border border-emerald-200/80 text-emerald-800 shadow-sm")">
+                    <span class="material-icons flex-shrink-0 @(Model.MensajeUsuariosEsError ? "text-red-500" : "text-emerald-600")">@(Model.MensajeUsuariosEsError ? "error" : "check_circle")</span>
+                    <span>@(Model.MensajeUsuarios)</span>
+                </div>
+            }
+            <div class="rounded-xl bg-slate-50/80 border border-slate-200/80 p-4 sm:p-5 mb-6">
+                <h3 class="text-sm font-semibold text-slate-700 mb-3">Buscar usuario</h3>
+                <form method="get" asp-page="/Protegido" class="flex flex-wrap items-end gap-3">
+                    <input type="hidden" name="tab" value="usuarios" />
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Email o nombre</span>
+                        <input type="text" name="usuarioBusqueda" value="@(Model.UsuarioBusqueda)" class="w-64 border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Ej: correo&#64;ejemplo.cl" />
+                    </label>
+                    <button type="submit" class="inline-flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm hover:shadow transition-colors">Buscar</button>
+                    @if (!string.IsNullOrEmpty(Model.UsuarioBusqueda)) { <a asp-page="/Protegido" asp-route-tab="usuarios" class="inline-flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors">Ver todos</a> }
+                </form>
+            </div>
+            <div class="rounded-xl bg-slate-50/80 border border-slate-200/80 p-4 sm:p-5 mb-6">
+                <h3 class="text-sm font-semibold text-slate-700 mb-3">Registrar nuevo usuario</h3>
+                <form method="post" asp-page-handler="CreateUsuario" class="flex flex-wrap items-end gap-4">
+                    <input type="hidden" name="tab" value="usuarios" />
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Email</span><input type="email" name="email" class="w-56 border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="usuario&#64;ejemplo.cl" required /></label>
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Contraseña</span><input type="password" name="password" class="w-40 border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" minlength="6" required /></label>
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Confirmar</span><input type="password" name="confirmPassword" class="w-40 border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" minlength="6" required /></label>
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Rol inicial</span><select name="rolInicial" class="w-40 border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" required>@foreach (var r in Model.Roles) { <option value="@r">@r</option> }</select></label>
+                    <button type="submit" class="inline-flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm hover:shadow transition-colors">Crear usuario</button>
+                </form>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-700 mb-3">Usuarios (editar rol, asignar centro y disciplina)</h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Email</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Rol actual</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Cambiar rol</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Asignar</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var item in Model.UsuariosConRoles)
+                        {
+                            var rolesTexto = item.Roles.Count > 0 ? string.Join(", ", item.Roles) : "—";
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                <td class="px-4 py-3 text-sm text-slate-800 font-medium">@(item.User.Email ?? item.User.UserName ?? item.User.Id)</td>
+                                <td class="px-4 py-3 text-sm text-slate-600">@rolesTexto</td>
+                                <td class="px-4 py-3">
+                                    <form method="post" asp-page-handler="ChangeRol" class="inline flex items-center gap-2">
+                                        <input type="hidden" name="userId" value="@item.User.Id" />
+                                        <input type="hidden" name="usuarioBusqueda" value="@(Model.UsuarioBusqueda)" />
+                                        <select name="nuevoRol" class="w-36 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition">
+                                            @foreach (var r in Model.Roles)
+                                            {
+                                                if (item.Roles.FirstOrDefault() == r)
+                                                { <option value="@r" selected>@r</option> }
+                                                else
+                                                { <option value="@r">@r</option> }
+                                            }
+                                        </select>
+                                        <button type="submit" class="text-ritweb-teal hover:text-teal-700 text-sm font-medium transition-colors">Aplicar</button>
+                                    </form>
+                                </td>
+                                <td class="px-4 py-3 text-sm">
+                                    <a asp-page="/Protegido" asp-route-tab="usuarioscentro" class="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-ritweb-teal hover:text-white text-xs font-medium transition-colors mr-1">Centro</a>
+                                    <a asp-page="/Protegido" asp-route-tab="usuariosdisciplina" class="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-ritweb-teal hover:text-white text-xs font-medium transition-colors">Disciplina</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* Países *@
+        @if (t == "paises")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-6">Países</h2>
+            @if (Model.EditPaisId.HasValue)
+            {
+                var edit = Model.Paises.FirstOrDefault(x => x.Id == Model.EditPaisId.Value);
+                if (edit != null)
+                {
+                    <div class="mb-6 rounded-xl bg-amber-50/80 border border-amber-200/80 p-4">
+                        <form method="post" asp-page-handler="UpdatePais" class="flex flex-wrap items-end gap-3">
+                            <input type="hidden" name="id" value="@edit.Id" />
+                            <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-64" required /></label>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
+                            <a asp-page="/Protegido" asp-route-tab="paises" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
+                        </form>
+                    </div>
+                }
+            }
+            <div class="rounded-xl bg-slate-50/80 border border-slate-200/80 p-4 sm:p-5 mb-6">
+                <form method="post" asp-page-handler="CreatePais" class="flex flex-wrap items-end gap-4">
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Nombre</span><input type="text" name="nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-64" placeholder="Nuevo país" required /></label>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Agregar</button>
+                </form>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Nombre</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var p in Model.Paises)
+                        {
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm text-slate-800">@p.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@p.Nombre</td>
+                                <td class="px-4 py-3">
+                                    <a asp-page="/Protegido" asp-route-tab="paises" asp-route-editPaisId="@p.Id" class="text-ritweb-teal hover:text-teal-700 text-sm font-medium mr-3">Editar</a>
+                                    <form method="post" asp-page-handler="DeletePais" class="inline"><input type="hidden" name="id" value="@p.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Eliminar este país?');">Eliminar</button></form>
+                                </td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* Regiones *@
+        @if (t == "regiones")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-6">Regiones</h2>
+            @if (Model.EditRegionId.HasValue)
+            {
+                var edit = Model.Regiones.FirstOrDefault(x => x.Id == Model.EditRegionId.Value);
+                if (edit != null)
+                {
+                    <div class="mb-6 rounded-xl bg-amber-50/80 border border-amber-200/80 p-4">
+                        <form method="post" asp-page-handler="UpdateRegion" class="flex flex-wrap items-end gap-3">
+                            <input type="hidden" name="id" value="@edit.Id" />
+                            <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-64" required /></label>
+                            <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">País</span><select name="paisId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-48" required>@foreach (var pa in Model.Paises) { <option value="@pa.Id" selected="@(pa.Id == edit.PaisId ? "selected" : null)">@pa.Nombre</option> }</select></label>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
+                            <a asp-page="/Protegido" asp-route-tab="regiones" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
+                        </form>
+                    </div>
+                }
+            }
+            <div class="rounded-xl bg-slate-50/80 border border-slate-200/80 p-4 sm:p-5 mb-6">
+                <form method="post" asp-page-handler="CreateRegion" class="flex flex-wrap items-end gap-4">
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Nombre</span><input type="text" name="nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-64" placeholder="Nueva región" required /></label>
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">País</span><select name="paisId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-48" required>@foreach (var pa in Model.Paises) { <option value="@pa.Id">@pa.Nombre</option> }</select></label>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Agregar</button>
+                </form>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Nombre</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">País</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var r in Model.Regiones)
+                        {
+                            var paisNombre = Model.Paises.FirstOrDefault(pa => pa.Id == r.PaisId)?.Nombre ?? "-";
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@r.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@r.Nombre</td><td class="px-4 py-3 text-sm text-slate-600">@paisNombre</td>
+                                <td class="px-4 py-3">
+                                    <a asp-page="/Protegido" asp-route-tab="regiones" asp-route-editRegionId="@r.Id" class="text-ritweb-teal hover:text-teal-700 text-sm font-medium mr-3">Editar</a>
+                                    <form method="post" asp-page-handler="DeleteRegion" class="inline"><input type="hidden" name="id" value="@r.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Eliminar esta región?');">Eliminar</button></form>
+                                </td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* Proyectos *@
+        @if (t == "proyectos")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-6">Proyectos</h2>
+            @if (Model.EditProyectoId.HasValue)
+            {
+                var edit = Model.Proyectos.FirstOrDefault(x => x.Id == Model.EditProyectoId.Value);
+                if (edit != null)
+                {
+                    <form method="post" asp-page-handler="UpdateProyecto" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
+                        <input type="hidden" name="id" value="@edit.Id" />
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" required /></label>
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Región</span><select name="regionId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var re in Model.Regiones) { <option value="@re.Id" selected="@(re.Id == edit.RegionId ? "selected" : null)">@re.Nombre</option> }</select></label>
+                        <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
+                        <a asp-page="/Protegido" asp-route-tab="proyectos" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
+                    </form>
+                }
+            }
+            <form method="post" asp-page-handler="CreateProyecto" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
+                <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" placeholder="Nuevo proyecto" required /></label>
+                <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Región</span><select name="regionId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var re in Model.Regiones) { <option value="@re.Id">@re.Nombre</option> }</select></label>
+                <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Agregar</button>
+            </form>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Nombre</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Región</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var pr in Model.Proyectos)
+                        {
+                            var regionNombre = Model.Regiones.FirstOrDefault(re => re.Id == pr.RegionId)?.Nombre ?? "-";
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@pr.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@pr.Nombre</td><td class="px-4 py-3 text-sm text-slate-600">@regionNombre</td>
+                                <td class="px-4 py-3">
+                                    <a asp-page="/Protegido" asp-route-tab="proyectos" asp-route-editProyectoId="@pr.Id" class="text-ritweb-teal hover:text-teal-700 text-sm font-medium mr-3">Editar</a>
+                                    <form method="post" asp-page-handler="DeleteProyecto" class="inline"><input type="hidden" name="id" value="@pr.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Eliminar este proyecto?');">Eliminar</button></form>
+                                </td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* Centros de costo *@
+        @if (t == "centros")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-6">Centros de costo</h2>
+            @if (Model.EditCentroId.HasValue)
+            {
+                var edit = Model.CentrosCosto.FirstOrDefault(x => x.Id == Model.EditCentroId.Value);
+                if (edit != null)
+                {
+                    <form method="post" asp-page-handler="UpdateCentro" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
+                        <input type="hidden" name="id" value="@edit.Id" />
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" required /></label>
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Proyecto</span><select name="proyectoId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var pr in Model.Proyectos) { <option value="@pr.Id" selected="@(pr.Id == edit.ProyectoId ? "selected" : null)">@pr.Nombre</option> }</select></label>
+                        <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
+                        <a asp-page="/Protegido" asp-route-tab="centros" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
+                    </form>
+                }
+            }
+            <form method="post" asp-page-handler="CreateCentro" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
+                <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" placeholder="Nuevo centro" required /></label>
+                <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Proyecto</span><select name="proyectoId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var pr in Model.Proyectos) { <option value="@pr.Id">@pr.Nombre</option> }</select></label>
+                <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Agregar</button>
+            </form>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Nombre</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Proyecto</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var c in Model.CentrosCosto)
+                        {
+                            var proyNombre = Model.Proyectos.FirstOrDefault(pr => pr.Id == c.ProyectoId)?.Nombre ?? "-";
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@c.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@c.Nombre</td><td class="px-4 py-3 text-sm text-slate-600">@proyNombre</td>
+                                <td class="px-4 py-3">
+                                    <a asp-page="/Protegido" asp-route-tab="centros" asp-route-editCentroId="@c.Id" class="text-ritweb-teal hover:text-teal-700 text-sm font-medium mr-3">Editar</a>
+                                    <form method="post" asp-page-handler="DeleteCentro" class="inline"><input type="hidden" name="id" value="@c.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Eliminar este centro?');">Eliminar</button></form>
+                                </td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* Disciplinas *@
+        @if (t == "disciplinas")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-6">Disciplinas</h2>
+            <p class="text-sm text-slate-600 mb-4">Aquí puede agregar, editar y eliminar disciplinas. Luego asocie usuarios a cada disciplina en la pestaña <strong>Usuarios por disciplina</strong>.</p>
+            @if (Model.EditDisciplinaId.HasValue)
+            {
+                var edit = Model.Disciplinas.FirstOrDefault(x => x.Id == Model.EditDisciplinaId.Value);
+                if (edit != null)
+                {
+                    <form method="post" asp-page-handler="UpdateDisciplina" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
+                        <input type="hidden" name="id" value="@edit.Id" />
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" required /></label>
+                        <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
+                        <a asp-page="/Protegido" asp-route-tab="disciplinas" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
+                    </form>
+                }
+            }
+            <form method="post" asp-page-handler="CreateDisciplina" class="mb-4 p-4 bg-slate-50 rounded-lg flex flex-wrap items-end gap-3">
+                <label class="flex flex-col gap-1"><span class="text-sm text-slate-600">Nombre</span><input type="text" name="nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" placeholder="Nueva disciplina" required /></label>
+                <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Agregar</button>
+            </form>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Nombre</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var d in Model.Disciplinas)
+                        {
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@d.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@d.Nombre</td>
+                                <td class="px-4 py-3">
+                                    <a asp-page="/Protegido" asp-route-tab="disciplinas" asp-route-editDisciplinaId="@d.Id" class="text-ritweb-teal hover:text-teal-700 text-sm font-medium mr-3">Editar</a>
+                                    <form method="post" asp-page-handler="DeleteDisciplina" class="inline"><input type="hidden" name="id" value="@d.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Eliminar esta disciplina?');">Eliminar</button></form>
+                                </td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* Usuarios por centro *@
+        @if (t == "usuarioscentro")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-6">Usuarios por centro de costo</h2>
+            <div class="rounded-xl bg-slate-50/80 border border-slate-200/80 p-4 sm:p-5 mb-6">
+                <form method="post" asp-page-handler="CreateUsuarioCentro" class="flex flex-wrap items-end gap-4">
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Usuario</span><select name="userId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-64" required>@foreach (var u in Model.Usuarios) { <option value="@u.Id">@(u.Email ?? u.UserName ?? u.Id)</option> }</select></label>
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Centro de costo</span><select name="centroCostoId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-48" required>@foreach (var c in Model.CentrosCosto) { <option value="@c.Id">@c.Nombre</option> }</select></label>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Asignar</button>
+                </form>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">UserId</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Centro</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var uc in Model.UsuariosCentro)
+                        {
+                            var centroNombre = Model.CentrosCosto.FirstOrDefault(c => c.Id == uc.CentroCostoId)?.Nombre ?? "-";
+                            var userEmail = Model.Usuarios.FirstOrDefault(u => u.Id == uc.UserId)?.Email ?? uc.UserId;
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@uc.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@userEmail</td><td class="px-4 py-3 text-sm text-slate-600">@centroNombre</td>
+                                <td class="px-4 py-3">
+                                    <form method="post" asp-page-handler="DeleteUsuarioCentro" class="inline"><input type="hidden" name="id" value="@uc.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Quitar esta asignación?');">Quitar</button></form>
+                                </td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* Usuarios por disciplina *@
+        @if (t == "usuariosdisciplina")
+        {
+            <h2 class="text-xl font-semibold text-slate-800 mb-6">Usuarios por disciplina</h2>
+            @if (!string.IsNullOrEmpty(Model.MensajeDisciplina))
+            {
+                <div class="mb-6 rounded-xl p-4 text-sm flex items-start gap-3 @(Model.MensajeDisciplinaEsError ? "bg-red-50 border border-red-200/80 text-red-800 shadow-sm" : "bg-emerald-50 border border-emerald-200/80 text-emerald-800 shadow-sm")">
+                    <span class="material-icons flex-shrink-0 @(Model.MensajeDisciplinaEsError ? "text-red-500" : "text-emerald-600")">@(Model.MensajeDisciplinaEsError ? "error" : "check_circle")</span>
+                    <span>@(Model.MensajeDisciplina)</span>
+                </div>
+            }
+            <p class="text-sm text-slate-600 mb-4">Asigne un usuario a una disciplina. Si no hay disciplinas en el listado, agregue primero en la pestaña <strong>Disciplinas</strong>.</p>
+            <div class="rounded-xl bg-slate-50/80 border border-slate-200/80 p-4 sm:p-5 mb-6">
+                <form method="post" asp-page-handler="CreateUsuarioDisciplina" class="flex flex-wrap items-end gap-4">
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Usuario</span><select name="userId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-64" required>@foreach (var u in Model.Usuarios) { <option value="@u.Id">@(u.Email ?? u.UserName ?? u.Id)</option> }</select></label>
+                    <label class="flex flex-col gap-1.5"><span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Disciplina</span><select name="disciplinaId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 w-48" required>@foreach (var d in Model.Disciplinas) { <option value="@d.Id">@d.Nombre</option> }</select></label>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Asignar</button>
+                </form>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="min-w-full">
+                    <thead class="bg-slate-100"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Usuario</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Disciplina</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var ud in Model.UsuariosDisciplina)
+                        {
+                            var disciplinaNombre = Model.Disciplinas.FirstOrDefault(d => d.Id == ud.DisciplinaId)?.Nombre ?? "-";
+                            var userEmail = Model.Usuarios.FirstOrDefault(u => u.Id == ud.UserId)?.Email ?? ud.UserId;
+                            <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-sm">@ud.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800">@userEmail</td><td class="px-4 py-3 text-sm text-slate-600">@disciplinaNombre</td>
+                                <td class="px-4 py-3">
+                                    <form method="post" asp-page-handler="DeleteUsuarioDisciplina" class="inline"><input type="hidden" name="id" value="@ud.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Quitar esta asignación?');">Quitar</button></form>
+                                </td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
 </div>

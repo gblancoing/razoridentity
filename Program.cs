@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RazorIdentity.Configuration;
 using RazorIdentity.Data;
 using RazorIdentity.Services;
 using System;
@@ -28,8 +30,32 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/Identity/Account/AccessDenied";
 });
 
-// Envío de correo (por ahora solo registra en consola; puede reemplazarse por SMTP/SendGrid)
-builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+// Envío de correo: si EmailSettings está configurado (Host, User, Password) se usa SMTP; si no, solo se registra en consola
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
+var emailSection = builder.Configuration.GetSection(EmailSettings.SectionName);
+var emailHost = emailSection["Host"];
+var emailUser = emailSection["User"];
+var emailPassword = emailSection["Password"];
+if (!string.IsNullOrWhiteSpace(emailHost) && !string.IsNullOrWhiteSpace(emailUser) && !string.IsNullOrWhiteSpace(emailPassword))
+    builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+else
+    builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+
+// Cliente HTTP para Rit_Api (URL base en appsettings: ApiSettings:BaseUrl)
+builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSettings"));
+builder.Services.AddHttpClient<IRitApiClient, RitApiClient>(client =>
+{
+    var baseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:44337";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+}).ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+    // En desarrollo, aceptar certificado HTTPS autofirmado de Rit_Api (localhost)
+    if (builder.Environment.IsDevelopment())
+        handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+    return handler;
+});
 
 var app = builder.Build();
 

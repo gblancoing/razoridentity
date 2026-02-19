@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using RazorIdentity.Services;
 
 namespace RazorIdentity.Areas.Identity.Pages.Account
 {
@@ -47,7 +48,9 @@ namespace RazorIdentity.Areas.Identity.Pages.Account
             if (!ModelState.IsValid)
                 return Page();
 
-            var user = await _userManager.FindByEmailAsync(Input.Email);
+            // En este proyecto el correo puede estar en Email o en UserName; buscar por ambos
+            var user = await _userManager.FindByEmailAsync(Input.Email)
+                ?? await _userManager.FindByNameAsync(Input.Email);
             if (user == null)
             {
                 // No revelar si existe o no
@@ -67,10 +70,8 @@ namespace RazorIdentity.Areas.Identity.Pages.Account
                 values: new { area = "Identity", userId = user.Id, code, returnUrl = Url.Content("~/") },
                 protocol: Request.Scheme);
 
-            await _emailSender.SendEmailAsync(
-                Input.Email,
-                "Confirmar su correo - RazorIdentity",
-                $"Confirme su cuenta <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>haciendo clic aquí</a>.");
+            var htmlConfirmacion = EmailTemplateHelper.BuildConfirmacionCorreoHtml(callbackUrl);
+            await _emailSender.SendEmailAsync(Input.Email, "Confirmar su correo - RazorIdentity", htmlConfirmacion);
 
             _logger.LogInformation("Reenvío de confirmación enviado a {Email}", Input.Email);
             return RedirectToPage("./RegisterConfirmation", new { email = Input.Email });

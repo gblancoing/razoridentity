@@ -1,15 +1,37 @@
 @inject SignInManager<IdentityUser> SignInManager
 @{
     var hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
+    string Active(string page) => ManageNavPages.PageNavClass(ViewContext, page) == "active" ? "active" : null;
+    string NavItemClass(string page) => Active(page) == "active"
+        ? "flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-codelco-orange bg-codelco-orange/5 text-codelco-orange"
+        : "flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors border-l-4 border-transparent";
 }
-<ul class="space-y-1">
-    <li><a class="block px-3 py-2 rounded @(ManageNavPages.IndexNavClass(ViewContext) == "active" ? "font-semibold bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100")" id="profile" asp-page="./Index">Profile</a></li>
-    <li><a class="block px-3 py-2 rounded @(ManageNavPages.EmailNavClass(ViewContext) == "active" ? "font-semibold bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100")" id="email" asp-page="./Email">Email</a></li>
-    <li><a class="block px-3 py-2 rounded @(ManageNavPages.ChangePasswordNavClass(ViewContext) == "active" ? "font-semibold bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100")" id="change-password" asp-page="./ChangePassword">Password</a></li>
+<nav class="space-y-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" aria-label="Menú de cuenta">
+    <a id="profile" asp-page="./Index" class="@NavItemClass(ManageNavPages.Index)">
+        <span class="material-icons text-xl text-inherit">person</span>
+        Perfil
+    </a>
+    <a id="email" asp-page="./Email" class="@NavItemClass(ManageNavPages.Email)">
+        <span class="material-icons text-xl text-inherit">email</span>
+        Correo electrónico
+    </a>
+    <a id="change-password" asp-page="./ChangePassword" class="@NavItemClass(ManageNavPages.ChangePassword)">
+        <span class="material-icons text-xl text-inherit">lock</span>
+        Contraseña
+    </a>
     @if (hasExternalLogins)
     {
-        <li id="external-logins"><a id="external-login" class="block px-3 py-2 rounded @(ManageNavPages.ExternalLoginsNavClass(ViewContext) == "active" ? "font-semibold bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100")" asp-page="./ExternalLogins">External logins</a></li>
+        <a id="external-login" asp-page="./ExternalLogins" class="@NavItemClass(ManageNavPages.ExternalLogins)">
+            <span class="material-icons text-xl text-inherit">link</span>
+            Inicios de sesión externos
+        </a>
     }
-    <li><a class="block px-3 py-2 rounded @(ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext) == "active" ? "font-semibold bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100")" id="two-factor" asp-page="./TwoFactorAuthentication">Two-factor authentication</a></li>
-    <li><a class="block px-3 py-2 rounded @(ManageNavPages.PersonalDataNavClass(ViewContext) == "active" ? "font-semibold bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100")" id="personal-data" asp-page="./PersonalData">Personal data</a></li>
-</ul>
+    <a id="two-factor" asp-page="./TwoFactorAuthentication" class="@NavItemClass(ManageNavPages.TwoFactorAuthentication)">
+        <span class="material-icons text-xl text-inherit">verified_user</span>
+        Autenticación 2FA
+    </a>
+    <a id="personal-data" asp-page="./PersonalData" class="@NavItemClass(ManageNavPages.PersonalData)">
+        <span class="material-icons text-xl text-inherit">badge</span>
+        Datos personales
+    </a>
+</nav>

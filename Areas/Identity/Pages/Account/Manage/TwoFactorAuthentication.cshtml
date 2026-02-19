@@ -1,0 +1,43 @@
+@page
+@model TwoFactorAuthenticationModel
+@{
+    ViewData["Title"] = "Autenticación en dos factores (2FA)";
+    ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
+}
+
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Autenticación en dos factores</h1>
+        <p class="mt-1 text-slate-500 text-sm">Gestione la autenticación en dos factores (2FA) de su cuenta.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        <aside class="lg:col-span-3">
+            <partial name="_ManageNav" />
+        </aside>
+        <div class="lg:col-span-9">
+            <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Estado 2FA</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    @if (Model.Is2faEnabled)
+                    {
+                        <p class="text-slate-600 text-sm">
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 border border-emerald-100">
+                                <span class="material-icons text-sm">verified_user</span> La autenticación en dos factores está activada.
+                            </span>
+                        </p>
+                        <p class="text-slate-500 text-xs">Códigos de recuperación restantes: @Model.RecoveryCodesLeft</p>
+                    }
+                    else
+                    {
+                        <p class="text-slate-600 text-sm">
+                            La autenticación en dos factores no está configurada. Para habilitarla (aplicación de autenticación o SMS) es necesario añadir la lógica correspondiente en esta página.
+                        </p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
