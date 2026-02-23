@@ -1,0 +1,141 @@
+@page
+@model RazorIdentity.Pages.ChatModel
+@{
+    ViewData["Title"] = "Chat con IA";
+}
+<style>
+    .message-content { line-height: 1.6; word-wrap: break-word; }
+    .message-content strong { font-weight: 700; }
+    .message-content em { font-style: italic; }
+    .message-content .list-bullet { color: inherit; margin-right: 0.25rem; }
+</style>
+<section class="bg-off-white dark:bg-slate-800/30 min-h-screen py-6 sm:py-8 px-4">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
+            <div class="w-12 h-12 bg-ritweb-teal/10 border border-ritweb-teal/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span class="material-icons text-ritweb-teal text-2xl">smart_toy</span>
+            </div>
+            <div class="min-w-0">
+                <h1 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Chat con IA (Ollama)</h1>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Pregunta general o elige un especialista: base de datos, frontend, backend o seguridad.</p>
+            </div>
+        </div>
+
+        <div id="chat-container" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[320px] sm:min-h-[420px]">
+            <div id="messages" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 min-h-[240px] sm:min-h-[320px]">
+                <div class="text-center text-slate-400 text-sm py-8">
+                    Escribe un mensaje y pulsa Enviar. Asegúrate de tener la API Ollama en ejecución (https://localhost:7006).
+                </div>
+            </div>
+            <div class="border-t border-slate-200 dark:border-slate-600 p-3 sm:p-4 bg-slate-50 dark:bg-slate-700/30">
+                <form id="chat-form" method="post" class="flex flex-col sm:flex-row gap-3">
+                    @Html.AntiForgeryToken()
+                    <div class="flex flex-col sm:flex-row gap-2 flex-1 min-w-0">
+                        <select id="specialist" name="specialist" class="rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 focus:border-ritweb-teal focus:ring-1 focus:ring-ritweb-teal w-full sm:min-w-[140px] sm:w-auto">
+                            <option value="general">General</option>
+                            @foreach (var s in Model.Specialists)
+                            {
+                                var label = s.Length > 0 ? char.ToUpperInvariant(s[0]) + s[1..] : s;
+                                <option value="@s">@label</option>
+                            }
+                        </select>
+                        <textarea id="prompt" name="prompt" rows="1" placeholder="Escribe tu pregunta…" class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-ritweb-teal focus:ring-1 focus:ring-ritweb-teal resize-none min-h-[42px] max-h-32" required></textarea>
+                    </div>
+                    <button type="submit" id="btn-send" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-ritweb-teal hover:bg-teal-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span class="material-icons text-lg">send</span>
+                        <span>Enviar</span>
+                    </button>
+                </form>
+                <p id="chat-error" class="mt-2 text-sm text-red-600 hidden"></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+<script>
+(function () {
+    var form = document.getElementById('chat-form');
+    var messagesEl = document.getElementById('messages');
+    var promptEl = document.getElementById('prompt');
+    var btnSend = document.getElementById('btn-send');
+    var errorEl = document.getElementById('chat-error');
+
+    function hidePlaceholder() {
+        var placeholder = messagesEl.querySelector('.text-slate-400.text-sm.py-8');
+        if (placeholder) placeholder.remove();
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatMessageContent(text) {
+        if (!text) return '';
+        var s = escapeHtml(text);
+        s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+        s = s.replace(/\n\n/g, '<br><br>');
+        s = s.replace(/\n/g, '<br>');
+        s = s.replace(/(<br>|^)([\*\-])\s+/g, '$1<span class="list-bullet">• </span>');
+        return s;
+    }
+
+    function addMessage(role, content) {
+        hidePlaceholder();
+        var isUser = role === 'user';
+        var div = document.createElement('div');
+        div.className = 'flex gap-3 ' + (isUser ? 'justify-end' : '');
+        var bubble = document.createElement('div');
+        bubble.className = 'max-w-[85%] rounded-lg px-4 py-2.5 ' + (isUser ? 'bg-ritweb-teal text-white' : 'bg-slate-100 text-slate-800');
+        if (role === 'assistant') {
+            bubble.className += ' message-content';
+            bubble.innerHTML = formatMessageContent(content);
+        } else {
+            bubble.textContent = content;
+        }
+        div.appendChild(bubble);
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function setError(msg) {
+        errorEl.textContent = msg || '';
+        errorEl.classList.toggle('hidden', !msg);
+    }
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var prompt = (promptEl.value || '').trim();
+        if (!prompt) return;
+        var specialist = document.getElementById('specialist').value;
+        btnSend.disabled = true;
+        setError('');
+        addMessage('user', prompt);
+        promptEl.value = '';
+
+        var formData = new FormData(form);
+        formData.set('prompt', prompt);
+        formData.set('specialist', specialist);
+
+        try {
+            var resp = await fetch('?handler=SendMessage', {
+                method: 'POST',
+                body: formData,
+                headers: { 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' }
+            });
+            var data = await resp.json();
+            if (data.success)
+                addMessage('assistant', data.response || '(Sin respuesta)');
+            else
+                setError(data.error || 'Error al obtener respuesta.');
+        } catch (err) {
+            setError('Error de red: ' + err.message);
+        }
+        btnSend.disabled = false;
+    });
+})();
+</script>
+}

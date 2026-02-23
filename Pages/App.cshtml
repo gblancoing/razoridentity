@@ -1,0 +1,51 @@
+@page
+@model RazorIdentity.Pages.AppModel
+@{
+    ViewData["Title"] = "App";
+}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <h1 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">Aplicaciones</h1>
+    <p class="text-slate-600 dark:text-slate-300 mb-4 sm:mb-6 text-sm sm:text-base">Aplicaciones disponibles creadas en el mantenedor maestro. El administrador asigna el acceso a cada usuario desde Ajustes → Usuarios por app.</p>
+
+    @if (Model.ErrorApi != null)
+    {
+        <div class="mb-6 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/80 p-4 text-amber-800 dark:text-amber-200 text-sm flex items-start gap-3">
+            <span class="material-icons text-amber-600 dark:text-amber-400 flex-shrink-0">warning</span>
+            <span>@Model.ErrorApi</span>
+        </div>
+    }
+
+    @if (!Model.Apps.Any() && Model.ErrorApi == null)
+    {
+        <p class="text-slate-500 dark:text-slate-400">No hay aplicaciones registradas. Cree apps desde <a asp-page="/Protegido" asp-route-tab="apps" class="text-ritweb-teal dark:text-teal-400 hover:underline">Ajustes → Apps</a> (requiere rol Super_admin).</p>
+    }
+    else if (Model.Apps.Any())
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            @foreach (var app in Model.Apps)
+            {
+                <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-start gap-3">
+                        @if (!string.IsNullOrWhiteSpace(app.ImagenApp))
+                        {
+                            <img src="@app.ImagenApp" alt="" class="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                        }
+                        else
+                        {
+                            <div class="w-12 h-12 rounded-lg bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                                <span class="material-icons text-slate-500 dark:text-slate-400 text-2xl">apps</span>
+                            </div>
+                        }
+                        <div class="min-w-0 flex-1">
+                            <h2 class="font-semibold text-slate-800 dark:text-slate-100">@app.Nombre</h2>
+                            @if (!string.IsNullOrWhiteSpace(app.DescripcionApp))
+                            {
+                                <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">@app.DescripcionApp</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

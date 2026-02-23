@@ -6,4 +6,50 @@ html {
 
 body {
   margin-bottom: 2rem;
+  overflow-x: hidden;
+}
+
+/* Modo oscuro: contraste en inputs y tablas */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: rgb(51 65 85);
+  color: rgb(241 245 249);
+  border-color: rgb(71 85 105);
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(148 163 184);
+}
+.dark table thead th {
+  color: rgb(226 232 240);
+}
+.dark table tbody td {
+  color: rgb(226 232 240);
+}
+.dark table tbody tr:hover td {
+  background-color: rgb(51 65 85);
+}
+
+/* Responsive: evitar desborde horizontal */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Opcional: áreas táctiles mínimas en móvil para botones principales */
+@media (max-width: 1023px) {
+  .touch-target-min {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }

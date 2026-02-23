@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - RitWeb</title>
+    <title>@ViewData["Title"] - GPR</title>
     <link rel="stylesheet" href="~/css/tailwind.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/RazorIdentity.styles.css" asp-append-version="true" />
@@ -13,6 +13,7 @@
     <style>body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }</style>
     <script id="tailwind-config">
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -25,58 +26,78 @@
             },
         }
     </script>
+    <script>
+        (function () {
+            try {
+                // Por defecto tema claro: solo activar oscuro si el usuario lo eligió explícitamente
+                if (localStorage.getItem('ritweb-dark') === '1') document.documentElement.classList.add('dark');
+            } catch (e) {}
+        })();
+    </script>
     @await RenderSectionAsync("Head", required: false)
 </head>
-<body class="min-h-screen flex flex-col bg-white antialiased">
+<body class="min-h-screen flex flex-col bg-white dark:bg-slate-900 antialiased transition-colors">
     <header class="sticky top-0 z-50 w-full">
-        <nav id="main-nav" class="bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm transition-shadow duration-200">
+        <nav id="main-nav" class="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-14 md:h-16">
-                    <div class="flex items-center gap-3">
-                        <a class="flex items-center gap-3 group" asp-area="" asp-page="/Index">
+                <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center lg:h-14 xl:h-16">
+                    <div class="flex justify-between items-center h-14 md:h-16 lg:h-14 xl:h-16 w-full lg:w-auto">
+                        <a class="flex items-center gap-2 sm:gap-3 group min-w-0" asp-area="" asp-page="/Index">
                             <div class="w-9 h-9 md:w-10 md:h-10 bg-codelco-orange flex items-center justify-center rounded-sm flex-shrink-0 shadow-sm group-hover:shadow transition-shadow">
-                                <span class="material-icons text-white text-xl md:text-2xl">precision_manufacturing</span>
+                                <span class="text-white font-bold text-sm md:text-base tracking-tighter leading-none">GPR</span>
                             </div>
-                            <div class="hidden sm:block border-l border-slate-200 pl-3">
-                                <span class="text-lg font-bold text-slate-800 leading-none">RitWeb</span>
-                                <span class="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">Reporte Interno En Terreno</span>
+                            <div class="hidden sm:block border-l border-slate-200 dark:border-slate-600 pl-2 sm:pl-3 min-w-0">
+                                <span class="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 leading-none truncate block">GPR</span>
+                                <span class="block text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Gerencia Proyectos Relavez (Codelco)</span>
                             </div>
                         </a>
-                        <button type="button" id="nav-toggle" class="md:hidden ml-2 p-2 rounded-md text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-codelco-orange" aria-label="Abrir menú">
-                            <span class="material-icons">menu</span>
-                        </button>
+                        <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0 lg:hidden">
+                            <button type="button" id="nav-toggle" class="p-2 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-codelco-orange" aria-label="Abrir menú" aria-expanded="false">
+                                <span class="material-icons">menu</span>
+                            </button>
+                            <button type="button" id="theme-toggle" class="p-1.5 rounded text-slate-600 dark:text-slate-400 hover:text-codelco-orange dark:hover:text-teal-400 transition-colors" aria-label="Alternar modo oscuro / claro" title="Modo oscuro / claro">
+                                <span class="material-icons text-xl theme-icon-dark">dark_mode</span>
+                                <span class="material-icons text-xl theme-icon-light hidden">light_mode</span>
+                            </button>
+                        </div>
                     </div>
-                    <div id="navbar-menu" class="hidden md:flex md:items-center md:justify-between md:flex-1 md:ml-6">
-                        <ul class="flex flex-col md:flex-row md:gap-6 md:flex-1">
-                            <li><a class="block py-2 md:py-0 text-slate-600 hover:text-codelco-orange transition-colors" asp-area="" asp-page="/Index">Inicio</a></li>
-                            <li><a class="block py-2 md:py-0 text-slate-600 hover:text-codelco-orange transition-colors" asp-area="" asp-page="/Privacy">Privacidad</a></li>
-                            <li><a class="block py-2 md:py-0 text-slate-600 hover:text-codelco-orange transition-colors" asp-area="" asp-page="/Protegido">Ajustes</a></li>
+                    <div id="navbar-menu" class="hidden lg:flex flex flex-col lg:flex-row lg:items-center lg:justify-between lg:flex-1 lg:ml-6 absolute lg:relative top-full left-0 right-0 lg:top-auto lg:left-auto lg:right-auto bg-white dark:bg-slate-900 lg:bg-transparent border-b lg:border-0 border-slate-200 dark:border-slate-700 lg:border-0 shadow-lg lg:shadow-none py-4 px-4 lg:py-0 lg:px-0 z-40">
+                        <ul class="flex flex-col lg:flex-row lg:gap-6 w-full lg:w-auto">
+                            <li><a class="block py-3 lg:py-0 text-slate-600 dark:text-slate-300 hover:text-codelco-orange transition-colors font-medium" asp-area="" asp-page="/Index">Inicio</a></li>
+                            <li><a class="block py-3 lg:py-0 text-slate-600 dark:text-slate-300 hover:text-codelco-orange transition-colors font-medium" asp-area="" asp-page="/App">App</a></li>
+                            <li><a class="block py-3 lg:py-0 text-slate-600 dark:text-slate-300 hover:text-codelco-orange transition-colors font-medium" asp-area="" asp-page="/Protegido">Ajustes</a></li>
                         </ul>
-                        <partial name="_LoginPartial" />
+                        <div class="flex items-center gap-2 pt-3 lg:pt-0 border-t lg:border-0 border-slate-200 dark:border-slate-700 lg:border-0 mt-3 lg:mt-0">
+                            <partial name="_LoginPartial" />
+                            <button type="button" id="theme-toggle-desktop" class="p-1.5 rounded text-slate-600 dark:text-slate-400 hover:text-codelco-orange dark:hover:text-teal-400 transition-colors hidden lg:inline-flex items-center" aria-label="Alternar modo oscuro / claro" title="Modo oscuro / claro">
+                                <span class="material-icons text-xl theme-icon-dark-d">dark_mode</span>
+                                <span class="material-icons text-xl theme-icon-light-d hidden">light_mode</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </nav>
     </header>
-    <main class="flex-1" role="main">
+    <main class="flex-1 bg-slate-50 dark:bg-slate-900 transition-colors" role="main">
         @RenderBody()
     </main>
     @{
         var pagePath = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
         var isInicio = string.Equals(pagePath, "Index", StringComparison.OrdinalIgnoreCase) || string.Equals(pagePath, "/Index", StringComparison.OrdinalIgnoreCase);
     }
-    <footer class="bg-slate-800 text-slate-300">
+    <footer class="bg-slate-800 dark:bg-slate-950 text-slate-300 dark:text-slate-400 border-t border-slate-700">
         @if (isInicio)
         {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div>
-                        <h3 class="text-lg font-bold text-white mb-3">RitWeb</h3>
-                        <p class="text-sm leading-relaxed">Sistema web especializado para el registro de alertas e inspecciones en terreno, diseñado para proyectos mineros y constructivos. Solución tecnológica integrada para optimizar procesos y maximizar la eficiencia operacional.</p>
+                        <h3 class="text-lg font-bold text-white mb-3">GPR</h3>
+                        <p class="text-sm leading-relaxed">Gerencia Proyectos Relavez (Codelco). Sistema web para el registro de alertas e inspecciones en terreno, diseñado para proyectos mineros y constructivos.</p>
                         <div class="flex gap-3 mt-4">
                             <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Facebook"><span class="material-icons text-sm">facebook</span></a>
-                            <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="LinkedIn"><span class="material-icons text-sm">linkedin</span></a>
-                            <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Instagram"><span class="material-icons text-sm">instagram</span></a>
+                            <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="LinkedIn"><span class="material-icons text-sm">work</span></a>
+                            <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Instagram"><span class="material-icons text-sm">photo_camera</span></a>
                         </div>
                     </div>
                     <div>
@@ -104,13 +125,135 @@
         }
         <div class="@(isInicio ? "border-t border-slate-700" : "")">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-slate-400">
-                © @DateTime.Now.Year RitWeb - Reporte Interno En Terreno. Todos los derechos reservados. <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/Privacy">Privacidad</a>
+                © @DateTime.Now.Year GPR - Gerencia Proyectos Relavez (Codelco). Todos los derechos reservados. <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/Privacy">Privacidad</a> · <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/App">App</a>
             </div>
         </div>
     </footer>
 
+    @* Botón flotante y panel de Chat IA (inferior derecha) *@
+    <div id="chat-widget-root" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex flex-col items-end gap-3">
+        <div id="chat-floating-panel" class="hidden w-[calc(100vw-2rem)] max-w-[380px] sm:max-w-[380px] h-[70vh] min-h-[320px] max-h-[85vh] sm:h-[480px] sm:max-h-[70vh] flex flex-col rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-2xl overflow-hidden transition-all duration-200">
+            <div class="flex items-center justify-between px-4 py-3 bg-ritweb-teal text-white border-b border-teal-600/30">
+                <div class="flex items-center gap-2">
+                    <span class="material-icons text-xl">smart_toy</span>
+                    <span class="font-semibold text-sm">Chat IA</span>
+                </div>
+                <button type="button" id="chat-panel-close" class="p-1 rounded-lg hover:bg-white/20 transition-colors" aria-label="Cerrar chat">
+                    <span class="material-icons text-xl">close</span>
+                </button>
+            </div>
+            <div id="chat-widget-messages" class="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 bg-slate-50 dark:bg-slate-900/50">
+                <p class="text-center text-slate-400 dark:text-slate-500 text-sm py-4">Escribe un mensaje y pulsa Enviar. API Ollama en ejecución.</p>
+            </div>
+            <div class="border-t border-slate-200 dark:border-slate-600 p-3 bg-white dark:bg-slate-800">
+                <form id="chat-widget-form" class="flex flex-col gap-2">
+                    @Html.AntiForgeryToken()
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="chat-widget-specialist" name="specialist" class="rounded-lg border border-slate-300 dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 px-3 py-2 text-sm min-w-0 w-full sm:min-w-[100px] sm:w-auto">
+                            <option value="general">General</option>
+                            <option value="database">Database</option>
+                            <option value="frontend">Frontend</option>
+                            <option value="backend">Backend</option>
+                            <option value="security">Security</option>
+                        </select>
+                        <textarea id="chat-widget-prompt" name="prompt" rows="1" placeholder="Escribe tu pregunta…" class="flex-1 rounded-lg border border-slate-300 dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 px-3 py-2 text-sm placeholder-slate-400 resize-none min-h-[40px] max-h-24" required></textarea>
+                    </div>
+                    <button type="submit" id="chat-widget-send" class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-ritweb-teal hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50">
+                        <span class="material-icons text-lg">send</span>
+                        <span>Enviar</span>
+                    </button>
+                </form>
+                <p id="chat-widget-error" class="mt-1 text-xs text-red-600 dark:text-red-400 hidden"></p>
+            </div>
+        </div>
+        <button type="button" id="chat-floating-btn" class="flex items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 rounded-full bg-ritweb-teal hover:bg-teal-700 text-white text-sm sm:text-base font-medium shadow-lg hover:shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-ritweb-teal focus:ring-offset-2 dark:focus:ring-offset-slate-900" aria-label="Abrir Chat IA">
+            <span class="material-icons text-lg sm:text-xl">chat</span>
+            <span class="hidden sm:inline">Chat IA</span>
+        </button>
+    </div>
+    <style>
+        #chat-widget-root .message-content { line-height: 1.5; word-wrap: break-word; }
+        #chat-widget-root .message-content strong { font-weight: 700; }
+        #chat-widget-root .message-content em { font-style: italic; }
+        #chat-widget-root .message-content .list-bullet { margin-right: 0.25rem; }
+    </style>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            var btn = document.getElementById('chat-floating-btn');
+            var panel = document.getElementById('chat-floating-panel');
+            var closeBtn = document.getElementById('chat-panel-close');
+            var form = document.getElementById('chat-widget-form');
+            var messagesEl = document.getElementById('chat-widget-messages');
+            var promptEl = document.getElementById('chat-widget-prompt');
+            var sendBtn = document.getElementById('chat-widget-send');
+            var errorEl = document.getElementById('chat-widget-error');
+            function togglePanel(open) {
+                var show = open !== undefined ? open : !panel.classList.contains('hidden');
+                panel.classList.toggle('hidden', !show);
+            }
+            function hidePlaceholder() {
+                var ph = messagesEl.querySelector('.text-center.text-slate-400');
+                if (!ph) ph = messagesEl.querySelector('.text-slate-400');
+                if (ph) ph.remove();
+            }
+            function escapeHtml(text) {
+                var d = document.createElement('div');
+                d.textContent = text;
+                return d.innerHTML;
+            }
+            function formatContent(text) {
+                if (!text) return '';
+                var s = escapeHtml(text);
+                s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+                s = s.replace(/\n\n/g, '<br><br>');
+                s = s.replace(/\n/g, '<br>');
+                s = s.replace(/(<br>|^)([\*\-])\s+/g, '$1<span class="list-bullet">• </span>');
+                return s;
+            }
+            function addMsg(role, content) {
+                hidePlaceholder();
+                var isUser = role === 'user';
+                var div = document.createElement('div');
+                div.className = 'flex gap-2 ' + (isUser ? 'justify-end' : '');
+                var bubble = document.createElement('div');
+                bubble.className = 'max-w-[90%] rounded-lg px-3 py-2 text-sm ' + (isUser ? 'bg-ritweb-teal text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 message-content');
+                if (role === 'assistant') bubble.innerHTML = formatContent(content); else bubble.textContent = content;
+                div.appendChild(bubble);
+                messagesEl.appendChild(div);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+            function setErr(msg) {
+                errorEl.textContent = msg || '';
+                errorEl.classList.toggle('hidden', !msg);
+            }
+            if (btn) btn.addEventListener('click', function () { togglePanel(true); });
+            if (closeBtn) closeBtn.addEventListener('click', function () { panel.classList.add('hidden'); });
+            if (form) form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var prompt = (promptEl.value || '').trim();
+                if (!prompt) return;
+                var specialist = document.getElementById('chat-widget-specialist').value;
+                sendBtn.disabled = true;
+                setErr('');
+                addMsg('user', prompt);
+                promptEl.value = '';
+                var fd = new FormData(form);
+                fd.set('prompt', prompt);
+                fd.set('specialist', specialist);
+                try {
+                    var r = await fetch('/Chat?handler=SendMessage', { method: 'POST', body: fd });
+                    var data = await r.json();
+                    if (data.success) addMsg('assistant', data.response || '(Sin respuesta)');
+                    else setErr(data.error || 'Error.');
+                } catch (err) { setErr('Error de red: ' + err.message); }
+                sendBtn.disabled = false;
+            });
+        })();
+    </script>
     <script>
         (function () {
             var nav = document.getElementById('main-nav');
@@ -120,6 +263,21 @@
             }
             window.addEventListener('scroll', updateNavShadow, { passive: true });
             updateNavShadow();
+        })();
+        window.toggleDarkMode = function () {
+            var html = document.documentElement;
+            html.classList.toggle('dark');
+            try { localStorage.setItem('ritweb-dark', html.classList.contains('dark') ? '1' : '0'); } catch (e) {}
+            var isDark = html.classList.contains('dark');
+            document.querySelectorAll('.theme-icon-dark, .theme-icon-dark-d').forEach(function (el) { el.classList.toggle('hidden', isDark); });
+            document.querySelectorAll('.theme-icon-light, .theme-icon-light-d').forEach(function (el) { el.classList.toggle('hidden', !isDark); });
+        };
+        (function () {
+            var isDark = document.documentElement.classList.contains('dark');
+            document.querySelectorAll('.theme-icon-dark, .theme-icon-dark-d').forEach(function (el) { el.classList.toggle('hidden', isDark); });
+            document.querySelectorAll('.theme-icon-light, .theme-icon-light-d').forEach(function (el) { el.classList.toggle('hidden', !isDark); });
+            document.getElementById('theme-toggle')?.addEventListener('click', window.toggleDarkMode);
+            document.getElementById('theme-toggle-desktop')?.addEventListener('click', window.toggleDarkMode);
         })();
     </script>
     @await RenderSectionAsync("Scripts", required: false)

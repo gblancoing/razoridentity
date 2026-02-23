@@ -57,6 +57,21 @@ builder.Services.AddHttpClient<IRitApiClient, RitApiClient>(client =>
     return handler;
 });
 
+// Cliente HTTP para Api_Ollama (chat IA)
+builder.Services.Configure<OllamaApiSettings>(builder.Configuration.GetSection(OllamaApiSettings.SectionName));
+builder.Services.AddHttpClient<IOllamaApiClient, OllamaApiClient>(client =>
+{
+    var baseUrl = builder.Configuration[$"{OllamaApiSettings.SectionName}:BaseUrl"] ?? "https://localhost:7006";
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+}).ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+    if (builder.Environment.IsDevelopment())
+        handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+    return handler;
+});
+
 var app = builder.Build();
 
     async Task CrearRolesIniciales(WebApplication app)

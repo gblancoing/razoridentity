@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using RazorIdentity.Data;
+using RazorIdentity.Models;
 using RazorIdentity.Models.Api;
 using RazorIdentity.Services;
 
@@ -18,14 +20,16 @@ namespace RazorIdentity.Pages
         private readonly UserManager<IdentityUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IEmailSender _emailSender;
+        private readonly ApplicationDbContext _dbContext;
         private readonly ILogger<ProtegidoModel> _logger;
 
-        public ProtegidoModel(IRitApiClient ritApi, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, IEmailSender emailSender, ILogger<ProtegidoModel> logger)
+        public ProtegidoModel(IRitApiClient ritApi, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, IEmailSender emailSender, ApplicationDbContext dbContext, ILogger<ProtegidoModel> logger)
         {
             _ritApi = ritApi;
             _userManager = userManager;
             _roleManager = roleManager;
             _emailSender = emailSender;
+            _dbContext = dbContext;
             _logger = logger;
         }
 
@@ -55,6 +59,10 @@ namespace RazorIdentity.Pages
         public List<DisciplinaApi> Disciplinas { get; set; } = new();
         public List<UsuarioCentroApi> UsuariosCentro { get; set; } = new();
         public List<UsuarioDisciplinaApi> UsuariosDisciplina { get; set; } = new();
+        public List<EmpresaColaboradoraApi> EmpresasColaboradoras { get; set; } = new();
+        public List<UsuarioEmpresaColaboradoraApi> UsuariosEmpresaColaboradora { get; set; } = new();
+        public List<AppApi> Apps { get; set; } = new();
+        public List<UsuarioAppApi> UsuariosApp { get; set; } = new();
         public List<IdentityUser> Usuarios { get; set; } = new();
 
         /// <summary>Roles del sistema para dropdowns.</summary>
@@ -63,12 +71,25 @@ namespace RazorIdentity.Pages
         /// <summary>Usuarios con sus roles actuales (para la pestaña Gestión de usuarios).</summary>
         public List<(IdentityUser User, IList<string> Roles)> UsuariosConRoles { get; set; } = new();
 
+        /// <summary>Texto a mostrar en tablas por UserId: correo y nombre (nunca el Id).</summary>
+        public Dictionary<string, string> UserDisplayInfo { get; set; } = new();
+
         public int? EditPaisId { get; set; }
         public int? EditRegionId { get; set; }
         public int? EditProyectoId { get; set; }
         public int? EditCentroId { get; set; }
         public int? EditDisciplinaId { get; set; }
         public int? EditUsuarioCentroId { get; set; }
+        public int? EditEmpresaId { get; set; }
+        public int? EditAppId { get; set; }
+
+        /// <summary>Mensaje de éxito o error en la pestaña Empresas colaboradoras / Usuarios por empresa.</summary>
+        public string? MensajeEmpresa { get; set; }
+        public bool MensajeEmpresaEsError { get; set; }
+
+        /// <summary>Mensaje de éxito o error en la pestaña Apps / Usuarios por app.</summary>
+        public string? MensajeApp { get; set; }
+        public bool MensajeAppEsError { get; set; }
 
         private async Task CargarDatosAsync(string? usuarioBusqueda = null)
         {
@@ -91,6 +112,7 @@ namespace RazorIdentity.Pages
             foreach (var u in Usuarios)
                 UsuariosConRoles.Add((u, await _userManager.GetRolesAsync(u)));
 
+
             try
             {
                 Paises = await _ritApi.GetListAsync<PaisApi>("api/Paises");
@@ -110,9 +132,35 @@ namespace RazorIdentity.Pages
             catch (Exception ex) { _logger.LogWarning(ex, "Error al cargar Disciplinas"); }
             try { UsuariosDisciplina = await _ritApi.GetListAsync<UsuarioDisciplinaApi>("api/UsuariosDisciplina"); }
             catch (Exception ex) { _logger.LogWarning(ex, "Error al cargar UsuariosDisciplina"); }
+            try { EmpresasColaboradoras = await _ritApi.GetListAsync<EmpresaColaboradoraApi>("api/EmpresasColaboradoras"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error al cargar EmpresasColaboradoras"); }
+            try { UsuariosEmpresaColaboradora = await _ritApi.GetListAsync<UsuarioEmpresaColaboradoraApi>("api/UsuariosEmpresaColaboradora"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error al cargar UsuariosEmpresaColaboradora"); }
+            try { Apps = await _ritApi.GetListAsync<AppApi>("api/Apps"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error al cargar Apps"); }
+            try { UsuariosApp = await _ritApi.GetListAsync<UsuarioAppApi>("api/UsuariosApp"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error al cargar UsuariosApp"); }
+
+            // UserDisplayInfo para todos los UserIds que aparecen en tablas (usuarios + asignaciones)
+            var idsEnAsignaciones = UsuariosCentro.Select(uc => uc.UserId)
+                .Union(UsuariosDisciplina.Select(ud => ud.UserId))
+                .Union(UsuariosEmpresaColaboradora.Select(ue => ue.UserId))
+                .Union(UsuariosApp.Select(ua => ua.UserId))
+                .Distinct()
+                .ToList();
+            var todosLosIds = Usuarios.Select(u => u.Id).Union(idsEnAsignaciones).Distinct().ToList();
+            var perfiles = await _dbContext.UserProfiles.Where(p => todosLosIds.Contains(p.UserId)).ToDictionaryAsync(p => p.UserId, p => p.FullName);
+            var usuariosParaDisplay = await _userManager.Users.Where(u => todosLosIds.Contains(u.Id)).ToListAsync();
+            UserDisplayInfo = new Dictionary<string, string>();
+            foreach (var u in usuariosParaDisplay)
+            {
+                var email = u.Email ?? u.UserName ?? "";
+                var fullName = perfiles.GetValueOrDefault(u.Id)?.Trim();
+                UserDisplayInfo[u.Id] = !string.IsNullOrEmpty(fullName) ? $"{fullName} ({email})" : email;
+            }
         }
 
-        public async Task OnGetAsync(string? tab, string? usuarioBusqueda, int? editPaisId, int? editRegionId, int? editProyectoId, int? editCentroId, int? editDisciplinaId, int? editUsuarioCentroId, string? mensajeUsuarios, bool mensajeUsuariosEsError = false, string? mensajeDisciplina = null, bool mensajeDisciplinaEsError = false)
+        public async Task OnGetAsync(string? tab, string? usuarioBusqueda, int? editPaisId, int? editRegionId, int? editProyectoId, int? editCentroId, int? editDisciplinaId, int? editUsuarioCentroId, int? editEmpresaId, int? editAppId, string? mensajeUsuarios, bool mensajeUsuariosEsError = false, string? mensajeDisciplina = null, bool mensajeDisciplinaEsError = false, string? mensajeEmpresa = null, bool mensajeEmpresaEsError = false, string? mensajeApp = null, bool mensajeAppEsError = false)
         {
             Tab = tab ?? "usuarios";
             UsuarioBusqueda = usuarioBusqueda;
@@ -120,12 +168,18 @@ namespace RazorIdentity.Pages
             MensajeUsuariosEsError = mensajeUsuariosEsError;
             MensajeDisciplina = mensajeDisciplina;
             MensajeDisciplinaEsError = mensajeDisciplinaEsError;
+            MensajeEmpresa = mensajeEmpresa;
+            MensajeEmpresaEsError = mensajeEmpresaEsError;
+            MensajeApp = mensajeApp;
+            MensajeAppEsError = mensajeAppEsError;
             EditPaisId = editPaisId;
             EditRegionId = editRegionId;
             EditProyectoId = editProyectoId;
             EditCentroId = editCentroId;
             EditDisciplinaId = editDisciplinaId;
             EditUsuarioCentroId = editUsuarioCentroId;
+            EditEmpresaId = editEmpresaId;
+            EditAppId = editAppId;
             await CargarDatosAsync(usuarioBusqueda);
             var user = await _userManager.GetUserAsync(User);
             var email = user?.Email ?? user?.UserName;
@@ -241,6 +295,155 @@ namespace RazorIdentity.Pages
             try { await _ritApi.DeleteAsync($"api/UsuariosCentro/{id}"); }
             catch (Exception ex) { _logger.LogWarning(ex, "Error quitar usuario de centro"); }
             return RedirectToPage(new { tab = "usuarioscentro" });
+        }
+
+        public async Task<IActionResult> OnPostCreateEmpresaAsync(string nombre, int centroCostoId, string? rut, string? direccion, string? ubicacion, DateTime? fechaInicioContrato, DateTime? fechaTerminoEsperadaContrato, string? descripcionServicios, string? email, string? telefono)
+        {
+            if (string.IsNullOrWhiteSpace(nombre)) return RedirectToPage(new { tab = "empresas" });
+            var body = new { Nombre = nombre.Trim(), CentroCostoId = centroCostoId, Rut = rut?.Trim(), Direccion = direccion?.Trim(), Ubicacion = ubicacion?.Trim(), FechaInicioContrato = fechaInicioContrato, FechaTerminoEsperadaContrato = fechaTerminoEsperadaContrato, DescripcionServicios = descripcionServicios?.Trim(), Email = email?.Trim(), Telefono = telefono?.Trim() };
+            try { await _ritApi.PostAsync<object, EmpresaColaboradoraApi>("api/EmpresasColaboradoras", body); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error crear empresa colaboradora"); }
+            return RedirectToPage(new { tab = "empresas" });
+        }
+
+        public async Task<IActionResult> OnPostUpdateEmpresaAsync(int id, string nombre, int centroCostoId, string? rut, string? direccion, string? ubicacion, DateTime? fechaInicioContrato, DateTime? fechaTerminoEsperadaContrato, string? descripcionServicios, string? email, string? telefono)
+        {
+            if (string.IsNullOrWhiteSpace(nombre)) return RedirectToPage(new { tab = "empresas" });
+            var body = new { Nombre = nombre.Trim(), CentroCostoId = centroCostoId, Rut = rut?.Trim(), Direccion = direccion?.Trim(), Ubicacion = ubicacion?.Trim(), FechaInicioContrato = fechaInicioContrato, FechaTerminoEsperadaContrato = fechaTerminoEsperadaContrato, DescripcionServicios = descripcionServicios?.Trim(), Email = email?.Trim(), Telefono = telefono?.Trim() };
+            try { await _ritApi.PutAsync<object, EmpresaColaboradoraApi>($"api/EmpresasColaboradoras/{id}", body); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error actualizar empresa colaboradora"); }
+            return RedirectToPage(new { tab = "empresas" });
+        }
+
+        public async Task<IActionResult> OnPostDeleteEmpresaAsync(int id)
+        {
+            try { await _ritApi.DeleteAsync($"api/EmpresasColaboradoras/{id}"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error eliminar empresa colaboradora"); }
+            return RedirectToPage(new { tab = "empresas" });
+        }
+
+        public async Task<IActionResult> OnPostCreateUsuarioEmpresaAsync(string userId, int empresaColaboradoraId, int? rolId, int? disciplinaId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return RedirectToPage(new { tab = "usuariosempresa", mensajeEmpresa = "Seleccione un usuario.", mensajeEmpresaEsError = true });
+            try
+            {
+                await _ritApi.PostAsync<object, UsuarioEmpresaColaboradoraApi>("api/UsuariosEmpresaColaboradora", new { UserId = userId.Trim(), EmpresaColaboradoraId = empresaColaboradoraId, RolId = rolId, DisciplinaId = disciplinaId });
+                return RedirectToPage(new { tab = "usuariosempresa", mensajeEmpresa = "Asignación guardada correctamente.", mensajeEmpresaEsError = false });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error asignar usuario a empresa colaboradora");
+                var msg = ex.Message;
+                if (ex.InnerException != null) msg += " " + ex.InnerException.Message;
+                return RedirectToPage(new { tab = "usuariosempresa", mensajeEmpresa = "No se pudo asignar: " + msg, mensajeEmpresaEsError = true });
+            }
+        }
+
+        public async Task<IActionResult> OnPostDeleteUsuarioEmpresaAsync(int id)
+        {
+            try { await _ritApi.DeleteAsync($"api/UsuariosEmpresaColaboradora/{id}"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error quitar usuario de empresa colaboradora"); }
+            return RedirectToPage(new { tab = "usuariosempresa" });
+        }
+
+        public async Task<IActionResult> OnPostCreateAppAsync(string nombre, string? descripcionApp, string? imagenApp)
+        {
+            if (string.IsNullOrWhiteSpace(nombre)) return RedirectToPage(new { tab = "apps" });
+            try { await _ritApi.PostAsync<object, AppApi>("api/Apps", new { Nombre = nombre.Trim(), DescripcionApp = descripcionApp?.Trim(), ImagenApp = imagenApp?.Trim() }); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error crear app"); }
+            return RedirectToPage(new { tab = "apps" });
+        }
+
+        public async Task<IActionResult> OnPostUpdateAppAsync(int id, string nombre, string? descripcionApp, string? imagenApp)
+        {
+            if (string.IsNullOrWhiteSpace(nombre)) return RedirectToPage(new { tab = "apps" });
+            try { await _ritApi.PutAsync<object, AppApi>($"api/Apps/{id}", new { Nombre = nombre.Trim(), DescripcionApp = descripcionApp?.Trim(), ImagenApp = imagenApp?.Trim() }); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error actualizar app"); }
+            return RedirectToPage(new { tab = "apps" });
+        }
+
+        public async Task<IActionResult> OnPostDeleteAppAsync(int id)
+        {
+            try { await _ritApi.DeleteAsync($"api/Apps/{id}"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error eliminar app"); }
+            return RedirectToPage(new { tab = "apps" });
+        }
+
+        public async Task<IActionResult> OnPostCreateUsuarioAppAsync(string userId, int appId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "Seleccione un usuario.", mensajeAppEsError = true });
+            try
+            {
+                await _ritApi.PostAsync<object, UsuarioAppApi>("api/UsuariosApp", new { UserId = userId.Trim(), AppId = appId });
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "App asignada correctamente.", mensajeAppEsError = false });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error asignar app a usuario");
+                var msg = ex.Message;
+                if (ex.InnerException != null) msg += " " + ex.InnerException.Message;
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "No se pudo asignar: " + msg, mensajeAppEsError = true });
+            }
+        }
+
+        /// <summary>Asigna todas las apps del catálogo al usuario seleccionado (omite las ya asignadas).</summary>
+        public async Task<IActionResult> OnPostAsignarTodasAppsAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "Seleccione un usuario.", mensajeAppEsError = true });
+            var apps = await _ritApi.GetListAsync<AppApi>("api/Apps");
+            if (apps.Count == 0)
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "No hay aplicaciones en el catálogo.", mensajeAppEsError = true });
+            var yaAsignadas = (await _ritApi.GetListAsync<UsuarioAppApi>("api/UsuariosApp"))
+                .Where(ua => ua.UserId == userId.Trim())
+                .Select(ua => ua.AppId)
+                .ToHashSet();
+            var asignadas = 0;
+            var omitidas = 0;
+            foreach (var app in apps)
+            {
+                if (yaAsignadas.Contains(app.Id)) { omitidas++; continue; }
+                try
+                {
+                    await _ritApi.PostAsync<object, UsuarioAppApi>("api/UsuariosApp", new { UserId = userId.Trim(), AppId = app.Id });
+                    asignadas++;
+                }
+                catch { omitidas++; }
+            }
+            var msg = asignadas > 0
+                ? $"Se asignaron {asignadas} app(s)." + (omitidas > 0 ? $" {omitidas} ya estaban asignadas u omitidas." : "")
+                : (omitidas > 0 ? "El usuario ya tenía todas las apps asignadas." : "No se pudo asignar ninguna app.");
+            return RedirectToPage(new { tab = "usuariosapp", mensajeApp = msg, mensajeAppEsError = asignadas == 0 && omitidas < apps.Count });
+        }
+
+        /// <summary>Asigna varias apps a un usuario en una sola acción.</summary>
+        public async Task<IActionResult> OnPostCreateUsuarioAppVariasAsync(string userId, List<int> appIds)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "Seleccione un usuario.", mensajeAppEsError = true });
+            if (appIds == null || !appIds.Any())
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "Seleccione al menos una app.", mensajeAppEsError = true });
+            var asignadas = 0;
+            foreach (var appId in appIds.Distinct())
+            {
+                try
+                {
+                    await _ritApi.PostAsync<object, UsuarioAppApi>("api/UsuariosApp", new { UserId = userId.Trim(), AppId = appId });
+                    asignadas++;
+                }
+                catch { /* duplicado u otro error, omitir */ }
+            }
+            var msg = asignadas > 0 ? $"Se asignaron {asignadas} app(s) correctamente." : "No se pudo asignar ninguna (posiblemente ya estaban asignadas).";
+            return RedirectToPage(new { tab = "usuariosapp", mensajeApp = msg, mensajeAppEsError = asignadas == 0 });
+        }
+
+        public async Task<IActionResult> OnPostDeleteUsuarioAppAsync(int id)
+        {
+            try { await _ritApi.DeleteAsync($"api/UsuariosApp/{id}"); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error quitar app de usuario"); }
+            return RedirectToPage(new { tab = "usuariosapp" });
         }
 
         public async Task<IActionResult> OnPostCreateDisciplinaAsync(string nombre)

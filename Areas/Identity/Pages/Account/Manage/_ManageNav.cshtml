@@ -14,45 +14,45 @@
 }
 <div class="flex flex-col flex-1 overflow-hidden">
     <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto" aria-label="Menú de cuenta">
-        <p class="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Mi cuenta</p>
+        <p class="px-3 mb-2 text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wider sidebar-label">Mi cuenta</p>
         <a id="profile" asp-page="./Index" class="@NavItemClass(ManageNavPages.Index)">
             <span class="material-icons text-[20px] flex-shrink-0 text-inherit">person</span>
-            <span class="truncate">Perfil</span>
+            <span class="truncate sidebar-text">Perfil</span>
             <div class="@NavItemBar(ManageNavPages.Index)"></div>
         </a>
         <a id="email" asp-page="./Email" class="@NavItemClass(ManageNavPages.Email)">
             <span class="material-icons text-[20px] flex-shrink-0 text-inherit">email</span>
-            <span class="truncate">Correo electrónico</span>
+            <span class="truncate sidebar-text">Correo electrónico</span>
             <div class="@NavItemBar(ManageNavPages.Email)"></div>
         </a>
         <a id="change-password" asp-page="./ChangePassword" class="@NavItemClass(ManageNavPages.ChangePassword)">
             <span class="material-icons text-[20px] flex-shrink-0 text-inherit">lock</span>
-            <span class="truncate">Contraseña</span>
+            <span class="truncate sidebar-text">Contraseña</span>
             <div class="@NavItemBar(ManageNavPages.ChangePassword)"></div>
         </a>
         @if (hasExternalLogins)
         {
             <a id="external-login" asp-page="./ExternalLogins" class="@NavItemClass(ManageNavPages.ExternalLogins)">
                 <span class="material-icons text-[20px] flex-shrink-0 text-inherit">link</span>
-                <span class="truncate">Inicios de sesión externos</span>
+                <span class="truncate sidebar-text">Inicios de sesión externos</span>
                 <div class="@NavItemBar(ManageNavPages.ExternalLogins)"></div>
             </a>
         }
         <a id="two-factor" asp-page="./TwoFactorAuthentication" class="@NavItemClass(ManageNavPages.TwoFactorAuthentication)">
             <span class="material-icons text-[20px] flex-shrink-0 text-inherit">verified_user</span>
-            <span class="truncate">Autenticación 2FA</span>
+            <span class="truncate sidebar-text">Autenticación 2FA</span>
             <div class="@NavItemBar(ManageNavPages.TwoFactorAuthentication)"></div>
         </a>
         <a id="personal-data" asp-page="./PersonalData" class="@NavItemClass(ManageNavPages.PersonalData)">
             <span class="material-icons text-[20px] flex-shrink-0 text-inherit">badge</span>
-            <span class="truncate">Datos personales</span>
+            <span class="truncate sidebar-text">Datos personales</span>
             <div class="@NavItemBar(ManageNavPages.PersonalData)"></div>
         </a>
     </nav>
-    <div class="p-4 border-t border-slate-200">
+    <div class="p-4 border-t border-slate-200 dark:border-slate-700">
         <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
             <div class="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 flex-shrink-0">@userInitials</div>
-            <div class="overflow-hidden min-w-0 flex-1">
+            <div class="overflow-hidden min-w-0 flex-1 sidebar-label">
                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">Mi cuenta</p>
                 <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">@userName</p>
             </div>
