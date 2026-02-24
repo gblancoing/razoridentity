@@ -1,0 +1,47 @@
+@inherits LayoutComponentBase
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@implements IDisposable
+
+<div class="min-h-screen bg-background-light dark:bg-background-dark text-[#111816] dark:text-white">
+    <header class="sticky top-0 z-40 bg-white/95 dark:bg-background-dark/95 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <a class="hover:text-primary" href="/buyer">@L.T("buyer.nav.home")</a>
+                <a class="hover:text-primary" href="/buyer/orders">@L.T("buyer.nav.orders")</a>
+                <a class="hover:text-primary" href="/buyer/profile">@L.T("buyer.nav.profile")</a>
+                <LanguageToggle />
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        @Body
+    </main>
+
+    <footer class="border-t border-gray-200 dark:border-gray-800 py-6 text-center">
+        <div class="flex flex-col items-center gap-2">
+            <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-16 w-auto" />
+            <span class="text-xs text-[#61897c]">@L.T("buyer.footer")</span>
+        </div>
+    </footer>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

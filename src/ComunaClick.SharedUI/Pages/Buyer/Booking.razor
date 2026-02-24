@@ -1,0 +1,88 @@
+@page "/buyer/booking"
+@layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@implements IDisposable
+
+<PageTitle>@L.T("buyer.booking.title")</PageTitle>
+
+<div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+    <h1 class="text-2xl font-bold">@L.T("buyer.booking.heading")</h1>
+    <p class="text-sm text-[#61897c]">@L.T("buyer.booking.subtitle")</p>
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ServiceId" @bind="ServiceId" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="CustomerId" @bind="CustomerId" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="StartAt (ISO)" @bind="StartAt" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="EndAt (ISO)" @bind="EndAt" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Amount" @bind="Amount" />
+    </div>
+    <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+    <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold" @onclick="HandleBooking">@L.T("buyer.booking.confirm")</button>
+</div>
+
+@code {
+    private string PartnerId = string.Empty;
+    private string ServiceId = string.Empty;
+    private string CustomerId = string.Empty;
+    private string StartAt = string.Empty;
+    private string EndAt = string.Empty;
+    private double Amount = 0;
+    private string _statusMessage = string.Empty;
+    private string _statusLevel = "info";
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private async Task HandleBooking()
+    {
+        _statusMessage = string.Empty;
+        _statusLevel = "info";
+
+        if (!Guid.TryParse(PartnerId, out var partnerId) ||
+            !Guid.TryParse(ServiceId, out var serviceId) ||
+            !Guid.TryParse(CustomerId, out var customerId) ||
+            !DateTimeOffset.TryParse(StartAt, out var startAt) ||
+            !DateTimeOffset.TryParse(EndAt, out var endAt))
+        {
+            _statusMessage = L.T("buyer.status.invalidIds");
+            _statusLevel = "error";
+            return;
+        }
+
+        var request = new BookingCreateRequest(
+            partnerId,
+            serviceId,
+            null,
+            customerId,
+            startAt,
+            endAt,
+            Amount,
+            "CLP",
+            null);
+
+        var booking = await BuyerApi.CreateBookingAsync(request);
+        if (booking is null)
+        {
+            _statusMessage = L.T("buyer.status.bookingFailed");
+            _statusLevel = "error";
+        }
+        else
+        {
+            _statusMessage = $"{L.T("buyer.status.bookingCreated")} #{booking.Id}";
+            _statusLevel = "success";
+        }
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

@@ -1,0 +1,26 @@
+@inject LocaleService LocaleService
+@inject AuthStateService AuthStateService
+@inject IJSRuntime JSRuntime
+
+@code {
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_initialized)
+        {
+            return;
+        }
+
+        try
+        {
+            await LocaleService.InitializeAsync(JSRuntime);
+            await AuthStateService.InitializeAsync();
+            _initialized = true;
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop not available during prerender; retry on next render.
+        }
+    }
+}

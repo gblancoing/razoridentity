@@ -1,0 +1,172 @@
+﻿@page "/register"
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@implements IDisposable
+
+<PageTitle>@L.T("register.title")</PageTitle>
+
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 w-full bg-white dark:bg-background-dark border-b border-[#dbe6e2] dark:border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a class="material-symbols-outlined text-[#111816] dark:text-white cursor-pointer" href="/">arrow_back</a>
+            <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-xs font-medium text-[#61897c] uppercase tracking-wider">@L.T("register.step")</span>
+            <LanguageToggle />
+        </div>
+    </div>
+</header>
+<main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Left Sidebar: Benefits -->
+        <aside class="hidden lg:block lg:col-span-3 space-y-6">
+            <div class="bg-primary/10 dark:bg-primary/5 p-6 rounded-xl border border-primary/20">
+                <h3 class="text-[#111816] dark:text-white font-bold mb-4">@L.T("register.why.title")</h3>
+                <ul class="space-y-4">
+                    <li class="flex gap-3">
+                        <span class="material-symbols-outlined text-primary">verified_user</span>
+                        <p class="text-sm text-[#111816] dark:text-gray-300">@L.T("register.why.item1")</p>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="material-symbols-outlined text-primary">payments</span>
+                        <p class="text-sm text-[#111816] dark:text-gray-300">@L.T("register.why.item2")</p>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="material-symbols-outlined text-primary">insights</span>
+                        <p class="text-sm text-[#111816] dark:text-gray-300">@L.T("register.why.item3")</p>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+        <!-- Main Form Card -->
+        <div class="lg:col-span-9 bg-white dark:bg-[#1a2e28] rounded-xl shadow-sm border border-[#dbe6e2] dark:border-white/5 overflow-hidden">
+            <!-- Progress Bar Section -->
+            <div class="p-6 border-b border-[#dbe6e2] dark:border-white/5">
+                <div class="flex justify-between items-center mb-2">
+                    <p class="text-[#111816] dark:text-white text-base font-semibold">@L.T("register.section.title")</p>
+                    <p class="text-[#111816] dark:text-white text-sm">@L.T("register.section.progress")</p>
+                </div>
+                <div class="w-full bg-[#dbe6e2] dark:bg-gray-700 h-2 rounded-full">
+                    <div class="bg-primary h-2 rounded-full" style="width: 25%;"></div>
+                </div>
+            </div>
+            <div class="p-6 lg:p-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <!-- Form Fields Column -->
+                    <div class="space-y-6">
+                        <h2 class="text-[#111816] dark:text-white text-xl font-bold border-l-4 border-primary pl-3">@L.T("register.details.title")</h2>
+                        <div class="space-y-4">
+                            <!-- Business Name -->
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.business.name.label")</label>
+                                <input class="w-full rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.business.name.placeholder")" type="text" />
+                            </div>
+                            <!-- NIT / Tax ID -->
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.business.tax.label")</label>
+                                <input class="w-full rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.business.tax.placeholder")" type="text" />
+                            </div>
+                            <!-- Category -->
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.business.category.label")</label>
+                                <select class="w-full rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4">
+                                    <option value="">@L.T("register.business.category.placeholder")</option>
+                                    <option>@L.T("register.business.category.option1")</option>
+                                    <option>@L.T("register.business.category.option2")</option>
+                                    <option>@L.T("register.business.category.option3")</option>
+                                    <option>@L.T("register.business.category.option4")</option>
+                                </select>
+                            </div>
+                        </div>
+                        <h2 class="text-[#111816] dark:text-white text-xl font-bold border-l-4 border-primary pl-3 pt-4">@L.T("register.contact.title")</h2>
+                        <div class="space-y-4">
+                            <!-- Phone -->
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.contact.phone.label")</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#61897c]">phone</span>
+                                    <input class="w-full pl-10 rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.contact.phone.placeholder")" type="tel" />
+                                </div>
+                            </div>
+                            <!-- Email -->
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.contact.email.label")</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#61897c]">mail</span>
+                                    <input class="w-full pl-10 rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.contact.email.placeholder")" type="email" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Media Upload Column -->
+                    <div class="space-y-6">
+                        <h2 class="text-[#111816] dark:text-white text-xl font-bold border-l-4 border-primary pl-3">@L.T("register.brand.title")</h2>
+                        <!-- Logo Upload -->
+                        <div class="space-y-2">
+                            <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.brand.logo.label")</label>
+                            <div class="border-2 border-dashed border-[#dbe6e2] dark:border-white/10 rounded-xl p-8 flex flex-col items-center justify-center bg-background-light/50 dark:bg-[#10221c]/50 hover:bg-primary/5 transition-colors cursor-pointer group">
+                                <div class="w-20 h-20 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm mb-4 border border-dashed border-primary">
+                                    <span class="material-symbols-outlined text-primary text-3xl">add_photo_alternate</span>
+                                </div>
+                                <p class="text-sm font-medium text-[#111816] dark:text-white">@L.T("register.brand.logo.action")</p>
+                                <p class="text-xs text-[#61897c] mt-1">@L.T("register.brand.logo.note")</p>
+                            </div>
+                        </div>
+                        <!-- Cover Photo Upload -->
+                        <div class="space-y-2">
+                            <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.brand.cover.label")</label>
+                            <div class="relative h-40 border-2 border-dashed border-[#dbe6e2] dark:border-white/10 rounded-xl overflow-hidden group cursor-pointer bg-background-light/50 dark:bg-[#10221c]/50">
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span class="material-symbols-outlined text-[#61897c] text-3xl mb-2 group-hover:text-primary transition-colors">landscape</span>
+                                    <p class="text-sm font-medium text-[#111816] dark:text-white">@L.T("register.brand.cover.action")</p>
+                                    <p class="text-xs text-[#61897c] mt-1">@L.T("register.brand.cover.note")</p>
+                                </div>
+                                <!-- Image Preview placeholder -->
+                                <img class="w-full h-full object-cover opacity-10 group-hover:opacity-20 transition-opacity" data-alt="Fondo de una tienda moderna y limpia" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB01He4Xx5R5xyz4m_-zog3nvv9wYU7AFZryGzbL4PiQziBAEx6EKggJmlzC9VDhBpwz__-TpWqh1SMhRMoM_Z5jQ0xqKp9MmK0gr8BdEHo_cW2Aapoys-6LI-YTemiBAFvicY9hFj8d8UHRwg7TpST04Q7cjaW2XLriJ58gp8a-8Op2ksxGRFq_2jO5YlEeI3y8dMMBWnfTLXZFbj1scVMHDkpmQb-jAlUY4lM0z61GLDpGYx4RJsRnyXn3VXglzA-Wd2WHQddjOU" />
+                            </div>
+                        </div>
+                        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800/30">
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined text-yellow-600">info</span>
+                                <p class="text-xs text-yellow-800 dark:text-yellow-200/80">
+                                    @L.T("register.brand.tip")
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Action Footer -->
+            <div class="px-8 py-6 bg-background-light/50 dark:bg-black/20 border-t border-[#dbe6e2] dark:border-white/5 flex justify-end items-center gap-4">
+                <button class="px-6 py-3 text-sm font-semibold text-[#61897c] hover:text-[#111816] transition-colors">@L.T("register.actions.draft")</button>
+                <button class="bg-primary hover:bg-primary/90 text-[#111816] px-8 py-3 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95">
+                    @L.T("register.actions.continue")
+                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+<footer class="mt-12 py-8 border-t border-[#dbe6e2] dark:border-white/5">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+        <p class="text-sm text-[#61897c]">@L.T("register.footer") <a class="underline" href="#">@L.T("register.footer.link")</a></p>
+    </div>
+</footer>
+
+@code {
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

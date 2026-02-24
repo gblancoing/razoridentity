@@ -1,0 +1,88 @@
+@page "/partner/leads"
+@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@implements IDisposable
+
+<PageTitle>@L.T("partner.leads.title")</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">@L.T("partner.leads.heading")</h1>
+            <p class="text-sm text-[#61897c]">@L.T("partner.leads.subtitle")</p>
+        </div>
+        <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("partner.leads.primaryAction")</button>
+    </div>
+
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <h2 class="font-semibold">@L.T("partner.leads.table.title")</h2>
+            <span class="text-xs text-[#61897c]">@L.T("partner.leads.table.count")</span>
+        </div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            @if (_isLoading)
+            {
+                <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+            }
+            else if (_items.Count == 0)
+            {
+                <div class="p-6 text-sm text-[#61897c]">@_statusMessage</div>
+            }
+            else
+            {
+                @foreach (var lead in _items)
+                {
+                    <div class="p-4 flex items-center justify-between text-sm">
+                        <div>
+                            <p class="font-semibold">#@lead.Id.ToString()[..8]</p>
+                            <p class="text-xs text-[#61897c]">@lead.Message</p>
+                        </div>
+                        <span class="text-xs text-[#61897c]">@lead.Status</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly List<ComunaClick.Shared.Api.Partner.Lead> _items = new();
+    private string _statusMessage = "Sin leads.";
+    private bool _isLoading;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        var professionalId = ApiOptions.Value.DefaultProfessionalId;
+        if (professionalId is null || professionalId == Guid.Empty)
+        {
+            _statusMessage = L.T("partner.status.noLeads");
+            _isLoading = false;
+            return;
+        }
+
+        var leads = await PartnerApi.GetProfessionalLeadsAsync(professionalId.Value);
+        if (leads is not null)
+        {
+            _items.AddRange(leads);
+        }
+        _isLoading = false;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

@@ -1,0 +1,38 @@
+@inject LocaleService LocaleService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div class="flex items-center gap-2 text-xs font-semibold" aria-label='@LocaleService.T("nav.language")'>
+    <button class='@ButtonClass("es")' @onclick='() => SetLanguageAsync("es")'>ES</button>
+    <button class='@ButtonClass("en")' @onclick='() => SetLanguageAsync("en")'>EN</button>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        LocaleService.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string ButtonClass(string language)
+    {
+        var isActive = string.Equals(LocaleService.Language, language, StringComparison.OrdinalIgnoreCase);
+        return isActive
+            ? "px-2 py-1 rounded-md bg-primary text-[#111816]"
+            : "px-2 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:text-primary";
+    }
+
+    private async Task SetLanguageAsync(string language)
+    {
+        await LocaleService.SetLanguageAsync(language, JSRuntime);
+    }
+
+    public void Dispose()
+    {
+        LocaleService.OnChange -= HandleChange;
+    }
+}

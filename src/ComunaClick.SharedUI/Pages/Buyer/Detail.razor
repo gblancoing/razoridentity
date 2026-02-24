@@ -1,0 +1,125 @@
+@page "/buyer/detail"
+@page "/buyer/detail/{Type}/{Id:guid}"
+@layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@implements IDisposable
+
+<PageTitle>@L.T("buyer.detail.title")</PageTitle>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+        <h1 class="text-2xl font-bold">@_title</h1>
+        <p class="text-sm text-[#61897c] mt-2">@_subtitle</p>
+        <div class="mt-6 h-48 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center text-sm text-[#61897c]">
+            @_statusMessage
+        </div>
+        <div class="mt-6 space-y-3 text-sm">
+            <p>@_detailLine1</p>
+            <p>@_detailLine2</p>
+        </div>
+    </div>
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+        <h2 class="text-lg font-bold">@L.T("buyer.detail.cta.title")</h2>
+        <p class="text-sm text-[#61897c] mt-2">@L.T("buyer.detail.cta.subtitle")</p>
+        <div class="mt-4 space-y-3">
+            <button class="w-full bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold">@L.T("buyer.detail.cta.checkout")</button>
+            <button class="w-full border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold">@L.T("buyer.detail.cta.booking")</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Type { get; set; }
+    [Parameter] public Guid? Id { get; set; }
+
+    private string _title = "Detalle";
+    private string _subtitle = string.Empty;
+    private string _detailLine1 = string.Empty;
+    private string _detailLine2 = string.Empty;
+    private string _statusMessage = "—";
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _title = L.T("buyer.detail.heading");
+        _subtitle = L.T("buyer.detail.subtitle");
+        _detailLine1 = L.T("buyer.detail.info1");
+        _detailLine2 = L.T("buyer.detail.info2");
+
+        if (Id is null || string.IsNullOrWhiteSpace(Type))
+        {
+            _statusMessage = "Selecciona un elemento para ver detalle.";
+            return;
+        }
+
+        _statusMessage = "Cargando...";
+        var type = Type.Trim().ToLowerInvariant();
+
+        try
+        {
+            switch (type)
+            {
+                case "product":
+                    var product = await BuyerApi.GetProductAsync(Id.Value);
+                    if (product is not null)
+                    {
+                        _title = product.Name ?? _title;
+                        _detailLine1 = product.Description ?? _detailLine1;
+                        _detailLine2 = product.Category ?? _detailLine2;
+                    }
+                    break;
+                case "service":
+                    var service = await BuyerApi.GetServiceAsync(Id.Value);
+                    if (service is not null)
+                    {
+                        _title = service.Name ?? _title;
+                        _detailLine1 = service.Description ?? _detailLine1;
+                        _detailLine2 = service.Category ?? _detailLine2;
+                    }
+                    break;
+                case "partner":
+                    var partner = await BuyerApi.GetPartnerAsync(Id.Value);
+                    if (partner is not null)
+                    {
+                        _title = partner.Name ?? _title;
+                        _detailLine1 = partner.Address ?? _detailLine1;
+                        _detailLine2 = partner.Phone ?? _detailLine2;
+                    }
+                    break;
+                case "professional":
+                    var professional = await BuyerApi.GetProfessionalAsync(Id.Value);
+                    if (professional is not null)
+                    {
+                        _title = professional.Name ?? _title;
+                        _detailLine1 = professional.Specialty ?? _detailLine1;
+                        _detailLine2 = professional.Bio ?? _detailLine2;
+                    }
+                    break;
+                default:
+                    _statusMessage = "Tipo no soportado.";
+                    return;
+            }
+
+            _statusMessage = L.T("buyer.detail.media");
+        }
+        catch
+        {
+            _statusMessage = "Error al cargar.";
+        }
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

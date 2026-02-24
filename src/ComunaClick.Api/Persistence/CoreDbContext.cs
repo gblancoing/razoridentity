@@ -1,0 +1,363 @@
+using ComunaClick.Api.Persistence.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace ComunaClick.Api.Persistence;
+
+public sealed class CoreDbContext : DbContext
+{
+    private readonly ITenantContext _tenantContext;
+
+    public CoreDbContext(DbContextOptions<CoreDbContext> options, ITenantContext tenantContext) : base(options)
+    {
+        _tenantContext = tenantContext;
+    }
+
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<Region> Regions => Set<Region>();
+    public DbSet<Comuna> Comunas => Set<Comuna>();
+    public DbSet<Partner> Partners => Set<Partner>();
+    public DbSet<PartnerStaff> PartnerStaff => Set<PartnerStaff>();
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductInventory> ProductInventories => Set<ProductInventory>();
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<CustomerPartnerLink> CustomerPartnerLinks => Set<CustomerPartnerLink>();
+    public DbSet<Interaction> Interactions => Set<Interaction>();
+    public DbSet<Professional> Professionals => Set<Professional>();
+    public DbSet<Service> Services => Set<Service>();
+    public DbSet<ServiceSlot> ServiceSlots => Set<ServiceSlot>();
+    public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
+    public DbSet<PayoutBatch> PayoutBatches => Set<PayoutBatch>();
+    public DbSet<PayoutItem> PayoutItems => Set<PayoutItem>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasDefaultSchema("core");
+
+        var tenantId = _tenantContext.TenantId;
+        modelBuilder.Entity<Tenant>().HasQueryFilter(x => !tenantId.HasValue || x.Id == tenantId.Value);
+        modelBuilder.Entity<Partner>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<PartnerStaff>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<SubscriptionPlan>().HasQueryFilter(x =>
+            !tenantId.HasValue || x.TenantId == tenantId.Value || x.TenantId == null);
+        modelBuilder.Entity<Subscription>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Order>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<OrderItem>().HasQueryFilter(x => !tenantId.HasValue || x.Order.TenantId == tenantId.Value);
+        modelBuilder.Entity<Product>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<ProductInventory>().HasQueryFilter(x => !tenantId.HasValue || x.Product.TenantId == tenantId.Value);
+        modelBuilder.Entity<Customer>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<CustomerPartnerLink>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Interaction>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Professional>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Service>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<ServiceSlot>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Lead>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Booking>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Payment>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<PaymentEvent>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<PayoutBatch>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<PayoutItem>().HasQueryFilter(x => !tenantId.HasValue || x.Batch.TenantId == tenantId.Value);
+
+        modelBuilder.Entity<Tenant>(entity =>
+        {
+            entity.ToTable("tenants");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.Timezone).HasDefaultValue("America/Santiago");
+            entity.Property(x => x.ConfigJson).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.Name).IsUnique();
+            entity.HasIndex(x => x.ComunaId).IsUnique();
+            entity.HasOne(x => x.Comuna).WithMany(x => x.Tenants).HasForeignKey(x => x.ComunaId);
+        });
+
+        modelBuilder.Entity<Country>(entity =>
+        {
+            entity.ToTable("countries");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Code).IsRequired();
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<Region>(entity =>
+        {
+            entity.ToTable("regions");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Code).IsRequired();
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.CountryId);
+            entity.HasIndex(x => x.LegacyRegionId)
+                .HasFilter("legacy_region_id IS NOT NULL");
+            entity.HasOne(x => x.Country).WithMany(x => x.Regions).HasForeignKey(x => x.CountryId);
+        });
+
+        modelBuilder.Entity<Comuna>(entity =>
+        {
+            entity.ToTable("comunas");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Code).IsRequired();
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Latitude).HasColumnType("numeric(9,6)");
+            entity.Property(x => x.Longitude).HasColumnType("numeric(9,6)");
+            entity.HasIndex(x => x.RegionId);
+            entity.HasIndex(x => x.LegacyComunaId)
+                .HasFilter("legacy_comuna_id IS NOT NULL");
+            entity.HasOne(x => x.Region).WithMany(x => x.Comunas).HasForeignKey(x => x.RegionId);
+        });
+
+        modelBuilder.Entity<Partner>(entity =>
+        {
+            entity.ToTable("partners");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.Type).HasColumnType("char(1)").IsRequired();
+            entity.Property(x => x.IsVisible).HasDefaultValue(false);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            entity.HasOne(x => x.Tenant).WithMany(x => x.Partners).HasForeignKey(x => x.TenantId);
+        });
+
+        modelBuilder.Entity<PartnerStaff>(entity =>
+        {
+            entity.ToTable("partner_staff");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Role).HasDefaultValue("staff");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.PartnerId, x.UserId }).IsUnique();
+        });
+
+        modelBuilder.Entity<SubscriptionPlan>(entity =>
+        {
+            entity.ToTable("subscription_plans");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Code).IsRequired();
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.MonthlyPrice).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasDefaultValue("CLP");
+            entity.Property(x => x.CommissionPct).HasColumnType("numeric(6,3)");
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<Subscription>(entity =>
+        {
+            entity.ToTable("subscriptions");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.CurrentPeriodStart).HasDefaultValueSql("now()");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.ToTable("orders");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.Subtotal).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.DeliveryFee).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.TotalAmount).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasDefaultValue("CLP");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.HasMany(x => x.Items).WithOne(x => x.Order).HasForeignKey(x => x.OrderId);
+        });
+
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.ToTable("order_items");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Quantity).IsRequired();
+            entity.Property(x => x.UnitPrice).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.TotalPrice).HasColumnType("numeric(14,2)");
+        });
+
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.ToTable("products");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.Price).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasDefaultValue("CLP");
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<ProductInventory>(entity =>
+        {
+            entity.ToTable("product_inventory");
+            entity.HasKey(x => x.ProductId);
+            entity.Property(x => x.Quantity).HasDefaultValue(0);
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.HasOne(x => x.Product).WithOne(x => x.Inventory).HasForeignKey<ProductInventory>(x => x.ProductId);
+        });
+
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.ToTable("customers");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+        });
+
+        modelBuilder.Entity<CustomerPartnerLink>(entity =>
+        {
+            entity.ToTable("customer_partner_links");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.FirstSeenAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.LastSeenAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.CustomerId, x.PartnerId }).IsUnique();
+        });
+
+        modelBuilder.Entity<Interaction>(entity =>
+        {
+            entity.ToTable("interactions");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Type).IsRequired();
+            entity.Property(x => x.Payload).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<Professional>(entity =>
+        {
+            entity.ToTable("professionals");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.IsVerified).HasDefaultValue(false);
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<Service>(entity =>
+        {
+            entity.ToTable("services");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Name).IsRequired();
+            entity.Property(x => x.Price).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasDefaultValue("CLP");
+            entity.Property(x => x.DurationMinutes).HasDefaultValue(30);
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<ServiceSlot>(entity =>
+        {
+            entity.ToTable("service_slots");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Capacity).HasDefaultValue(1);
+            entity.Property(x => x.IsAvailable).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.ServiceId, x.StartAt }).IsUnique();
+        });
+
+        modelBuilder.Entity<Lead>(entity =>
+        {
+            entity.ToTable("leads");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<Booking>(entity =>
+        {
+            entity.ToTable("bookings");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.Amount).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasDefaultValue("CLP");
+            entity.Property(x => x.CancellationPolicy).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.ToTable("payments");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Provider).HasDefaultValue("transbank");
+            entity.Property(x => x.Currency).HasDefaultValue("CLP");
+            entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.Amount).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.TenantId, x.Provider, x.ExternalReference }).IsUnique();
+        });
+
+        modelBuilder.Entity<PaymentEvent>(entity =>
+        {
+            entity.ToTable("payment_events");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Payload).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.ReceivedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.TenantId, x.ProviderEventId }).IsUnique();
+        });
+
+        modelBuilder.Entity<PayoutBatch>(entity =>
+        {
+            entity.ToTable("payout_batches");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.PeriodStart).HasColumnType("date");
+            entity.Property(x => x.PeriodEnd).HasColumnType("date");
+        });
+
+        modelBuilder.Entity<PayoutItem>(entity =>
+        {
+            entity.ToTable("payout_items");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.GrossAmount).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.CommissionAmount).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.SubscriptionDeduction).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.NetAmount).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasDefaultValue("CLP");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.BatchId, x.PartnerId }).IsUnique();
+            entity.HasOne(x => x.Batch).WithMany(x => x.Items).HasForeignKey(x => x.BatchId);
+        });
+    }
+}

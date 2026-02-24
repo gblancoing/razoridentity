@@ -1,0 +1,81 @@
+@page "/partner/notifications"
+@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@implements IDisposable
+
+<PageTitle>@L.T("partner.notifications.title")</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">@L.T("partner.notifications.heading")</h1>
+            <p class="text-sm text-[#61897c]">@L.T("partner.notifications.subtitle")</p>
+        </div>
+        <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("partner.notifications.primaryAction")</button>
+    </div>
+
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-800">
+        @if (_isLoading)
+        {
+            <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="p-6 text-sm text-[#61897c]">@_statusMessage</div>
+        }
+        else
+        {
+            @foreach (var note in _items)
+            {
+                <div class="p-4 flex items-start gap-3">
+                    <span class="material-symbols-outlined text-primary">notifications</span>
+                    <div>
+                        <p class="font-semibold">@note.Type</p>
+                        <p class="text-sm text-[#61897c]">@note.Payload</p>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private readonly List<ComunaClick.Shared.Api.Partner.Notification> _items = new();
+    private string _statusMessage = "Sin notificaciones.";
+    private bool _isLoading;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        if (!AuthState.IsAuthenticated || AuthState.PartnerId is null)
+        {
+            _statusMessage = L.T("partner.status.loginRequired");
+            _isLoading = false;
+            return;
+        }
+
+        var notes = await PartnerApi.GetPartnerNotificationsAsync(AuthState.PartnerId.Value);
+        if (notes is not null)
+        {
+            _items.AddRange(notes);
+        }
+        _isLoading = false;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

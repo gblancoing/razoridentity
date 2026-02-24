@@ -1,0 +1,45 @@
+{
+  "Files": [
+    {
+      "Id": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/obj/Debug/net8.0/scopedcss/projectbundle/ComunaClick.SharedUI.bundle.scp.css",
+      "PackagePath": "staticwebassets/ComunaClick.SharedUI.x63rxwz20f.bundle.scp.css"
+    },
+    {
+      "Id": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/wwwroot/app.js",
+      "PackagePath": "staticwebassets/app.js"
+    },
+    {
+      "Id": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/wwwroot/background.png",
+      "PackagePath": "staticwebassets/background.png"
+    },
+    {
+      "Id": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/wwwroot/exampleJsInterop.js",
+      "PackagePath": "staticwebassets/exampleJsInterop.js"
+    },
+    {
+      "Id": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/wwwroot/logo-largo.png",
+      "PackagePath": "staticwebassets/logo-largo.png"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.ComunaClick.SharedUI.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.ComunaClick.SharedUI.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.ComunaClick.SharedUI.props",
+      "PackagePath": "build\\ComunaClick.SharedUI.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.ComunaClick.SharedUI.props",
+      "PackagePath": "buildMultiTargeting\\ComunaClick.SharedUI.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.ComunaClick.SharedUI.props",
+      "PackagePath": "buildTransitive\\ComunaClick.SharedUI.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

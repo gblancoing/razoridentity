@@ -1,0 +1,11 @@
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/bin/Debug/net8.0/Payments.Common.deps.json
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/bin/Debug/net8.0/Payments.Common.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/bin/Debug/net8.0/Payments.Common.pdb
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/Payments.Common.GeneratedMSBuildEditorConfig.editorconfig
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/Payments.Common.AssemblyInfoInputs.cache
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/Payments.Common.AssemblyInfo.cs
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/Payments.Common.csproj.CoreCompileInputs.cache
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/Payments.Common.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/refint/Payments.Common.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/Payments.Common.pdb
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/Payments.Common/obj/Debug/net8.0/ref/Payments.Common.dll

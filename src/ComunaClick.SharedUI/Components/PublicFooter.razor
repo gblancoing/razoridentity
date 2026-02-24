@@ -1,0 +1,63 @@
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@implements IDisposable
+
+<footer class="bg-white dark:bg-background-dark border-t border-gray-200 dark:border-gray-800 pt-12 pb-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div>
+                <a class="font-bold mb-4 inline-block hover:text-primary" href="/discover">@L.T("home.footer.discover")</a>
+                <ul class="flex flex-col gap-2 text-sm text-gray-500">
+                    <li><a class="hover:text-primary" href="/services-near">@L.T("home.footer.servicesNear")</a></li>
+                    <li><a class="hover:text-primary" href="/top-rated">@L.T("home.footer.topRated")</a></li>
+                    <li><a class="hover:text-primary" href="/new-businesses">@L.T("home.footer.newBusinesses")</a></li>
+                </ul>
+            </div>
+            <div>
+                <a class="font-bold mb-4 inline-block hover:text-primary" href="/for-businesses">@L.T("home.footer.forBusinesses")</a>
+                <ul class="flex flex-col gap-2 text-sm text-gray-500">
+                    <li><a class="hover:text-primary" href="/add-business">@L.T("home.footer.addBusiness")</a></li>
+                    <li><a class="hover:text-primary" href="/advertising">@L.T("home.footer.ads")</a></li>
+                    <li><a class="hover:text-primary" href="/business-tools">@L.T("home.footer.tools")</a></li>
+                </ul>
+            </div>
+            <div>
+                <a class="font-bold mb-4 inline-block hover:text-primary" href="/support">@L.T("home.footer.support")</a>
+                <ul class="flex flex-col gap-2 text-sm text-gray-500">
+                    <li><a class="hover:text-primary" href="/help">@L.T("home.footer.help")</a></li>
+                    <li><a class="hover:text-primary" href="/privacy">@L.T("home.footer.privacy")</a></li>
+                    <li><a class="hover:text-primary" href="/terms">@L.T("home.footer.terms")</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold mb-4">@L.T("home.footer.follow")</h4>
+                <div class="flex gap-4">
+                    <span class="material-symbols-outlined text-gray-400 hover:text-primary cursor-pointer">social_leaderboard</span>
+                    <span class="material-symbols-outlined text-gray-400 hover:text-primary cursor-pointer">share</span>
+                </div>
+            </div>
+        </div>
+        <div class="border-t border-gray-100 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2">
+                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-16 w-auto" />
+            </div>
+            <p class="text-sm text-gray-500">@L.T("home.footer.copy")</p>
+        </div>
+    </div>
+</footer>
+
+@code {
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

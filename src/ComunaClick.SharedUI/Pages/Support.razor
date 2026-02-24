@@ -1,0 +1,146 @@
+@page "/support"
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApiClient
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+
+<PageTitle>@L.T("page.support.title")</PageTitle>
+<PublicNav />
+
+<main class="max-w-5xl mx-auto px-4 py-10">
+    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-8 md:p-12 shadow-sm">
+        @if (L.Language == "en")
+        {
+            <p class="text-sm uppercase tracking-[0.2em] text-primary font-bold">Support</p>
+            <h1 class="text-3xl md:text-4xl font-black text-[#111816] dark:text-white">Contact support</h1>
+            <p class="text-[#61897c] text-base md:text-lg max-w-2xl">Tell us what you need and we’ll get back to you.</p>
+        }
+        else
+        {
+            <p class="text-sm uppercase tracking-[0.2em] text-primary font-bold">Soporte</p>
+            <h1 class="text-3xl md:text-4xl font-black text-[#111816] dark:text-white">Contactar soporte</h1>
+            <p class="text-[#61897c] text-base md:text-lg max-w-2xl">Cuéntanos tu necesidad y te responderemos.</p>
+        }
+
+        <form class="mt-8 grid gap-6 max-w-3xl" @onsubmit="HandleSubmit" @onsubmit:preventDefault="true">
+            @if (!string.IsNullOrWhiteSpace(_statusMessage))
+            {
+                <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
+            }
+            <div class="grid md:grid-cols-2 gap-4">
+                <label class="flex flex-col gap-2 text-sm font-medium text-[#111816] dark:text-white">
+                    @(L.Language == "en" ? "Name" : "Nombre")
+                    <input class="h-12 rounded-lg border border-[#dbe6e2] dark:border-[#2d4a41] dark:bg-[#10221c] px-4 text-[#111816] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary" placeholder="@(L.Language == "en" ? "Your name" : "Tu nombre")" @bind="_model.Name" />
+                </label>
+                <label class="flex flex-col gap-2 text-sm font-medium text-[#111816] dark:text-white">
+                    Email
+                    <input type="email" class="h-12 rounded-lg border border-[#dbe6e2] dark:border-[#2d4a41] dark:bg-[#10221c] px-4 text-[#111816] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary" placeholder="tu@correo.com" @bind="_model.Email" />
+                </label>
+            </div>
+
+            <label class="flex flex-col gap-2 text-sm font-medium text-[#111816] dark:text-white">
+                @(L.Language == "en" ? "Topic" : "Tema")
+                <select class="h-12 rounded-lg border border-[#dbe6e2] dark:border-[#2d4a41] dark:bg-[#10221c] px-4 text-[#111816] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary" @bind="_model.Topic">
+                    <option value="">@(L.Language == "en" ? "Select a topic" : "Selecciona un tema")</option>
+                    <option>@(L.Language == "en" ? "Orders or bookings" : "Pedidos o reservas")</option>
+                    <option>@(L.Language == "en" ? "Payments and refunds" : "Pagos y reembolsos")</option>
+                    <option>@(L.Language == "en" ? "Business account" : "Cuenta de negocio")</option>
+                    <option>@(L.Language == "en" ? "Technical issue" : "Problema técnico")</option>
+                </select>
+            </label>
+
+            <label class="flex flex-col gap-2 text-sm font-medium text-[#111816] dark:text-white">
+                @(L.Language == "en" ? "Message" : "Mensaje")
+                <textarea class="min-h-[140px] rounded-lg border border-[#dbe6e2] dark:border-[#2d4a41] dark:bg-[#10221c] px-4 py-3 text-[#111816] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary" placeholder="@(L.Language == "en" ? "Describe your issue" : "Describe tu solicitud")" @bind="_model.Message"></textarea>
+            </label>
+
+            <div class="flex flex-wrap gap-3">
+                <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm shadow-lg shadow-primary/20" disabled="@_submitting">
+                    @(_submitting ? (L.Language == "en" ? "Sending..." : "Enviando...") : (L.Language == "en" ? "Send message" : "Enviar mensaje"))
+                </button>
+                <a class="text-sm font-semibold text-[#111816] dark:text-white border border-gray-200 dark:border-gray-800 px-6 py-3 rounded-lg" href="/">
+                    @(L.Language == "en" ? "Back to home" : "Volver al inicio")
+                </a>
+            </div>
+        </form>
+    </div>
+</main>
+
+<PublicFooter />
+
+@code {
+    private SupportFormModel _model = new();
+    private string? _statusMessage;
+    private string _statusLevel = "info";
+    private bool _submitting;
+
+    private async Task HandleSubmit()
+    {
+        _statusMessage = null;
+        if (string.IsNullOrWhiteSpace(_model.Email) || string.IsNullOrWhiteSpace(_model.Message))
+        {
+            _statusLevel = "warning";
+            _statusMessage = L.Language == "en"
+                ? "Email and message are required."
+                : "Correo y mensaje son obligatorios.";
+            return;
+        }
+
+        _submitting = true;
+        try
+        {
+            var tenantId = AuthState.TenantId;
+            if (!tenantId.HasValue && ApiOptions.Value.DefaultTenantId.HasValue)
+            {
+                tenantId = ApiOptions.Value.DefaultTenantId.Value;
+            }
+
+            if (!tenantId.HasValue)
+            {
+                _statusLevel = "warning";
+                _statusMessage = L.Language == "en"
+                    ? "TenantId is required. Please select your community."
+                    : "Se requiere TenantId. Selecciona tu comuna.";
+                return;
+            }
+
+            var request = new SupportTicketRequest
+            {
+                CustomerId = _model.CustomerId,
+                PartnerId = _model.PartnerId,
+                Email = _model.Email,
+                Name = _model.Name,
+                Topic = _model.Topic,
+                Message = _model.Message
+            };
+
+            await BuyerApiClient.CreateSupportTicketAsync(request, tenantId);
+            _statusLevel = "success";
+            _statusMessage = L.Language == "en"
+                ? "Your message was sent. We will contact you soon."
+                : "Tu mensaje fue enviado. Te contactaremos pronto.";
+            _model = new SupportFormModel { Email = _model.Email, Name = _model.Name };
+        }
+        catch
+        {
+            _statusLevel = "error";
+            _statusMessage = L.Language == "en"
+                ? "We could not send your message. Try again."
+                : "No pudimos enviar tu mensaje. Intenta nuevamente.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private sealed class SupportFormModel
+    {
+        public Guid? CustomerId { get; set; }
+        public Guid? PartnerId { get; set; }
+        public string? Email { get; set; }
+        public string? Name { get; set; }
+        public string? Topic { get; set; }
+        public string? Message { get; set; }
+    }
+}

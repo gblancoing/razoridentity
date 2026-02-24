@@ -1,0 +1,14 @@
+﻿<ComunaClick.SharedUI.Components.LanguageInitializer />
+
+<Router AppAssembly="@typeof(ComunaClick.SharedUI.Pages.Home).Assembly"
+        AdditionalAssemblies="new[] { typeof(Main).Assembly }">
+	<Found Context="routeData">
+		<RouteView RouteData="@routeData" DefaultLayout="@typeof(ComunaClick.Mobile.Shared.MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+	</Found>
+	<NotFound>
+		<LayoutView Layout="@typeof(ComunaClick.Mobile.Shared.MainLayout)">
+			<ComunaClick.SharedUI.Pages.NotFound />
+		</LayoutView>
+	</NotFound>
+</Router>

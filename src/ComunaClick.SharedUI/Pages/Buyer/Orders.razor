@@ -1,0 +1,94 @@
+@page "/buyer/orders"
+@layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@implements IDisposable
+@using BuyerOrder = ComunaClick.Shared.Api.Buyer.Order
+@using BuyerBooking = ComunaClick.Shared.Api.Buyer.Booking
+
+<PageTitle>@L.T("buyer.orders.title")</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div>
+        <h1 class="text-2xl font-bold">@L.T("buyer.orders.heading")</h1>
+        <p class="text-sm text-[#61897c]">@L.T("buyer.orders.subtitle")</p>
+    </div>
+
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="OrderId" @bind="OrderId" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="BookingId" @bind="BookingId" />
+        </div>
+        <button class="mt-4 bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold" @onclick="HandleLookup">
+            Consultar
+        </button>
+        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+        @if (_order is not null)
+        {
+            <div class="mt-4 text-sm">
+                <p class="font-semibold">Orden: @_order.Id</p>
+                <p class="text-[#61897c]">@_order.Status</p>
+            </div>
+        }
+        @if (_booking is not null)
+        {
+            <div class="mt-4 text-sm">
+                <p class="font-semibold">Reserva: @_booking.Id</p>
+                <p class="text-[#61897c]">@_booking.Status</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _statusMessage = "—";
+    private string _statusLevel = "info";
+    private string OrderId = string.Empty;
+    private string BookingId = string.Empty;
+    private BuyerOrder? _order;
+    private BuyerBooking? _booking;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private async Task HandleLookup()
+    {
+        _statusMessage = string.Empty;
+        _statusLevel = "info";
+        _order = null;
+        _booking = null;
+
+        if (Guid.TryParse(OrderId, out var orderId))
+        {
+            _order = await BuyerApi.GetOrderAsync(orderId);
+        }
+
+        if (Guid.TryParse(BookingId, out var bookingId))
+        {
+            _booking = await BuyerApi.GetBookingAsync(bookingId);
+        }
+
+        if (_order is null && _booking is null)
+        {
+            _statusMessage = L.T("buyer.status.lookupInvalid");
+            _statusLevel = "warning";
+        }
+        else
+        {
+            _statusMessage = L.T("buyer.status.lookupOk");
+            _statusLevel = "success";
+        }
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

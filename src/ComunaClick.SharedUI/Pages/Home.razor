@@ -1,0 +1,195 @@
+﻿@page "/"
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@implements IDisposable
+
+<PageTitle>@L.T("home.title")</PageTitle>
+
+<PublicNav />
+<!-- Hero Section -->
+<div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="@@container">
+        <div class="flex min-h-[400px] flex-col gap-6 bg-cover bg-center bg-no-repeat rounded-xl items-center justify-center p-8" data-alt="Modern neighborhood with local shops and people" style='background-image: linear-gradient(rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuA8qTjofVsHUTaIz6zpfMJR8x0zqDwyCR1X3wsEf3aJUtL0KpwNDxIXUoJJ0ofkLSUq_mbwkUWZ7kasDeZR05uz73_0zfGryx08sJiBfHwYhRGyVoZvMf1w0ekRMJLAEIaMjVlvgMj9rELmo_MOuEODV_zRpQXS6hVEn2weUS6ZhVCm5mn3fnq1MlsQ9VEIqXDl7NLLw-_Fyty1tKoHskoKZrpD4BsNCq6KcQi5RumDDY6TPybhQsAdcvRzdhW3rDaL9A_NepT1jV0");'>
+            <div class="flex flex-col gap-2 text-center max-w-2xl">
+                <h1 class="text-white text-4xl font-black leading-tight tracking-[-0.033em] @@[480px]:text-6xl">
+                    @L.T("home.hero.title")
+                </h1>
+                <h2 class="text-white/90 text-lg font-normal">
+                    @L.T("home.hero.subtitle")
+                </h2>
+            </div>
+            <label class="flex flex-col min-w-40 h-14 w-full max-w-[600px] @@[480px]:h-16 mt-4">
+                <div class="flex w-full flex-1 items-stretch rounded-lg h-full shadow-xl">
+                    <div class="text-[#61897c] flex border border-white bg-white items-center justify-center pl-[20px] rounded-l-lg border-r-0">
+                        <span class="material-symbols-outlined">search</span>
+                    </div>
+                    <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#111816] focus:outline-0 focus:ring-0 border border-white bg-white focus:border-white h-full placeholder:text-[#61897c] px-[15px] rounded-r-none border-r-0 pr-2 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal" placeholder="@L.T("home.search.placeholder")" />
+                    <div class="flex items-center justify-center rounded-r-lg border-l-0 border border-white bg-white pr-[10px]">
+                        <button class="flex min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-6 @@[480px]:h-12 bg-primary text-[#111816] font-bold text-base transition-transform active:scale-95">
+                            <span>@L.T("home.search.button")</span>
+                        </button>
+                    </div>
+                </div>
+            </label>
+        </div>
+    </div>
+</div>
+<!-- Main Content Layout -->
+<main class="max-w-7xl mx-auto px-4 pb-12">
+    <div class="flex flex-col lg:flex-row gap-8">
+        <!-- Left: Main Content -->
+        <div class="flex-1">
+            <!-- Categories Grid -->
+            <section>
+                <div class="flex items-center justify-between px-2 mb-4">
+                    <h2 class="text-[#111816] dark:text-white text-2xl font-bold">@L.T("home.categories.title")</h2>
+                    <a class="text-primary font-bold text-sm" href="#">@L.T("home.categories.viewAll")</a>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Professional handyman fixing a wooden door" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuDiKCN2SzwpGwQ-8f_etrmgnw8At3VkYqXFRIXsMLL2rrJElO3KSqqbuwz2sRMNMsW4zjxjNqKqhaqaNiHTTQ9qT0y6vcR9Cmyye8w4xAsM3pktSphpqAiPWb4pkPEbXg_OMQmwnkMLpvOcST-eCNh4_ojAJc9pgZG09Pi-hRdIAwVAO6Jjod8OMo7K4RRuocjcdb4fgXs5ERnySu-QZ8y8jo0exljAuH1Iy14Xjx0eGpkci6emPKINFYnfhluOuYOwOQJ2fcLh1Hw");'>
+                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.handyman")</p>
+                    </div>
+                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Close up of fresh organic vegetables" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuDfuTobRyLOO4X-9NBXn--mQQM75S3NyXdJ8EeaIvhIioOmFWePRk3k0Uqd7Xwe3yLPKj9gLk9eveAZfiKW8X8wjQixxS4pUyXArik6WpNMjX-cy4wnZYKm7GqMQR07hHZegR_XHhLbdLAsnQn2v0TEA5Lbgkfj6Q4ZqKDczcv1dt6PU4RRjVG6equyMus_qoNoJ9NxluiSJkKBUwiUyPB2iVTRoFoVVL-cnvIsUyp-PvM6GKMPVXJrgksr0krEHyUvQhMi59sBWcE");'>
+                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.localFood")</p>
+                    </div>
+                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Modern barbershop interior" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuACUiE-JRIM0b_ZK1RcZWP-DDAiUiLcY9ddIhvODY1H518ZQikrFOwOpUtaSGR5kx-URhHEJzEh8k7Z2zdPRrZjTMU7cUrhfuKAEUrShEww19rWve81jDd0KVfzYFNk9zkrKfHM7zh6ks1RXCKnu3gVZOuiygx7ZpO4zmZGigDBdHWCsJkILSUO4fWSnSGlgpWLncFP52Me5pY9TQ6_cXZNAv5nZu0OvJIqKeHCmD9XCndCQU8R4QtPJGp3mtYeITtJJvbeadx5NA4");'>
+                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.beauty")</p>
+                    </div>
+                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Cleaning supplies and organized home" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuAlHWYY8R7yyrKAUxswNHL64wwbS7mms1sj9U9Bty9Z5Y0vsLT0UgOW0ijK0b4c21gsc9t17mvZT_8FIR1vnj-oyjI8xzdC_Wl7E1M18_YuwvglD1L6_FDg-3ZhMVpRP1Mf4knsWDs7KFM1f4tmRPCZW9FsfjzQg7bkXGe1Xc2oMskw3HYxpyjyyeQfP8vnxww-YPnoqBZD36We3VLGch3ZlFc9-jgXQVaTHK-GFVjY_qaSJPlJe_6XmtWioGyIgXwaiKpLgBrTsJQ");'>
+                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.cleaning")</p>
+                    </div>
+                </div>
+            </section>
+            <!-- Featured Businesses Grid -->
+            <section class="mt-12">
+                <div class="flex items-center justify-between px-2 mb-6">
+                    <h2 class="text-[#111816] dark:text-white text-2xl font-bold">@L.T("home.featured.title")</h2>
+                    <div class="flex gap-2">
+                        <span class="material-symbols-outlined p-2 rounded-full border border-gray-200 dark:border-gray-800 cursor-pointer">chevron_left</span>
+                        <span class="material-symbols-outlined p-2 rounded-full border border-gray-200 dark:border-gray-800 cursor-pointer">chevron_right</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Business Card 1 -->
+                    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div class="h-48 bg-cover bg-center" data-alt="Freshly baked artisan sourdough bread" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAKImQ1YmyxWOKZWsezNlLr0qiq_7KVXKsQChdYFn-TKuPLpwMyoRiwzya8c4A-87JZjkZcj92BhBsaO0fE53DFOC-7Ho0Sgz8Bnc_j0pDqihONenw7eX8WUu3G4LfI-cFfHPOpz3hbS0-PT5IyuAEjfzlDP0lujNhbmSKONux7qYdwIyaqtjxI9rY9O_pdzm49DtNQnFUbGhGoSev2otFvDT5_aPvmN8i0o2DrFUbF5KPlynmaF3eX1aqM--llMwiuX_49DiYjQpE')"></div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-bold">@L.T("home.business1.name")</h3>
+                                <span class="flex items-center text-sm font-bold bg-primary/20 text-primary-dark px-2 py-0.5 rounded">
+                                    <span class="material-symbols-outlined text-sm mr-1" style="font-size: 16px;">star</span> 4.9
+                                </span>
+                            </div>
+                            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">@L.T("home.business1.desc")</p>
+                            <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
+                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">location_on</span> @L.T("home.business1.distance")</span>
+                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> @L.T("home.business1.openUntil")</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Business Card 2 -->
+                    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div class="h-48 bg-cover bg-center" data-alt="Yoga studio with sunlight streaming through windows" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBKHWZz-OyM0z9lGCnsOW7dI-1hJyGHYYgUYDAviS6PrYKt6qqj9jzrNn3aQEf7ydXBdw2EZ_c9VpWCYzK3hBc9mvvAEUTe9l0sJ_BRhmOaG5QE2ocO3JvbdVKBy8rKB6M5z8TR6O57Ax-9JqD7mMOE95k8_5usDgNRd96MBg3qq9RrtZsBL6bNggZWxFaWuV83wpoREi72XULL5ErMCKTpGlL14RTAD5cnGrvOOym9EAxSOTSJlbbnUXx-wwSD_13ghhym5FpmpAM')"></div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-bold">@L.T("home.business2.name")</h3>
+                                <span class="flex items-center text-sm font-bold bg-primary/20 text-primary-dark px-2 py-0.5 rounded">
+                                    <span class="material-symbols-outlined text-sm mr-1" style="font-size: 16px;">star</span> 4.7
+                                </span>
+                            </div>
+                            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">@L.T("home.business2.desc")</p>
+                            <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
+                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">location_on</span> @L.T("home.business2.distance")</span>
+                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> @L.T("home.business2.nextClass")</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <!-- Right Sidebar -->
+        <aside class="w-full lg:w-80 flex flex-col gap-8">
+            <!-- Local News -->
+            <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">newspaper</span>
+                    @L.T("home.news.title")
+                </h3>
+                <div class="flex flex-col gap-4">
+                    <div class="group cursor-pointer border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0">
+                        <p class="text-xs text-primary font-bold mb-1 uppercase tracking-wider">@L.T("home.news1.tag")</p>
+                        <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news1.title")</h4>
+                        <p class="text-xs text-gray-500 mt-1">@L.T("home.news1.time")</p>
+                    </div>
+                    <div class="group cursor-pointer border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0">
+                        <p class="text-xs text-primary font-bold mb-1 uppercase tracking-wider">@L.T("home.news2.tag")</p>
+                        <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news2.title")</h4>
+                        <p class="text-xs text-gray-500 mt-1">@L.T("home.news2.time")</p>
+                    </div>
+                    <div class="group cursor-pointer last:border-0">
+                        <p class="text-xs text-primary font-bold mb-1 uppercase tracking-wider">@L.T("home.news3.tag")</p>
+                        <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news3.title")</h4>
+                        <p class="text-xs text-gray-500 mt-1">@L.T("home.news3.time")</p>
+                    </div>
+                </div>
+                <button class="w-full mt-4 py-2 border border-gray-200 dark:border-gray-800 rounded-lg text-sm font-bold">@L.T("home.news.button")</button>
+            </div>
+            <!-- Upcoming Events -->
+            <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">event</span>
+                    @L.T("home.events.title")
+                </h3>
+                <div class="flex flex-col gap-4">
+                    <div class="flex gap-3 items-center">
+                        <div class="flex flex-col items-center justify-center bg-primary/10 rounded-lg w-12 h-12 shrink-0">
+                            <span class="text-[10px] uppercase font-bold text-primary">Oct</span>
+                            <span class="text-lg font-black leading-none">12</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold">@L.T("home.event1.title")</h4>
+                            <p class="text-xs text-gray-500">@L.T("home.event1.time")</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-center">
+                        <div class="flex flex-col items-center justify-center bg-primary/10 rounded-lg w-12 h-12 shrink-0">
+                            <span class="text-[10px] uppercase font-bold text-primary">Oct</span>
+                            <span class="text-lg font-black leading-none">15</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold">@L.T("home.event2.title")</h4>
+                            <p class="text-xs text-gray-500">@L.T("home.event2.time")</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 items-center">
+                        <div class="flex flex-col items-center justify-center bg-primary/10 rounded-lg w-12 h-12 shrink-0">
+                            <span class="text-[10px] uppercase font-bold text-primary">Oct</span>
+                            <span class="text-lg font-black leading-none">20</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold">@L.T("home.event3.title")</h4>
+                            <p class="text-xs text-gray-500">@L.T("home.event3.time")</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</main>
+<PublicFooter />
+
+@code {
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

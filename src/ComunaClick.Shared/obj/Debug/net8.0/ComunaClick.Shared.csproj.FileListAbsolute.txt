@@ -1,0 +1,11 @@
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/bin/Debug/net8.0/ComunaClick.Shared.deps.json
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/bin/Debug/net8.0/ComunaClick.Shared.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/bin/Debug/net8.0/ComunaClick.Shared.pdb
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.GeneratedMSBuildEditorConfig.editorconfig
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.AssemblyInfoInputs.cache
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.AssemblyInfo.cs
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.csproj.CoreCompileInputs.cache
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/refint/ComunaClick.Shared.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.pdb
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ref/ComunaClick.Shared.dll

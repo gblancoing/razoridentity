@@ -1,0 +1,56 @@
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@implements IDisposable
+
+<main class="max-w-6xl mx-auto px-4 py-10">
+    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-8 md:p-12 shadow-sm">
+        <div class="flex flex-col gap-3">
+            <p class="text-sm uppercase tracking-[0.2em] text-primary font-bold">@L.T($"{KeyPrefix}.eyebrow")</p>
+            <h1 class="text-3xl md:text-4xl font-black text-[#111816] dark:text-white">@L.T($"{KeyPrefix}.title")</h1>
+            <p class="text-[#61897c] text-base md:text-lg max-w-2xl">@L.T($"{KeyPrefix}.subtitle")</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+            <div class="border border-gray-200 dark:border-gray-800 rounded-xl p-6 bg-background-light/50 dark:bg-black/20">
+                <h3 class="font-bold text-[#111816] dark:text-white mb-2">@L.T("page.common.card1.title")</h3>
+                <p class="text-sm text-[#61897c]">@L.T("page.common.card1.body")</p>
+            </div>
+            <div class="border border-gray-200 dark:border-gray-800 rounded-xl p-6 bg-background-light/50 dark:bg-black/20">
+                <h3 class="font-bold text-[#111816] dark:text-white mb-2">@L.T("page.common.card2.title")</h3>
+                <p class="text-sm text-[#61897c]">@L.T("page.common.card2.body")</p>
+            </div>
+            <div class="border border-gray-200 dark:border-gray-800 rounded-xl p-6 bg-background-light/50 dark:bg-black/20">
+                <h3 class="font-bold text-[#111816] dark:text-white mb-2">@L.T("page.common.card3.title")</h3>
+                <p class="text-sm text-[#61897c]">@L.T("page.common.card3.body")</p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mt-10">
+            @if (!string.IsNullOrWhiteSpace(CtaKey) && !string.IsNullOrWhiteSpace(CtaHref))
+            {
+                <a class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm shadow-lg shadow-primary/20" href="@CtaHref">@L.T(CtaKey)</a>
+            }
+            <a class="text-sm font-semibold text-[#111816] dark:text-white border border-gray-200 dark:border-gray-800 px-6 py-3 rounded-lg" href="/">@L.T("page.common.backHome")</a>
+        </div>
+    </div>
+</main>
+
+@code {
+    [Parameter] public string KeyPrefix { get; set; } = string.Empty;
+    [Parameter] public string? CtaKey { get; set; }
+    [Parameter] public string? CtaHref { get; set; }
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

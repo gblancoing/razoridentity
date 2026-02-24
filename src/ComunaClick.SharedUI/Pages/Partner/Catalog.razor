@@ -1,0 +1,97 @@
+@page "/partner/catalog"
+@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@implements IDisposable
+@using PartnerProduct = ComunaClick.Shared.Api.Partner.Product
+
+<PageTitle>@L.T("partner.catalog.title")</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">@L.T("partner.catalog.heading")</h1>
+            <p class="text-sm text-[#61897c]">@L.T("partner.catalog.subtitle")</p>
+        </div>
+        <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("partner.catalog.primaryAction")</button>
+    </div>
+
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <h2 class="font-semibold">@L.T("partner.catalog.table.title")</h2>
+            <span class="text-xs text-[#61897c]">@L.T("partner.catalog.table.count")</span>
+        </div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            @if (_isLoading)
+            {
+            <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+            }
+            else if (_items.Count == 0)
+            {
+                <div class="p-6 text-sm text-[#61897c]">@_statusMessage</div>
+            }
+            else
+            {
+                @foreach (var item in _items)
+                {
+                    <div class="p-4 flex items-center justify-between text-sm">
+                        <div>
+                            <p class="font-semibold">@item.Name</p>
+                            <p class="text-xs text-[#61897c]">@item.Description</p>
+                        </div>
+                        <span class="font-semibold">@($"{item.Price:N0}")</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly List<PartnerProduct> _items = new();
+    private string _statusMessage = "—";
+    private bool _isLoading;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        if (!AuthState.IsAuthenticated)
+        {
+            _statusMessage = L.T("partner.status.loginRequired");
+            _isLoading = false;
+            return;
+        }
+
+        var partnerId = AuthState.PartnerId;
+        if (partnerId is null || partnerId == Guid.Empty)
+        {
+            _statusMessage = L.T("partner.status.noPartner");
+            _isLoading = false;
+            return;
+        }
+
+        var products = await PartnerApi.GetPartnerProductsAsync(partnerId.Value);
+        if (products is not null)
+        {
+            _items.AddRange(products);
+        }
+        _statusMessage = _items.Count == 0 ? L.T("partner.status.noProducts") : string.Empty;
+        _isLoading = false;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

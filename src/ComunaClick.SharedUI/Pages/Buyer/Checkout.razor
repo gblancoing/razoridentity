@@ -1,0 +1,93 @@
+@page "/buyer/checkout"
+@layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@implements IDisposable
+
+<PageTitle>@L.T("buyer.checkout.title")</PageTitle>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+        <h1 class="text-2xl font-bold">@L.T("buyer.checkout.heading")</h1>
+        <p class="text-sm text-[#61897c]">@L.T("buyer.checkout.subtitle")</p>
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="CustomerId" @bind="CustomerId" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ProductId" @bind="ProductId" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" />
+        </div>
+    <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+    </div>
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+        <h2 class="text-lg font-bold">@L.T("buyer.checkout.summary")</h2>
+        <div class="mt-4 space-y-2 text-sm">
+            <div class="flex justify-between">
+                <span>@L.T("buyer.checkout.total")</span>
+                <span class="font-semibold">@_total</span>
+            </div>
+        </div>
+        <button class="w-full mt-6 bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold" @onclick="HandleCheckout">@L.T("buyer.checkout.pay")</button>
+    </div>
+</div>
+
+@code {
+    private string PartnerId = string.Empty;
+    private string CustomerId = string.Empty;
+    private string ProductId = string.Empty;
+    private int Quantity = 1;
+    private double UnitPrice = 0;
+    private string _statusMessage = string.Empty;
+    private string _statusLevel = "info";
+    private string _total = "$0";
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private async Task HandleCheckout()
+    {
+        _statusMessage = string.Empty;
+        _statusLevel = "info";
+
+        if (!Guid.TryParse(PartnerId, out var partnerId) ||
+            !Guid.TryParse(CustomerId, out var customerId) ||
+            !Guid.TryParse(ProductId, out var productId))
+        {
+            _statusMessage = L.T("buyer.status.invalidIds");
+            _statusLevel = "error";
+            return;
+        }
+
+        var request = new OrderCreateRequest(
+            partnerId,
+            customerId,
+            0,
+            "CLP",
+            new List<OrderItemCreateRequest> { new(productId, Quantity, UnitPrice) });
+
+        var order = await BuyerApi.CreateOrderAsync(request);
+        _total = order is null ? "$0" : $"{order.TotalAmount:N0}";
+        if (order is null)
+        {
+            _statusMessage = L.T("buyer.status.orderFailed");
+            _statusLevel = "error";
+        }
+        else
+        {
+            _statusMessage = $"{L.T("buyer.status.orderCreated")} #{order.Id}";
+            _statusLevel = "success";
+        }
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

@@ -1,0 +1,118 @@
+@page "/terms"
+@inject ComunaClick.SharedUI.Services.LocaleService L
+
+<PageTitle>@L.T("page.terms.title")</PageTitle>
+<PublicNav />
+
+<main class="max-w-6xl mx-auto px-4 py-10">
+    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-8 md:p-12 shadow-sm">
+        @if (L.Language == "en")
+        {
+            <p class="text-sm uppercase tracking-[0.2em] text-primary font-bold">Legal</p>
+            <h1 class="text-3xl md:text-4xl font-black text-[#111816] dark:text-white">Terms of Service</h1>
+            <p class="text-[#61897c] text-base md:text-lg max-w-2xl">Last updated: @DateTime.UtcNow.ToString("MMMM dd, yyyy")</p>
+
+            <div class="mt-8 space-y-6 text-sm text-[#61897c]">
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">1. Acceptance</h2>
+                    <p>By using ComunaClic you agree to these Terms. If you do not agree, do not use the service.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">2. Accounts</h2>
+                    <p>You are responsible for maintaining the confidentiality of your credentials and all activity under your account.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">3. Marketplace</h2>
+                    <p>ComunaClic connects customers with independent businesses. Each business is responsible for its products, services, pricing and availability.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">4. Orders and bookings</h2>
+                    <p>Placing an order or booking creates a request with the business. Cancellations depend on the business policy shown at checkout.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">5. Payments</h2>
+                    <p>Payments are processed by third-party providers. You agree to their terms in addition to these Terms.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">6. Reviews and content</h2>
+                    <p>Content must be accurate and respectful. We may remove content that violates policies.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">7. Prohibited use</h2>
+                    <p>You may not misuse the platform, attempt unauthorized access, or violate applicable laws.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">8. Limitation of liability</h2>
+                    <p>ComunaClic is provided “as is”. We are not liable for indirect or consequential damages.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">9. Termination</h2>
+                    <p>We may suspend or terminate accounts for violations or risk to the platform.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">10. Changes</h2>
+                    <p>We may update these Terms. Continued use means you accept the changes.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">11. Contact</h2>
+                    <p>Contact support for questions about these Terms.</p>
+                </section>
+            </div>
+        }
+        else
+        {
+            <p class="text-sm uppercase tracking-[0.2em] text-primary font-bold">Legal</p>
+            <h1 class="text-3xl md:text-4xl font-black text-[#111816] dark:text-white">Términos de servicio</h1>
+            <p class="text-[#61897c] text-base md:text-lg max-w-2xl">Última actualización: @DateTime.UtcNow.ToString("dd MMMM, yyyy")</p>
+
+            <div class="mt-8 space-y-6 text-sm text-[#61897c]">
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">1. Aceptación</h2>
+                    <p>Al usar ComunaClic aceptas estos Términos. Si no estás de acuerdo, no uses el servicio.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">2. Cuentas</h2>
+                    <p>Eres responsable de mantener la confidencialidad de tus credenciales y la actividad de tu cuenta.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">3. Marketplace</h2>
+                    <p>ComunaClic conecta clientes con negocios independientes. Cada negocio es responsable de sus productos, servicios, precios y disponibilidad.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">4. Pedidos y reservas</h2>
+                    <p>Crear un pedido o reserva genera una solicitud al negocio. Las cancelaciones dependen de la política mostrada al finalizar.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">5. Pagos</h2>
+                    <p>Los pagos se procesan por proveedores externos. Aceptas sus términos además de estos Términos.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">6. Reseñas y contenido</h2>
+                    <p>El contenido debe ser veraz y respetuoso. Podemos remover contenido que infrinja políticas.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">7. Uso prohibido</h2>
+                    <p>No puedes usar la plataforma para actividades ilícitas, acceso no autorizado o abuso del sistema.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">8. Limitación de responsabilidad</h2>
+                    <p>ComunaClic se entrega “tal cual”. No somos responsables por daños indirectos o consecuenciales.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">9. Terminación</h2>
+                    <p>Podemos suspender o terminar cuentas por violaciones o riesgo para la plataforma.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">10. Cambios</h2>
+                    <p>Podemos actualizar estos Términos. El uso continuo implica aceptación.</p>
+                </section>
+                <section>
+                    <h2 class="font-bold text-[#111816] dark:text-white mb-2">11. Contacto</h2>
+                    <p>Para dudas sobre estos Términos, contacta a soporte.</p>
+                </section>
+            </div>
+        }
+    </div>
+</main>
+
+<PublicFooter />

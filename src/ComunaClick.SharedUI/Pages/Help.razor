@@ -1,0 +1,202 @@
+@page "/help"
+@inject ComunaClick.SharedUI.Services.LocaleService L
+
+<PageTitle>Centro de Ayuda - ComunaClic</PageTitle>
+
+<nav class="sticky top-0 z-50 bg-white dark:bg-background-dark border-b border-gray-200 dark:border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="/">
+                    <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+                </a>
+                <h1 class="text-lg font-bold tracking-tight">Centro de Ayuda</h1>
+            </div>
+            <div class="hidden md:flex items-center gap-6">
+                <a class="text-sm font-medium hover:text-primary" href="/">Ir al Marketplace</a>
+                <a class="bg-primary text-[#111816] px-4 py-2 rounded-lg text-sm font-bold" href="/login">Mi Cuenta</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main>
+    <div class="@@container">
+        <div class="p-0">
+            <div class="flex min-h-[400px] flex-col gap-6 bg-cover bg-center bg-no-repeat items-center justify-center p-6" data-alt="Modern community illustration with local market vibes" style='background-image: linear-gradient(rgba(16, 34, 28, 0.7) 0%, rgba(16, 34, 28, 0.9) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuAVO1U2K48PSrz-Ix9F0Y5hI_IKPNWw3dcKkmlvZacDaQBwyMOXtZNXFPFINJCfb9qACTbHMX5AwTW5lZ0cBJMHTQk0A4ooUCwigV8H1c1c3BbwTHiE23fpD3pgoKe8r-PWu-hy_Rtojfn_2vBsolHQkKjXnxLbJKOz0us1nQgT0DhRKzs9188K7cYDf99lFAHTuFJ8RrLzG1Namr-V-vRi2EXDbTXBWuxbUoeRBztjbqdXGxWqdJkQC5iM_Xa0A-XF91slXXlGki4");'>
+                <div class="flex flex-col gap-3 text-center max-w-2xl">
+                    <h1 class="text-white text-3xl font-black leading-tight tracking-tight @@[480px]:text-5xl">
+                        ¿Cómo podemos ayudarte hoy?
+                    </h1>
+                    <p class="text-gray-300 text-base font-normal">
+                        Busca en nuestra base de conocimientos o elige una categoría para empezar.
+                    </p>
+                </div>
+                <label class="flex flex-col min-w-40 h-14 w-full max-w-[600px] @@[480px]:h-16">
+                    <div class="flex w-full flex-1 items-stretch rounded-xl h-full shadow-2xl overflow-hidden">
+                        <div class="text-gray-400 flex bg-white dark:bg-gray-900 items-center justify-center pl-5">
+                            <span class="material-symbols-outlined">search</span>
+                        </div>
+                        <input class="form-input flex w-full min-w-0 flex-1 border-none bg-white dark:bg-gray-900 focus:ring-0 h-full placeholder:text-gray-400 px-4 text-base font-normal" placeholder="Escribe tu pregunta o palabras clave..." value="" />
+                        <div class="flex items-center justify-center bg-white dark:bg-gray-900 pr-2">
+                            <button class="flex min-w-[100px] cursor-pointer items-center justify-center rounded-lg h-10 px-6 bg-primary text-[#111816] text-sm font-bold tracking-wide">
+                                <span>Buscar</span>
+                            </button>
+                        </div>
+                    </div>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-12 lg:flex lg:gap-12">
+        <div class="flex-1">
+            <section>
+                <h2 class="text-[#111816] dark:text-white text-2xl font-bold mb-6">Categorías de soporte</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="text-primary p-2 bg-primary/10 w-fit rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">shopping_bag</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-[#111816] dark:text-white text-lg font-bold">Compras</h3>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Guía para realizar pedidos y pagos seguros en tu zona.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="text-primary p-2 bg-primary/10 w-fit rounded-lg">
+                            <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-[#111816] dark:text-white text-lg font-bold">Ventas</h3>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Gestiona tu catálogo de productos y tus ganancias locales.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="text-primary p-2 bg-primary/10 w-fit rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">local_shipping</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-[#111816] dark:text-white text-lg font-bold">Envíos</h3>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Rastreo de pedidos y logística de entrega de última milla.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="text-primary p-2 bg-primary/10 w-fit rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">handyman</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-[#111816] dark:text-white text-lg font-bold">Servicios</h3>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Contratación de profesionales y gestión de citas.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="text-primary p-2 bg-primary/10 w-fit rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">payments</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-[#111816] dark:text-white text-lg font-bold">Pagos</h3>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Información sobre facturación, reembolsos y wallets.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="text-primary p-2 bg-primary/10 w-fit rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">account_circle</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-[#111816] dark:text-white text-lg font-bold">Mi Cuenta</h3>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Ajustes de perfil, seguridad y preferencias de notificación.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mt-16">
+                <h2 class="text-[#111816] dark:text-white text-2xl font-bold mb-6">Artículos Destacados</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-6 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                        <h4 class="font-bold mb-2">¿Cómo cancelar una compra ya pagada?</h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Aprende los pasos para solicitar un reembolso si el vendedor aún no ha procesado el envío.</p>
+                        <a class="text-primary font-bold text-sm flex items-center gap-1" href="#">Leer más <span class="material-symbols-outlined text-sm">chevron_right</span></a>
+                    </div>
+                    <div class="p-6 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                        <h4 class="font-bold mb-2">Verificación de identidad para vendedores</h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Mantenemos la comunidad segura. Revisa qué documentos necesitas para empezar a vender.</p>
+                        <a class="text-primary font-bold text-sm flex items-center gap-1" href="#">Leer más <span class="material-symbols-outlined text-sm">chevron_right</span></a>
+                    </div>
+                    <div class="p-6 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                        <h4 class="font-bold mb-2">Políticas de garantía en servicios</h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">¿Contrataste a un técnico y algo salió mal? Conoce cómo funciona nuestra protección.</p>
+                        <a class="text-primary font-bold text-sm flex items-center gap-1" href="#">Leer más <span class="material-symbols-outlined text-sm">chevron_right</span></a>
+                    </div>
+                    <div class="p-6 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                        <h4 class="font-bold mb-2">Configuración de zonas de entrega</h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Optimiza tus ventas definiendo los barrios y horarios en los que puedes entregar.</p>
+                        <a class="text-primary font-bold text-sm flex items-center gap-1" href="#">Leer más <span class="material-symbols-outlined text-sm">chevron_right</span></a>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <aside class="w-full lg:w-80 mt-12 lg:mt-0">
+            <div class="sticky top-24 flex flex-col gap-6">
+                <div class="p-6 rounded-xl bg-primary/10 border border-primary/20">
+                    <h3 class="text-[#111816] dark:text-white font-bold mb-4">Soporte Directo</h3>
+                    <div class="flex flex-col gap-4">
+                        <div class="flex items-center gap-4 group cursor-pointer">
+                            <div class="bg-primary text-[#111816] p-2 rounded-lg">
+                                <span class="material-symbols-outlined">forum</span>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm">Chat en Vivo</p>
+                                <p class="text-xs text-gray-500">Tiempo de espera: 5 min</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 group cursor-pointer">
+                            <div class="bg-primary text-[#111816] p-2 rounded-lg">
+                                <span class="material-symbols-outlined">mail</span>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm">Envíanos un Email</p>
+                                <p class="text-xs text-gray-500">Respuesta en 24h</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 group cursor-pointer">
+                            <div class="bg-primary text-[#111816] p-2 rounded-lg">
+                                <span class="material-symbols-outlined">call</span>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm">Soporte Telefónico</p>
+                                <p class="text-xs text-gray-500">Lun-Vie, 9am - 6pm</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                    <h3 class="text-[#111816] dark:text-white font-bold mb-3">¿No encuentras lo que buscas?</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Estamos aquí para ayudarte con cualquier duda técnica o comercial.</p>
+                    <a class="w-full border-2 border-primary text-[#111816] dark:text-primary font-bold py-2 rounded-lg hover:bg-primary/5 transition-colors inline-flex items-center justify-center" href="/support">Abrir un Ticket</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+</main>
+
+<footer class="mt-16 bg-white dark:bg-background-dark border-t border-gray-200 dark:border-gray-800 py-12">
+    <div class="max-w-7xl mx-auto px-4 text-center sm:text-left">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-2">
+                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-16 w-auto" />
+            </div>
+            <div class="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-500">
+                <a class="hover:text-primary" href="/terms">Términos de Servicio</a>
+                <a class="hover:text-primary" href="/privacy">Política de Privacidad</a>
+                <a class="hover:text-primary" href="/help">Centro de Ayuda</a>
+                <a class="hover:text-primary" href="/support">Contacto</a>
+            </div>
+        </div>
+        <div class="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800 text-sm text-gray-400 text-center">
+            © 2024 ComunaClic. Todos los derechos reservados.
+        </div>
+    </div>
+</footer>

@@ -1,0 +1,38 @@
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@implements IDisposable
+
+<nav class="sticky top-0 z-50 bg-white dark:bg-background-dark border-b border-gray-200 dark:border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <a class="flex items-center gap-3" href="/">
+                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+            </a>
+            <div class="hidden md:flex items-center gap-4">
+                <LanguageToggle />
+                <a class="text-sm font-medium hover:text-primary transition-colors" href="/help">@L.T("nav.help")</a>
+                <a class="text-sm font-medium hover:text-primary transition-colors" href="/register">@L.T("nav.register")</a>
+                <a class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm" href="/login">@L.T("nav.login")</a>
+            </div>
+            <div class="md:hidden">
+                <span class="material-symbols-outlined">menu</span>
+            </div>
+        </div>
+    </div>
+</nav>
+
+@code {
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

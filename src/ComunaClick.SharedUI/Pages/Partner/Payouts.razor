@@ -1,0 +1,96 @@
+@page "/partner/payouts"
+@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@implements IDisposable
+
+<PageTitle>@L.T("partner.payouts.title")</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">@L.T("partner.payouts.heading")</h1>
+            <p class="text-sm text-[#61897c]">@L.T("partner.payouts.subtitle")</p>
+        </div>
+        <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("partner.payouts.primaryAction")</button>
+    </div>
+
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl">
+        <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <h2 class="font-semibold">@L.T("partner.payouts.table.title")</h2>
+            <span class="text-xs text-[#61897c]">@L.T("partner.payouts.table.count")</span>
+        </div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            @if (_isLoading)
+            {
+                <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+            }
+            else if (_items.Count == 0)
+            {
+                <div class="p-6 text-sm text-[#61897c]">@_statusMessage</div>
+            }
+            else
+            {
+                @foreach (var item in _items)
+                {
+                    <div class="p-4 flex items-center justify-between text-sm">
+                        <div>
+                            <p class="font-semibold">@item.BatchId</p>
+                            <p class="text-xs text-[#61897c]">@item.CreatedAt.ToLocalTime().ToString("dd MMM")</p>
+                        </div>
+                        <span class="font-semibold">@($"{item.NetAmount:N0}")</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly List<PayoutItem> _items = new();
+    private string _statusMessage = "—";
+    private bool _isLoading;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        if (!AuthState.IsAuthenticated)
+        {
+            _statusMessage = L.T("partner.status.loginRequired");
+            _isLoading = false;
+            return;
+        }
+
+        var partnerId = AuthState.PartnerId;
+        if (partnerId is null || partnerId == Guid.Empty)
+        {
+            _statusMessage = L.T("partner.status.noPartner");
+            _isLoading = false;
+            return;
+        }
+
+        var payouts = await PartnerApi.GetPartnerPayoutsAsync(partnerId.Value);
+        if (payouts is not null)
+        {
+            _items.AddRange(payouts);
+        }
+        _statusMessage = _items.Count == 0 ? L.T("partner.status.noPayouts") : string.Empty;
+        _isLoading = false;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

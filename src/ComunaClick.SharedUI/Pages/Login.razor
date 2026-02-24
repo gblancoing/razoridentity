@@ -1,0 +1,174 @@
+﻿@page "/login"
+@using Microsoft.Extensions.Logging
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@inject NavigationManager Navigation
+@inject ILogger<Login> Logger
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@implements IDisposable
+
+<PageTitle>@L.T("login.title")</PageTitle>
+
+<div class="flex min-h-screen flex-col lg:flex-row">
+    <!-- Left Side: Image (Visible on Desktop) -->
+    <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <div class="absolute inset-0 bg-cover bg-center" data-alt="Vibrant local farmers market with fresh produce" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD3OJoE_nofmiTITEIJCmG4fFYkhbuST4PcMRc_Capzvpa0K9U63MNKAYHYWyeT4Ya1Lu5Z7MHxRLVtK-3nWFG2P5zS4ERDZ14dbvohRKiJZbRyUvEe_YhtRvSjpj_88vYTHpKNc3IV0ORNxnsAazLwGyUE05nNcN-Y2gagJHgPz_K8LD_jzVRDLEc7EFRCq5fq2CuVX2GkeLEXBKwwqDbsajW6NPJ0GUJQG__XfZ_dz7Y6S2z2G_6bWnMx3poVQ-J_gUMtSnXglyA');">
+        </div>
+        <div class="absolute inset-0 bg-black/40 flex flex-col justify-end p-12">
+            <h1 class="text-white text-5xl font-bold mb-4">@L.T("login.hero.title")</h1>
+            <p class="text-white/90 text-xl max-w-md">@L.T("login.hero.subtitle")</p>
+        </div>
+    </div>
+    <!-- Right Side: Login Form -->
+    <div class="flex-1 flex flex-col">
+        <!-- Top App Bar -->
+        <div class="flex items-center bg-transparent p-4 pb-2 justify-between lg:px-8 gap-4">
+            <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+            <LanguageToggle />
+            <a class="bg-primary/10 hover:bg-primary/20 text-[#111816] dark:text-primary px-4 py-2 rounded-lg text-sm font-bold leading-normal transition-colors" href="/register">
+                @L.T("nav.register")
+            </a>
+        </div>
+        <div class="flex-1 flex items-center justify-center p-6 lg:p-12">
+            <div class="w-full max-w-[480px]">
+                <div class="mb-8">
+                    <h2 class="text-[#111816] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">@L.T("login.form.title")</h2>
+                    <p class="text-[#61897c] mt-2">@L.T("login.form.subtitle")</p>
+                </div>
+                <!-- Form -->
+                <form class="space-y-4" @onsubmit="HandleSubmit" @onsubmit:preventDefault="true">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[#111816] dark:text-white text-base font-medium leading-normal pb-1">@L.T("login.email.label")
+                            <input class="form-input flex w-full min-w-0 resize-none overflow-hidden rounded-lg text-[#111816] dark:bg-background-dark dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#dbe6e2] dark:border-[#2d4a41] h-14 placeholder:text-[#61897c] p-[15px] text-base font-normal leading-normal" placeholder="@L.T("login.email.placeholder")" type="email" @bind="Email" />
+                        </label>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[#111816] dark:text-white text-base font-medium leading-normal pb-1">@L.T("login.password.label")
+                            <div class="flex w-full items-stretch rounded-lg group">
+                                <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border-r-0 text-[#111816] dark:bg-background-dark dark:text-white focus:outline-0 focus:ring-0 border border-[#dbe6e2] dark:border-[#2d4a41] h-14 placeholder:text-[#61897c] p-[15px] text-base font-normal leading-normal" placeholder="@L.T("login.password.placeholder")" type="password" @bind="Password" />
+                                <div class="text-[#61897c] flex border border-[#dbe6e2] dark:border-[#2d4a41] bg-white dark:bg-background-dark items-center justify-center pr-[15px] rounded-r-lg border-l-0">
+                                    <span class="material-symbols-outlined cursor-pointer">visibility</span>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input class="form-checkbox w-5 h-5 rounded border-[#dbe6e2] text-primary focus:ring-primary" type="checkbox" />
+                            <span class="text-[#111816] dark:text-white/80 text-sm">@L.T("login.stay")</span>
+                        </label>
+                        <a class="text-sm font-semibold text-primary hover:underline" href="#">@L.T("login.forgot")</a>
+                    </div>
+                    <button class="w-full bg-primary hover:opacity-90 text-[#10221c] h-14 rounded-xl font-bold text-lg transition-all shadow-lg shadow-primary/20" type="submit" disabled="@_isSubmitting">
+                        @L.T("login.submit")
+                    </button>
+                    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+                    {
+                        <p class="text-sm text-red-500">@_errorMessage</p>
+                    }
+                    <div class="relative flex py-5 items-center">
+                        <div class="flex-grow border-t border-[#dbe6e2] dark:border-[#2d4a41]"></div>
+                        <span class="flex-shrink mx-4 text-[#61897c] text-sm uppercase">@L.T("login.orContinue")</span>
+                        <div class="flex-grow border-t border-[#dbe6e2] dark:border-[#2d4a41]"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button class="flex items-center justify-center gap-2 h-14 border border-[#dbe6e2] dark:border-[#2d4a41] rounded-xl bg-white dark:bg-background-dark hover:bg-gray-50 transition-colors" type="button">
+                            <span class="material-symbols-outlined text-red-500">google</span>
+                            <span class="text-[#111816] dark:text-white font-medium">Google</span>
+                        </button>
+                        <button class="flex items-center justify-center gap-2 h-14 border border-[#dbe6e2] dark:border-[#2d4a41] rounded-xl bg-white dark:bg-background-dark hover:bg-gray-50 transition-colors" type="button">
+                            <span class="material-symbols-outlined text-blue-600">social_leaderboard</span>
+                            <span class="text-[#111816] dark:text-white font-medium">Facebook</span>
+                        </button>
+                    </div>
+                </form>
+                <p class="mt-8 text-center text-[#61897c]">
+                    @L.T("login.signup.text")
+                    <a class="text-primary font-bold hover:underline" href="#">@L.T("login.signup.link")</a>
+                </p>
+            </div>
+        </div>
+        <!-- Footer (Optional) -->
+        <div class="p-8 text-center text-xs text-[#61897c]">
+            @L.T("login.footer")
+        </div>
+    </div>
+</div>
+
+@code {
+    private string Email = string.Empty;
+    private string Password = string.Empty;
+    private bool _isSubmitting;
+    private string? _errorMessage;
+    private bool _checkedAuth;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_checkedAuth)
+        {
+            return;
+        }
+
+        _checkedAuth = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (AuthState.IsAuthenticated)
+            {
+                Logger.LogInformation("Already authenticated on login page. Redirecting to /partner");
+                Navigation.NavigateTo("/partner", true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop not available during prerender; will retry on next render.
+            _checkedAuth = false;
+        }
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+
+    private async Task HandleSubmit()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            Logger.LogInformation("Login submit started for {Email}", Email);
+            var options = ApiOptions.Value;
+            var tokens = await AuthClient.LoginAsync(new ComunaClick.Shared.Auth.LoginRequest(
+                Email,
+                Password,
+                options.DefaultTenantId,
+                options.DefaultPartnerId));
+            await AuthState.SetTokensAsync(tokens);
+            Logger.LogInformation("Login successful for {Email}. Redirecting to /partner", Email);
+            Navigation.NavigateTo("/partner");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Login failed for {Email}", Email);
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            Logger.LogInformation("Login submit finished for {Email}", Email);
+            _isSubmitting = false;
+        }
+    }
+}

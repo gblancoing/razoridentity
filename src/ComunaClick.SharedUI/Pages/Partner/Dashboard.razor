@@ -1,0 +1,108 @@
+@page "/partner"
+@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@implements IDisposable
+
+<PageTitle>@L.T("partner.dashboard.title")</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">@L.T("partner.dashboard.heading")</h1>
+            <p class="text-sm text-[#61897c]">@L.T("partner.dashboard.subtitle")</p>
+        </div>
+        <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("partner.dashboard.primaryAction")</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+            <p class="text-xs uppercase tracking-wider text-[#61897c]">@L.T("partner.dashboard.kpi.sales")</p>
+            <p class="text-2xl font-bold mt-2">@(_ordersTotal)</p>
+            <p class="text-xs text-[#61897c] mt-1">@L.T("partner.dashboard.kpi.salesHint")</p>
+        </div>
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+            <p class="text-xs uppercase tracking-wider text-[#61897c]">@L.T("partner.dashboard.kpi.bookings")</p>
+            <p class="text-2xl font-bold mt-2">@(_bookingsCount)</p>
+            <p class="text-xs text-[#61897c] mt-1">@L.T("partner.dashboard.kpi.bookingsHint")</p>
+        </div>
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+            <p class="text-xs uppercase tracking-wider text-[#61897c]">@L.T("partner.dashboard.kpi.leads")</p>
+            <p class="text-2xl font-bold mt-2">@(_leadsCount)</p>
+            <p class="text-xs text-[#61897c] mt-1">@L.T("partner.dashboard.kpi.leadsHint")</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+            <h2 class="text-lg font-bold mb-4">@L.T("partner.dashboard.section.sales")</h2>
+            <div class="h-48 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center text-sm text-[#61897c]">
+                @_statusMessage
+            </div>
+        </div>
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+            <h2 class="text-lg font-bold mb-4">@L.T("partner.dashboard.section.bookings")</h2>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between text-sm">
+                    <span>@L.T("partner.dashboard.nextBooking")</span>
+                    <span class="font-semibold">12:30</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span>@L.T("partner.dashboard.nextBooking2")</span>
+                    <span class="font-semibold">15:00</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span>@L.T("partner.dashboard.nextBooking3")</span>
+                    <span class="font-semibold">18:10</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _statusMessage = "—";
+    private string _ordersTotal = "$0";
+    private int _bookingsCount;
+    private int _leadsCount;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated)
+        {
+            _statusMessage = L.T("partner.status.loginRequired");
+            return;
+        }
+
+        var partnerId = AuthState.PartnerId;
+        if (partnerId is null || partnerId == Guid.Empty)
+        {
+            _statusMessage = L.T("partner.status.noPartner");
+            return;
+        }
+
+        var orders = await PartnerApi.GetPartnerOrdersAsync(partnerId.Value);
+        var bookings = await PartnerApi.GetPartnerBookingsAsync(partnerId.Value);
+
+        _bookingsCount = bookings?.Count ?? 0;
+        _ordersTotal = orders is null ? "$0" : $"${orders.Sum(x => x.TotalAmount):N0}";
+        _leadsCount = 0;
+        _statusMessage = L.T("partner.dashboard.section.placeholder");
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

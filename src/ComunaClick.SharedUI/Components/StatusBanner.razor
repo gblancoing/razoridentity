@@ -1,0 +1,21 @@
+@using System
+
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="rounded-lg border px-4 py-3 text-sm @CssClass" role="alert">
+        @Message
+    </div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string Level { get; set; } = "info";
+
+    private string CssClass => Level switch
+    {
+        "error" => "border-red-200 bg-red-50 text-red-700",
+        "success" => "border-green-200 bg-green-50 text-green-700",
+        "warning" => "border-yellow-200 bg-yellow-50 text-yellow-700",
+        _ => "border-gray-200 bg-gray-50 text-gray-700"
+    };
+}
