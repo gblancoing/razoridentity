@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13eca4",
+                        "background-light": "#f6f8f7",
+                        "background-dark": "#10221c"
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-size: 24px; }
+        body { min-height: max(884px, 100dvh); }
+    </style>
+    <script src="_content/ComunaClick.SharedUI/app.js"></script>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="ComunaClick.App.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body class="bg-background-light dark:bg-background-dark text-[#111816] dark:text-white min-h-screen">
+    <LanguageInitializer />
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>

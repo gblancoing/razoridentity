@@ -33,7 +33,7 @@ Marketplace y panel de gestión para negocios locales. Stack principal: .NET 8 +
 ```bash
 dotnet run --project src/ComunaClick.Acl
 dotnet run --project src/ComunaClick.Api
-dotnet run --project src/ComunaClick.App
+dotnet run --project src/ComunaClick
 ```
 
 ## Endpoints locales

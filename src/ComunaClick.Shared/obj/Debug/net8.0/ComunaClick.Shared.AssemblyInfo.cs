@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ComunaClick.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1db312aa2d9b1e490ab8cbc5f75e87eba4f84df9")]
 [assembly: System.Reflection.AssemblyProductAttribute("ComunaClick.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ComunaClick.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

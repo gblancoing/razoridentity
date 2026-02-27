@@ -1,0 +1,36 @@
+﻿@page "/counter"
+@rendermode InteractiveServer
+@inject LocaleService L
+@implements IDisposable
+
+<PageTitle>@L.T("counter.title")</PageTitle>
+
+<h1>@L.T("counter.heading")</h1>
+
+<p role="status">@L.T("counter.current") @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">@L.T("counter.button")</button>
+
+@code {
+    private int currentCount = 0;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}
