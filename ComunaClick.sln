@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick.Api", "src\Comu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Payments.Common", "src\Payments.Common\Payments.Common.csproj", "{287ADE90-E330-47F4-82BC-FBFB11DE5250}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick.App", "src\ComunaClick.App\ComunaClick.App.csproj", "{9C2CED48-7007-4D43-9B8E-12589BC1F3F6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick", "src\ComunaClick\ComunaClick.App.csproj", "{9C2CED48-7007-4D43-9B8E-12589BC1F3F6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Payments.Gateway.Api", "src\Payments.Gateway.Api\Payments.Gateway.Api.csproj", "{EA539B86-4487-47C8-9FEF-2BD98E336162}"
 EndProject

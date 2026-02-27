@@ -3,7 +3,7 @@
 Marketplace y panel de gestión para negocios locales. Stack principal: .NET 8 + Blazor + APIs.
 
 ## Estructura del repo
-- `src/ComunaClick.App` — Blazor Web App (UI).
+- `src/ComunaClick` — Blazor Web App (UI).
 - `src/ComunaClick.SharedUI` — componentes UI compartidos.
 - `src/ComunaClick.Shared` — DTOs + clientes HTTP.
 - `src/ComunaClick.Common` — tipos comunes y helpers (Auth, Result, Money).
@@ -22,7 +22,7 @@ Marketplace y panel de gestión para negocios locales. Stack principal: .NET 8 +
 1) Variables y connection strings
    - `src/ComunaClick.Acl/appsettings.json`
    - `src/ComunaClick.Api/appsettings.json`
-   - `src/ComunaClick.App/appsettings.Development.json`
+   - `src/ComunaClick/appsettings.Development.json`
 
 2) Certificado HTTPS local (opcional)
    - Cert propio en `infra/certs/localhost.pfx` (password: `a12050939K`)
