@@ -635,11 +635,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.App/ComunaClick.App.csproj",
+      "projectUniqueName": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick/ComunaClick.App.csproj",
       "projectName": "ComunaClick.App",
-      "projectPath": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.App/ComunaClick.App.csproj",
+      "projectPath": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick/ComunaClick.App.csproj",
       "packagesPath": "/Users/alexolave/.nuget/packages/",
-      "outputPath": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.App/obj/",
+      "outputPath": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/alexolave/.nuget/NuGet/NuGet.Config"

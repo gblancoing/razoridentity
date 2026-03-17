@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "sneZL8f83Yc=",
+  "dgSpecHash": "u5BjF6qdlds=",
   "success": true,
-  "projectFilePath": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.App/ComunaClick.App.csproj",
+  "projectFilePath": "/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick/ComunaClick.App.csproj",
   "expectedPackageFiles": [
     "/Users/alexolave/.nuget/packages/microsoft.aspnetcore.authorization/8.0.0/microsoft.aspnetcore.authorization.8.0.0.nupkg.sha512",
     "/Users/alexolave/.nuget/packages/microsoft.aspnetcore.components/8.0.0/microsoft.aspnetcore.components.8.0.0.nupkg.sha512",

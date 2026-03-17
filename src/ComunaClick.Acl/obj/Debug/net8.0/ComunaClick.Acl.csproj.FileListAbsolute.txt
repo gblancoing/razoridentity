@@ -122,3 +122,4 @@
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Acl/bin/Debug/net8.0/Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Acl/bin/Debug/net8.0/Microsoft.IdentityModel.Tokens.dll
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Acl/bin/Debug/net8.0/System.IdentityModel.Tokens.Jwt.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Acl/obj/Debug/net8.0/ComunaClick.Acl.sourcelink.json

@@ -9,3 +9,4 @@
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/refint/ComunaClick.Shared.dll
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.pdb
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ref/ComunaClick.Shared.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.Shared/obj/Debug/net8.0/ComunaClick.Shared.sourcelink.json

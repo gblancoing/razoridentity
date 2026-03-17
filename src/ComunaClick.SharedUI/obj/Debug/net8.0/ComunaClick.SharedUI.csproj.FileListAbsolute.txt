@@ -33,3 +33,4 @@
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/obj/Debug/net8.0/refint/ComunaClick.SharedUI.dll
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/obj/Debug/net8.0/ComunaClick.SharedUI.pdb
 /Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/obj/Debug/net8.0/ref/ComunaClick.SharedUI.dll
+/Users/alexolave/desarrollos/Codigos/ComunaCLick/src/ComunaClick.SharedUI/obj/Debug/net8.0/ComunaClick.SharedUI.sourcelink.json
