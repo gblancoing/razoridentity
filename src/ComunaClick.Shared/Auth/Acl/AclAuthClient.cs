@@ -21,7 +21,7 @@ public sealed class AclAuthClient : IAuthClient
         return ToTokens(auth);
     }
 
-    public async Task<AuthTokens> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    public Task<AuthTokens> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         throw new NotSupportedException("Register endpoint not available in ACL swagger.");
     }
