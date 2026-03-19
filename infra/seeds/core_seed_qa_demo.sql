@@ -2,6 +2,39 @@ BEGIN;
 
 SET search_path TO core;
 
+-- Defensive compatibility for current main schema/state
+CREATE TABLE IF NOT EXISTS product_categories (
+    id uuid PRIMARY KEY,
+    code text NOT NULL UNIQUE,
+    name text NOT NULL,
+    sort_order integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true
+);
+
+CREATE TABLE IF NOT EXISTS product_subcategories (
+    id uuid PRIMARY KEY,
+    category_id uuid NOT NULL REFERENCES product_categories(id),
+    code text NOT NULL UNIQUE,
+    name text NOT NULL,
+    sort_order integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true
+);
+
+ALTER TABLE partners ADD COLUMN IF NOT EXISTS subcategory_id uuid NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_partners_subcategory_id'
+    ) THEN
+        ALTER TABLE partners
+            ADD CONSTRAINT fk_partners_subcategory_id
+            FOREIGN KEY (subcategory_id) REFERENCES product_subcategories(id);
+    END IF;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
 -- Demo tenant/comuna base
 INSERT INTO countries (id, code, name, is_active, created_at)
 VALUES ('10000000-0000-0000-0000-000000000001', 'CL', 'Chile', true, now())
@@ -17,7 +50,12 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO tenants (id, comuna_id, name, timezone, config_json, is_active, created_at, updated_at)
 VALUES ('70000000-0000-0000-0000-000000000001', '216f98f0-541a-47e1-b586-ed530fddf50d', 'ComunaClic QA Demo Alhué', 'America/Santiago', '{}'::jsonb, true, now(), now())
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (comuna_id) DO UPDATE
+SET name = EXCLUDED.name,
+    timezone = EXCLUDED.timezone,
+    config_json = EXCLUDED.config_json,
+    is_active = EXCLUDED.is_active,
+    updated_at = now();
 
 -- Catalog taxonomy for tipo A
 INSERT INTO product_categories (id, code, name, sort_order, is_active)
