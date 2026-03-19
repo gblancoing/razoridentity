@@ -7,4 +7,5 @@ public sealed record PartnerUpdateRequest(
     string? Address,
     string? Phone,
     string? Email,
+    Guid? SubcategoryId,
     bool? IsVisible);

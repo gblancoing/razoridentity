@@ -1,0 +1,327 @@
+@page "/partner/quickstart"
+@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject NavigationManager Navigation
+
+<PageTitle>Primer valor - ComunaClic</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">Consigue tu primer valor</h1>
+            <p class="text-sm text-[#61897c]">Completa la primera carga operativa según tu tipo de partner.</p>
+        </div>
+        <a href="/partner" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Volver al dashboard</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_statusMessage))
+    {
+        <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
+    }
+
+    @if (_activation is not null)
+    {
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                    <p class="text-xs uppercase tracking-wider text-[#61897c]">Estado actual</p>
+                    <h2 class="text-xl font-bold">@_activation.StatusLabel</h2>
+                    <p class="text-sm text-[#61897c] mt-1">@_activation.NextStep</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-3xl font-bold">@_activation.CompletionPercent%</p>
+                    <p class="text-xs text-[#61897c]">Checklist completado</p>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_partner is null)
+    {
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 text-sm text-[#61897c]">
+            No encontramos un partner asociado a tu sesión.
+        </div>
+    }
+    else if (_partner.Type == "A")
+    {
+        <EditForm Model="_product" OnValidSubmit="CreateProductAsync">
+            <DataAnnotationsValidator />
+            <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
+                <div>
+                    <h2 class="text-xl font-bold">Carga tu primer producto</h2>
+                    <p class="text-sm text-[#61897c]">Con un producto activo podrás completar la parte operativa del tipo A.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-semibold">Nombre</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.Name" />
+                        <ValidationMessage For="@(() => _product.Name)" class="text-xs text-red-500" />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-semibold">Descripción</label>
+                        <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" @bind="_product.Description"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Categoría visible</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.Category" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Precio</label>
+                        <input type="number" step="1" min="0" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.Price" />
+                        <ValidationMessage For="@(() => _product.Price)" class="text-xs text-red-500" />
+                    </div>
+                </div>
+                <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" disabled="@_submitting">@(_submitting ? "Guardando..." : "Crear primer producto")</button>
+            </div>
+        </EditForm>
+    }
+    else if (_partner.Type == "B")
+    {
+        <EditForm Model="_service" OnValidSubmit="CreateServiceAsync">
+            <DataAnnotationsValidator />
+            <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
+                <div>
+                    <h2 class="text-xl font-bold">Carga tu primer servicio</h2>
+                    <p class="text-sm text-[#61897c]">Con un servicio activo podrás empezar a recibir reservas.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-semibold">Nombre</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Name" />
+                        <ValidationMessage For="@(() => _service.Name)" class="text-xs text-red-500" />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-semibold">Descripción</label>
+                        <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" @bind="_service.Description"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Categoría visible</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Category" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Duración (minutos)</label>
+                        <input type="number" step="5" min="15" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.DurationMinutes" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Precio</label>
+                        <input type="number" step="1" min="0" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Price" />
+                        <ValidationMessage For="@(() => _service.Price)" class="text-xs text-red-500" />
+                    </div>
+                </div>
+                <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" disabled="@_submitting">@(_submitting ? "Guardando..." : "Crear primer servicio")</button>
+            </div>
+        </EditForm>
+    }
+    else
+    {
+        <EditForm Model="_professional" OnValidSubmit="CreateProfessionalAsync">
+            <DataAnnotationsValidator />
+            <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
+                <div>
+                    <h2 class="text-xl font-bold">Registra tu primer profesional</h2>
+                    <p class="text-sm text-[#61897c]">Dejamos el perfil listo para que cuente como oferta activa del tipo C.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-semibold">Nombre</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_professional.Name" />
+                        <ValidationMessage For="@(() => _professional.Name)" class="text-xs text-red-500" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Especialidad</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_professional.Specialty" />
+                        <ValidationMessage For="@(() => _professional.Specialty)" class="text-xs text-red-500" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Email</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_professional.Email" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Teléfono</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_professional.Phone" />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-semibold">Bio</label>
+                        <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" @bind="_professional.Bio"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" disabled="@_submitting">@(_submitting ? "Guardando..." : "Registrar primer profesional")</button>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private ComunaClick.Shared.Api.Partner.PartnerDto? _partner;
+    private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
+    private string? _statusMessage;
+    private string _statusLevel = "info";
+    private bool _submitting;
+
+    private readonly ProductForm _product = new();
+    private readonly ServiceForm _service = new();
+    private readonly ProfessionalForm _professional = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated || !AuthState.PartnerId.HasValue)
+        {
+            _statusLevel = "warning";
+            _statusMessage = "Necesitas una sesión activa con partner para continuar.";
+            return;
+        }
+
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (!AuthState.PartnerId.HasValue)
+        {
+            return;
+        }
+
+        _partner = await PartnerApi.GetPartnerAsync(AuthState.PartnerId.Value);
+        _activation = await PartnerApi.GetActivationStatusAsync(AuthState.PartnerId.Value);
+    }
+
+    private async Task CreateProductAsync()
+    {
+        if (_partner is null)
+        {
+            return;
+        }
+
+        _submitting = true;
+        _statusMessage = null;
+        try
+        {
+            await PartnerApi.CreateProductAsync(new ComunaClick.Shared.Api.Partner.ProductCreateRequest(
+                _partner.Id,
+                _product.Name.Trim(),
+                NullIfWhiteSpace(_product.Description),
+                NullIfWhiteSpace(_product.Category),
+                _product.Price,
+                "CLP",
+                true));
+            await ReloadAsync();
+            _statusLevel = "success";
+            _statusMessage = "Primer producto creado. Ya puedes seguir completando tu catálogo.";
+            Navigation.NavigateTo("/partner/catalog", true);
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task CreateServiceAsync()
+    {
+        if (_partner is null)
+        {
+            return;
+        }
+
+        _submitting = true;
+        _statusMessage = null;
+        try
+        {
+            await PartnerApi.CreateServiceAsync(new ComunaClick.Shared.Api.Partner.ServiceCreateRequest(
+                _partner.Id,
+                _service.Name.Trim(),
+                NullIfWhiteSpace(_service.Description),
+                NullIfWhiteSpace(_service.Category),
+                _service.Price,
+                "CLP",
+                _service.DurationMinutes,
+                true));
+            await ReloadAsync();
+            _statusLevel = "success";
+            _statusMessage = "Primer servicio creado. Ya puedes organizar agenda y disponibilidad.";
+            Navigation.NavigateTo("/partner/agenda", true);
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task CreateProfessionalAsync()
+    {
+        _submitting = true;
+        _statusMessage = null;
+        try
+        {
+            await PartnerApi.CreateProfessionalAsync(new ComunaClick.Shared.Api.Partner.ProfessionalCreateRequest(
+                _professional.Name.Trim(),
+                NullIfWhiteSpace(_professional.Email),
+                NullIfWhiteSpace(_professional.Phone),
+                _professional.Specialty.Trim(),
+                NullIfWhiteSpace(_professional.Bio),
+                true,
+                true));
+            await ReloadAsync();
+            _statusLevel = "success";
+            _statusMessage = "Primer profesional registrado. Ya puedes empezar a captar leads.";
+            Navigation.NavigateTo("/partner/leads", true);
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private sealed class ProductForm
+    {
+        [Required] public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Category { get; set; }
+        [Range(0.01, 999999999)] public double Price { get; set; }
+    }
+
+    private sealed class ServiceForm
+    {
+        [Required] public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Category { get; set; }
+        [Range(0.01, 999999999)] public double Price { get; set; }
+        [Range(15, 1440)] public int DurationMinutes { get; set; } = 30;
+    }
+
+    private sealed class ProfessionalForm : IValidatableObject
+    {
+        [Required] public string Name { get; set; } = string.Empty;
+        [Required] public string Specialty { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Bio { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (string.IsNullOrWhiteSpace(Email) && string.IsNullOrWhiteSpace(Phone))
+            {
+                yield return new ValidationResult("Debes ingresar email o teléfono.", new[] { nameof(Email), nameof(Phone) });
+            }
+        }
+    }
+}

@@ -4,6 +4,7 @@ public sealed class Partner
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
+    public Guid? SubcategoryId { get; set; }
     public string Type { get; set; } = "A";
     public string Name { get; set; } = string.Empty;
     public string? Rut { get; set; }
@@ -15,4 +16,5 @@ public sealed class Partner
     public DateTimeOffset UpdatedAt { get; set; }
 
     public Tenant Tenant { get; set; } = null!;
+    public ProductSubcategory? Subcategory { get; set; }
 }

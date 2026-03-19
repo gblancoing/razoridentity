@@ -30,8 +30,20 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<IReadOnlyList<Notification>?> GetPartnerNotificationsAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Notification>>($"/v1/partners/{partnerId}/notifications", cancellationToken);
 
+    public Task<IReadOnlyList<Professional>?> GetProfessionalsAsync(CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<Professional>>("/v1/professionals", cancellationToken);
+
     public Task<PartnerDto?> CreatePartnerAsync(PartnerCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<PartnerDto>("/v1/partners", request, cancellationToken);
+
+    public Task<Product?> CreateProductAsync(ProductCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<Product>("/v1/products", request, cancellationToken);
+
+    public Task<Service?> CreateServiceAsync(ServiceCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<Service>("/v1/services", request, cancellationToken);
+
+    public Task<Professional?> CreateProfessionalAsync(ProfessionalCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<Professional>("/v1/professionals", request, cancellationToken);
 
     public Task<PartnerDto?> GetPartnerAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<PartnerDto>($"/v1/partners/{partnerId}", cancellationToken);
@@ -136,6 +148,19 @@ public sealed record Lead(
     DateTimeOffset UpdatedAt
 );
 
+public sealed record Professional(
+    Guid Id,
+    Guid TenantId,
+    string? Name,
+    string? Email,
+    string? Phone,
+    string? Specialty,
+    string? Bio,
+    bool IsVerified,
+    bool IsActive,
+    DateTimeOffset CreatedAt
+);
+
 public sealed record Notification(
     Guid Id,
     Guid TenantId,
@@ -193,4 +218,35 @@ public sealed record PartnerCreateRequest(
     string? Phone,
     string? Email,
     Guid? SubcategoryId
+);
+
+public sealed record ProductCreateRequest(
+    Guid PartnerId,
+    string Name,
+    string? Description,
+    string? Category,
+    double Price,
+    string? Currency,
+    bool? IsActive
+);
+
+public sealed record ServiceCreateRequest(
+    Guid PartnerId,
+    string Name,
+    string? Description,
+    string? Category,
+    double Price,
+    string? Currency,
+    int? DurationMinutes,
+    bool? IsActive
+);
+
+public sealed record ProfessionalCreateRequest(
+    string Name,
+    string? Email,
+    string? Phone,
+    string? Specialty,
+    string? Bio,
+    bool? IsVerified,
+    bool? IsActive
 );

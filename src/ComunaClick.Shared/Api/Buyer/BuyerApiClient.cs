@@ -55,6 +55,24 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<Partner?> GetPartnerAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Partner>($"/v1/partners/{id}", cancellationToken);
 
+    public Task<IReadOnlyList<PublicCountryItem>?> GetCountriesAsync(CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicCountryItem>>("/v1/public/geo/countries", cancellationToken);
+
+    public Task<IReadOnlyList<PublicRegionItem>?> GetRegionsAsync(Guid countryId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicRegionItem>>($"/v1/public/geo/regions?countryId={countryId}", cancellationToken);
+
+    public Task<IReadOnlyList<PublicComunaItem>?> GetComunasAsync(Guid regionId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicComunaItem>>($"/v1/public/geo/comunas?regionId={regionId}", cancellationToken);
+
+    public Task<TenantResolution?> ResolveTenantByComunaAsync(Guid comunaId, CancellationToken cancellationToken = default)
+        => PostAsync<TenantResolution>($"/v1/public/geo/tenant-by-comuna/{comunaId}", new { }, cancellationToken);
+
+    public Task<IReadOnlyList<PublicCategoryItem>?> GetProductCategoriesAsync(CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicCategoryItem>>("/v1/public/catalog/categories", cancellationToken);
+
+    public Task<IReadOnlyList<PublicSubcategoryItem>?> GetProductSubcategoriesAsync(Guid categoryId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicSubcategoryItem>>($"/v1/public/catalog/subcategories?categoryId={categoryId}", cancellationToken);
+
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Professional>($"/v1/professionals/{id}", cancellationToken);
 
@@ -231,6 +249,48 @@ public sealed record Professional(
     bool IsVerified,
     bool IsActive,
     DateTimeOffset CreatedAt
+);
+
+public sealed record PublicCountryItem(
+    Guid Id,
+    string Code,
+    string Name
+);
+
+public sealed record PublicRegionItem(
+    Guid Id,
+    Guid CountryId,
+    string Code,
+    string Name
+);
+
+public sealed record PublicComunaItem(
+    Guid Id,
+    Guid RegionId,
+    string Code,
+    string Name
+);
+
+public sealed record TenantResolution(
+    Guid TenantId,
+    Guid ComunaId,
+    string TenantName,
+    string ComunaName,
+    string RegionName,
+    string CountryName
+);
+
+public sealed record PublicCategoryItem(
+    Guid Id,
+    string Code,
+    string Name
+);
+
+public sealed record PublicSubcategoryItem(
+    Guid Id,
+    Guid CategoryId,
+    string Code,
+    string Name
 );
 
 public sealed class SupportTicketRequest

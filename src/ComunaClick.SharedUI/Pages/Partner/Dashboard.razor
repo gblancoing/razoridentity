@@ -14,7 +14,7 @@
             <h1 class="text-2xl font-bold">@L.T("partner.dashboard.heading")</h1>
             <p class="text-sm text-[#61897c]">@L.T("partner.dashboard.subtitle")</p>
         </div>
-        <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("partner.dashboard.primaryAction")</button>
+        <a href="@PrimaryActionHref" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@PrimaryActionLabel</a>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(_welcomeMessage))
@@ -111,6 +111,22 @@
     private int _leadsCount;
     private string? _welcomeMessage;
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
+
+    private string PrimaryActionHref => _activation?.PartnerType switch
+    {
+        "B" => "/partner/quickstart",
+        "C" => "/partner/quickstart",
+        _ => "/partner/quickstart"
+    };
+
+    private string PrimaryActionLabel => _activation?.CanPublish == true
+        ? "Seguir gestionando oferta"
+        : _activation?.PartnerType switch
+        {
+            "B" => "Crear primer servicio",
+            "C" => "Registrar primer profesional",
+            _ => "Crear primer producto"
+        };
 
     protected override void OnInitialized()
     {

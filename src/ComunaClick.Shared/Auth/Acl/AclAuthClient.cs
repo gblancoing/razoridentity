@@ -43,9 +43,9 @@ public sealed class AclAuthClient : IAuthClient
         return ToTokens(auth);
     }
 
-    public async Task<AuthTokens> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
+    public async Task<AuthTokens> RefreshAsync(string refreshToken, Guid? tenantId = null, Guid? partnerId = null, CancellationToken cancellationToken = default)
     {
-        var dto = new RefreshRequestDto(refreshToken, null, null);
+        var dto = new RefreshRequestDto(refreshToken, tenantId, partnerId);
         var response = await _httpClient.PostAsJsonAsync("/v1/auth/refresh", dto, cancellationToken);
         response.EnsureSuccessStatusCode();
         var auth = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken: cancellationToken);

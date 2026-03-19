@@ -6,4 +6,5 @@ public sealed record PartnerCreateRequest(
     string? Rut,
     string? Address,
     string? Phone,
-    string? Email);
+    string? Email,
+    Guid? SubcategoryId);
