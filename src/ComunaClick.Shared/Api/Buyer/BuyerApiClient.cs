@@ -109,7 +109,9 @@ public sealed record SearchResultItem(
     string? Category,
     Guid? PartnerId,
     double? Price,
-    string? Currency
+    string? Currency,
+    string? CtaLabel,
+    string? CtaHref
 );
 
 public sealed record Order(

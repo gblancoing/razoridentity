@@ -21,10 +21,13 @@
     </div>
     <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
         <h2 class="text-lg font-bold">@L.T("buyer.detail.cta.title")</h2>
-        <p class="text-sm text-[#61897c] mt-2">@L.T("buyer.detail.cta.subtitle")</p>
+        <p class="text-sm text-[#61897c] mt-2">@_ctaSubtitle</p>
         <div class="mt-4 space-y-3">
-            <button class="w-full bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold">@L.T("buyer.detail.cta.checkout")</button>
-            <button class="w-full border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold">@L.T("buyer.detail.cta.booking")</button>
+            <a href="@_primaryCtaHref" class="block w-full bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-center">@_primaryCtaLabel</a>
+            @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
+            {
+                <a href="@_secondaryCtaHref" class="block w-full border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-center">@_secondaryCtaLabel</a>
+            }
         </div>
     </div>
 </div>
@@ -38,6 +41,11 @@
     private string _detailLine1 = string.Empty;
     private string _detailLine2 = string.Empty;
     private string _statusMessage = "—";
+    private string _ctaSubtitle = "Revisa esta oferta y continúa la acción que corresponde.";
+    private string _primaryCtaLabel = "Ver detalle";
+    private string _primaryCtaHref = "/buyer";
+    private string? _secondaryCtaLabel;
+    private string? _secondaryCtaHref;
 
     protected override void OnInitialized()
     {
@@ -71,6 +79,11 @@
                         _title = product.Name ?? _title;
                         _detailLine1 = product.Description ?? _detailLine1;
                         _detailLine2 = product.Category ?? _detailLine2;
+                        _ctaSubtitle = "Oferta lista para compra directa.";
+                        _primaryCtaLabel = "Comprar ahora";
+                        _primaryCtaHref = $"/buyer/checkout?productId={Id.Value}";
+                        _secondaryCtaLabel = "Ver negocio";
+                        _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : "/buyer";
                     }
                     break;
                 case "service":
@@ -80,6 +93,11 @@
                         _title = service.Name ?? _title;
                         _detailLine1 = service.Description ?? _detailLine1;
                         _detailLine2 = service.Category ?? _detailLine2;
+                        _ctaSubtitle = "Servicio elegible para reserva.";
+                        _primaryCtaLabel = "Reservar";
+                        _primaryCtaHref = $"/buyer/booking?serviceId={Id.Value}";
+                        _secondaryCtaLabel = "Ver negocio";
+                        _secondaryCtaHref = service.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{service.PartnerId}" : "/buyer";
                     }
                     break;
                 case "partner":
@@ -89,6 +107,21 @@
                         _title = partner.Name ?? _title;
                         _detailLine1 = partner.Address ?? _detailLine1;
                         _detailLine2 = partner.Phone ?? _detailLine2;
+                        _ctaSubtitle = partner.Type switch
+                        {
+                            "B" => "Negocio orientado a servicios. Revisa su agenda y disponibilidad.",
+                            "C" => "Perfil profesional listo para contacto y conversión.",
+                            _ => "Negocio con vitrina activa y ofertas elegibles."
+                        };
+                        _primaryCtaLabel = partner.Type switch
+                        {
+                            "B" => "Ver servicios",
+                            "C" => "Ver profesionales",
+                            _ => "Ver productos"
+                        };
+                        _primaryCtaHref = "/buyer";
+                        _secondaryCtaLabel = null;
+                        _secondaryCtaHref = null;
                     }
                     break;
                 case "professional":
@@ -98,6 +131,11 @@
                         _title = professional.Name ?? _title;
                         _detailLine1 = professional.Specialty ?? _detailLine1;
                         _detailLine2 = professional.Bio ?? _detailLine2;
+                        _ctaSubtitle = "Profesional verificado listo para contacto.";
+                        _primaryCtaLabel = "Contactar";
+                        _primaryCtaHref = "/buyer";
+                        _secondaryCtaLabel = professional.TenantId != Guid.Empty ? "Ver más opciones" : null;
+                        _secondaryCtaHref = "/buyer";
                     }
                     break;
                 default:

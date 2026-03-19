@@ -7,4 +7,6 @@ public sealed record SearchResultItem(
     string? Category,
     Guid? PartnerId,
     decimal? Price,
-    string? Currency);
+    string? Currency,
+    string CtaLabel,
+    string CtaHref);

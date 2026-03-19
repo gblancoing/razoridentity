@@ -16,14 +16,14 @@
 
     <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-4">
         <div class="flex flex-col md:flex-row gap-3">
-            <input class="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="@L.T("buyer.search.placeholder")" />
-            <select class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12">
-                <option>@L.T("buyer.search.categoryAll")</option>
-                <option>@L.T("buyer.search.category1")</option>
-                <option>@L.T("buyer.search.category2")</option>
-                <option>@L.T("buyer.search.category3")</option>
+            <input class="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="@L.T("buyer.search.placeholder")" @bind="_query" />
+            <select class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" @bind="_type">
+                <option value="">@L.T("buyer.search.categoryAll")</option>
+                <option value="products">Productos</option>
+                <option value="services">Servicios</option>
+                <option value="professionals">Profesionales</option>
             </select>
-            <button class="bg-primary text-[#111816] px-6 h-12 rounded-lg font-bold">@L.T("buyer.search.action")</button>
+            <button class="bg-primary text-[#111816] px-6 h-12 rounded-lg font-bold" @onclick="SearchAsync">@L.T("buyer.search.action")</button>
         </div>
     </div>
 
@@ -60,15 +60,20 @@
             <div class="space-y-3 text-sm">
                 @foreach (var item in _results)
                 {
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800 pb-3 last:border-b-0">
                         <div>
                             <p class="font-semibold">@item.Name</p>
                             <p class="text-xs text-[#61897c]">@item.Category</p>
                         </div>
-                        @if (item.Price.HasValue)
-                        {
-                            <span class="font-semibold">@($"{item.Price.Value:N0}")</span>
-                        }
+                        <div class="flex items-center gap-3">
+                            @if (item.Price.HasValue)
+                            {
+                                <span class="font-semibold">@($"{item.Price.Value:N0}")</span>
+                            }
+                            <a href="@(item.CtaHref ?? $"/buyer/detail/{item.Type}/{item.Id}")" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-xs">
+                                @(item.CtaLabel ?? "Ver detalle")
+                            </a>
+                        </div>
                     </div>
                 }
             </div>
@@ -81,6 +86,8 @@
     private string _statusMessage = "—";
     private string _statusLevel = "info";
     private bool _isLoading;
+    private string? _query;
+    private string? _type;
 
     protected override void OnInitialized()
     {
@@ -89,9 +96,15 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
         _isLoading = true;
+        _results.Clear();
         var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
-        var results = await BuyerApi.SearchAsync(null, null, 10, tenantId);
+        var results = await BuyerApi.SearchAsync(_query, _type, 10, tenantId);
         if (results is not null)
         {
             _results.AddRange(results);
@@ -104,6 +117,7 @@
         else
         {
             _statusMessage = string.Empty;
+            _statusLevel = "info";
         }
         _isLoading = false;
     }
