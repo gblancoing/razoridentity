@@ -55,3 +55,14 @@ window.comunaclic.setCustomerId = function (customerId) {
     // Ignore storage errors
   }
 };
+
+window.comunaclic.getDeviceType = function () {
+  try {
+    const width = window.innerWidth || 0;
+    if (width > 0 && width < 768) return "mobile";
+    if (width >= 768 && width < 1024) return "tablet";
+    return "desktop";
+  } catch {
+    return "unknown";
+  }
+};

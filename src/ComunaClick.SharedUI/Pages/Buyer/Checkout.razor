@@ -1,5 +1,6 @@
 @page "/buyer/checkout"
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@using ComunaClick.Common.Funnel
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
@@ -56,6 +57,9 @@
     private string? _productName;
     private string? _productCategory;
     private bool _prefilled;
+    private bool _startedTracked;
+    private bool _completed;
+    private Guid? _tenantId;
 
     protected override void OnInitialized()
     {
@@ -91,8 +95,11 @@
         UnitPrice = product.Price;
         _productName = product.Name;
         _productCategory = product.Category;
+        _tenantId = product.TenantId;
         _prefilled = true;
         UpdateTotal();
+        await TrackAsync("start_checkout", "start", "started");
+        _startedTracked = true;
     }
 
     private async Task HandleCheckout()
@@ -104,6 +111,7 @@
         {
             _statusMessage = "Primero ingresa tu CustomerId para completar la compra.";
             _statusLevel = "warning";
+            await TrackAsync("flow_error", "identity", "missing_customer");
             return;
         }
 
@@ -115,6 +123,7 @@
         {
             _statusMessage = L.T("buyer.status.invalidIds");
             _statusLevel = "error";
+            await TrackAsync("flow_error", "validation", "invalid_ids");
             return;
         }
 
@@ -131,11 +140,14 @@
         {
             _statusMessage = L.T("buyer.status.orderFailed");
             _statusLevel = "error";
+            await TrackAsync("flow_error", "submit", "order_failed");
         }
         else
         {
             _statusMessage = $"{L.T("buyer.status.orderCreated")} #{order.Id}";
             _statusLevel = "success";
+            _completed = true;
+            await TrackAsync("submit_checkout", "submit", "success");
         }
     }
 
@@ -147,6 +159,30 @@
     private void UpdateTotal()
     {
         _total = $"{(Quantity * UnitPrice):N0}";
+    }
+
+    private async Task TrackAsync(string eventName, string step, string status)
+    {
+        var entityId = Guid.TryParse(ProductId, out var productId) ? productId : (Guid?)null;
+        var deviceType = await JSRuntime.InvokeAsync<string>("comunaclic.getDeviceType");
+        await BuyerApi.TrackFunnelEventAsync(new FunnelEventRequest(
+            eventName,
+            "commerce",
+            "product",
+            entityId,
+            _tenantId,
+            Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery,
+            deviceType,
+            "buy",
+            step,
+            status,
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
+                ["partnerId"] = PartnerId,
+                ["quantity"] = Quantity.ToString()
+            }));
     }
 
     private static string? GetQueryParameter(string query, string key)
@@ -165,6 +201,10 @@
 
     public void Dispose()
     {
+        if (_startedTracked && !_completed)
+        {
+            _ = TrackAsync("flow_abandoned", "checkout", "abandoned");
+        }
         L.OnChange -= HandleChange;
     }
 }

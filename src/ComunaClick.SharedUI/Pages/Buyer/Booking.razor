@@ -1,5 +1,6 @@
 @page "/buyer/booking"
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@using ComunaClick.Common.Funnel
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
@@ -46,6 +47,9 @@
     private string? _serviceName;
     private string? _serviceCategory;
     private bool _prefilled;
+    private bool _startedTracked;
+    private bool _completed;
+    private Guid? _tenantId;
 
     protected override void OnInitialized()
     {
@@ -81,7 +85,14 @@
         Amount = service.Price;
         _serviceName = service.Name;
         _serviceCategory = service.Category;
+        _tenantId = service.TenantId;
+        var suggestedStart = DateTimeOffset.UtcNow.AddDays(1).Date.AddHours(10);
+        var suggestedEnd = suggestedStart.AddMinutes(Math.Max(service.DurationMinutes, 30));
+        StartAt = suggestedStart.ToString("O");
+        EndAt = suggestedEnd.ToString("O");
         _prefilled = true;
+        await TrackAsync("start_booking", "start", "started");
+        _startedTracked = true;
     }
 
     private async Task HandleBooking()
@@ -92,6 +103,7 @@
         {
             _statusMessage = "Primero ingresa tu CustomerId para completar la reserva.";
             _statusLevel = "warning";
+            await TrackAsync("flow_error", "identity", "missing_customer");
             return;
         }
 
@@ -105,6 +117,7 @@
         {
             _statusMessage = L.T("buyer.status.invalidIds");
             _statusLevel = "error";
+            await TrackAsync("flow_error", "validation", "invalid_booking_payload");
             return;
         }
 
@@ -124,17 +137,45 @@
         {
             _statusMessage = L.T("buyer.status.bookingFailed");
             _statusLevel = "error";
+            await TrackAsync("flow_error", "submit", "booking_failed");
         }
         else
         {
             _statusMessage = $"{L.T("buyer.status.bookingCreated")} #{booking.Id}";
             _statusLevel = "success";
+            _completed = true;
+            await TrackAsync("submit_booking", "submit", "success");
         }
     }
 
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task TrackAsync(string eventName, string step, string status)
+    {
+        var entityId = Guid.TryParse(ServiceId, out var serviceId) ? serviceId : (Guid?)null;
+        var deviceType = await JSRuntime.InvokeAsync<string>("comunaclic.getDeviceType");
+        await BuyerApi.TrackFunnelEventAsync(new FunnelEventRequest(
+            eventName,
+            "services",
+            "service",
+            entityId,
+            _tenantId,
+            Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery,
+            deviceType,
+            "book",
+            step,
+            status,
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
+                ["partnerId"] = PartnerId,
+                ["startAt"] = StartAt,
+                ["endAt"] = EndAt
+            }));
     }
 
     private static string? GetQueryParameter(string query, string key)
@@ -153,6 +194,10 @@
 
     public void Dispose()
     {
+        if (_startedTracked && !_completed)
+        {
+            _ = TrackAsync("flow_abandoned", "booking", "abandoned");
+        }
         L.OnChange -= HandleChange;
     }
 }

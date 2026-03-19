@@ -1,8 +1,10 @@
 @page "/buyer/contact"
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@using ComunaClick.Common.Funnel
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <PageTitle>Contactar profesional - ComunaClic</PageTitle>
 
@@ -48,6 +50,9 @@
     private string? _statusMessage;
     private string _statusLevel = "info";
     private bool _submitting;
+    private bool _startedTracked;
+    private bool _completed;
+    private Guid? _tenantId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -76,8 +81,12 @@
         {
             _professionalName = professional.Name;
             _professionalSpecialty = professional.Specialty;
+            _tenantId = professional.TenantId;
             Message = $"Hola {_professionalName}, me interesa tu perfil en ComunaClic.";
         }
+
+        await TrackAsync("start_contact", "start", "started");
+        _startedTracked = true;
     }
 
     private async Task SubmitAsync()
@@ -86,6 +95,7 @@
         {
             _statusMessage = "Debes ingresar un CustomerId válido.";
             _statusLevel = "warning";
+            await TrackAsync("flow_error", "identity", "invalid_customer");
             return;
         }
 
@@ -97,16 +107,48 @@
             var lead = await BuyerApi.CreateLeadAsync(new ComunaClick.Shared.Api.Buyer.LeadCreateRequest(_professionalId.Value, customerId, Message));
             _statusMessage = lead is null ? "No pudimos crear el lead." : $"Lead creado correctamente: {lead.Id}";
             _statusLevel = lead is null ? "warning" : "success";
+            if (lead is null)
+            {
+                await TrackAsync("flow_error", "submit", "lead_failed");
+            }
+            else
+            {
+                _completed = true;
+                await TrackAsync("submit_lead", "submit", "success");
+            }
         }
         catch (Exception ex)
         {
             _statusMessage = ex.Message;
             _statusLevel = "error";
+            await TrackAsync("flow_error", "submit", "exception");
         }
         finally
         {
             _submitting = false;
         }
+    }
+
+    private async Task TrackAsync(string eventName, string step, string status)
+    {
+        var deviceType = await JSRuntime.InvokeAsync<string>("comunaclic.getDeviceType");
+        await BuyerApi.TrackFunnelEventAsync(new FunnelEventRequest(
+            eventName,
+            "professionals",
+            "professional",
+            _professionalId,
+            _tenantId,
+            Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery,
+            deviceType,
+            "contact",
+            step,
+            status,
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, string?>
+            {
+                ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
+                ["messageLength"] = Message?.Length.ToString()
+            }));
     }
 
     private static string? GetQueryParameter(string query, string key)
@@ -121,5 +163,13 @@
             }
         }
         return null;
+    }
+
+    public void Dispose()
+    {
+        if (_startedTracked && !_completed)
+        {
+            _ = TrackAsync("flow_abandoned", "contact", "abandoned");
+        }
     }
 }

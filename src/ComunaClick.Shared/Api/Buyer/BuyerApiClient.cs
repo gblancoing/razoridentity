@@ -1,3 +1,4 @@
+using ComunaClick.Common.Funnel;
 using ComunaClick.Shared.Http;
 using System.Net.Http.Json;
 
@@ -36,6 +37,9 @@ public sealed class BuyerApiClient : ApiClientBase
 
     public Task<Lead?> CreateLeadAsync(LeadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Lead>("/v1/leads", request, cancellationToken);
+
+    public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
+        => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Order>($"/v1/orders/{id}", cancellationToken);

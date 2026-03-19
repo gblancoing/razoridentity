@@ -42,6 +42,15 @@ public abstract class ApiClientBase
         return await SendAsync<T>(request, cancellationToken);
     }
 
+    protected async Task PostNoContentAsync(string path, object body, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body)
+        };
+        await SendAsync(request, cancellationToken);
+    }
+
     protected async Task<T?> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         await AttachTokenAsync(request, cancellationToken);
@@ -59,6 +68,24 @@ public abstract class ApiClientBase
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken);
+    }
+
+    protected async Task SendAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
+    {
+        await AttachTokenAsync(request, cancellationToken);
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            if (await TryRefreshAsync(cancellationToken))
+            {
+                request = Clone(request);
+                await AttachTokenAsync(request, cancellationToken);
+                response = await _httpClient.SendAsync(request, cancellationToken);
+            }
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
     private async Task AttachTokenAsync(HttpRequestMessage request, CancellationToken cancellationToken)
