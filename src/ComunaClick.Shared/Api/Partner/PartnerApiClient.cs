@@ -29,6 +29,18 @@ public sealed class PartnerApiClient : ApiClientBase
 
     public Task<IReadOnlyList<Notification>?> GetPartnerNotificationsAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Notification>>($"/v1/partners/{partnerId}/notifications", cancellationToken);
+
+    public Task<PartnerDto?> CreatePartnerAsync(PartnerCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<PartnerDto>("/v1/partners", request, cancellationToken);
+
+    public Task<PartnerDto?> GetPartnerAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<PartnerDto>($"/v1/partners/{partnerId}", cancellationToken);
+
+    public Task<PartnerActivationStatus?> GetActivationStatusAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<PartnerActivationStatus>($"/v1/partners/{partnerId}/activation", cancellationToken);
+
+    public Task<PartnerDto?> UpdateVisibilityAsync(Guid partnerId, bool isVisible, CancellationToken cancellationToken = default)
+        => PatchAsync<PartnerDto>($"/v1/partners/{partnerId}/visibility", new { isVisible }, cancellationToken);
 }
 
 public sealed record Product(
@@ -133,4 +145,52 @@ public sealed record Notification(
     Guid? ReferenceId,
     string? Payload,
     DateTimeOffset CreatedAt
+);
+
+public sealed record PartnerDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? CategoryId,
+    string? CategoryName,
+    Guid? SubcategoryId,
+    string? SubcategoryName,
+    string? Type,
+    string? Name,
+    string? Rut,
+    string? Address,
+    string? Phone,
+    string? Email,
+    bool IsVisible,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    PartnerActivationStatus? Activation
+);
+
+public sealed record PartnerActivationStatus(
+    Guid PartnerId,
+    string PartnerType,
+    bool IsVisible,
+    bool CanPublish,
+    int CompletionPercent,
+    string Status,
+    string StatusLabel,
+    string NextStep,
+    IReadOnlyList<PartnerChecklistItem>? Checklist
+);
+
+public sealed record PartnerChecklistItem(
+    string Key,
+    string Label,
+    bool IsComplete,
+    string? Hint
+);
+
+public sealed record PartnerCreateRequest(
+    string Type,
+    string Name,
+    string? Rut,
+    string? Address,
+    string? Phone,
+    string? Email,
+    Guid? SubcategoryId
 );

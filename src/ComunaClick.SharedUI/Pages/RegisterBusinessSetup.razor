@@ -1,0 +1,362 @@
+@page "/register/business"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Registro de Negocio - ComunaClic</PageTitle>
+
+<div class="min-h-screen bg-[#f7fbf9] dark:bg-background-dark">
+    <header class="sticky top-0 z-50 w-full bg-white dark:bg-background-dark border-b border-[#dbe6e2] dark:border-white/10">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a class="material-symbols-outlined text-[#111816] dark:text-white cursor-pointer" href="/register">arrow_back</a>
+                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+            </div>
+            <LanguageToggle />
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <aside class="lg:col-span-2 bg-white dark:bg-[#1a2e28] rounded-2xl border border-[#dbe6e2] dark:border-white/10 p-6 space-y-4">
+                <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">Activación</p>
+                <h2 class="text-2xl font-bold text-[#111816] dark:text-white">Checklist de Etapa 1</h2>
+                <p class="text-sm text-[#61897c]">Creamos tu partner y te dejamos encaminado para publicar según el tipo de oferta.</p>
+                <div class="space-y-3 text-sm text-[#111816] dark:text-gray-200">
+                    <div class="flex gap-2"><span class="material-symbols-outlined text-primary">storefront</span><span>Tipo A: necesita subcategoría y al menos 1 producto.</span></div>
+                    <div class="flex gap-2"><span class="material-symbols-outlined text-primary">event_available</span><span>Tipo B: necesita contacto, dirección y al menos 1 servicio.</span></div>
+                    <div class="flex gap-2"><span class="material-symbols-outlined text-primary">badge</span><span>Tipo C: necesita contacto, dirección y al menos 1 profesional activo.</span></div>
+                </div>
+                <div class="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-[#111816] dark:text-white">
+                    <strong>Siguiente paso estimado:</strong><br /> @TypeNextStepHint
+                </div>
+            </aside>
+
+            <div class="lg:col-span-3 bg-white dark:bg-[#1a2e28] rounded-2xl border border-[#dbe6e2] dark:border-white/10 p-6 lg:p-8">
+            <div class="mb-6">
+                <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">Negocio</p>
+                <h1 class="text-3xl font-bold text-[#111816] dark:text-white">Ahora crea tu negocio</h1>
+                <p class="text-sm text-[#61897c] mt-2">Usaremos el tenant asignado en el registro para crear tu primer partner.</p>
+            </div>
+
+            @if (_loadingAuth)
+            {
+                <div class="text-sm text-[#61897c]">Cargando sesión...</div>
+            }
+            else if (!_ready)
+            {
+                <StatusBanner Level="warning" Message="Necesitas iniciar sesión o completar primero el registro de usuario." />
+                <div class="mt-4">
+                    <a href="/login" class="text-primary font-semibold">Ir a login</a>
+                </div>
+            }
+            else
+            {
+                <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+                    <DataAnnotationsValidator />
+                    <div class="space-y-5">
+                        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+                        {
+                            <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
+                        }
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="text-sm font-semibold text-[#111816] dark:text-white">Nombre del negocio</label>
+                                <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Name" />
+                                <ValidationMessage For="@(() => _model.Name)" class="text-xs text-red-500" />
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold text-[#111816] dark:text-white">RUT / Identificación</label>
+                                <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Rut" />
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold text-[#111816] dark:text-white">Tipo de partner</label>
+                                <select class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                        value="@_model.Type"
+                                        @onchange="OnTypeChangedAsync">
+                                    <option value="A">A · Productos</option>
+                                    <option value="B">B · Servicios</option>
+                                    <option value="C">C · Profesionales</option>
+                                </select>
+                            </div>
+                            @if (_model.Type == "A")
+                            {
+                                <div>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Categoría</label>
+                                    <select class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                            value="@(_model.CategoryId?.ToString() ?? string.Empty)"
+                                            @onchange="OnCategoryChangedAsync"
+                                            disabled="@_loadingCatalog">
+                                        <option value="">Selecciona categoría</option>
+                                        @foreach (var item in _categories)
+                                        {
+                                            <option value="@item.Id">@item.Name</option>
+                                        }
+                                    </select>
+                                    <ValidationMessage For="@(() => _model.CategoryId)" class="text-xs text-red-500" />
+                                </div>
+                                <div>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Subcategoría</label>
+                                    <select class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                            value="@(_model.SubcategoryId?.ToString() ?? string.Empty)"
+                                            @onchange="OnSubcategoryChanged"
+                                            disabled="@(_loadingCatalog || _subcategories.Count == 0)">
+                                        <option value="">Selecciona subcategoría</option>
+                                        @foreach (var item in _subcategories)
+                                        {
+                                            <option value="@item.Id">@item.Name</option>
+                                        }
+                                    </select>
+                                    <ValidationMessage For="@(() => _model.SubcategoryId)" class="text-xs text-red-500" />
+                                </div>
+                            }
+                            <div class="md:col-span-2">
+                                <label class="text-sm font-semibold text-[#111816] dark:text-white">Dirección</label>
+                                <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Address" />
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold text-[#111816] dark:text-white">Teléfono</label>
+                                <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Phone" />
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold text-[#111816] dark:text-white">Email del negocio</label>
+                                <input type="email" class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Email" />
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" disabled="@_isSubmitting">
+                                @(_isSubmitting ? "Creando negocio..." : "Guardar y continuar")
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+            }
+            </div>
+        </div>
+    </main>
+</div>
+
+@code {
+    private readonly RegisterBusinessModel _model = new();
+    private readonly List<PublicCategoryItem> _categories = new();
+    private readonly List<PublicSubcategoryItem> _subcategories = new();
+    private bool _loadingAuth = true;
+    private bool _loadingCatalog;
+    private bool _ready;
+    private bool _isSubmitting;
+    private bool _checkedAuth;
+    private string? _statusMessage;
+    private string _statusLevel = "info";
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_checkedAuth)
+        {
+            return;
+        }
+
+        _checkedAuth = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            _ready = AuthState.IsAuthenticated && AuthState.TenantId.HasValue;
+            if (_ready)
+            {
+                await LoadCategoriesAsync();
+            }
+            _loadingAuth = false;
+            StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+            _checkedAuth = false;
+        }
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (!AuthState.IsAuthenticated || !AuthState.TenantId.HasValue || AuthState.Tokens is null)
+        {
+            _statusLevel = "warning";
+            _statusMessage = "La sesión no está lista. Vuelve a iniciar sesión.";
+            return;
+        }
+
+        _isSubmitting = true;
+        _statusMessage = null;
+        try
+        {
+            var partner = await PartnerApi.CreatePartnerAsync(new PartnerCreateRequest(
+                _model.Type,
+                _model.Name.Trim(),
+                NullIfWhiteSpace(_model.Rut),
+                NullIfWhiteSpace(_model.Address),
+                NullIfWhiteSpace(_model.Phone),
+                NullIfWhiteSpace(_model.Email),
+                _model.Type == "A" ? _model.SubcategoryId : null));
+
+            if (partner is not null)
+            {
+                var refreshed = await AuthClient.RefreshAsync(AuthState.Tokens.RefreshToken, partner.TenantId, partner.Id);
+                await AuthState.SetTokensAsync(refreshed);
+                var nextStep = partner.Activation?.NextStep ?? TypeNextStepHint;
+                Navigation.NavigateTo($"/partner?welcome={Uri.EscapeDataString(nextStep)}", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string? NullIfWhiteSpace(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task LoadCategoriesAsync()
+    {
+        _loadingCatalog = true;
+        try
+        {
+            _categories.Clear();
+            var items = await BuyerApi.GetProductCategoriesAsync();
+            if (items is not null)
+            {
+                _categories.AddRange(items);
+            }
+        }
+        finally
+        {
+            _loadingCatalog = false;
+        }
+    }
+
+    private string TypeNextStepHint => _model.Type switch
+    {
+        "B" => "Completa contacto y dirección. Luego crea tu primer servicio para poder publicar.",
+        "C" => "Completa contacto y dirección. Luego registra tu primer profesional activo.",
+        _ => "Elige subcategoría y luego carga tu primer producto para poder publicar."
+    };
+
+    private async Task OnTypeChangedAsync(ChangeEventArgs args)
+    {
+        _model.Type = args.Value?.ToString()?.Trim().ToUpperInvariant() switch
+        {
+            "B" => "B",
+            "C" => "C",
+            _ => "A"
+        };
+
+        if (_model.Type != "A")
+        {
+            _model.CategoryId = null;
+            _model.SubcategoryId = null;
+            _subcategories.Clear();
+            return;
+        }
+
+        if (_categories.Count == 0)
+        {
+            await LoadCategoriesAsync();
+        }
+    }
+
+    private async Task OnCategoryChangedAsync(ChangeEventArgs args)
+    {
+        _model.CategoryId = Guid.TryParse(args.Value?.ToString(), out var categoryId) ? categoryId : null;
+        _model.SubcategoryId = null;
+        _subcategories.Clear();
+
+        if (!_model.CategoryId.HasValue)
+        {
+            return;
+        }
+
+        _loadingCatalog = true;
+        try
+        {
+            var items = await BuyerApi.GetProductSubcategoriesAsync(_model.CategoryId.Value);
+            if (items is not null)
+            {
+                _subcategories.AddRange(items);
+            }
+        }
+        finally
+        {
+            _loadingCatalog = false;
+        }
+    }
+
+    private void OnSubcategoryChanged(ChangeEventArgs args)
+    {
+        _model.SubcategoryId = Guid.TryParse(args.Value?.ToString(), out var subcategoryId) ? subcategoryId : null;
+    }
+
+    private sealed class RegisterBusinessModel
+    {
+        [Required]
+        public string Name { get; set; } = string.Empty;
+
+        public string Type { get; set; } = "A";
+        public Guid? CategoryId { get; set; }
+
+        [RequiredIfTypeA]
+        public Guid? SubcategoryId { get; set; }
+        public string? Rut { get; set; }
+        public string? Address { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+    }
+
+    [AttributeUsage(AttributeTargets.Property)]
+    private sealed class RequiredIfTypeAAttribute : ValidationAttribute
+    {
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (validationContext.ObjectInstance is not RegisterBusinessModel model || model.Type != "A")
+            {
+                return ValidationResult.Success;
+            }
+
+            if (value is Guid guid && guid != Guid.Empty)
+            {
+                return ValidationResult.Success;
+            }
+
+            if (value is Guid?)
+            {
+                var guidValue = (Guid?)value;
+                if (guidValue.HasValue && guidValue.Value != Guid.Empty)
+                {
+                    return ValidationResult.Success;
+                }
+            }
+
+            return new ValidationResult("La subcategoría es obligatoria para partners tipo A.");
+        }
+    }
+}
