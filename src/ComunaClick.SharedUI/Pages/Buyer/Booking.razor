@@ -2,6 +2,7 @@
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.booking.title")</PageTitle>
@@ -9,13 +10,21 @@
 <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
     <h1 class="text-2xl font-bold">@L.T("buyer.booking.heading")</h1>
     <p class="text-sm text-[#61897c]">@L.T("buyer.booking.subtitle")</p>
+    @if (_serviceName is not null)
+    {
+        <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+            <strong>Servicio:</strong> @_serviceName<br />
+            <strong>Categoría:</strong> @_serviceCategory<br />
+            <strong>Monto sugerido:</strong> @($"{Amount:N0}")
+        </div>
+    }
     <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" />
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ServiceId" @bind="ServiceId" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ServiceId" @bind="ServiceId" readonly="@_prefilled" />
         <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="CustomerId" @bind="CustomerId" />
         <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="StartAt (ISO)" @bind="StartAt" />
         <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="EndAt (ISO)" @bind="EndAt" />
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Amount" @bind="Amount" />
+        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Amount" @bind="Amount" readonly="@_prefilled" />
     </div>
     <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
     <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold" @onclick="HandleBooking">@L.T("buyer.booking.confirm")</button>
@@ -30,10 +39,36 @@
     private double Amount = 0;
     private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
+    private string? _serviceName;
+    private string? _serviceCategory;
+    private bool _prefilled;
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var serviceId = GetQueryParameter(uri.Query, "serviceId");
+        if (!Guid.TryParse(serviceId, out var parsedServiceId))
+        {
+            return;
+        }
+
+        var service = await BuyerApi.GetServiceAsync(parsedServiceId);
+        if (service is null)
+        {
+            return;
+        }
+
+        ServiceId = service.Id.ToString();
+        PartnerId = service.PartnerId.ToString();
+        Amount = service.Price;
+        _serviceName = service.Name;
+        _serviceCategory = service.Category;
+        _prefilled = true;
     }
 
     private async Task HandleBooking()
@@ -79,6 +114,20 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private static string? GetQueryParameter(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return null;
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            }
+        }
+        return null;
     }
 
     public void Dispose()

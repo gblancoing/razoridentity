@@ -119,7 +119,12 @@
                             "C" => "Ver profesionales",
                             _ => "Ver productos"
                         };
-                        _primaryCtaHref = "/buyer";
+                        _primaryCtaHref = partner.Type switch
+                        {
+                            "B" => "/services",
+                            "C" => "/professionals",
+                            _ => "/products"
+                        };
                         _secondaryCtaLabel = null;
                         _secondaryCtaHref = null;
                     }
@@ -133,9 +138,9 @@
                         _detailLine2 = professional.Bio ?? _detailLine2;
                         _ctaSubtitle = "Profesional verificado listo para contacto.";
                         _primaryCtaLabel = "Contactar";
-                        _primaryCtaHref = "/buyer";
-                        _secondaryCtaLabel = professional.TenantId != Guid.Empty ? "Ver más opciones" : null;
-                        _secondaryCtaHref = "/buyer";
+                        _primaryCtaHref = "/professionals";
+                        _secondaryCtaLabel = professional.TenantId != Guid.Empty ? "Ver más profesionales" : null;
+                        _secondaryCtaHref = "/professionals";
                     }
                     break;
                 default:

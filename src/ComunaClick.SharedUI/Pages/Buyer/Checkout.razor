@@ -2,6 +2,7 @@
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.checkout.title")</PageTitle>
@@ -10,12 +11,20 @@
     <div class="lg:col-span-2 bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
         <h1 class="text-2xl font-bold">@L.T("buyer.checkout.heading")</h1>
         <p class="text-sm text-[#61897c]">@L.T("buyer.checkout.subtitle")</p>
+        @if (_productName is not null)
+        {
+            <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                <strong>Producto:</strong> @_productName<br />
+                <strong>Categoría:</strong> @_productCategory<br />
+                <strong>Precio base:</strong> @($"{UnitPrice:N0}")
+            </div>
+        }
         <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="CustomerId" @bind="CustomerId" />
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ProductId" @bind="ProductId" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ProductId" @bind="ProductId" readonly="@_prefilled" />
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" />
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" readonly="@_prefilled" />
         </div>
     <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
     </div>
@@ -40,16 +49,44 @@
     private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
     private string _total = "$0";
+    private string? _productName;
+    private string? _productCategory;
+    private bool _prefilled;
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
     }
 
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var productId = GetQueryParameter(uri.Query, "productId");
+        if (!Guid.TryParse(productId, out var parsedProductId))
+        {
+            return;
+        }
+
+        var product = await BuyerApi.GetProductAsync(parsedProductId);
+        if (product is null)
+        {
+            return;
+        }
+
+        ProductId = product.Id.ToString();
+        PartnerId = product.PartnerId.ToString();
+        UnitPrice = product.Price;
+        _productName = product.Name;
+        _productCategory = product.Category;
+        _prefilled = true;
+        UpdateTotal();
+    }
+
     private async Task HandleCheckout()
     {
         _statusMessage = string.Empty;
         _statusLevel = "info";
+        UpdateTotal();
 
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
             !Guid.TryParse(CustomerId, out var customerId) ||
@@ -84,6 +121,25 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateTotal()
+    {
+        _total = $"{(Quantity * UnitPrice):N0}";
+    }
+
+    private static string? GetQueryParameter(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return null;
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            }
+        }
+        return null;
     }
 
     public void Dispose()

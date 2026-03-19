@@ -1,0 +1,56 @@
+@page "/professionals"
+@layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+
+<PageTitle>Profesionales - ComunaClic</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div>
+        <h1 class="text-3xl font-bold">Profesionales listos para contactar</h1>
+        <p class="text-sm text-[#61897c]">Mostramos profesionales activos y verificados de perfiles visibles.</p>
+    </div>
+
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-4">
+        @if (_loading)
+        {
+            <StatusBanner Message="Cargando profesionales..." Level="info" />
+        }
+        else if (_items.Count == 0)
+        {
+            <StatusBanner Message="No encontramos profesionales elegibles por ahora." Level="warning" />
+        }
+        else
+        {
+            <div class="space-y-3">
+                @foreach (var item in _items)
+                {
+                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800 pb-3 last:border-b-0">
+                        <div>
+                            <p class="font-semibold">@item.Name</p>
+                            <p class="text-xs text-[#61897c]">@item.Category</p>
+                        </div>
+                        <a href="@(item.CtaHref ?? $"/buyer/detail/professional/{item.Id}")" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-xs">@(item.CtaLabel ?? "Contactar")</a>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _items = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
+        var results = await BuyerApi.SearchAsync(null, "professionals", 24, tenantId);
+        if (results is not null)
+        {
+            _items.AddRange(results);
+        }
+        _loading = false;
+    }
+}
