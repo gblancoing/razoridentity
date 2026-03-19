@@ -24,6 +24,8 @@ public sealed class CoreDbContext : DbContext
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductInventory> ProductInventories => Set<ProductInventory>();
+    public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
+    public DbSet<ProductSubcategory> ProductSubcategories => Set<ProductSubcategory>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerPartnerLink> CustomerPartnerLinks => Set<CustomerPartnerLink>();
     public DbSet<Interaction> Interactions => Set<Interaction>();
@@ -69,13 +71,14 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("tenants");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.Timezone).HasDefaultValue("America/Santiago");
-            entity.Property(x => x.ConfigJson).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.Timezone).HasColumnName("timezone").HasDefaultValue("America/Santiago");
+            entity.Property(x => x.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => x.Name).IsUnique();
             entity.HasIndex(x => x.ComunaId).IsUnique();
             entity.HasOne(x => x.Comuna).WithMany(x => x.Tenants).HasForeignKey(x => x.ComunaId);
@@ -85,11 +88,11 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("countries");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Code).IsRequired();
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Code).HasColumnName("code").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => x.Code).IsUnique();
         });
 
@@ -97,11 +100,13 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("regions");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Code).IsRequired();
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.CountryId).HasColumnName("country_id");
+            entity.Property(x => x.Code).HasColumnName("code").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.LegacyRegionId).HasColumnName("legacy_region_id");
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => x.CountryId);
             entity.HasIndex(x => x.LegacyRegionId)
                 .HasFilter("legacy_region_id IS NOT NULL");
@@ -112,13 +117,15 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("comunas");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Code).IsRequired();
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.Latitude).HasColumnType("numeric(9,6)");
-            entity.Property(x => x.Longitude).HasColumnType("numeric(9,6)");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.RegionId).HasColumnName("region_id");
+            entity.Property(x => x.Code).HasColumnName("code").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.LegacyComunaId).HasColumnName("legacy_comuna_id");
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.Latitude).HasColumnName("latitude").HasColumnType("double precision");
+            entity.Property(x => x.Longitude).HasColumnName("longitude").HasColumnType("double precision");
             entity.HasIndex(x => x.RegionId);
             entity.HasIndex(x => x.LegacyComunaId)
                 .HasFilter("legacy_comuna_id IS NOT NULL");
@@ -129,14 +136,49 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("partners");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.Type).HasColumnType("char(1)").IsRequired();
-            entity.Property(x => x.IsVisible).HasDefaultValue(false);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.SubcategoryId).HasColumnName("subcategory_id");
+            entity.Property(x => x.Type).HasColumnName("type").HasColumnType("char(1)").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.Rut).HasColumnName("rut");
+            entity.Property(x => x.Address).HasColumnName("address");
+            entity.Property(x => x.Phone).HasColumnName("phone");
+            entity.Property(x => x.Email).HasColumnName("email");
+            entity.Property(x => x.IsVisible).HasColumnName("is_visible").HasDefaultValue(false);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            entity.HasIndex(x => x.SubcategoryId);
             entity.HasOne(x => x.Tenant).WithMany(x => x.Partners).HasForeignKey(x => x.TenantId);
+            entity.HasOne(x => x.Subcategory).WithMany(x => x.Partners).HasForeignKey(x => x.SubcategoryId);
+        });
+
+        modelBuilder.Entity<ProductCategory>(entity =>
+        {
+            entity.ToTable("product_categories");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Code).HasColumnName("code").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<ProductSubcategory>(entity =>
+        {
+            entity.ToTable("product_subcategories");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.CategoryId).HasColumnName("category_id");
+            entity.Property(x => x.Code).HasColumnName("code").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.CategoryId);
+            entity.HasOne(x => x.Category).WithMany(x => x.Subcategories).HasForeignKey(x => x.CategoryId);
         });
 
         modelBuilder.Entity<PartnerStaff>(entity =>
