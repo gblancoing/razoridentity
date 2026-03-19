@@ -1,0 +1,118 @@
+@page "/buyer/contact"
+@layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject NavigationManager Navigation
+
+<PageTitle>Contactar profesional - ComunaClic</PageTitle>
+
+<div class="max-w-3xl mx-auto flex flex-col gap-6">
+    <div>
+        <h1 class="text-2xl font-bold">Contactar profesional</h1>
+        <p class="text-sm text-[#61897c]">Deja tu mensaje y generamos el lead para seguimiento.</p>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_statusMessage))
+    {
+        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+    }
+
+    @if (_professionalName is not null)
+    {
+        <div class="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+            <strong>Profesional:</strong> @_professionalName<br />
+            <strong>Especialidad:</strong> @_professionalSpecialty
+        </div>
+    }
+
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
+        <div>
+            <label class="text-sm font-semibold">CustomerId</label>
+            <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="CustomerId" />
+        </div>
+        <div>
+            <label class="text-sm font-semibold">Mensaje</label>
+            <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" rows="5" @bind="Message"></textarea>
+        </div>
+        <button class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" @onclick="SubmitAsync" disabled="@_submitting">@(_submitting ? "Enviando..." : "Enviar contacto")</button>
+    </div>
+</div>
+
+@code {
+    private string CustomerId = string.Empty;
+    private string Message = "Hola, me interesa este perfil profesional.";
+    private Guid? _professionalId;
+    private string? _professionalName;
+    private string? _professionalSpecialty;
+    private string? _statusMessage;
+    private string _statusLevel = "info";
+    private bool _submitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var professionalId = GetQueryParameter(uri.Query, "professionalId");
+        var customerId = GetQueryParameter(uri.Query, "customerId");
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            CustomerId = customerId;
+        }
+
+        if (!Guid.TryParse(professionalId, out var parsedProfessionalId))
+        {
+            _statusMessage = "Falta professionalId para generar el contacto.";
+            _statusLevel = "warning";
+            return;
+        }
+
+        _professionalId = parsedProfessionalId;
+        var professional = await BuyerApi.GetProfessionalAsync(parsedProfessionalId);
+        if (professional is not null)
+        {
+            _professionalName = professional.Name;
+            _professionalSpecialty = professional.Specialty;
+            Message = $"Hola {_professionalName}, me interesa tu perfil en ComunaClic.";
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (!_professionalId.HasValue || !Guid.TryParse(CustomerId, out var customerId))
+        {
+            _statusMessage = "Debes ingresar un CustomerId válido.";
+            _statusLevel = "warning";
+            return;
+        }
+
+        _submitting = true;
+        _statusMessage = null;
+        try
+        {
+            var lead = await BuyerApi.CreateLeadAsync(new ComunaClick.Shared.Api.Buyer.LeadCreateRequest(_professionalId.Value, customerId, Message));
+            _statusMessage = lead is null ? "No pudimos crear el lead." : $"Lead creado correctamente: {lead.Id}";
+            _statusLevel = lead is null ? "warning" : "success";
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = ex.Message;
+            _statusLevel = "error";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private static string? GetQueryParameter(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return null;
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            }
+        }
+        return null;
+    }
+}

@@ -52,6 +52,11 @@
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var serviceId = GetQueryParameter(uri.Query, "serviceId");
+        var customerId = GetQueryParameter(uri.Query, "customerId");
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            CustomerId = customerId;
+        }
         if (!Guid.TryParse(serviceId, out var parsedServiceId))
         {
             return;
@@ -75,6 +80,12 @@
     {
         _statusMessage = string.Empty;
         _statusLevel = "info";
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            _statusMessage = "Primero ingresa tu CustomerId para completar la reserva.";
+            _statusLevel = "warning";
+            return;
+        }
 
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
             !Guid.TryParse(ServiceId, out var serviceId) ||

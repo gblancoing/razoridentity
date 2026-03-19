@@ -138,7 +138,7 @@
                         _detailLine2 = professional.Bio ?? _detailLine2;
                         _ctaSubtitle = "Profesional verificado listo para contacto.";
                         _primaryCtaLabel = "Contactar";
-                        _primaryCtaHref = "/professionals";
+                        _primaryCtaHref = $"/buyer/contact?professionalId={Id.Value}";
                         _secondaryCtaLabel = professional.TenantId != Guid.Empty ? "Ver más profesionales" : null;
                         _secondaryCtaHref = "/professionals";
                     }

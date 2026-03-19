@@ -34,6 +34,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<Booking?> CreateBookingAsync(BookingCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Booking>("/v1/bookings", request, cancellationToken);
 
+    public Task<Lead?> CreateLeadAsync(LeadCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<Lead>("/v1/leads", request, cancellationToken);
+
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Order>($"/v1/orders/{id}", cancellationToken);
 
@@ -179,6 +182,23 @@ public sealed record BookingCreateRequest(
     double Amount,
     string? Currency,
     string? CancellationPolicy
+);
+
+public sealed record Lead(
+    Guid Id,
+    Guid TenantId,
+    Guid ProfessionalId,
+    Guid CustomerId,
+    string? Status,
+    string? Message,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt
+);
+
+public sealed record LeadCreateRequest(
+    Guid ProfessionalId,
+    Guid CustomerId,
+    string? Message
 );
 
 public sealed record Customer(

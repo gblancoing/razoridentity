@@ -62,6 +62,11 @@
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var productId = GetQueryParameter(uri.Query, "productId");
+        var customerId = GetQueryParameter(uri.Query, "customerId");
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            CustomerId = customerId;
+        }
         if (!Guid.TryParse(productId, out var parsedProductId))
         {
             return;
@@ -87,6 +92,12 @@
         _statusMessage = string.Empty;
         _statusLevel = "info";
         UpdateTotal();
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            _statusMessage = "Primero ingresa tu CustomerId para completar la compra.";
+            _statusLevel = "warning";
+            return;
+        }
 
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
             !Guid.TryParse(CustomerId, out var customerId) ||
