@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# .NET build artifacts
+**/bin/
+**/obj/
+
+# Local tool/cache dirs
+.dotnet_home/
+
+# IDE/editor
+.vs/
+.vscode/
+.idea/
+
+# Logs
+*.log
