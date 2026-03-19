@@ -6,15 +6,36 @@
     <header class="sticky top-0 z-40 bg-white/95 dark:bg-background-dark/95 backdrop-blur border-b border-gray-200 dark:border-gray-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+                <a href="/buyer" @onclick="CloseMenu">
+                    <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+                </a>
             </div>
-            <div class="flex items-center gap-4 text-sm">
+            <div class="hidden md:flex items-center gap-4 text-sm">
                 <a class="hover:text-primary" href="/buyer">@L.T("buyer.nav.home")</a>
                 <a class="hover:text-primary" href="/buyer/orders">@L.T("buyer.nav.orders")</a>
                 <a class="hover:text-primary" href="/buyer/profile">@L.T("buyer.nav.profile")</a>
                 <LanguageToggle />
             </div>
+            <div class="md:hidden flex items-center gap-2">
+                <LanguageToggle />
+                <button type="button"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 p-2"
+                        aria-label="Abrir menú buyer"
+                        aria-expanded="@_mobileMenuOpen"
+                        @onclick="ToggleMenu">
+                    <span class="material-symbols-outlined">@(_mobileMenuOpen ? "close" : "menu")</span>
+                </button>
+            </div>
         </div>
+
+        @if (_mobileMenuOpen)
+        {
+            <div class="md:hidden border-t border-gray-200 dark:border-gray-800 px-4 py-3 space-y-2 text-sm">
+                <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer" @onclick="CloseMenu">@L.T("buyer.nav.home")</a>
+                <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer/orders" @onclick="CloseMenu">@L.T("buyer.nav.orders")</a>
+                <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer/profile" @onclick="CloseMenu">@L.T("buyer.nav.profile")</a>
+            </div>
+        }
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -30,6 +51,8 @@
 </div>
 
 @code {
+    private bool _mobileMenuOpen;
+
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
@@ -38,6 +61,16 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleMenu()
+    {
+        _mobileMenuOpen = !_mobileMenuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        _mobileMenuOpen = false;
     }
 
     public void Dispose()

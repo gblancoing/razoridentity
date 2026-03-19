@@ -4,7 +4,7 @@
 <nav class="sticky top-0 z-50 bg-white dark:bg-background-dark border-b border-gray-200 dark:border-gray-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
-            <a class="flex items-center gap-3" href="/">
+            <a class="flex items-center gap-3" href="/" @onclick="CloseMenu">
                 <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
             </a>
             <div class="hidden md:flex items-center gap-4">
@@ -13,14 +13,32 @@
                 <a class="text-sm font-medium hover:text-primary transition-colors" href="/register">@L.T("nav.register")</a>
                 <a class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm" href="/login">@L.T("nav.login")</a>
             </div>
-            <div class="md:hidden">
-                <span class="material-symbols-outlined">menu</span>
+            <div class="md:hidden flex items-center gap-2">
+                <LanguageToggle />
+                <button type="button"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 p-2 text-[#111816] dark:text-white"
+                        aria-label="Abrir menú"
+                        aria-expanded="@_mobileMenuOpen"
+                        @onclick="ToggleMenu">
+                    <span class="material-symbols-outlined">@(_mobileMenuOpen ? "close" : "menu")</span>
+                </button>
             </div>
         </div>
+
+        @if (_mobileMenuOpen)
+        {
+            <div class="md:hidden border-t border-gray-200 dark:border-gray-800 py-3 space-y-2">
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/help" @onclick="CloseMenu">@L.T("nav.help")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/register" @onclick="CloseMenu">@L.T("nav.register")</a>
+                <a class="block rounded-lg bg-primary text-[#111816] px-3 py-2 text-sm font-bold" href="/login" @onclick="CloseMenu">@L.T("nav.login")</a>
+            </div>
+        }
     </div>
 </nav>
 
 @code {
+    private bool _mobileMenuOpen;
+
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
@@ -29,6 +47,16 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleMenu()
+    {
+        _mobileMenuOpen = !_mobileMenuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        _mobileMenuOpen = false;
     }
 
     public void Dispose()
