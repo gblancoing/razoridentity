@@ -245,13 +245,17 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("products");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.Price).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.Currency).HasDefaultValue("CLP");
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.Description).HasColumnName("description");
+            entity.Property(x => x.Category).HasColumnName("category");
+            entity.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<ProductInventory>(entity =>
@@ -297,25 +301,34 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("professionals");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.IsVerified).HasDefaultValue(false);
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.Email).HasColumnName("email");
+            entity.Property(x => x.Phone).HasColumnName("phone");
+            entity.Property(x => x.Specialty).HasColumnName("specialty");
+            entity.Property(x => x.Bio).HasColumnName("bio");
+            entity.Property(x => x.IsVerified).HasColumnName("is_verified").HasDefaultValue(false);
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Service>(entity =>
         {
             entity.ToTable("services");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.Price).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.Currency).HasDefaultValue("CLP");
-            entity.Property(x => x.DurationMinutes).HasDefaultValue(30);
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.Description).HasColumnName("description");
+            entity.Property(x => x.Category).HasColumnName("category");
+            entity.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.DurationMinutes).HasColumnName("duration_minutes").HasDefaultValue(30);
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<ServiceSlot>(entity =>
