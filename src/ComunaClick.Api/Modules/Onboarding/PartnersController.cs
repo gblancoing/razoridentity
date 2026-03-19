@@ -335,8 +335,18 @@ public sealed class PartnersController : ControllerBase
                 checklist.Add(BuildItem("offer", "Al menos 1 servicio activo", serviceCount > 0, "Crea un servicio para empezar a recibir reservas."));
                 break;
             case "C":
-                var professionalCount = await _db.Professionals.CountAsync(x => x.TenantId == partner.TenantId && x.IsActive);
-                checklist.Add(BuildItem("offer", "Al menos 1 profesional activo", professionalCount > 0, "Registra un profesional activo para captar leads."));
+                var qualifiedProfessionalCount = await _db.Professionals.CountAsync(x =>
+                    x.TenantId == partner.TenantId &&
+                    x.IsActive &&
+                    x.IsVerified &&
+                    !string.IsNullOrWhiteSpace(x.Name) &&
+                    !string.IsNullOrWhiteSpace(x.Specialty) &&
+                    (!string.IsNullOrWhiteSpace(x.Email) || !string.IsNullOrWhiteSpace(x.Phone)));
+                checklist.Add(BuildItem(
+                    "offer",
+                    "Al menos 1 profesional verificado y completo",
+                    qualifiedProfessionalCount > 0,
+                    "Registra un profesional activo, verificado, con especialidad y contacto para publicar."));
                 break;
         }
 
