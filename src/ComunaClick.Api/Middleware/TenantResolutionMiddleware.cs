@@ -22,10 +22,10 @@ public sealed class TenantResolutionMiddleware
         Guid? tenantId = null;
         Guid? partnerId = null;
 
-        var claimTenant = context.User?.FindFirst(AuthConstants.ClaimTenantId)?.Value;
-        if (Guid.TryParse(claimTenant, out var tenantGuid))
+        var claimTenant = ResolveGuidClaim(context.User, AuthConstants.ClaimTenantId, "tenantId", "tenant_id");
+        if (claimTenant.HasValue)
         {
-            tenantId = tenantGuid;
+            tenantId = claimTenant.Value;
         }
         else if (context.Request.Headers.TryGetValue(_tenantHeader, out var headerValue) &&
                  Guid.TryParse(headerValue, out var headerGuid))
@@ -39,10 +39,10 @@ public sealed class TenantResolutionMiddleware
             return;
         }
 
-        var claimPartner = context.User?.FindFirst(AuthConstants.ClaimPartnerId)?.Value;
-        if (Guid.TryParse(claimPartner, out var partnerGuid))
+        var claimPartner = ResolveGuidClaim(context.User, AuthConstants.ClaimPartnerId, "partnerId", "partner_id");
+        if (claimPartner.HasValue)
         {
-            partnerId = partnerGuid;
+            partnerId = claimPartner.Value;
         }
         else if (context.Request.Headers.TryGetValue(_partnerHeader, out var partnerHeader) &&
                  Guid.TryParse(partnerHeader, out var partnerHeaderGuid))
@@ -58,5 +58,24 @@ public sealed class TenantResolutionMiddleware
 
         tenantContext.Set(tenantId, partnerId);
         await _next(context);
+    }
+
+    private static Guid? ResolveGuidClaim(ClaimsPrincipal? user, params string[] claimTypes)
+    {
+        if (user is null)
+        {
+            return null;
+        }
+
+        foreach (var claimType in claimTypes)
+        {
+            var raw = user.FindFirst(claimType)?.Value;
+            if (Guid.TryParse(raw, out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
     }
 }

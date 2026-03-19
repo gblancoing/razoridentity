@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using ComunaClick.Api.Modules.Onboarding.Contracts.Partners;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
+using ComunaClick.Common.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -61,7 +63,7 @@ public sealed class PartnersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<object>> Create(PartnerCreateRequest request)
     {
-        var tenantId = _tenantContext.TenantId;
+        var tenantId = _tenantContext.TenantId ?? ResolveTenantIdFromUser();
         if (!tenantId.HasValue)
         {
             return BadRequest(new { message = "TenantId is required." });
@@ -292,7 +294,7 @@ public sealed class PartnersController : ControllerBase
     [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<PartnerStaff>> AddStaff(Guid id, PartnerStaffCreateRequest request)
     {
-        var tenantId = _tenantContext.TenantId;
+        var tenantId = _tenantContext.TenantId ?? ResolveTenantIdFromUser();
         if (!tenantId.HasValue)
         {
             return BadRequest(new { message = "TenantId is required." });
@@ -431,5 +433,29 @@ public sealed class PartnersController : ControllerBase
             "C" => $"Siguiente paso: completa \"{missing.Label}\" para activar tu perfil profesional.",
             _ => $"Siguiente paso: completa \"{missing.Label}\"."
         };
+    }
+
+    private Guid? ResolveTenantIdFromUser()
+    {
+        return ResolveGuidClaim(User, AuthConstants.ClaimTenantId, "tenantId", "tenant_id");
+    }
+
+    private static Guid? ResolveGuidClaim(ClaimsPrincipal? user, params string[] claimTypes)
+    {
+        if (user is null)
+        {
+            return null;
+        }
+
+        foreach (var claimType in claimTypes)
+        {
+            var raw = user.FindFirst(claimType)?.Value;
+            if (Guid.TryParse(raw, out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
     }
 }
