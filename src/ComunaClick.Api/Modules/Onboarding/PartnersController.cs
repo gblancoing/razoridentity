@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ComunaClick.Api.Modules.Onboarding;
 
 [ApiController]
-[Authorize(Policy = "partner.owner")]
+[Authorize]
 [Route("v1/partners")]
 public sealed class PartnersController : ControllerBase
 {
@@ -22,6 +22,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<IEnumerable<object>>> List()
     {
         var partners = await _db.Partners.AsNoTracking()
@@ -40,6 +41,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<object>> Get(Guid id)
     {
         var partner = await _db.Partners.AsNoTracking()
@@ -120,6 +122,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
+    [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<Partner>> Update(Guid id, PartnerUpdateRequest request)
     {
         var partner = await _db.Partners.FirstOrDefaultAsync(x => x.Id == id);
@@ -222,6 +225,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpPatch("{id:guid}/visibility")]
+    [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<Partner>> UpdateVisibility(Guid id, PartnerVisibilityRequest request)
     {
         var partner = await _db.Partners.FirstOrDefaultAsync(x => x.Id == id);
@@ -262,6 +266,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/activation")]
+    [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<PartnerActivationStatusResponse>> GetActivation(Guid id)
     {
         var partner = await _db.Partners
@@ -284,6 +289,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/staff")]
+    [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<PartnerStaff>> AddStaff(Guid id, PartnerStaffCreateRequest request)
     {
         var tenantId = _tenantContext.TenantId;
