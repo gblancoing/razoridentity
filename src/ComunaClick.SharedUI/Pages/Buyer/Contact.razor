@@ -2,6 +2,7 @@
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Contactar profesional - ComunaClic</PageTitle>
 
@@ -28,6 +29,7 @@
         <div>
             <label class="text-sm font-semibold">CustomerId</label>
             <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="CustomerId" />
+            <a href="/buyer/profile" class="mt-2 inline-block text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
         </div>
         <div>
             <label class="text-sm font-semibold">Mensaje</label>
@@ -55,6 +57,10 @@
         if (!string.IsNullOrWhiteSpace(customerId))
         {
             CustomerId = customerId;
+        }
+        else
+        {
+            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
         }
 
         if (!Guid.TryParse(professionalId, out var parsedProfessionalId))
@@ -87,6 +93,7 @@
         _statusMessage = null;
         try
         {
+            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
             var lead = await BuyerApi.CreateLeadAsync(new ComunaClick.Shared.Api.Buyer.LeadCreateRequest(_professionalId.Value, customerId, Message));
             _statusMessage = lead is null ? "No pudimos crear el lead." : $"Lead creado correctamente: {lead.Id}";
             _statusLevel = lead is null ? "warning" : "success";

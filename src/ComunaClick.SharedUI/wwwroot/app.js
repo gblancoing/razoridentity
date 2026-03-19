@@ -39,3 +39,19 @@ window.comunaclic.clearTokens = function () {
     // Ignore storage errors
   }
 };
+
+window.comunaclic.getCustomerId = function () {
+  try {
+    return localStorage.getItem("comunaclic.customerId") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setCustomerId = function (customerId) {
+  try {
+    localStorage.setItem("comunaclic.customerId", customerId || "");
+  } catch {
+    // Ignore storage errors
+  }
+};

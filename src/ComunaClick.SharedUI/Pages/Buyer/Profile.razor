@@ -2,6 +2,7 @@
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.profile.title")</PageTitle>
@@ -36,6 +37,15 @@
         L.OnChange += HandleChange;
     }
 
+    protected override async Task OnInitializedAsync()
+    {
+        var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        if (!string.IsNullOrWhiteSpace(storedCustomerId))
+        {
+            CustomerId = storedCustomerId;
+        }
+    }
+
     private async Task HandleSave()
     {
         _statusMessage = string.Empty;
@@ -55,6 +65,7 @@
         }
         else
         {
+            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
             _statusMessage = L.T("buyer.status.profileUpdated");
             _statusLevel = "success";
         }

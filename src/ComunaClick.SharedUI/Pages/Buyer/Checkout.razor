@@ -3,6 +3,7 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.checkout.title")</PageTitle>
@@ -21,7 +22,10 @@
         }
         <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="CustomerId" @bind="CustomerId" />
+            <div class="space-y-2">
+                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="CustomerId" @bind="CustomerId" />
+                <a href="/buyer/profile" class="text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
+            </div>
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ProductId" @bind="ProductId" readonly="@_prefilled" />
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" />
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" readonly="@_prefilled" />
@@ -67,6 +71,10 @@
         {
             CustomerId = customerId;
         }
+        else
+        {
+            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        }
         if (!Guid.TryParse(productId, out var parsedProductId))
         {
             return;
@@ -98,6 +106,8 @@
             _statusLevel = "warning";
             return;
         }
+
+        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
 
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
             !Guid.TryParse(CustomerId, out var customerId) ||
