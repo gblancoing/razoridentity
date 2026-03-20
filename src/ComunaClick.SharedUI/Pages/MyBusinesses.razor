@@ -94,7 +94,7 @@
         _items.Clear();
         try
         {
-            var partners = await PartnerApi.ListPartnersAsync();
+            var partners = await PartnerApi.ListMyPartnersAsync();
             if (partners is not null)
             {
                 _items.AddRange(partners);

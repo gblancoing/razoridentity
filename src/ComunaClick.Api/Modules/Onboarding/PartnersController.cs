@@ -42,6 +42,40 @@ public sealed class PartnersController : ControllerBase
         return Ok(items);
     }
 
+    [HttpGet("mine")]
+    public async Task<ActionResult<IEnumerable<object>>> Mine()
+    {
+        var tenantId = _tenantContext.TenantId ?? ResolveTenantIdFromUser();
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var partnersQuery = _db.Partners.AsNoTracking()
+            .Include(x => x.Subcategory)
+            .ThenInclude(x => x!.Category)
+            .Where(x => x.TenantId == tenantId.Value);
+
+        var scopedPartnerId = _tenantContext.PartnerId ?? ResolvePartnerIdFromUser();
+        if (scopedPartnerId.HasValue)
+        {
+            partnersQuery = partnersQuery.Where(x => x.Id == scopedPartnerId.Value);
+        }
+
+        var partners = await partnersQuery
+            .OrderBy(x => x.Name)
+            .ToListAsync();
+
+        var items = new List<object>(partners.Count);
+        foreach (var partner in partners)
+        {
+            var activation = await BuildActivationStatusAsync(partner);
+            items.Add(ToPartnerResponse(partner, activation));
+        }
+
+        return Ok(items);
+    }
+
     [HttpGet("{id:guid}")]
     [Authorize(Policy = "partner.owner")]
     public async Task<ActionResult<object>> Get(Guid id)
@@ -438,6 +472,11 @@ public sealed class PartnersController : ControllerBase
     private Guid? ResolveTenantIdFromUser()
     {
         return ResolveGuidClaim(User, AuthConstants.ClaimTenantId, "tenantId", "tenant_id");
+    }
+
+    private Guid? ResolvePartnerIdFromUser()
+    {
+        return ResolveGuidClaim(User, AuthConstants.ClaimPartnerId, "partnerId", "partner_id");
     }
 
     private static Guid? ResolveGuidClaim(ClaimsPrincipal? user, params string[] claimTypes)
