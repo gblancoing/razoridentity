@@ -37,6 +37,7 @@ public sealed class AuthController : ControllerBase
         var user = await _db.Users
             .Include(x => x.UserRoles).ThenInclude(x => x.Role)
             .Include(x => x.TenantScopes)
+            .Include(x => x.TenantAccess)
             .FirstOrDefaultAsync(x => x.Email.ToLower() == email);
 
         if (user is null || !user.IsActive)
@@ -86,6 +87,8 @@ public sealed class AuthController : ControllerBase
             .ThenInclude(x => x.Role)
             .Include(x => x.User)
             .ThenInclude(x => x.TenantScopes)
+            .Include(x => x.User)
+            .ThenInclude(x => x.TenantAccess)
             .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
 
         if (refreshToken is null || refreshToken.RevokedAt.HasValue)
@@ -235,12 +238,14 @@ public sealed class AuthController : ControllerBase
         error = null;
 
         var scopes = user.TenantScopes.ToList();
+        var tenantAccess = user.TenantAccess.ToList();
         var isSuperAdmin = user.IsSuperAdmin;
 
         if (requestedTenantId.HasValue)
         {
             var matches = scopes.Where(x => x.TenantId == requestedTenantId.Value).ToList();
-            if (matches.Count == 0 && !roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase) && !isSuperAdmin)
+            var hasTenantAccess = tenantAccess.Any(x => x.TenantId == requestedTenantId.Value);
+            if (matches.Count == 0 && !hasTenantAccess && !roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase) && !isSuperAdmin)
             {
                 error = Forbid();
                 return false;
@@ -252,7 +257,7 @@ public sealed class AuthController : ControllerBase
             {
                 var partnerMatch = matches.FirstOrDefault(x => x.PartnerId == requestedPartnerId);
                 var tenantLevelMatch = matches.Any(x => !x.PartnerId.HasValue || string.Equals(x.ScopeType, "tenant", StringComparison.OrdinalIgnoreCase));
-                if (partnerMatch is null && !tenantLevelMatch)
+                if (partnerMatch is null && !tenantLevelMatch && !hasTenantAccess)
                 {
                     error = Forbid();
                     return false;
@@ -342,6 +347,7 @@ public sealed class AuthController : ControllerBase
         var user = await _db.Users
             .Include(x => x.UserRoles).ThenInclude(x => x.Role)
             .Include(x => x.TenantScopes)
+            .Include(x => x.TenantAccess)
             .FirstOrDefaultAsync(x => x.Email.ToLower() == email, cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
