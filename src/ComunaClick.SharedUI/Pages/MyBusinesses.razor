@@ -1,0 +1,150 @@
+@page "/my-businesses"
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@inject NavigationManager Navigation
+
+<PageTitle>Mis negocios - ComunaClic</PageTitle>
+
+<div class="min-h-screen bg-background-light dark:bg-background-dark text-[#111816] dark:text-white">
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold">Mis negocios</h1>
+                <p class="text-sm text-[#61897c]">Elige qué negocio quieres administrar o crea el primero.</p>
+            </div>
+            <a href="/register/business" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Crear nuevo negocio</a>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+        }
+
+        @if (_isLoading)
+        {
+            <div class="bg-white dark:bg-[#1a2e28] rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-sm text-[#61897c]">Cargando negocios...</div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="bg-white dark:bg-[#1a2e28] rounded-xl border border-gray-200 dark:border-gray-800 p-8 space-y-4">
+                <h2 class="text-xl font-bold">Aún no tienes negocios</h2>
+                <p class="text-sm text-[#61897c]">Crea tu primer negocio para activar catálogo, agenda o leads.</p>
+                <div>
+                    <a href="/register/business" class="inline-flex bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Crear mi primer negocio</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                @foreach (var item in _items)
+                {
+                    <div class="bg-white dark:bg-[#1a2e28] rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <h2 class="text-xl font-bold">@item.Name</h2>
+                                <p class="text-sm text-[#61897c]">Tipo @item.Type · @((item.IsVisible ? "Visible" : "No visible"))</p>
+                            </div>
+                            <span class="text-xs px-3 py-1 rounded-full bg-primary/10 text-primary font-semibold">@(item.Activation?.StatusLabel ?? "Sin estado")</span>
+                        </div>
+
+                        <div class="text-sm text-[#61897c] space-y-1">
+                            <div>@(item.Address ?? "Sin dirección")</div>
+                            <div>@(item.Email ?? item.Phone ?? "Sin contacto")</div>
+                            @if (item.Activation is not null)
+                            {
+                                <div>Completitud: @item.Activation.CompletionPercent%</div>
+                                <div>@item.Activation.NextStep</div>
+                            }
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm" @onclick="() => EnterPartnerAsync(item)" disabled="@_isSwitching">Entrar</button>
+                            <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">Crear nuevo negocio</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </main>
+</div>
+
+@code {
+    private readonly List<ComunaClick.Shared.Api.Partner.PartnerDto> _items = new();
+    private bool _isLoading = true;
+    private bool _isSwitching;
+    private string? _statusMessage;
+    private string _statusLevel = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _items.Clear();
+        try
+        {
+            var partners = await PartnerApi.ListPartnersAsync();
+            if (partners is not null)
+            {
+                _items.AddRange(partners);
+            }
+
+            if (_items.Count == 1)
+            {
+                await EnterPartnerAsync(_items[0], auto: true);
+                return;
+            }
+
+            _statusMessage = _items.Count == 0 ? "No tienes negocios asociados todavía." : null;
+            _statusLevel = _items.Count == 0 ? "warning" : "info";
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = ex.Message;
+            _statusLevel = "error";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task EnterPartnerAsync(ComunaClick.Shared.Api.Partner.PartnerDto partner, bool auto = false)
+    {
+        if (AuthState.Tokens is null)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        _isSwitching = true;
+        _statusMessage = auto ? "Entrando automáticamente a tu negocio..." : "Activando sesión del negocio...";
+        _statusLevel = "info";
+        try
+        {
+            var refreshed = await AuthClient.RefreshAsync(AuthState.Tokens.RefreshToken, partner.TenantId, partner.Id);
+            await AuthState.SetTokensAsync(refreshed);
+            Navigation.NavigateTo("/partner", true);
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = ex.Message;
+            _statusLevel = "error";
+        }
+        finally
+        {
+            _isSwitching = false;
+        }
+    }
+}

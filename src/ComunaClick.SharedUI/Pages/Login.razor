@@ -121,8 +121,8 @@
             await AuthState.InitializeAsync();
             if (AuthState.IsAuthenticated)
             {
-                Logger.LogInformation("Already authenticated on login page. Redirecting to /partner");
-                Navigation.NavigateTo("/partner", true);
+                Logger.LogInformation("Already authenticated on login page. Redirecting to /my-businesses");
+                Navigation.NavigateTo("/my-businesses", true);
             }
         }
         catch (InvalidOperationException)
@@ -157,8 +157,8 @@
                 options.DefaultTenantId,
                 options.DefaultPartnerId));
             await AuthState.SetTokensAsync(tokens);
-            Logger.LogInformation("Login successful for {Email}. Redirecting to /partner", Email);
-            Navigation.NavigateTo("/partner");
+            Logger.LogInformation("Login successful for {Email}. Redirecting to /my-businesses", Email);
+            Navigation.NavigateTo("/my-businesses");
         }
         catch (Exception ex)
         {

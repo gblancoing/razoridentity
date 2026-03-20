@@ -9,6 +9,9 @@ public sealed class PartnerApiClient : ApiClientBase
     {
     }
 
+    public Task<IReadOnlyList<PartnerDto>?> ListPartnersAsync(CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PartnerDto>>("/v1/partners", cancellationToken);
+
     public Task<IReadOnlyList<Order>?> GetPartnerOrdersAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Order>>($"/v1/partners/{partnerId}/orders", cancellationToken);
 

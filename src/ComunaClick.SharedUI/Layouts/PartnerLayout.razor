@@ -35,6 +35,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <LanguageToggle />
+                        <a class="text-sm font-semibold text-primary" href="/my-businesses">Mis negocios</a>
                         <a class="text-sm font-semibold text-primary" href="/">@L.T("partner.backHome")</a>
                         <button class="text-sm font-semibold text-[#61897c] hover:text-primary" type="button" @onclick="HandleLogout">
                             @L.T("nav.logout")
@@ -54,6 +55,19 @@
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (AuthState.IsAuthenticated && (!AuthState.PartnerId.HasValue || AuthState.PartnerId == Guid.Empty))
+        {
+            var currentPath = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+            if (!string.Equals(currentPath, "/my-businesses", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(currentPath, "/register/business", StringComparison.OrdinalIgnoreCase))
+            {
+                Navigation.NavigateTo("/my-businesses", true);
+            }
+        }
     }
 
     private void HandleChange()
