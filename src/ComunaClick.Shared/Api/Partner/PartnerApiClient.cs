@@ -12,8 +12,17 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<IReadOnlyList<PartnerDto>?> ListPartnersAsync(CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<PartnerDto>>("/v1/partners", cancellationToken);
 
-    public Task<IReadOnlyList<PartnerDto>?> ListMyPartnersAsync(CancellationToken cancellationToken = default)
-        => GetAsync<IReadOnlyList<PartnerDto>>("/v1/partners/mine", cancellationToken);
+    public async Task<IReadOnlyList<PartnerDto>?> ListMyPartnersAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await GetAsync<IReadOnlyList<PartnerDto>>("/v1/partners/mine", cancellationToken);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return await GetAsync<IReadOnlyList<PartnerDto>>("/v1/partners/list-mine", cancellationToken);
+        }
+    }
 
     public Task<IReadOnlyList<Order>?> GetPartnerOrdersAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Order>>($"/v1/partners/{partnerId}/orders", cancellationToken);

@@ -43,6 +43,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpGet("mine")]
+    [HttpGet("list-mine")]
     public async Task<ActionResult<IEnumerable<object>>> Mine()
     {
         var tenantId = _tenantContext.TenantId ?? ResolveTenantIdFromUser();
