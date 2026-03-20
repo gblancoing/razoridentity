@@ -251,7 +251,8 @@ public sealed class AuthController : ControllerBase
             if (requestedPartnerId.HasValue)
             {
                 var partnerMatch = matches.FirstOrDefault(x => x.PartnerId == requestedPartnerId);
-                if (partnerMatch is null)
+                var tenantLevelMatch = matches.Any(x => !x.PartnerId.HasValue || string.Equals(x.ScopeType, "tenant", StringComparison.OrdinalIgnoreCase));
+                if (partnerMatch is null && !tenantLevelMatch)
                 {
                     error = Forbid();
                     return false;
