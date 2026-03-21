@@ -11,22 +11,22 @@ public sealed class BuyerApiClient : ApiClientBase
     {
     }
 
-    public Task<IReadOnlyList<SearchResultItem>?> SearchAsync(string? query, string? type, int? limit, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<SearchResultItem>?> SearchAsync(string? query, string? type, int? limit, GeoFilter? geo = null, Guid? tenantId = null, CancellationToken cancellationToken = default)
     {
-        var path = $"/v1/search?query={Uri.EscapeDataString(query ?? string.Empty)}&type={Uri.EscapeDataString(type ?? string.Empty)}&limit={(limit ?? 20)}";
-        return GetWithTenantAsync(path, tenantId, cancellationToken);
+        var path = BuildSearchPath("/v1/search", query, type, limit, geo);
+        return GetWithTenantFallbackAsync(path, tenantId, cancellationToken);
     }
 
-    public Task<IReadOnlyList<SearchResultItem>?> SearchPartnersAsync(string? query, int? limit, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<SearchResultItem>?> SearchPartnersAsync(string? query, int? limit, GeoFilter? geo = null, Guid? tenantId = null, CancellationToken cancellationToken = default)
     {
-        var path = $"/v1/search/partners?query={Uri.EscapeDataString(query ?? string.Empty)}&limit={(limit ?? 20)}";
-        return GetWithTenantAsync(path, tenantId, cancellationToken);
+        var path = BuildSearchPath("/v1/search/partners", query, null, limit, geo);
+        return GetWithTenantFallbackAsync(path, tenantId, cancellationToken);
     }
 
-    public Task<IReadOnlyList<SearchResultItem>?> SearchProfessionalsAsync(string? query, bool? verified, int? limit, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<SearchResultItem>?> SearchProfessionalsAsync(string? query, bool? verified, int? limit, GeoFilter? geo = null, Guid? tenantId = null, CancellationToken cancellationToken = default)
     {
-        var path = $"/v1/search/professionals?query={Uri.EscapeDataString(query ?? string.Empty)}&verified={(verified ?? false)}&limit={(limit ?? 20)}";
-        return GetWithTenantAsync(path, tenantId, cancellationToken);
+        var path = BuildSearchPath("/v1/search/professionals", query, null, limit, geo) + $"&verified={(verified ?? false)}";
+        return GetWithTenantFallbackAsync(path, tenantId, cancellationToken);
     }
 
     public Task<Order?> CreateOrderAsync(OrderCreateRequest request, CancellationToken cancellationToken = default)
@@ -98,7 +98,7 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<SupportTicketResponse>(message, cancellationToken);
     }
 
-    private Task<IReadOnlyList<SearchResultItem>?> GetWithTenantAsync(string path, Guid? tenantId, CancellationToken cancellationToken)
+    private Task<IReadOnlyList<SearchResultItem>?> GetWithTenantFallbackAsync(string path, Guid? tenantId, CancellationToken cancellationToken)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, path);
         if (tenantId is not null && tenantId != Guid.Empty)
@@ -107,7 +107,44 @@ public sealed class BuyerApiClient : ApiClientBase
         }
         return SendAsync<IReadOnlyList<SearchResultItem>>(request, cancellationToken);
     }
+
+    private static string BuildSearchPath(string basePath, string? query, string? type, int? limit, GeoFilter? geo)
+    {
+        var parts = new List<string>
+        {
+            $"query={Uri.EscapeDataString(query ?? string.Empty)}",
+            $"limit={(limit ?? 20)}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            parts.Add($"type={Uri.EscapeDataString(type)}");
+        }
+
+        if (geo?.CountryId is Guid countryId && countryId != Guid.Empty)
+        {
+            parts.Add($"countryId={countryId}");
+        }
+
+        if (geo?.RegionId is Guid regionId && regionId != Guid.Empty)
+        {
+            parts.Add($"regionId={regionId}");
+        }
+
+        if (geo?.ComunaId is Guid comunaId && comunaId != Guid.Empty)
+        {
+            parts.Add($"comunaId={comunaId}");
+        }
+
+        return $"{basePath}?{string.Join("&", parts)}";
+    }
 }
+
+public sealed record GeoFilter(
+    Guid? CountryId,
+    Guid? RegionId,
+    Guid? ComunaId
+);
 
 public sealed record SearchResultItem(
     string? Type,

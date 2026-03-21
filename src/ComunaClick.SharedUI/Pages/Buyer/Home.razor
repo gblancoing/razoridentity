@@ -4,6 +4,7 @@
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.home.title")</PageTitle>
@@ -88,6 +89,7 @@
     private bool _isLoading;
     private string? _query;
     private string? _type;
+    private ComunaClick.Shared.Api.Buyer.GeoFilter? _geo;
 
     protected override void OnInitialized()
     {
@@ -96,6 +98,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _geo = ReadGeoFromQuery();
         await SearchAsync();
     }
 
@@ -104,7 +107,7 @@
         _isLoading = true;
         _results.Clear();
         var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
-        var results = await BuyerApi.SearchAsync(_query, _type, 10, tenantId);
+        var results = await BuyerApi.SearchAsync(_query, _type, 10, _geo, tenantId);
         if (results is not null)
         {
             _results.AddRange(results);
@@ -125,6 +128,34 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private ComunaClick.Shared.Api.Buyer.GeoFilter? ReadGeoFromQuery()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        Guid? Read(string key)
+        {
+            foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = pair.Split('=', 2);
+                if (!string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase)) continue;
+                return parts.Length > 1 && Guid.TryParse(Uri.UnescapeDataString(parts[1]), out var parsed) ? parsed : null;
+            }
+            return null;
+        }
+
+        var countryId = Read("countryId");
+        var regionId = Read("regionId");
+        var comunaId = Read("comunaId");
+        return countryId.HasValue || regionId.HasValue || comunaId.HasValue
+            ? new ComunaClick.Shared.Api.Buyer.GeoFilter(countryId, regionId, comunaId)
+            : null;
     }
 
     public void Dispose()

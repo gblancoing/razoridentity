@@ -52,7 +52,7 @@
     protected override async Task OnInitializedAsync()
     {
         var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
-        var results = await BuyerApi.SearchAsync(null, "services", 24, tenantId);
+        var results = await BuyerApi.SearchAsync(null, "services", 24, null, tenantId);
         if (results is not null)
         {
             _items.AddRange(results);
