@@ -11,22 +11,22 @@ public sealed class BuyerApiClient : ApiClientBase
     {
     }
 
-    public Task<IReadOnlyList<SearchResultItem>?> SearchAsync(string? query, string? type, int? limit, GeoFilter? geo = null, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<SearchResultItem>?> SearchAsync(string? query, string? type, int? limit, GeoFilter? geo = null, CancellationToken cancellationToken = default)
     {
         var path = BuildSearchPath("/v1/search", query, type, limit, geo);
-        return GetWithTenantFallbackAsync(path, tenantId, cancellationToken);
+        return GetAsync<IReadOnlyList<SearchResultItem>>(path, cancellationToken);
     }
 
-    public Task<IReadOnlyList<SearchResultItem>?> SearchPartnersAsync(string? query, int? limit, GeoFilter? geo = null, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<SearchResultItem>?> SearchPartnersAsync(string? query, int? limit, GeoFilter? geo = null, CancellationToken cancellationToken = default)
     {
         var path = BuildSearchPath("/v1/search/partners", query, null, limit, geo);
-        return GetWithTenantFallbackAsync(path, tenantId, cancellationToken);
+        return GetAsync<IReadOnlyList<SearchResultItem>>(path, cancellationToken);
     }
 
-    public Task<IReadOnlyList<SearchResultItem>?> SearchProfessionalsAsync(string? query, bool? verified, int? limit, GeoFilter? geo = null, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<SearchResultItem>?> SearchProfessionalsAsync(string? query, bool? verified, int? limit, GeoFilter? geo = null, CancellationToken cancellationToken = default)
     {
         var path = BuildSearchPath("/v1/search/professionals", query, null, limit, geo) + $"&verified={(verified ?? false)}";
-        return GetWithTenantFallbackAsync(path, tenantId, cancellationToken);
+        return GetAsync<IReadOnlyList<SearchResultItem>>(path, cancellationToken);
     }
 
     public Task<Order?> CreateOrderAsync(OrderCreateRequest request, CancellationToken cancellationToken = default)
@@ -96,16 +96,6 @@ public sealed class BuyerApiClient : ApiClientBase
         }
 
         return SendAsync<SupportTicketResponse>(message, cancellationToken);
-    }
-
-    private Task<IReadOnlyList<SearchResultItem>?> GetWithTenantFallbackAsync(string path, Guid? tenantId, CancellationToken cancellationToken)
-    {
-        var request = new HttpRequestMessage(HttpMethod.Get, path);
-        if (tenantId is not null && tenantId != Guid.Empty)
-        {
-            request.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
-        }
-        return SendAsync<IReadOnlyList<SearchResultItem>>(request, cancellationToken);
     }
 
     private static string BuildSearchPath(string basePath, string? query, string? type, int? limit, GeoFilter? geo)

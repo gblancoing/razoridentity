@@ -2,8 +2,6 @@
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
-@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
-@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -106,8 +104,7 @@
     {
         _isLoading = true;
         _results.Clear();
-        var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
-        var results = await BuyerApi.SearchAsync(_query, _type, 10, _geo, tenantId);
+        var results = await BuyerApi.SearchAsync(_query, _type, 10, _geo);
         if (results is not null)
         {
             _results.AddRange(results);

@@ -127,7 +127,7 @@ public sealed class SearchController : ControllerBase
     }
 
     [HttpGet("partners")]
-    public async Task<ActionResult<IEnumerable<SearchResultItem>>> SearchPartners([FromQuery] string? query, [FromQuery] int? limit)
+    public async Task<ActionResult<IEnumerable<SearchResultItem>>> SearchPartners([FromQuery] string? query, [FromQuery] Guid? countryId, [FromQuery] Guid? regionId, [FromQuery] Guid? comunaId, [FromQuery] int? limit)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
@@ -139,9 +139,12 @@ public sealed class SearchController : ControllerBase
 
         var partners = await _db.Partners.AsNoTracking()
             .Where(x => x.IsVisible)
+            .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
+            .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
+            .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
             .Where(x => x.Type != "A" || _db.Products.Any(p => p.PartnerId == x.Id && p.IsActive))
             .Where(x => x.Type != "B" || _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive))
-            .Where(x => x.Type != "C" || _db.Professionals.Any(p => p.TenantId == x.TenantId && p.IsActive && p.IsVerified))
+            .Where(x => x.Type != "C" || _db.Professionals.Any(p => (p.ComunaId == x.ComunaId || (p.ComunaId == null && p.TenantId == x.TenantId)) && p.IsActive && p.IsVerified))
             .Where(x => EF.Functions.ILike(x.Name, filter))
             .OrderBy(x => x.Name)
             .Take(take)
@@ -152,7 +155,7 @@ public sealed class SearchController : ControllerBase
     }
 
     [HttpGet("professionals")]
-    public async Task<ActionResult<IEnumerable<SearchResultItem>>> SearchProfessionals([FromQuery] string? query, [FromQuery] bool? verified, [FromQuery] int? limit)
+    public async Task<ActionResult<IEnumerable<SearchResultItem>>> SearchProfessionals([FromQuery] string? query, [FromQuery] Guid? countryId, [FromQuery] Guid? regionId, [FromQuery] Guid? comunaId, [FromQuery] bool? verified, [FromQuery] int? limit)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
@@ -164,7 +167,10 @@ public sealed class SearchController : ControllerBase
 
         var baseQuery = _db.Professionals.AsNoTracking()
             .Where(x => x.IsActive && x.IsVerified)
-            .Where(x => _db.Partners.Any(p => p.TenantId == x.TenantId && p.IsVisible && p.Type == "C"))
+            .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
+            .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
+            .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
+            .Where(x => _db.Partners.Any(p => (p.ComunaId == x.ComunaId || (p.ComunaId == null && p.TenantId == x.TenantId)) && p.IsVisible && p.Type == "C"))
             .Where(x => EF.Functions.ILike(x.Name, filter));
 
         if (verified.HasValue)
