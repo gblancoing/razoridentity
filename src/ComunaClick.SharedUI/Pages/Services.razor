@@ -1,8 +1,7 @@
 @page "/services"
 @layout ComunaClick.SharedUI.Layouts.BuyerLayout
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
-@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
-@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject NavigationManager Navigation
 
 <PageTitle>Servicios - ComunaClic</PageTitle>
 
@@ -51,12 +50,37 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
-        var results = await BuyerApi.SearchAsync(null, "services", 24, null, tenantId);
+        var results = await BuyerApi.SearchAsync(null, "services", 24, ReadGeoFromQuery());
         if (results is not null)
         {
             _items.AddRange(results);
         }
         _loading = false;
+    }
+
+    private ComunaClick.Shared.Api.Buyer.GeoFilter? ReadGeoFromQuery()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        return ReadGeo(uri.Query);
+    }
+
+    private static ComunaClick.Shared.Api.Buyer.GeoFilter? ReadGeo(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return null;
+        query = query.TrimStart('?');
+        Guid? Read(string key)
+        {
+            foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = pair.Split('=', 2);
+                if (!string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase)) continue;
+                return parts.Length > 1 && Guid.TryParse(Uri.UnescapeDataString(parts[1]), out var parsed) ? parsed : null;
+            }
+            return null;
+        }
+        var countryId = Read("countryId");
+        var regionId = Read("regionId");
+        var comunaId = Read("comunaId");
+        return countryId.HasValue || regionId.HasValue || comunaId.HasValue ? new ComunaClick.Shared.Api.Buyer.GeoFilter(countryId, regionId, comunaId) : null;
     }
 }

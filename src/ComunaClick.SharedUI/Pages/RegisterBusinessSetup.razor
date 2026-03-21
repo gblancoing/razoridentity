@@ -1,6 +1,7 @@
 @page "/register/business"
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Forms
+@using ComunaClick.Shared.Api.Buyer
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
@@ -42,7 +43,7 @@
             <div class="mb-6">
                 <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">Negocio</p>
                 <h1 class="text-3xl font-bold text-[#111816] dark:text-white">Ahora crea tu negocio</h1>
-                <p class="text-sm text-[#61897c] mt-2">Usaremos el tenant asignado en el registro para crear tu primer partner.</p>
+                <p class="text-sm text-[#61897c] mt-2">Usaremos tu ubicación y tu sesión actual para crear tu primer negocio y dejarlo listo para operar.</p>
             </div>
 
             @if (_loadingAuth)
