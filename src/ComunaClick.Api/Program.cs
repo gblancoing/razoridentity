@@ -53,9 +53,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("tenant.admin", policy =>
         policy.RequireAssertion(context => HasAnyRole(context.User, "tenant_admin", "platform_admin")));
     options.AddPolicy("partner.owner", policy =>
-        policy.RequireAssertion(context => HasAnyRole(context.User, "partner_owner", "tenant_admin", "platform_admin")));
+        policy.RequireAssertion(context => HasPartnerSession(context.User) || HasAnyRole(context.User, "partner_owner", "tenant_admin", "platform_admin")));
     options.AddPolicy("partner.staff", policy =>
-        policy.RequireAssertion(context => HasAnyRole(context.User, "partner_staff", "partner_owner", "tenant_admin", "platform_admin")));
+        policy.RequireAssertion(context => HasPartnerSession(context.User) || HasAnyRole(context.User, "partner_staff", "partner_owner", "tenant_admin", "platform_admin")));
 });
 
 var app = builder.Build();
@@ -84,4 +84,12 @@ static bool HasRole(ClaimsPrincipal user, string role)
     var roleClaims = user.FindAll(AuthConstants.ClaimRole).Select(c => c.Value)
         .Concat(user.FindAll(AuthConstants.ClaimRoles).Select(c => c.Value));
     return roleClaims.Contains(role, StringComparer.OrdinalIgnoreCase);
+}
+
+static bool HasPartnerSession(ClaimsPrincipal user)
+{
+    var partner = user.FindFirst(AuthConstants.ClaimPartnerId)?.Value
+        ?? user.FindFirst("partnerId")?.Value
+        ?? user.FindFirst("partner_id")?.Value;
+    return Guid.TryParse(partner, out var partnerId) && partnerId != Guid.Empty;
 }
