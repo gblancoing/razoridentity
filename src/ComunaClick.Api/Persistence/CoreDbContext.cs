@@ -138,6 +138,9 @@ public sealed class CoreDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.CountryId).HasColumnName("country_id");
+            entity.Property(x => x.RegionId).HasColumnName("region_id");
+            entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
             entity.Property(x => x.SubcategoryId).HasColumnName("subcategory_id");
             entity.Property(x => x.Type).HasColumnName("type").HasColumnType("char(1)").IsRequired();
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
@@ -248,6 +251,9 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             entity.Property(x => x.TenantId).HasColumnName("tenant_id");
             entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.CountryId).HasColumnName("country_id");
+            entity.Property(x => x.RegionId).HasColumnName("region_id");
+            entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Description).HasColumnName("description");
             entity.Property(x => x.Category).HasColumnName("category");
@@ -303,6 +309,9 @@ public sealed class CoreDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.CountryId).HasColumnName("country_id");
+            entity.Property(x => x.RegionId).HasColumnName("region_id");
+            entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Email).HasColumnName("email");
             entity.Property(x => x.Phone).HasColumnName("phone");
@@ -320,6 +329,9 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             entity.Property(x => x.TenantId).HasColumnName("tenant_id");
             entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.CountryId).HasColumnName("country_id");
+            entity.Property(x => x.RegionId).HasColumnName("region_id");
+            entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Description).HasColumnName("description");
             entity.Property(x => x.Category).HasColumnName("category");

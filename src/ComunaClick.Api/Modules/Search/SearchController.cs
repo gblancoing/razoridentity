@@ -23,6 +23,9 @@ public sealed class SearchController : ControllerBase
     public async Task<ActionResult<IEnumerable<SearchResultItem>>> Search(
         [FromQuery] string? query,
         [FromQuery] string? type,
+        [FromQuery] Guid? countryId,
+        [FromQuery] Guid? regionId,
+        [FromQuery] Guid? comunaId,
         [FromQuery] int? limit)
     {
         var take = Math.Clamp(limit ?? 20, 1, 100);
@@ -34,9 +37,12 @@ public sealed class SearchController : ControllerBase
         {
             var partnersQuery = _db.Partners.AsNoTracking()
                 .Where(x => x.IsVisible)
+                .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
+                .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
+                .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
                 .Where(x => x.Type != "A" || _db.Products.Any(p => p.PartnerId == x.Id && p.IsActive))
                 .Where(x => x.Type != "B" || _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive))
-                .Where(x => x.Type != "C" || _db.Professionals.Any(p => p.TenantId == x.TenantId && p.IsActive && p.IsVerified));
+                .Where(x => x.Type != "C" || _db.Professionals.Any(p => (p.ComunaId == x.ComunaId || (p.ComunaId == null && p.TenantId == x.TenantId)) && p.IsActive && p.IsVerified));
 
             if (hasQuery)
             {
@@ -55,6 +61,9 @@ public sealed class SearchController : ControllerBase
         {
             var productsQuery = _db.Products.AsNoTracking()
                 .Where(x => x.IsActive)
+                .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
+                .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
+                .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
                 .Where(x => _db.Partners.Any(p => p.Id == x.PartnerId && p.IsVisible));
 
             if (hasQuery)
@@ -74,6 +83,9 @@ public sealed class SearchController : ControllerBase
         {
             var servicesQuery = _db.Services.AsNoTracking()
                 .Where(x => x.IsActive)
+                .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
+                .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
+                .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
                 .Where(x => _db.Partners.Any(p => p.Id == x.PartnerId && p.IsVisible));
 
             if (hasQuery)
@@ -93,7 +105,10 @@ public sealed class SearchController : ControllerBase
         {
             var professionalsQuery = _db.Professionals.AsNoTracking()
                 .Where(x => x.IsActive && x.IsVerified)
-                .Where(x => _db.Partners.Any(p => p.TenantId == x.TenantId && p.IsVisible && p.Type == "C"));
+                .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
+                .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
+                .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
+                .Where(x => _db.Partners.Any(p => (p.ComunaId == x.ComunaId || (p.ComunaId == null && p.TenantId == x.TenantId)) && p.IsVisible && p.Type == "C"));
 
             if (hasQuery)
             {

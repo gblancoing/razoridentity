@@ -1,3 +1,4 @@
+using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Catalog.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -66,10 +67,14 @@ public sealed class ProductsController : ControllerBase
             return Forbid();
         }
 
+        var geo = await GeoContextResolver.ResolveFromTenantAsync(_db, tenantId.Value);
         var product = new Product
         {
             TenantId = tenantId.Value,
             PartnerId = partnerId,
+            CountryId = geo.CountryId,
+            RegionId = geo.RegionId,
+            ComunaId = geo.ComunaId,
             Name = request.Name.Trim(),
             Description = request.Description,
             Category = request.Category,

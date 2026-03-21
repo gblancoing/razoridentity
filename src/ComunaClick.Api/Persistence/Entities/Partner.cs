@@ -4,6 +4,9 @@ public sealed class Partner
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
+    public Guid? CountryId { get; set; }
+    public Guid? RegionId { get; set; }
+    public Guid? ComunaId { get; set; }
     public Guid? SubcategoryId { get; set; }
     public string Type { get; set; } = "A";
     public string Name { get; set; } = string.Empty;

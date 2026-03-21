@@ -5,6 +5,9 @@ public sealed class Product
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
     public Guid PartnerId { get; set; }
+    public Guid? CountryId { get; set; }
+    public Guid? RegionId { get; set; }
+    public Guid? ComunaId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? Category { get; set; }

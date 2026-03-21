@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Onboarding.Contracts.Partners;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -136,9 +137,13 @@ public sealed class PartnersController : ControllerBase
             return Conflict(new { message = "Partner name already exists for this tenant." });
         }
 
+        var geo = await GeoContextResolver.ResolveFromTenantAsync(_db, tenantId.Value);
         var partner = new Partner
         {
             TenantId = tenantId.Value,
+            CountryId = geo.CountryId,
+            RegionId = geo.RegionId,
+            ComunaId = geo.ComunaId,
             SubcategoryId = request.SubcategoryId,
             Type = normalizedType,
             Name = normalizedName,

@@ -1,3 +1,4 @@
+using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Catalog.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -41,9 +42,13 @@ public sealed class ProfessionalsController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
+        var geo = await GeoContextResolver.ResolveFromTenantAsync(_db, tenantId.Value);
         var professional = new Professional
         {
             TenantId = tenantId.Value,
+            CountryId = geo.CountryId,
+            RegionId = geo.RegionId,
+            ComunaId = geo.ComunaId,
             Name = request.Name.Trim(),
             Email = request.Email,
             Phone = request.Phone,
