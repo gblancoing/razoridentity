@@ -43,7 +43,13 @@
    - customer incompleto para probar fricción y errores guiados
 
 ## How to run
-Apply against the same PostgreSQL database used by `ComunaClick.Api`:
+First align schema/backfill for Etapa 1.1:
+
+```bash
+psql "$CORE_DB_CONNECTION" -f "base de datos/sql/core_geo_operational_stage1.sql"
+```
+
+Then apply the demo dataset against the same PostgreSQL database used by `ComunaClick.Api`:
 
 ```bash
 psql "$CORE_DB_CONNECTION" -f infra/seeds/core_seed_qa_demo.sql

@@ -67,12 +67,12 @@ VALUES ('71000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-0000000
 ON CONFLICT (id) DO NOTHING;
 
 -- Partners A/B/C + one paused/non-eligible
-INSERT INTO partners (id, tenant_id, subcategory_id, type, name, rut, address, phone, email, is_visible, created_at, updated_at)
+INSERT INTO partners (id, tenant_id, country_id, region_id, comuna_id, subcategory_id, type, name, rut, address, phone, email, is_visible, created_at, updated_at)
 VALUES
-('72000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', 'A', 'Panadería Los Naranjos', '76.111.111-1', 'Camino Principal 101, Alhué', '+56 9 7000 0001', 'hola@naranjos.demo', true, now(), now()),
-('72000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', null, 'B', 'Kine Alhué Centro', '76.222.222-2', 'Av. Salud 202, Alhué', '+56 9 7000 0002', 'agenda@kinealhue.demo', true, now(), now()),
-('72000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', null, 'C', 'Red Profesional Alhué', '76.333.333-3', 'Pasaje Oficios 303, Alhué', '+56 9 7000 0003', 'contacto@redprofesional.demo', true, now(), now()),
-('72000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', 'A', 'Local Pausado QA', '76.444.444-4', 'Esquina Test 404, Alhué', '+56 9 7000 0004', 'pausado@qa.demo', false, now(), now())
+('72000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', '71000000-0000-0000-0000-000000000002', 'A', 'Panadería Los Naranjos', '76.111.111-1', 'Camino Principal 101, Alhué', '+56 9 7000 0001', 'hola@naranjos.demo', true, now(), now()),
+('72000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', null, 'B', 'Kine Alhué Centro', '76.222.222-2', 'Av. Salud 202, Alhué', '+56 9 7000 0002', 'agenda@kinealhue.demo', true, now(), now()),
+('72000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', null, 'C', 'Red Profesional Alhué', '76.333.333-3', 'Pasaje Oficios 303, Alhué', '+56 9 7000 0003', 'contacto@redprofesional.demo', true, now(), now()),
+('72000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', '71000000-0000-0000-0000-000000000002', 'A', 'Local Pausado QA', '76.444.444-4', 'Esquina Test 404, Alhué', '+56 9 7000 0004', 'pausado@qa.demo', false, now(), now())
 ON CONFLICT (id) DO NOTHING;
 
 -- Customers: 2 valid + 1 incomplete QA
@@ -84,12 +84,12 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Products tipo A: 3 active + 1 inactive
-INSERT INTO products (id, tenant_id, partner_id, name, description, category, price, currency, is_active, created_at, updated_at)
+INSERT INTO products (id, tenant_id, partner_id, country_id, region_id, comuna_id, name, description, category, price, currency, is_active, created_at, updated_at)
 VALUES
-('74000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', 'Marraqueta 1kg', 'Pan fresco del día', 'Panadería', 2500, 'CLP', true, now(), now()),
-('74000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', 'Kuchen de nuez', 'Kuchen familiar artesanal', 'Pastelería', 8900, 'CLP', true, now(), now()),
-('74000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', 'Empanada de pino', 'Empanada horneada individual', 'Panadería', 2200, 'CLP', true, now(), now()),
-('74000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', 'Producto inactivo QA', 'No debe salir en discovery', 'QA', 999, 'CLP', false, now(), now())
+('74000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Marraqueta 1kg', 'Pan fresco del día', 'Panadería', 2500, 'CLP', true, now(), now()),
+('74000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Kuchen de nuez', 'Kuchen familiar artesanal', 'Pastelería', 8900, 'CLP', true, now(), now()),
+('74000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Empanada de pino', 'Empanada horneada individual', 'Panadería', 2200, 'CLP', true, now(), now()),
+('74000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Producto inactivo QA', 'No debe salir en discovery', 'QA', 999, 'CLP', false, now(), now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO product_inventory (product_id, quantity, updated_at)
@@ -101,11 +101,11 @@ VALUES
 ON CONFLICT (product_id) DO UPDATE SET quantity = EXCLUDED.quantity, updated_at = EXCLUDED.updated_at;
 
 -- Services tipo B: 3 active
-INSERT INTO services (id, tenant_id, partner_id, name, description, category, price, currency, duration_minutes, is_active, created_at, updated_at)
+INSERT INTO services (id, tenant_id, partner_id, country_id, region_id, comuna_id, name, description, category, price, currency, duration_minutes, is_active, created_at, updated_at)
 VALUES
-('75000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000002', 'Evaluación kinésica', 'Primera evaluación funcional', 'Salud', 18000, 'CLP', 45, true, now(), now()),
-('75000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000002', 'Sesión de rehabilitación', 'Atención kinésica en box', 'Salud', 22000, 'CLP', 60, true, now(), now()),
-('75000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000002', 'Masoterapia 45 min', 'Sesión de descarga muscular', 'Bienestar', 25000, 'CLP', 45, true, now(), now())
+('75000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Evaluación kinésica', 'Primera evaluación funcional', 'Salud', 18000, 'CLP', 45, true, now(), now()),
+('75000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Sesión de rehabilitación', 'Atención kinésica en box', 'Salud', 22000, 'CLP', 60, true, now(), now()),
+('75000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Masoterapia 45 min', 'Sesión de descarga muscular', 'Bienestar', 25000, 'CLP', 45, true, now(), now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO service_slots (id, tenant_id, partner_id, service_id, start_at, end_at, capacity, is_available, created_at)
@@ -115,11 +115,11 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Professionals tipo C: 2 complete + 1 incomplete
-INSERT INTO professionals (id, tenant_id, name, email, phone, specialty, bio, is_verified, is_active, created_at)
+INSERT INTO professionals (id, tenant_id, country_id, region_id, comuna_id, name, email, phone, specialty, bio, is_verified, is_active, created_at)
 VALUES
-('76000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', 'Daniela Rojas', 'daniela@redprofesional.demo', '+56 9 7333 3331', 'Psicología clínica', 'Atención de adultos y adolescentes.', true, true, now()),
-('76000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', 'Felipe Soto', 'felipe@redprofesional.demo', '+56 9 7333 3332', 'Terapia ocupacional', 'Intervención funcional y acompañamiento.', true, true, now()),
-('76000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', 'QA incompleto', null, null, null, 'No debe calificar para discovery/activación.', false, true, now())
+('76000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Daniela Rojas', 'daniela@redprofesional.demo', '+56 9 7333 3331', 'Psicología clínica', 'Atención de adultos y adolescentes.', true, true, now()),
+('76000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'Felipe Soto', 'felipe@redprofesional.demo', '+56 9 7333 3332', 'Terapia ocupacional', 'Intervención funcional y acompañamiento.', true, true, now()),
+('76000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '216f98f0-541a-47e1-b586-ed530fddf50d', 'QA incompleto', null, null, null, 'No debe calificar para discovery/activación.', false, true, now())
 ON CONFLICT (id) DO NOTHING;
 
 -- Orders: 2 demo
