@@ -54,6 +54,9 @@ public sealed class PublicGeoController : ControllerBase
         return Ok(comunas);
     }
 
+    // Support both GET and POST so manual QA and browser-driven checks
+    // can resolve the tenant without depending on a specific verb.
+    [HttpGet("tenant-by-comuna/{comunaId:guid}")]
     [HttpPost("tenant-by-comuna/{comunaId:guid}")]
     public async Task<ActionResult<object>> ResolveTenantByComuna(Guid comunaId)
     {
