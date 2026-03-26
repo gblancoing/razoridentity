@@ -107,7 +107,11 @@ public abstract class ApiClientBase
             return false;
         }
 
-        var refreshed = await _authClient.RefreshAsync(tokens.RefreshToken, cancellationToken: cancellationToken);
+        var refreshed = await _authClient.RefreshAsync(
+            tokens.RefreshToken,
+            tokens.TenantId,
+            tokens.PartnerId,
+            cancellationToken);
         await _tokenStore.SaveAsync(refreshed, cancellationToken);
         return true;
     }

@@ -155,7 +155,7 @@
                 Email,
                 Password,
                 options.DefaultTenantId,
-                options.DefaultPartnerId));
+                null));
             await AuthState.SetTokensAsync(tokens);
             Logger.LogInformation("Login successful for {Email}. Redirecting to /my-businesses", Email);
             Navigation.NavigateTo("/my-businesses");

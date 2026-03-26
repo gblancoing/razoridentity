@@ -72,13 +72,18 @@ public sealed class PaymentsController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> ProviderNotify(PaymentProviderNotifyRequest request)
     {
-        var tenantId = _tenantContext.TenantId;
-        if (!tenantId.HasValue)
+        if (string.IsNullOrWhiteSpace(request.ProviderEventId))
         {
-            return BadRequest(new { message = "TenantId is required." });
+            return BadRequest(new { message = "ProviderEventId is required." });
         }
 
-        var internalKey = _configuration["Payments:InternalWebhookKey"];
+        if (string.IsNullOrWhiteSpace(request.Status))
+        {
+            return BadRequest(new { message = "Status is required." });
+        }
+
+        var internalKey = _configuration["Payments:InternalWebhookKey"]
+            ?? _configuration["ComunaClic:InternalWebhookKey"];
         if (!string.IsNullOrWhiteSpace(internalKey))
         {
             if (!Request.Headers.TryGetValue("X-Internal-Key", out var headerValue) || headerValue != internalKey)
@@ -87,8 +92,19 @@ public sealed class PaymentsController : ControllerBase
             }
         }
 
-        var exists = await _db.PaymentEvents.AnyAsync(x =>
-            x.TenantId == tenantId.Value &&
+        if (request.PaymentId is null && string.IsNullOrWhiteSpace(request.ExternalReference))
+        {
+            return BadRequest(new { message = "PaymentId or ExternalReference is required." });
+        }
+
+        var payment = await ResolvePaymentAsync(request);
+        if (payment is null)
+        {
+            return NotFound(new { message = "Payment could not be resolved from provider notification." });
+        }
+
+        var exists = await _db.PaymentEvents.IgnoreQueryFilters().AnyAsync(x =>
+            x.TenantId == payment.TenantId &&
             x.ProviderEventId == request.ProviderEventId);
         if (exists)
         {
@@ -97,35 +113,34 @@ public sealed class PaymentsController : ControllerBase
 
         var paymentEvent = new PaymentEvent
         {
-            TenantId = tenantId.Value,
-            ProviderEventId = request.ProviderEventId,
-            PaymentId = request.PaymentId,
+            TenantId = payment.TenantId,
+            ProviderEventId = request.ProviderEventId.Trim(),
+            PaymentId = payment.Id,
             Payload = string.IsNullOrWhiteSpace(request.Payload) ? "{}" : request.Payload,
             ReceivedAt = DateTimeOffset.UtcNow
         };
 
         _db.PaymentEvents.Add(paymentEvent);
-
-        Payment? payment = null;
-        if (request.PaymentId.HasValue)
-        {
-            payment = await _db.Payments.FirstOrDefaultAsync(x => x.Id == request.PaymentId.Value);
-        }
-        else if (!string.IsNullOrWhiteSpace(request.ExternalReference))
-        {
-            payment = await _db.Payments.FirstOrDefaultAsync(x =>
-                x.TenantId == tenantId.Value &&
-                x.ExternalReference == request.ExternalReference);
-        }
-
-        if (payment is not null)
-        {
-            payment.Status = request.Status.Trim();
-            payment.LastEventId = request.ProviderEventId;
-            payment.UpdatedAt = DateTimeOffset.UtcNow;
-        }
+        payment.Status = request.Status.Trim();
+        payment.LastEventId = request.ProviderEventId.Trim();
+        payment.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
         return Ok();
+    }
+
+    private Task<Payment?> ResolvePaymentAsync(PaymentProviderNotifyRequest request)
+    {
+        if (request.PaymentId.HasValue)
+        {
+            return _db.Payments.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(x => x.Id == request.PaymentId.Value);
+        }
+
+        var externalReference = request.ExternalReference!.Trim();
+        return _db.Payments.IgnoreQueryFilters()
+            .Where(x => x.ExternalReference == externalReference)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
     }
 }
