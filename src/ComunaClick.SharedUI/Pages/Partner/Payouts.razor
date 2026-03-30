@@ -1,5 +1,6 @@
 @page "/partner/payouts"
-@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@layout global::ComunaClick.SharedUI.Layouts.PartnerLayout
+@using System.Net
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -24,7 +25,9 @@
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @if (_isLoading)
             {
-                <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+                <div class="p-4">
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tus pagos y liquidaciones." Compact="true" />
+                </div>
             }
             else if (_items.Count == 0)
             {
@@ -75,12 +78,27 @@
             return;
         }
 
-        var payouts = await PartnerApi.GetPartnerPayoutsAsync(partnerId.Value);
-        if (payouts is not null)
+        try
         {
-            _items.AddRange(payouts);
+            var payouts = await PartnerApi.GetPartnerPayoutsAsync(partnerId.Value);
+            if (payouts is not null)
+            {
+                _items.AddRange(payouts);
+            }
+            _statusMessage = _items.Count == 0 ? L.T("partner.status.noPayouts") : string.Empty;
         }
-        _statusMessage = _items.Count == 0 ? L.T("partner.status.noPayouts") : string.Empty;
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _statusMessage = "No tienes permisos para ver payouts de este partner.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusMessage = L.T("partner.status.noPayouts");
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudieron cargar los payouts ({(int?)ex.StatusCode ?? 0}).";
+        }
         _isLoading = false;
     }
 

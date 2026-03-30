@@ -1,5 +1,5 @@
 @page "/professionals"
-@layout ComunaClick.SharedUI.Layouts.BuyerLayout
+@layout global::ComunaClick.SharedUI.Layouts.BuyerLayout
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
 
@@ -14,7 +14,7 @@
     <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-4">
         @if (_loading)
         {
-            <StatusBanner Message="Cargando profesionales..." Level="info" />
+            <BrandedLoading Title="Cargando profesionales" Message="Estamos buscando perfiles activos y verificados." Compact="true" />
         }
         else if (_items.Count == 0)
         {

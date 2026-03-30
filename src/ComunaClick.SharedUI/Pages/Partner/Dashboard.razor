@@ -1,5 +1,6 @@
 @page "/partner"
-@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@layout global::ComunaClick.SharedUI.Layouts.PartnerLayout
+@using System.Net
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -151,14 +152,29 @@
             return;
         }
 
-        var orders = await PartnerApi.GetPartnerOrdersAsync(partnerId.Value);
-        var bookings = await PartnerApi.GetPartnerBookingsAsync(partnerId.Value);
-        _activation = await PartnerApi.GetActivationStatusAsync(partnerId.Value);
+        try
+        {
+            var orders = await PartnerApi.GetPartnerOrdersAsync(partnerId.Value);
+            var bookings = await PartnerApi.GetPartnerBookingsAsync(partnerId.Value);
+            _activation = await PartnerApi.GetActivationStatusAsync(partnerId.Value);
 
-        _bookingsCount = bookings?.Count ?? 0;
-        _ordersTotal = orders is null ? "$0" : $"${orders.Sum(x => x.TotalAmount):N0}";
-        _leadsCount = 0;
-        _statusMessage = L.T("partner.dashboard.section.placeholder");
+            _bookingsCount = bookings?.Count ?? 0;
+            _ordersTotal = orders is null ? "$0" : $"${orders.Sum(x => x.TotalAmount):N0}";
+            _leadsCount = 0;
+            _statusMessage = L.T("partner.dashboard.section.placeholder");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _statusMessage = "No tienes permisos para ver el dashboard de este partner.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusMessage = "Aun no hay datos suficientes para mostrar el dashboard.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo cargar el dashboard ({(int?)ex.StatusCode ?? 0}).";
+        }
     }
 
     private void HandleChange()

@@ -8,7 +8,7 @@
     <div class="flex min-h-screen">
         <aside class="hidden lg:flex lg:w-72 flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#122620]">
             <div class="flex items-center gap-2 px-6 py-5 border-b border-gray-100 dark:border-gray-800">
-                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+                <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
             </div>
             <nav class="flex-1 px-4 py-6 space-y-2 text-sm">
                 <a class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10" href="/partner">@L.T("partner.nav.dashboard")</a>
@@ -20,7 +20,7 @@
             </nav>
             <div class="px-4 py-6 border-t border-gray-100 dark:border-gray-800">
                 <div class="flex flex-col items-center gap-2">
-                    <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-16 w-auto" />
+                    <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-16 w-auto" />
                     <span class="text-xs text-[#61897c]">@L.T("partner.footer")</span>
                 </div>
             </div>
@@ -52,13 +52,28 @@
 </div>
 
 @code {
+    private bool _authInitialized;
+
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
     }
 
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!_authInitialized)
+        {
+            try
+            {
+                await AuthState.InitializeAsync();
+                _authInitialized = true;
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+        }
+
         if (AuthState.IsAuthenticated && (!AuthState.PartnerId.HasValue || AuthState.PartnerId == Guid.Empty))
         {
             var currentPath = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;

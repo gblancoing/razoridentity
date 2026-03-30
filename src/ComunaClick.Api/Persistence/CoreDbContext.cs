@@ -188,9 +188,12 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("partner_staff");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Role).HasDefaultValue("staff");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.UserId).HasColumnName("user_id");
+            entity.Property(x => x.Role).HasColumnName("role").HasDefaultValue("staff");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.PartnerId, x.UserId }).IsUnique();
         });
 
@@ -198,39 +201,47 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("subscription_plans");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Code).IsRequired();
-            entity.Property(x => x.Name).IsRequired();
-            entity.Property(x => x.MonthlyPrice).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.Currency).HasDefaultValue("CLP");
-            entity.Property(x => x.CommissionPct).HasColumnType("numeric(6,3)");
-            entity.Property(x => x.IsActive).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.Code).HasColumnName("code").IsRequired();
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.MonthlyPrice).HasColumnName("monthly_price").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.CommissionPct).HasColumnName("commission_pct").HasColumnType("numeric(6,3)");
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Subscription>(entity =>
         {
             entity.ToTable("subscriptions");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Status).IsRequired();
-            entity.Property(x => x.CurrentPeriodStart).HasDefaultValueSql("now()");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.PlanId).HasColumnName("plan_id");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.CurrentPeriodStart).HasColumnName("current_period_start").HasDefaultValueSql("now()");
+            entity.Property(x => x.CurrentPeriodEnd).HasColumnName("current_period_end");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Order>(entity =>
         {
             entity.ToTable("orders");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Status).IsRequired();
-            entity.Property(x => x.Subtotal).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.DeliveryFee).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.TotalAmount).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.Currency).HasDefaultValue("CLP");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.Subtotal).HasColumnName("subtotal").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.DeliveryFee).HasColumnName("delivery_fee").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.TotalAmount).HasColumnName("total_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasMany(x => x.Items).WithOne(x => x.Order).HasForeignKey(x => x.OrderId);
         });
 
@@ -238,10 +249,12 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("order_items");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Quantity).IsRequired();
-            entity.Property(x => x.UnitPrice).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.TotalPrice).HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.OrderId).HasColumnName("order_id");
+            entity.Property(x => x.ProductId).HasColumnName("product_id");
+            entity.Property(x => x.Quantity).HasColumnName("quantity").IsRequired();
+            entity.Property(x => x.UnitPrice).HasColumnName("unit_price").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.TotalPrice).HasColumnName("total_price").HasColumnType("numeric(14,2)");
         });
 
         modelBuilder.Entity<Product>(entity =>
@@ -268,8 +281,9 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("product_inventory");
             entity.HasKey(x => x.ProductId);
-            entity.Property(x => x.Quantity).HasDefaultValue(0);
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.ProductId).HasColumnName("product_id");
+            entity.Property(x => x.Quantity).HasColumnName("quantity").HasDefaultValue(0);
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasOne(x => x.Product).WithOne(x => x.Inventory).HasForeignKey<ProductInventory>(x => x.ProductId);
         });
 
@@ -277,9 +291,13 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("customers");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.Email).HasColumnName("email");
+            entity.Property(x => x.Phone).HasColumnName("phone");
+            entity.Property(x => x.FullName).HasColumnName("full_name");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
         });
 
@@ -287,9 +305,13 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("customer_partner_links");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.FirstSeenAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.LastSeenAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.FirstSeenAt).HasColumnName("first_seen_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.LastSeenAt).HasColumnName("last_seen_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.Source).HasColumnName("source");
             entity.HasIndex(x => new { x.CustomerId, x.PartnerId }).IsUnique();
         });
 
@@ -297,10 +319,14 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("interactions");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Type).IsRequired();
-            entity.Property(x => x.Payload).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.Type).HasColumnName("type").IsRequired();
+            entity.Property(x => x.ReferenceId).HasColumnName("reference_id");
+            entity.Property(x => x.Payload).HasColumnName("payload").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Professional>(entity =>
@@ -347,10 +373,15 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("service_slots");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Capacity).HasDefaultValue(1);
-            entity.Property(x => x.IsAvailable).HasDefaultValue(true);
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.ServiceId).HasColumnName("service_id");
+            entity.Property(x => x.StartAt).HasColumnName("start_at");
+            entity.Property(x => x.EndAt).HasColumnName("end_at");
+            entity.Property(x => x.Capacity).HasColumnName("capacity").HasDefaultValue(1);
+            entity.Property(x => x.IsAvailable).HasColumnName("is_available").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.ServiceId, x.StartAt }).IsUnique();
         });
 
@@ -358,36 +389,52 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("leads");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Status).IsRequired();
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.ProfessionalId).HasColumnName("professional_id");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.Message).HasColumnName("message");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Booking>(entity =>
         {
             entity.ToTable("bookings");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Status).IsRequired();
-            entity.Property(x => x.Amount).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.Currency).HasDefaultValue("CLP");
-            entity.Property(x => x.CancellationPolicy).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.ServiceId).HasColumnName("service_id");
+            entity.Property(x => x.SlotId).HasColumnName("slot_id");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.StartAt).HasColumnName("start_at");
+            entity.Property(x => x.EndAt).HasColumnName("end_at");
+            entity.Property(x => x.Amount).HasColumnName("amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.CancellationPolicy).HasColumnName("cancellation_policy").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.ToTable("payments");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Provider).HasDefaultValue("transbank");
-            entity.Property(x => x.Currency).HasDefaultValue("CLP");
-            entity.Property(x => x.Status).IsRequired();
-            entity.Property(x => x.Amount).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.Provider).HasColumnName("provider").HasDefaultValue("transbank");
+            entity.Property(x => x.ExternalReference).HasColumnName("external_reference");
+            entity.Property(x => x.Amount).HasColumnName("amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.GatewayIntentId).HasColumnName("gateway_intent_id");
+            entity.Property(x => x.ProviderToken).HasColumnName("provider_token");
+            entity.Property(x => x.LastEventId).HasColumnName("last_event_id");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.Provider, x.ExternalReference }).IsUnique();
         });
 
@@ -395,9 +442,12 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("payment_events");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Payload).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
-            entity.Property(x => x.ReceivedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.ProviderEventId).HasColumnName("provider_event_id");
+            entity.Property(x => x.PaymentId).HasColumnName("payment_id");
+            entity.Property(x => x.Payload).HasColumnName("payload").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.ReceivedAt).HasColumnName("received_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.ProviderEventId }).IsUnique();
         });
 
@@ -405,24 +455,27 @@ public sealed class CoreDbContext : DbContext
         {
             entity.ToTable("payout_batches");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.Status).IsRequired();
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            entity.Property(x => x.PeriodStart).HasColumnType("date");
-            entity.Property(x => x.PeriodEnd).HasColumnType("date");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PeriodStart).HasColumnName("period_start").HasColumnType("date");
+            entity.Property(x => x.PeriodEnd).HasColumnName("period_end").HasColumnType("date");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<PayoutItem>(entity =>
         {
             entity.ToTable("payout_items");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
-            entity.Property(x => x.GrossAmount).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.CommissionAmount).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.SubscriptionDeduction).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.NetAmount).HasColumnType("numeric(14,2)");
-            entity.Property(x => x.Currency).HasDefaultValue("CLP");
-            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.BatchId).HasColumnName("batch_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.GrossAmount).HasColumnName("gross_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.CommissionAmount).HasColumnName("commission_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.SubscriptionDeduction).HasColumnName("subscription_deduction").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.NetAmount).HasColumnName("net_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.BatchId, x.PartnerId }).IsUnique();
             entity.HasOne(x => x.Batch).WithMany(x => x.Items).HasForeignKey(x => x.BatchId);
         });

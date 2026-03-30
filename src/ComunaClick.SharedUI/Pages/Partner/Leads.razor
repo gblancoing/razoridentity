@@ -1,5 +1,6 @@
 @page "/partner/leads"
-@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@layout global::ComunaClick.SharedUI.Layouts.PartnerLayout
+@using System.Net
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
@@ -24,7 +25,9 @@
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @if (_isLoading)
             {
-                <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+                <div class="p-4">
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos trayendo tus leads mas recientes." Compact="true" />
+                </div>
             }
             else if (_items.Count == 0)
             {
@@ -71,10 +74,26 @@
             return;
         }
 
-        var leads = await PartnerApi.GetProfessionalLeadsAsync(professionalId.Value);
-        if (leads is not null)
+        try
         {
-            _items.AddRange(leads);
+            var leads = await PartnerApi.GetProfessionalLeadsAsync(professionalId.Value);
+            if (leads is not null)
+            {
+                _items.AddRange(leads);
+            }
+            _statusMessage = _items.Count == 0 ? L.T("partner.status.noLeads") : string.Empty;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _statusMessage = "No tienes permisos para ver los leads de este profesional.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusMessage = L.T("partner.status.noLeads");
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudieron cargar los leads ({(int?)ex.StatusCode ?? 0}).";
         }
         _isLoading = false;
     }

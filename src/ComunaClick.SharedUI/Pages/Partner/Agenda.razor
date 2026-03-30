@@ -1,5 +1,6 @@
 @page "/partner/agenda"
-@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@layout global::ComunaClick.SharedUI.Layouts.PartnerLayout
+@using System.Net
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -29,7 +30,7 @@
             <div class="space-y-3 text-sm">
                 @if (_isLoading)
                 {
-                    <div class="text-[#61897c]">@L.T("ui.loading")</div>
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos revisando tu agenda de hoy." Compact="true" />
                 }
                 else if (_bookings.Count == 0)
                 {
@@ -81,12 +82,27 @@
             return;
         }
 
-        var bookings = await PartnerApi.GetPartnerBookingsAsync(partnerId.Value);
-        if (bookings is not null)
+        try
         {
-            _bookings.AddRange(bookings);
+            var bookings = await PartnerApi.GetPartnerBookingsAsync(partnerId.Value);
+            if (bookings is not null)
+            {
+                _bookings.AddRange(bookings);
+            }
+            _statusMessage = _bookings.Count == 0 ? L.T("partner.status.noBookings") : string.Empty;
         }
-        _statusMessage = _bookings.Count == 0 ? L.T("partner.status.noBookings") : string.Empty;
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _statusMessage = "No tienes permisos para ver la agenda de este partner.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusMessage = L.T("partner.status.noBookings");
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo cargar la agenda ({(int?)ex.StatusCode ?? 0}).";
+        }
         _isLoading = false;
     }
 

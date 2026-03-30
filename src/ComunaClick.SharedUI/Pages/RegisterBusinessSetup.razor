@@ -17,7 +17,7 @@
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <a class="material-symbols-outlined text-[#111816] dark:text-white cursor-pointer" href="/register">arrow_back</a>
-                <img src="_content/ComunaClick.SharedUI/logo-largo.png" alt="ComunaClic" class="h-14 w-auto" />
+                <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
             </div>
             <LanguageToggle />
         </div>
@@ -48,7 +48,7 @@
 
             @if (_loadingAuth)
             {
-                <div class="text-sm text-[#61897c]">Cargando sesión...</div>
+                <BrandedLoading Title="Cargando sesion" Message="Estamos validando tu acceso antes de crear el negocio." />
             }
             else if (!_ready)
             {

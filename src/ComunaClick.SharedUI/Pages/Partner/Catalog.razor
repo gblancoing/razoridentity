@@ -1,5 +1,6 @@
 @page "/partner/catalog"
-@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@layout global::ComunaClick.SharedUI.Layouts.PartnerLayout
+@using System.Net
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -25,7 +26,9 @@
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @if (_isLoading)
             {
-            <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+                <div class="p-4">
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tu catalogo de productos." Compact="true" />
+                </div>
             }
             else if (_items.Count == 0)
             {
@@ -79,12 +82,27 @@
             return;
         }
 
-        var products = await PartnerApi.GetPartnerProductsAsync(partnerId.Value);
-        if (products is not null)
+        try
         {
-            _items.AddRange(products);
+            var products = await PartnerApi.GetPartnerProductsAsync(partnerId.Value);
+            if (products is not null)
+            {
+                _items.AddRange(products);
+            }
+            _statusMessage = _items.Count == 0 ? L.T("partner.status.noProducts") : string.Empty;
         }
-        _statusMessage = _items.Count == 0 ? L.T("partner.status.noProducts") : string.Empty;
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _statusMessage = "No tienes permisos para ver el catalogo de este partner.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusMessage = L.T("partner.status.noProducts");
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo cargar el catalogo ({(int?)ex.StatusCode ?? 0}).";
+        }
         _isLoading = false;
     }
 

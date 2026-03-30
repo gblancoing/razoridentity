@@ -3,6 +3,7 @@
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
 @inject NavigationManager Navigation
+@inject ILogger<MyBusinesses> Logger
 
 <PageTitle>Mis negocios - ComunaClic</PageTitle>
 
@@ -23,7 +24,7 @@
 
         @if (_isLoading)
         {
-            <div class="bg-white dark:bg-[#1a2e28] rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-sm text-[#61897c]">Cargando negocios...</div>
+            <BrandedLoading Title="Cargando negocios" Message="Estamos revisando los negocios asociados a tu cuenta." />
         }
         else if (_items.Count == 0)
         {
@@ -76,16 +77,39 @@
     private bool _isSwitching;
     private string? _statusMessage;
     private string _statusLevel = "info";
+    private bool _checkedAuth;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
-        if (!AuthState.IsAuthenticated)
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_checkedAuth)
         {
-            Navigation.NavigateTo("/login", true);
             return;
         }
 
-        await LoadAsync();
+        _checkedAuth = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (!AuthState.IsAuthenticated)
+            {
+                Logger.LogInformation("No authenticated session found on /my-businesses. Redirecting to /login");
+                Navigation.NavigateTo("/login", true);
+                return;
+            }
+
+            await LoadAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop is not available during prerender; retry once the browser is ready.
+            _checkedAuth = false;
+        }
     }
 
     private async Task LoadAsync()

@@ -1,0 +1,33 @@
+@if (Visible)
+{
+    <div class="@ContainerClass" role="status" aria-live="polite">
+        <div class="relative flex items-center justify-center">
+            <div class="absolute h-20 w-20 rounded-full border border-primary/20"></div>
+            <div class="absolute h-20 w-20 rounded-full border-4 border-primary/15 border-t-primary animate-spin"></div>
+            <img src="_content/ComunaClick.SharedUI/loading.png" alt="ComunaClic cargando" class="@LogoClass" />
+        </div>
+        <div class="space-y-1 text-center">
+            @if (!string.IsNullOrWhiteSpace(Title))
+            {
+                <p class="text-sm font-semibold text-[#111816] dark:text-white">@Title</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(Message))
+            {
+                <p class="text-xs text-[#61897c] dark:text-gray-300">@Message</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; } = true;
+    [Parameter] public string? Title { get; set; } = "Cargando";
+    [Parameter] public string? Message { get; set; } = "Estamos preparando la informacion.";
+    [Parameter] public bool Compact { get; set; }
+
+    private string ContainerClass => Compact
+        ? "flex flex-col items-center justify-center gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a2e28] px-4 py-6"
+        : "flex min-h-[220px] flex-col items-center justify-center gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a2e28] px-6 py-8";
+
+    private string LogoClass => Compact ? "h-12 w-auto drop-shadow-sm" : "h-20 w-auto drop-shadow-sm";
+}

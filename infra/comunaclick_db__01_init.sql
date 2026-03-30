@@ -197,6 +197,9 @@ CREATE TABLE core.products (
 	id uuid DEFAULT gen_random_uuid() NOT NULL,
 	tenant_id uuid NOT NULL,
 	partner_id uuid NOT NULL,
+	country_id uuid NULL,
+	region_id uuid NULL,
+	comuna_id uuid NULL,
 	"name" text NOT NULL,
 	description text NULL,
 	category text NULL,
@@ -210,7 +213,10 @@ CREATE TABLE core.products (
 	CONSTRAINT products_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES core.tenants(id) ON DELETE CASCADE
 );
 CREATE INDEX ix_core_products_active ON core.products USING btree (is_active);
+CREATE INDEX ix_core_products_comuna ON core.products USING btree (comuna_id);
+CREATE INDEX ix_core_products_country ON core.products USING btree (country_id);
 CREATE INDEX ix_core_products_partner ON core.products USING btree (partner_id);
+CREATE INDEX ix_core_products_region ON core.products USING btree (region_id);
 CREATE INDEX ix_core_products_tenant ON core.products USING btree (tenant_id);
 
 
@@ -223,6 +229,9 @@ CREATE INDEX ix_core_products_tenant ON core.products USING btree (tenant_id);
 CREATE TABLE core.professionals (
 	id uuid DEFAULT gen_random_uuid() NOT NULL,
 	tenant_id uuid NOT NULL,
+	country_id uuid NULL,
+	region_id uuid NULL,
+	comuna_id uuid NULL,
 	"name" text NOT NULL,
 	email text NULL,
 	phone text NULL,
@@ -236,7 +245,10 @@ CREATE TABLE core.professionals (
 	CONSTRAINT professionals_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES core.tenants(id) ON DELETE CASCADE
 );
 CREATE INDEX ix_core_professionals_active ON core.professionals USING btree (is_active);
+CREATE INDEX ix_core_professionals_comuna ON core.professionals USING btree (comuna_id);
+CREATE INDEX ix_core_professionals_country ON core.professionals USING btree (country_id);
 CREATE INDEX ix_core_professionals_geo_gist ON core.professionals USING gist (geo_point);
+CREATE INDEX ix_core_professionals_region ON core.professionals USING btree (region_id);
 CREATE INDEX ix_core_professionals_tenant ON core.professionals USING btree (tenant_id);
 
 
@@ -250,6 +262,9 @@ CREATE TABLE core.services (
 	id uuid DEFAULT gen_random_uuid() NOT NULL,
 	tenant_id uuid NOT NULL,
 	partner_id uuid NOT NULL,
+	country_id uuid NULL,
+	region_id uuid NULL,
+	comuna_id uuid NULL,
 	"name" text NOT NULL,
 	description text NULL,
 	category text NULL,
@@ -263,7 +278,10 @@ CREATE TABLE core.services (
 	CONSTRAINT services_partner_id_fkey FOREIGN KEY (partner_id) REFERENCES core.partners(id) ON DELETE CASCADE,
 	CONSTRAINT services_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES core.tenants(id) ON DELETE CASCADE
 );
+CREATE INDEX ix_core_services_comuna ON core.services USING btree (comuna_id);
+CREATE INDEX ix_core_services_country ON core.services USING btree (country_id);
 CREATE INDEX ix_core_services_partner ON core.services USING btree (partner_id);
+CREATE INDEX ix_core_services_region ON core.services USING btree (region_id);
 CREATE INDEX ix_core_services_tenant ON core.services USING btree (tenant_id);
 
 
@@ -1042,4 +1060,3 @@ WHERE u.is_active = true
 CREATE OR REPLACE VIEW acl.v_user_can_access_tenant AS
 SELECT user_id, tenant_id
 FROM acl.v_user_accessible_tenants;
-

@@ -1,5 +1,6 @@
 @page "/partner/notifications"
-@layout ComunaClick.SharedUI.Layouts.PartnerLayout
+@layout global::ComunaClick.SharedUI.Layouts.PartnerLayout
+@using System.Net
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -19,7 +20,9 @@
     <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-800">
         @if (_isLoading)
         {
-            <div class="p-6 text-sm text-[#61897c]">@L.T("ui.loading")</div>
+            <div class="p-4">
+                <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tus notificaciones." Compact="true" />
+            </div>
         }
         else if (_items.Count == 0)
         {
@@ -61,10 +64,26 @@
             return;
         }
 
-        var notes = await PartnerApi.GetPartnerNotificationsAsync(AuthState.PartnerId.Value);
-        if (notes is not null)
+        try
         {
-            _items.AddRange(notes);
+            var notes = await PartnerApi.GetPartnerNotificationsAsync(AuthState.PartnerId.Value);
+            if (notes is not null)
+            {
+                _items.AddRange(notes);
+            }
+            _statusMessage = _items.Count == 0 ? L.T("partner.status.noNotifications") : string.Empty;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _statusMessage = "No tienes permisos para ver las notificaciones de este partner.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusMessage = L.T("partner.status.noNotifications");
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudieron cargar las notificaciones ({(int?)ex.StatusCode ?? 0}).";
         }
         _isLoading = false;
     }
