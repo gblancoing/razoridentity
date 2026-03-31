@@ -109,6 +109,12 @@
                     <span class="material-symbols-outlined text-[18px]">inventory_2</span>
                     Revisar catálogo
                 </a>
+
+                <a href="@PublicPreviewHref"
+                   class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm">
+                    <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                    Ver en público
+                </a>
             </div>
         </section>
     }
@@ -231,6 +237,10 @@
                                 </div>
                                 <p class="mt-2 text-sm text-[#595c5d]">@(business.Email ?? business.Phone ?? business.Address ?? "Sin contacto")</p>
                                 <p class="mt-1 text-xs text-[#7b8081]">@(business.Activation?.StatusLabel ?? (business.IsVisible ? "Publicado" : "Pendiente"))</p>
+                                <a class="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#3b6700] hover:underline" href="@($"/buyer/detail/partner/{business.Id}")">
+                                    Ver en público
+                                    <span class="material-symbols-outlined text-[16px]">arrow_right_alt</span>
+                                </a>
                             </article>
                         }
                     </div>
@@ -289,6 +299,10 @@
             "C" => "Registrar primer profesional",
             _ => "Crear primer producto"
         };
+
+    private string PublicPreviewHref => AuthState.PartnerId is Guid partnerId && partnerId != Guid.Empty
+        ? $"/buyer/detail/partner/{partnerId}"
+        : "/buyer";
 
     protected override void OnInitialized()
     {

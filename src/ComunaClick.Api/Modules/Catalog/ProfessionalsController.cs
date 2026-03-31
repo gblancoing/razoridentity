@@ -24,7 +24,44 @@ public sealed class ProfessionalsController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Professional>>> List()
-        => Ok(await _db.Professionals.AsNoTracking().ToListAsync());
+    {
+        var tenantId = _tenantContext.TenantId;
+        var query = _db.Professionals.AsNoTracking().AsQueryable();
+        if (tenantId.HasValue)
+        {
+            query = query.Where(x => x.TenantId == tenantId.Value);
+        }
+
+        return Ok(await query.OrderByDescending(x => x.CreatedAt).ToListAsync());
+    }
+
+    [HttpGet("/v1/partners/{partnerId:guid}/professionals")]
+    public async Task<ActionResult<IEnumerable<Professional>>> ListByPartner(Guid partnerId)
+    {
+        var scopedPartner = _tenantContext.PartnerId;
+        if (scopedPartner.HasValue && scopedPartner.Value != partnerId)
+        {
+            return Forbid();
+        }
+
+        var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(x => x.Id == partnerId);
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        var tenantId = _tenantContext.TenantId;
+        if (tenantId.HasValue && partner.TenantId != tenantId.Value)
+        {
+            return Forbid();
+        }
+
+        var professionals = await _db.Professionals.AsNoTracking()
+            .Where(x => x.TenantId == partner.TenantId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+        return Ok(professionals);
+    }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Professional>> Get(Guid id)

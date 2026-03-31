@@ -39,6 +39,9 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<IReadOnlyList<Service>?> GetPartnerServicesAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Service>>($"/v1/partners/{partnerId}/services", cancellationToken);
 
+    public Task<IReadOnlyList<Professional>?> GetPartnerProfessionalsAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<Professional>>($"/v1/partners/{partnerId}/professionals", cancellationToken);
+
     public Task<IReadOnlyList<Lead>?> GetProfessionalLeadsAsync(Guid professionalId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Lead>>($"/v1/professionals/{professionalId}/leads", cancellationToken);
 
@@ -54,11 +57,20 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<Product?> CreateProductAsync(ProductCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Product>("/v1/products", request, cancellationToken);
 
+    public Task<Product?> UpdateProductAsync(Guid productId, ProductUpdateRequest request, CancellationToken cancellationToken = default)
+        => PatchAsync<Product>($"/v1/products/{productId}", request, cancellationToken);
+
     public Task<Service?> CreateServiceAsync(ServiceCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Service>("/v1/services", request, cancellationToken);
 
+    public Task<Service?> UpdateServiceAsync(Guid serviceId, ServiceUpdateRequest request, CancellationToken cancellationToken = default)
+        => PatchAsync<Service>($"/v1/services/{serviceId}", request, cancellationToken);
+
     public Task<Professional?> CreateProfessionalAsync(ProfessionalCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Professional>("/v1/professionals", request, cancellationToken);
+
+    public Task<Professional?> UpdateProfessionalAsync(Guid professionalId, ProfessionalUpdateRequest request, CancellationToken cancellationToken = default)
+        => PatchAsync<Professional>($"/v1/professionals/{professionalId}", request, cancellationToken);
 
     public Task<PartnerDto?> GetPartnerAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<PartnerDto>($"/v1/partners/{partnerId}", cancellationToken);
@@ -245,6 +257,15 @@ public sealed record ProductCreateRequest(
     bool? IsActive
 );
 
+public sealed record ProductUpdateRequest(
+    string? Name,
+    string? Description,
+    string? Category,
+    double? Price,
+    string? Currency,
+    bool? IsActive
+);
+
 public sealed record ServiceCreateRequest(
     Guid PartnerId,
     string Name,
@@ -256,8 +277,28 @@ public sealed record ServiceCreateRequest(
     bool? IsActive
 );
 
+public sealed record ServiceUpdateRequest(
+    string? Name,
+    string? Description,
+    string? Category,
+    double? Price,
+    string? Currency,
+    int? DurationMinutes,
+    bool? IsActive
+);
+
 public sealed record ProfessionalCreateRequest(
     string Name,
+    string? Email,
+    string? Phone,
+    string? Specialty,
+    string? Bio,
+    bool? IsVerified,
+    bool? IsActive
+);
+
+public sealed record ProfessionalUpdateRequest(
+    string? Name,
     string? Email,
     string? Phone,
     string? Specialty,

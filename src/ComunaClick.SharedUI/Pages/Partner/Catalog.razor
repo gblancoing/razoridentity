@@ -1,37 +1,41 @@
 @page "/partner/catalog"
 @layout PartnerLayout
+@using System.ComponentModel.DataAnnotations
 @using System.Net
+@using Microsoft.AspNetCore.Components.Forms
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @implements IDisposable
 @using PartnerProduct = ComunaClick.Shared.Api.Partner.Product
+@using PartnerService = ComunaClick.Shared.Api.Partner.Service
+@using PartnerProfessional = ComunaClick.Shared.Api.Partner.Professional
 
 <PageTitle>@L.T("partner.catalog.title")</PageTitle>
 
 <div class="space-y-8">
     <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Catálogo editorial</p>
-            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.catalog.heading")</h1>
-            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.catalog.subtitle")</p>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Catalogo editorial</p>
+            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@HeadingTitle</h1>
+            <p class="mt-2 text-sm text-[#595c5d]">@HeadingSubtitle</p>
         </div>
         <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>
-            Crear primer producto
+            @CreateCtaLabel
         </a>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">PRODUCTOS</p>
-            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_items.Count</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Ítems visibles en tu catálogo de gestión.</p>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@CountLabel</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@CurrentCount</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@CountHint</p>
         </article>
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">PRECIO MEDIO</p>
-            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@AveragePriceLabel</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Referencia rápida del valor promedio de tus productos.</p>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@MetricLabel</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@MetricValue</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@MetricHint</p>
         </article>
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
             <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ESTADO</p>
@@ -43,48 +47,251 @@
     <section class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
         <div class="flex items-center justify-between gap-4 mb-8">
             <div>
-                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">@L.T("partner.catalog.table.count")</p>
-                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.catalog.table.title")</h2>
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">GESTION OPERATIVA</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@SectionTitle</h2>
             </div>
-            <a href="/partner/quickstart" class="text-sm font-bold text-[#3b6700] hover:underline">Agregar producto</a>
+            <a href="/partner/quickstart" class="text-sm font-bold text-[#3b6700] hover:underline">@CreateSecondaryLabel</a>
         </div>
 
         <div class="space-y-4">
             @if (_isLoading)
             {
                 <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tu catalogo de productos." Compact="true" />
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="@LoadingMessage" Compact="true" />
                 </div>
             }
-            else if (_items.Count == 0)
+            else if (CurrentCount == 0)
             {
                 <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center space-y-4">
                     <div class="w-16 h-16 rounded-full bg-[#a7f255]/20 text-[#325800] flex items-center justify-center mx-auto">
-                        <span class="material-symbols-outlined text-3xl">inventory_2</span>
+                        <span class="material-symbols-outlined text-3xl">@EmptyIcon</span>
                     </div>
-                    <p class="text-lg font-bold text-[#2c2f30]">Tu catálogo está vacío</p>
+                    <p class="text-lg font-bold text-[#2c2f30]">@EmptyTitle</p>
                     <p class="text-sm text-[#595c5d] max-w-xl mx-auto">@_statusMessage</p>
                     <a href="/partner/quickstart" class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm">
                         <span class="material-symbols-outlined text-[18px]">add</span>
-                        Cargar primer producto
+                        @CreateCtaLabel
                     </a>
                 </div>
             }
-            else
+            else if (IsProductPartner)
             {
-                @foreach (var item in _items)
+                @foreach (var item in _products)
                 {
-                    <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-5">
                         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                             <div class="space-y-2">
-                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@item.Name</p>
-                                <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(item.Description) ? "Sin descripción comercial todavía." : item.Description)</p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@item.Name</p>
+                                    <span class="@BadgeClass(item.IsActive)">@BadgeText(item.IsActive)</span>
+                                </div>
+                                <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(item.Description) ? "Sin descripcion comercial todavia." : item.Description)</p>
+                                <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@(string.IsNullOrWhiteSpace(item.Category) ? "Categoria pendiente" : item.Category)</p>
                             </div>
                             <div class="text-left md:text-right">
                                 <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Precio</p>
-                                <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@($"{item.Price:N0}")</p>
+                                <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@Money(item.Price)</p>
                             </div>
                         </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <button class="@PrimaryButtonClass" @onclick="() => BeginEditProduct(item)" disabled="@IsBusy(item.Id)">
+                                <span class="material-symbols-outlined text-[18px]">edit</span>
+                                Editar
+                            </button>
+                            <button class="@SecondaryButtonClass" @onclick="() => ToggleProductActiveAsync(item)" disabled="@IsBusy(item.Id)">
+                                <span class="material-symbols-outlined text-[18px]">@ToggleIcon(item.IsActive)</span>
+                                @ToggleLabel(item.IsActive)
+                            </button>
+                        </div>
+
+                        @if (_editingProductId == item.Id)
+                        {
+                            <EditForm Model="_productEditor" OnValidSubmit="SaveProductAsync">
+                                <DataAnnotationsValidator />
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f5f6f7] rounded-3xl p-5">
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Nombre</label>
+                                        <input class="@InputClass" @bind="_productEditor.Name" />
+                                        <ValidationMessage For="@(() => _productEditor.Name)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Descripcion</label>
+                                        <textarea class="@TextAreaClass" @bind="_productEditor.Description"></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Categoria</label>
+                                        <input class="@InputClass" @bind="_productEditor.Category" />
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Precio</label>
+                                        <input type="number" step="1" min="0" class="@InputClass" @bind="_productEditor.Price" />
+                                        <ValidationMessage For="@(() => _productEditor.Price)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div class="md:col-span-2 flex flex-wrap gap-3">
+                                        <button type="submit" class="@PrimaryButtonClass" disabled="@IsBusy(item.Id)">
+                                            <span class="material-symbols-outlined text-[18px]">save</span>
+                                            Guardar cambios
+                                        </button>
+                                        <button type="button" class="@GhostButtonClass" @onclick="CancelEdit">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </EditForm>
+                        }
+                    </article>
+                }
+            }
+            else if (IsServicePartner)
+            {
+                @foreach (var item in _services)
+                {
+                    <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-5">
+                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@item.Name</p>
+                                    <span class="@BadgeClass(item.IsActive)">@BadgeText(item.IsActive)</span>
+                                </div>
+                                <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(item.Description) ? "Sin descripcion comercial todavia." : item.Description)</p>
+                                <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@(string.IsNullOrWhiteSpace(item.Category) ? "Categoria pendiente" : item.Category)</p>
+                            </div>
+                            <div class="text-left md:text-right">
+                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Precio</p>
+                                <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@Money(item.Price)</p>
+                                <p class="mt-1 text-xs text-[#595c5d]">@item.DurationMinutes min</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <button class="@PrimaryButtonClass" @onclick="() => BeginEditService(item)" disabled="@IsBusy(item.Id)">
+                                <span class="material-symbols-outlined text-[18px]">edit</span>
+                                Editar
+                            </button>
+                            <button class="@SecondaryButtonClass" @onclick="() => ToggleServiceActiveAsync(item)" disabled="@IsBusy(item.Id)">
+                                <span class="material-symbols-outlined text-[18px]">@ToggleIcon(item.IsActive)</span>
+                                @ToggleLabel(item.IsActive)
+                            </button>
+                        </div>
+
+                        @if (_editingServiceId == item.Id)
+                        {
+                            <EditForm Model="_serviceEditor" OnValidSubmit="SaveServiceAsync">
+                                <DataAnnotationsValidator />
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f5f6f7] rounded-3xl p-5">
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Nombre</label>
+                                        <input class="@InputClass" @bind="_serviceEditor.Name" />
+                                        <ValidationMessage For="@(() => _serviceEditor.Name)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Descripcion</label>
+                                        <textarea class="@TextAreaClass" @bind="_serviceEditor.Description"></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Categoria</label>
+                                        <input class="@InputClass" @bind="_serviceEditor.Category" />
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Duracion (min)</label>
+                                        <input type="number" step="5" min="15" class="@InputClass" @bind="_serviceEditor.DurationMinutes" />
+                                        <ValidationMessage For="@(() => _serviceEditor.DurationMinutes)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Precio</label>
+                                        <input type="number" step="1" min="0" class="@InputClass" @bind="_serviceEditor.Price" />
+                                        <ValidationMessage For="@(() => _serviceEditor.Price)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div class="md:col-span-2 flex flex-wrap gap-3">
+                                        <button type="submit" class="@PrimaryButtonClass" disabled="@IsBusy(item.Id)">
+                                            <span class="material-symbols-outlined text-[18px]">save</span>
+                                            Guardar cambios
+                                        </button>
+                                        <button type="button" class="@GhostButtonClass" @onclick="CancelEdit">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </EditForm>
+                        }
+                    </article>
+                }
+            }
+            else
+            {
+                @foreach (var item in _professionals)
+                {
+                    <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-5">
+                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@item.Name</p>
+                                    <span class="@BadgeClass(item.IsActive)">@BadgeText(item.IsActive)</span>
+                                    @if (item.IsVerified)
+                                    {
+                                        <span class="inline-flex items-center rounded-full bg-[#a7f255]/25 px-3 py-1 text-[11px] font-bold text-[#325800]">Verificado</span>
+                                    }
+                                </div>
+                                <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(item.Bio) ? "Perfil sin biografia comercial todavia." : item.Bio)</p>
+                                <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@(string.IsNullOrWhiteSpace(item.Specialty) ? "Especialidad pendiente" : item.Specialty)</p>
+                            </div>
+                            <div class="text-left md:text-right text-sm text-[#595c5d]">
+                                <p>@(string.IsNullOrWhiteSpace(item.Email) ? "Sin email publico" : item.Email)</p>
+                                <p>@(string.IsNullOrWhiteSpace(item.Phone) ? "Sin telefono publico" : item.Phone)</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <button class="@PrimaryButtonClass" @onclick="() => BeginEditProfessional(item)" disabled="@IsBusy(item.Id)">
+                                <span class="material-symbols-outlined text-[18px]">edit</span>
+                                Editar
+                            </button>
+                            <button class="@SecondaryButtonClass" @onclick="() => ToggleProfessionalActiveAsync(item)" disabled="@IsBusy(item.Id)">
+                                <span class="material-symbols-outlined text-[18px]">@ToggleIcon(item.IsActive)</span>
+                                @ToggleLabel(item.IsActive)
+                            </button>
+                        </div>
+
+                        @if (_editingProfessionalId == item.Id)
+                        {
+                            <EditForm Model="_professionalEditor" OnValidSubmit="SaveProfessionalAsync">
+                                <DataAnnotationsValidator />
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f5f6f7] rounded-3xl p-5">
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Nombre</label>
+                                        <input class="@InputClass" @bind="_professionalEditor.Name" />
+                                        <ValidationMessage For="@(() => _professionalEditor.Name)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Especialidad</label>
+                                        <input class="@InputClass" @bind="_professionalEditor.Specialty" />
+                                        <ValidationMessage For="@(() => _professionalEditor.Specialty)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Email</label>
+                                        <input class="@InputClass" @bind="_professionalEditor.Email" />
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Telefono</label>
+                                        <input class="@InputClass" @bind="_professionalEditor.Phone" />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Bio</label>
+                                        <textarea class="@TextAreaClass" @bind="_professionalEditor.Bio"></textarea>
+                                    </div>
+                                    <div class="md:col-span-2 flex flex-wrap gap-3">
+                                        <button type="submit" class="@PrimaryButtonClass" disabled="@IsBusy(item.Id)">
+                                            <span class="material-symbols-outlined text-[18px]">save</span>
+                                            Guardar cambios
+                                        </button>
+                                        <button type="button" class="@GhostButtonClass" @onclick="CancelEdit">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </EditForm>
+                        }
                     </article>
                 }
             }
@@ -93,12 +300,59 @@
 </div>
 
 @code {
-    private readonly List<PartnerProduct> _items = new();
+    private readonly List<PartnerProduct> _products = new();
+    private readonly List<PartnerService> _services = new();
+    private readonly List<PartnerProfessional> _professionals = new();
+    private ComunaClick.Shared.Api.Partner.PartnerDto? _partner;
     private string _statusMessage = "—";
     private bool _isLoading;
+    private Guid? _busyItemId;
+    private Guid? _editingProductId;
+    private Guid? _editingServiceId;
+    private Guid? _editingProfessionalId;
+    private readonly ProductEditor _productEditor = new();
+    private readonly ServiceEditor _serviceEditor = new();
+    private readonly ProfessionalEditor _professionalEditor = new();
 
-    private string AveragePriceLabel => _items.Count == 0 ? "$0" : $"${_items.Average(x => x.Price):N0}";
-    private string StatusLabel => _items.Count == 0 ? "Sin carga" : "Catálogo activo";
+    private bool IsProductPartner => string.Equals(_partner?.Type, "A", StringComparison.OrdinalIgnoreCase);
+    private bool IsServicePartner => string.Equals(_partner?.Type, "B", StringComparison.OrdinalIgnoreCase);
+    private int CurrentCount => IsProductPartner ? _products.Count : IsServicePartner ? _services.Count : _professionals.Count;
+    private string HeadingTitle => IsProductPartner ? "Catalogo de productos" : IsServicePartner ? "Catalogo de servicios" : "Equipo profesional";
+    private string HeadingSubtitle => IsProductPartner
+        ? "Gestiona tu vitrina comercial, ajusta precios y activa o desactiva tu oferta."
+        : IsServicePartner
+            ? "Organiza los servicios que publicas, sus precios y su disponibilidad operativa."
+            : "Mantén actualizados los perfiles que representan tu negocio ante nuevos clientes.";
+    private string CreateCtaLabel => IsProductPartner ? "Crear producto" : IsServicePartner ? "Crear servicio" : "Registrar profesional";
+    private string CreateSecondaryLabel => IsProductPartner ? "Agregar producto" : IsServicePartner ? "Agregar servicio" : "Agregar profesional";
+    private string CountLabel => IsProductPartner ? "PRODUCTOS" : IsServicePartner ? "SERVICIOS" : "PROFESIONALES";
+    private string CountHint => IsProductPartner
+        ? "Items visibles en tu oferta comercial."
+        : IsServicePartner
+            ? "Servicios listos para recibir reservas."
+            : "Perfiles activos que representan tu negocio.";
+    private string MetricLabel => IsProductPartner ? "PRECIO MEDIO" : IsServicePartner ? "DURACION MEDIA" : "VERIFICADOS";
+    private string MetricValue => IsProductPartner
+        ? (_products.Count == 0 ? "$0" : Money(_products.Average(x => x.Price)))
+        : IsServicePartner
+            ? (_services.Count == 0 ? "0 min" : $"{Math.Round(_services.Average(x => x.DurationMinutes))} min")
+            : _professionals.Count(x => x.IsVerified).ToString();
+    private string MetricHint => IsProductPartner
+        ? "Referencia rapida del valor promedio de tus productos."
+        : IsServicePartner
+            ? "Tiempo promedio que comprometes por servicio."
+            : "Perfiles validados para reforzar confianza."
+    ;
+    private string StatusLabel => CurrentCount == 0 ? "Sin carga" : "Operacion activa";
+    private string SectionTitle => IsProductPartner ? "Gestiona tus productos" : IsServicePartner ? "Gestiona tus servicios" : "Gestiona tus profesionales";
+    private string LoadingMessage => IsProductPartner ? "Estamos cargando tu catalogo de productos." : IsServicePartner ? "Estamos cargando tu catalogo de servicios." : "Estamos cargando tu equipo profesional.";
+    private string EmptyIcon => IsProductPartner ? "inventory_2" : IsServicePartner ? "menu_book" : "badge";
+    private string EmptyTitle => IsProductPartner ? "Tu catalogo de productos esta vacio" : IsServicePartner ? "Todavia no tienes servicios cargados" : "Todavia no tienes profesionales registrados";
+    private string InputClass => "mt-1 w-full rounded-2xl border border-[#dadddf] bg-white px-4 h-12 text-sm text-[#2c2f30]";
+    private string TextAreaClass => "mt-1 w-full rounded-2xl border border-[#dadddf] bg-white px-4 py-3 text-sm text-[#2c2f30] min-h-[110px]";
+    private string PrimaryButtonClass => "inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-4 py-2.5 text-sm font-bold text-[#d9ffad] disabled:opacity-60";
+    private string SecondaryButtonClass => "inline-flex items-center gap-2 rounded-2xl bg-[#eff1f2] px-4 py-2.5 text-sm font-bold text-[#2c2f30] disabled:opacity-60";
+    private string GhostButtonClass => "inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] px-4 py-2.5 text-sm font-bold text-[#2c2f30]";
 
     protected override void OnInitialized()
     {
@@ -110,7 +364,7 @@
         _isLoading = true;
         if (!AuthState.IsAuthenticated)
         {
-            _statusMessage = L.T("partner.status.loginRequired");
+            _statusMessage = "Necesitas iniciar sesion para gestionar tu oferta.";
             _isLoading = false;
             return;
         }
@@ -118,19 +372,60 @@
         var partnerId = AuthState.PartnerId;
         if (partnerId is null || partnerId == Guid.Empty)
         {
-            _statusMessage = L.T("partner.status.noPartner");
+            _statusMessage = "No encontramos un negocio activo en tu sesion.";
             _isLoading = false;
             return;
         }
 
+        await LoadAsync(partnerId.Value);
+        _isLoading = false;
+    }
+
+    private async Task LoadAsync(Guid partnerId)
+    {
         try
         {
-            var products = await PartnerApi.GetPartnerProductsAsync(partnerId.Value);
-            if (products is not null)
+            _partner = await PartnerApi.GetPartnerAsync(partnerId);
+            _products.Clear();
+            _services.Clear();
+            _professionals.Clear();
+
+            if (IsProductPartner)
             {
-                _items.AddRange(products);
+                var products = await PartnerApi.GetPartnerProductsAsync(partnerId);
+                if (products is not null)
+                {
+                    _products.AddRange(products);
+                }
+
+                _statusMessage = _products.Count == 0
+                    ? "Completa tu primer producto para empezar a publicar y vender."
+                    : "Tu catalogo de productos ya se puede editar, activar o pausar desde aqui.";
             }
-            _statusMessage = _items.Count == 0 ? L.T("partner.status.noProducts") : "Tu catálogo está cargado y listo para seguir creciendo.";
+            else if (IsServicePartner)
+            {
+                var services = await PartnerApi.GetPartnerServicesAsync(partnerId);
+                if (services is not null)
+                {
+                    _services.AddRange(services);
+                }
+
+                _statusMessage = _services.Count == 0
+                    ? "Completa tu primer servicio para empezar a recibir reservas."
+                    : "Tus servicios ya se pueden ajustar, activar o pausar desde esta vista.";
+            }
+            else
+            {
+                var professionals = await PartnerApi.GetPartnerProfessionalsAsync(partnerId);
+                if (professionals is not null)
+                {
+                    _professionals.AddRange(professionals);
+                }
+
+                _statusMessage = _professionals.Count == 0
+                    ? "Registra tu primer profesional para activar la oferta del negocio."
+                    : "Tus perfiles profesionales ya se pueden actualizar y pausar desde aqui.";
+            }
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -138,14 +433,285 @@
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            _statusMessage = L.T("partner.status.noProducts");
+            _statusMessage = "Todavia no encontramos informacion publicada para este negocio.";
         }
         catch (HttpRequestException ex)
         {
             _statusMessage = $"No se pudo cargar el catalogo ({(int?)ex.StatusCode ?? 0}).";
         }
-        _isLoading = false;
     }
+
+    private void BeginEditProduct(PartnerProduct item)
+    {
+        _editingServiceId = null;
+        _editingProfessionalId = null;
+        _editingProductId = item.Id;
+        _productEditor.Name = item.Name ?? string.Empty;
+        _productEditor.Description = item.Description;
+        _productEditor.Category = item.Category;
+        _productEditor.Price = item.Price;
+    }
+
+    private void BeginEditService(PartnerService item)
+    {
+        _editingProductId = null;
+        _editingProfessionalId = null;
+        _editingServiceId = item.Id;
+        _serviceEditor.Name = item.Name ?? string.Empty;
+        _serviceEditor.Description = item.Description;
+        _serviceEditor.Category = item.Category;
+        _serviceEditor.Price = item.Price;
+        _serviceEditor.DurationMinutes = item.DurationMinutes;
+    }
+
+    private void BeginEditProfessional(PartnerProfessional item)
+    {
+        _editingProductId = null;
+        _editingServiceId = null;
+        _editingProfessionalId = item.Id;
+        _professionalEditor.Name = item.Name ?? string.Empty;
+        _professionalEditor.Email = item.Email;
+        _professionalEditor.Phone = item.Phone;
+        _professionalEditor.Specialty = item.Specialty ?? string.Empty;
+        _professionalEditor.Bio = item.Bio;
+    }
+
+    private void CancelEdit()
+    {
+        _editingProductId = null;
+        _editingServiceId = null;
+        _editingProfessionalId = null;
+    }
+
+    private async Task SaveProductAsync()
+    {
+        if (_editingProductId is null)
+        {
+            return;
+        }
+
+        _busyItemId = _editingProductId;
+        try
+        {
+            var updated = await PartnerApi.UpdateProductAsync(_editingProductId.Value, new ComunaClick.Shared.Api.Partner.ProductUpdateRequest(
+                Clean(_productEditor.Name),
+                Clean(_productEditor.Description),
+                Clean(_productEditor.Category),
+                _productEditor.Price,
+                "CLP",
+                null));
+            if (updated is not null)
+            {
+                ReplaceProduct(updated);
+                _statusMessage = "Producto actualizado correctamente.";
+            }
+            CancelEdit();
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar el producto ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _busyItemId = null;
+        }
+    }
+
+    private async Task SaveServiceAsync()
+    {
+        if (_editingServiceId is null)
+        {
+            return;
+        }
+
+        _busyItemId = _editingServiceId;
+        try
+        {
+            var updated = await PartnerApi.UpdateServiceAsync(_editingServiceId.Value, new ComunaClick.Shared.Api.Partner.ServiceUpdateRequest(
+                Clean(_serviceEditor.Name),
+                Clean(_serviceEditor.Description),
+                Clean(_serviceEditor.Category),
+                _serviceEditor.Price,
+                "CLP",
+                _serviceEditor.DurationMinutes,
+                null));
+            if (updated is not null)
+            {
+                ReplaceService(updated);
+                _statusMessage = "Servicio actualizado correctamente.";
+            }
+            CancelEdit();
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar el servicio ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _busyItemId = null;
+        }
+    }
+
+    private async Task SaveProfessionalAsync()
+    {
+        if (_editingProfessionalId is null)
+        {
+            return;
+        }
+
+        _busyItemId = _editingProfessionalId;
+        try
+        {
+            var current = _professionals.FirstOrDefault(x => x.Id == _editingProfessionalId.Value);
+            var updated = await PartnerApi.UpdateProfessionalAsync(_editingProfessionalId.Value, new ComunaClick.Shared.Api.Partner.ProfessionalUpdateRequest(
+                Clean(_professionalEditor.Name),
+                Clean(_professionalEditor.Email),
+                Clean(_professionalEditor.Phone),
+                Clean(_professionalEditor.Specialty),
+                Clean(_professionalEditor.Bio),
+                current?.IsVerified,
+                null));
+            if (updated is not null)
+            {
+                ReplaceProfessional(updated);
+                _statusMessage = "Profesional actualizado correctamente.";
+            }
+            CancelEdit();
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar el profesional ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _busyItemId = null;
+        }
+    }
+
+    private async Task ToggleProductActiveAsync(PartnerProduct item)
+    {
+        _busyItemId = item.Id;
+        try
+        {
+            var updated = await PartnerApi.UpdateProductAsync(item.Id, new ComunaClick.Shared.Api.Partner.ProductUpdateRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                !item.IsActive));
+            if (updated is not null)
+            {
+                ReplaceProduct(updated);
+                _statusMessage = updated.IsActive ? "Producto activado." : "Producto pausado.";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar el estado del producto ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _busyItemId = null;
+        }
+    }
+
+    private async Task ToggleServiceActiveAsync(PartnerService item)
+    {
+        _busyItemId = item.Id;
+        try
+        {
+            var updated = await PartnerApi.UpdateServiceAsync(item.Id, new ComunaClick.Shared.Api.Partner.ServiceUpdateRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                !item.IsActive));
+            if (updated is not null)
+            {
+                ReplaceService(updated);
+                _statusMessage = updated.IsActive ? "Servicio activado." : "Servicio pausado.";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar el estado del servicio ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _busyItemId = null;
+        }
+    }
+
+    private async Task ToggleProfessionalActiveAsync(PartnerProfessional item)
+    {
+        _busyItemId = item.Id;
+        try
+        {
+            var updated = await PartnerApi.UpdateProfessionalAsync(item.Id, new ComunaClick.Shared.Api.Partner.ProfessionalUpdateRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                item.IsVerified,
+                !item.IsActive));
+            if (updated is not null)
+            {
+                ReplaceProfessional(updated);
+                _statusMessage = updated.IsActive ? "Profesional activado." : "Profesional pausado.";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar el estado del profesional ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _busyItemId = null;
+        }
+    }
+
+    private void ReplaceProduct(PartnerProduct updated)
+    {
+        var index = _products.FindIndex(x => x.Id == updated.Id);
+        if (index >= 0)
+        {
+            _products[index] = updated;
+        }
+    }
+
+    private void ReplaceService(PartnerService updated)
+    {
+        var index = _services.FindIndex(x => x.Id == updated.Id);
+        if (index >= 0)
+        {
+            _services[index] = updated;
+        }
+    }
+
+    private void ReplaceProfessional(PartnerProfessional updated)
+    {
+        var index = _professionals.FindIndex(x => x.Id == updated.Id);
+        if (index >= 0)
+        {
+            _professionals[index] = updated;
+        }
+    }
+
+    private bool IsBusy(Guid itemId) => _busyItemId == itemId;
+    private static string BadgeText(bool isActive) => isActive ? "Activo" : "Pausado";
+    private static string ToggleLabel(bool isActive) => isActive ? "Desactivar" : "Activar";
+    private static string ToggleIcon(bool isActive) => isActive ? "pause_circle" : "play_circle";
+    private static string BadgeClass(bool isActive)
+        => isActive
+            ? "inline-flex items-center rounded-full bg-[#a7f255]/25 px-3 py-1 text-[11px] font-bold text-[#325800]"
+            : "inline-flex items-center rounded-full bg-[#eff1f2] px-3 py-1 text-[11px] font-bold text-[#595c5d]";
+
+    private static string Money(double value) => $"${value:N0}";
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private void HandleChange()
     {
@@ -155,5 +721,39 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+    }
+
+    private sealed class ProductEditor
+    {
+        [Required] public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Category { get; set; }
+        [Range(0.01, 999999999)] public double Price { get; set; }
+    }
+
+    private sealed class ServiceEditor
+    {
+        [Required] public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Category { get; set; }
+        [Range(0.01, 999999999)] public double Price { get; set; }
+        [Range(15, 1440)] public int DurationMinutes { get; set; } = 30;
+    }
+
+    private sealed class ProfessionalEditor : IValidatableObject
+    {
+        [Required] public string Name { get; set; } = string.Empty;
+        [Required] public string Specialty { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Bio { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (string.IsNullOrWhiteSpace(Email) && string.IsNullOrWhiteSpace(Phone))
+            {
+                yield return new ValidationResult("Debes ingresar email o telefono.", new[] { nameof(Email), nameof(Phone) });
+            }
+        }
     }
 }
