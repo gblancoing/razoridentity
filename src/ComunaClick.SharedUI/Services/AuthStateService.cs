@@ -20,6 +20,8 @@ public sealed class AuthStateService
 
     public Guid? TenantId => Tokens?.TenantId;
     public Guid? PartnerId => Tokens?.PartnerId;
+    public string? DisplayName => Tokens?.DisplayName;
+    public string? Email => Tokens?.Email;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {

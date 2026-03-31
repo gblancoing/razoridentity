@@ -1,163 +1,239 @@
-﻿@page "/register"
+@page "/register"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@inject NavigationManager Navigation
 @implements IDisposable
 
-<PageTitle>@L.T("register.title")</PageTitle>
+<PageTitle>Crear cuenta - ComunaClic</PageTitle>
 
-<!-- Top Navigation Bar -->
-<header class="sticky top-0 z-50 w-full bg-white dark:bg-background-dark border-b border-[#dbe6e2] dark:border-white/10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <a class="material-symbols-outlined text-[#111816] dark:text-white cursor-pointer" href="/">arrow_back</a>
-            <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
-        </div>
-        <div class="flex items-center gap-4">
-            <span class="text-xs font-medium text-[#61897c] uppercase tracking-wider">@L.T("register.step")</span>
-            <LanguageToggle />
-        </div>
-    </div>
-</header>
-<main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <!-- Left Sidebar: Benefits -->
-        <aside class="hidden lg:block lg:col-span-3 space-y-6">
-            <div class="bg-primary/10 dark:bg-primary/5 p-6 rounded-xl border border-primary/20">
-                <h3 class="text-[#111816] dark:text-white font-bold mb-4">@L.T("register.why.title")</h3>
-                <ul class="space-y-4">
-                    <li class="flex gap-3">
-                        <span class="material-symbols-outlined text-primary">verified_user</span>
-                        <p class="text-sm text-[#111816] dark:text-gray-300">@L.T("register.why.item1")</p>
-                    </li>
-                    <li class="flex gap-3">
-                        <span class="material-symbols-outlined text-primary">payments</span>
-                        <p class="text-sm text-[#111816] dark:text-gray-300">@L.T("register.why.item2")</p>
-                    </li>
-                    <li class="flex gap-3">
-                        <span class="material-symbols-outlined text-primary">insights</span>
-                        <p class="text-sm text-[#111816] dark:text-gray-300">@L.T("register.why.item3")</p>
-                    </li>
-                </ul>
+<div class="min-h-screen bg-[#f7fbf9] dark:bg-background-dark">
+    <header class="sticky top-0 z-50 w-full bg-white dark:bg-background-dark border-b border-[#dbe6e2] dark:border-white/10">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a class="material-symbols-outlined text-[#111816] dark:text-white cursor-pointer" href="/login">arrow_back</a>
+                <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
             </div>
-        </aside>
-        <!-- Main Form Card -->
-        <div class="lg:col-span-9 bg-white dark:bg-[#1a2e28] rounded-xl shadow-sm border border-[#dbe6e2] dark:border-white/5 overflow-hidden">
-            <!-- Progress Bar Section -->
-            <div class="p-6 border-b border-[#dbe6e2] dark:border-white/5">
-                <div class="flex justify-between items-center mb-2">
-                    <p class="text-[#111816] dark:text-white text-base font-semibold">@L.T("register.section.title")</p>
-                    <p class="text-[#111816] dark:text-white text-sm">@L.T("register.section.progress")</p>
-                </div>
-                <div class="w-full bg-[#dbe6e2] dark:bg-gray-700 h-2 rounded-full">
-                    <div class="bg-primary h-2 rounded-full" style="width: 25%;"></div>
-                </div>
+            <div class="flex items-center gap-4">
+                <LanguageToggle />
+                <a class="text-sm font-semibold text-primary hover:underline" href="/login">Ya tengo cuenta</a>
             </div>
-            <div class="p-6 lg:p-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <!-- Form Fields Column -->
-                    <div class="space-y-6">
-                        <h2 class="text-[#111816] dark:text-white text-xl font-bold border-l-4 border-primary pl-3">@L.T("register.details.title")</h2>
-                        <div class="space-y-4">
-                            <!-- Business Name -->
-                            <div class="flex flex-col gap-1.5">
-                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.business.name.label")</label>
-                                <input class="w-full rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.business.name.placeholder")" type="text" />
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <aside class="lg:col-span-5 space-y-6">
+                <div class="rounded-2xl border border-primary/20 bg-primary/5 p-6">
+                    <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">@HeroEyebrow</p>
+                    <h1 class="mt-3 text-3xl font-bold text-[#111816] dark:text-white">@HeroTitle</h1>
+                    <p class="mt-3 text-sm text-[#61897c]">
+                        @HeroDescription
+                    </p>
+                </div>
+
+                <div class="rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-white dark:bg-[#1a2e28] p-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <a href="/register?intent=buyer"
+                           class="@GetIntentCardClass("buyer")">
+                            <span class="material-symbols-outlined text-primary">event_available</span>
+                            <div>
+                                <p class="font-bold text-[#111816] dark:text-white">Cuenta personal</p>
+                                <p class="text-sm text-[#61897c]">Para reservar horas, comprar y seguir negocios.</p>
                             </div>
-                            <!-- NIT / Tax ID -->
-                            <div class="flex flex-col gap-1.5">
-                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.business.tax.label")</label>
-                                <input class="w-full rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.business.tax.placeholder")" type="text" />
+                        </a>
+                        <a href="/register?intent=partner"
+                           class="@GetIntentCardClass("partner")">
+                            <span class="material-symbols-outlined text-primary">storefront</span>
+                            <div>
+                                <p class="font-bold text-[#111816] dark:text-white">Soy partner</p>
+                                <p class="text-sm text-[#61897c]">Para crear negocio, catálogo y publicar.</p>
                             </div>
-                            <!-- Category -->
-                            <div class="flex flex-col gap-1.5">
-                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.business.category.label")</label>
-                                <select class="w-full rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4">
-                                    <option value="">@L.T("register.business.category.placeholder")</option>
-                                    <option>@L.T("register.business.category.option1")</option>
-                                    <option>@L.T("register.business.category.option2")</option>
-                                    <option>@L.T("register.business.category.option3")</option>
-                                    <option>@L.T("register.business.category.option4")</option>
-                                </select>
-                            </div>
-                        </div>
-                        <h2 class="text-[#111816] dark:text-white text-xl font-bold border-l-4 border-primary pl-3 pt-4">@L.T("register.contact.title")</h2>
-                        <div class="space-y-4">
-                            <!-- Phone -->
-                            <div class="flex flex-col gap-1.5">
-                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.contact.phone.label")</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#61897c]">phone</span>
-                                    <input class="w-full pl-10 rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.contact.phone.placeholder")" type="tel" />
-                                </div>
-                            </div>
-                            <!-- Email -->
-                            <div class="flex flex-col gap-1.5">
-                                <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.contact.email.label")</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#61897c]">mail</span>
-                                    <input class="w-full pl-10 rounded-lg border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white focus:ring-primary focus:border-primary h-12 px-4 placeholder:text-[#61897c]" placeholder="@L.T("register.contact.email.placeholder")" type="email" />
-                                </div>
-                            </div>
-                        </div>
+                        </a>
                     </div>
-                    <!-- Media Upload Column -->
-                    <div class="space-y-6">
-                        <h2 class="text-[#111816] dark:text-white text-xl font-bold border-l-4 border-primary pl-3">@L.T("register.brand.title")</h2>
-                        <!-- Logo Upload -->
-                        <div class="space-y-2">
-                            <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.brand.logo.label")</label>
-                            <div class="border-2 border-dashed border-[#dbe6e2] dark:border-white/10 rounded-xl p-8 flex flex-col items-center justify-center bg-background-light/50 dark:bg-[#10221c]/50 hover:bg-primary/5 transition-colors cursor-pointer group">
-                                <div class="w-20 h-20 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm mb-4 border border-dashed border-primary">
-                                    <span class="material-symbols-outlined text-primary text-3xl">add_photo_alternate</span>
-                                </div>
-                                <p class="text-sm font-medium text-[#111816] dark:text-white">@L.T("register.brand.logo.action")</p>
-                                <p class="text-xs text-[#61897c] mt-1">@L.T("register.brand.logo.note")</p>
-                            </div>
+                </div>
+
+                <div class="rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-white dark:bg-[#1a2e28] p-6 space-y-4">
+                    <h2 class="text-lg font-bold text-[#111816] dark:text-white">Qué pasará después</h2>
+                    <div class="space-y-3 text-sm text-[#111816] dark:text-gray-200">
+                        <div class="flex gap-3">
+                            <span class="material-symbols-outlined text-primary">person_add</span>
+                            <span>Se crea tu cuenta con correo y contraseña.</span>
                         </div>
-                        <!-- Cover Photo Upload -->
-                        <div class="space-y-2">
-                            <label class="text-[#111816] dark:text-gray-200 text-sm font-medium">@L.T("register.brand.cover.label")</label>
-                            <div class="relative h-40 border-2 border-dashed border-[#dbe6e2] dark:border-white/10 rounded-xl overflow-hidden group cursor-pointer bg-background-light/50 dark:bg-[#10221c]/50">
-                                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span class="material-symbols-outlined text-[#61897c] text-3xl mb-2 group-hover:text-primary transition-colors">landscape</span>
-                                    <p class="text-sm font-medium text-[#111816] dark:text-white">@L.T("register.brand.cover.action")</p>
-                                    <p class="text-xs text-[#61897c] mt-1">@L.T("register.brand.cover.note")</p>
-                                </div>
-                                <!-- Image Preview placeholder -->
-                                <img class="w-full h-full object-cover opacity-10 group-hover:opacity-20 transition-opacity" data-alt="Fondo de una tienda moderna y limpia" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB01He4Xx5R5xyz4m_-zog3nvv9wYU7AFZryGzbL4PiQziBAEx6EKggJmlzC9VDhBpwz__-TpWqh1SMhRMoM_Z5jQ0xqKp9MmK0gr8BdEHo_cW2Aapoys-6LI-YTemiBAFvicY9hFj8d8UHRwg7TpST04Q7cjaW2XLriJ58gp8a-8Op2ksxGRFq_2jO5YlEeI3y8dMMBWnfTLXZFbj1scVMHDkpmQb-jAlUY4lM0z61GLDpGYx4RJsRnyXn3VXglzA-Wd2WHQddjOU" />
-                            </div>
-                        </div>
-                        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800/30">
+                        @if (IsPartnerIntent)
+                        {
                             <div class="flex gap-3">
-                                <span class="material-symbols-outlined text-yellow-600">info</span>
-                                <p class="text-xs text-yellow-800 dark:text-yellow-200/80">
-                                    @L.T("register.brand.tip")
-                                </p>
+                                <span class="material-symbols-outlined text-primary">storefront</span>
+                                <span>Sigues al paso donde crearás tu primer negocio.</span>
                             </div>
-                        </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined text-primary">checklist</span>
+                                <span>Luego completas catálogo y publicación según el tipo de partner.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined text-primary">travel_explore</span>
+                                <span>Entras a tu vista buyer para buscar negocios, servicios y profesionales.</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined text-primary">bookmark_added</span>
+                                <span>Podrás reservar, comprar o retomar tu búsqueda cuando quieras.</span>
+                            </div>
+                        }
                     </div>
                 </div>
-            </div>
-            <!-- Action Footer -->
-            <div class="px-8 py-6 bg-background-light/50 dark:bg-black/20 border-t border-[#dbe6e2] dark:border-white/5 flex justify-end items-center gap-4">
-                <button class="px-6 py-3 text-sm font-semibold text-[#61897c] hover:text-[#111816] transition-colors">@L.T("register.actions.draft")</button>
-                <button class="bg-primary hover:bg-primary/90 text-[#111816] px-8 py-3 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95">
-                    @L.T("register.actions.continue")
-                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
-            </div>
+
+                @if (IsPartnerIntent)
+                {
+                    <div class="rounded-2xl border border-yellow-200 bg-yellow-50 p-5 text-sm text-yellow-800">
+                        No estás publicando todavía.
+                        En esta pantalla solo se crea la cuenta de acceso para continuar con la activación.
+                    </div>
+                }
+                else
+                {
+                    <div class="rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sm text-sky-800">
+                        Esta cuenta es para uso personal.
+                        Después de crearla entrarás directo a la experiencia buyer para buscar y reservar.
+                    </div>
+                }
+            </aside>
+
+            <section class="lg:col-span-7 rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-white dark:bg-[#1a2e28] p-6 lg:p-8">
+                <div class="mb-6">
+                    <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">Cuenta</p>
+                    <h2 class="mt-2 text-2xl font-bold text-[#111816] dark:text-white">@FormTitle</h2>
+                    <p class="mt-2 text-sm text-[#61897c]">@FormDescription</p>
+                </div>
+
+                @if (_loadingSession)
+                {
+                    <BrandedLoading Title="Cargando sesion" Message="Estamos verificando si ya tienes acceso activo." />
+                }
+                else
+                {
+                    <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+                        <DataAnnotationsValidator />
+                        <div class="space-y-5">
+                            @if (!string.IsNullOrWhiteSpace(_statusMessage))
+                            {
+                                <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
+                            }
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Nombre</label>
+                                    <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                           @bind="_model.Name" />
+                                    <ValidationMessage For="@(() => _model.Name)" class="text-xs text-red-500" />
+                                </div>
+
+                                <div class="md:col-span-2">
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Correo</label>
+                                    <input type="email"
+                                           class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                           @bind="_model.Email" />
+                                    <ValidationMessage For="@(() => _model.Email)" class="text-xs text-red-500" />
+                                </div>
+
+                                <div>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Contraseña</label>
+                                    <input type="password"
+                                           class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                           @bind="_model.Password" />
+                                    <ValidationMessage For="@(() => _model.Password)" class="text-xs text-red-500" />
+                                </div>
+
+                                <div>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Confirmar contraseña</label>
+                                    <input type="password"
+                                           class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                           @bind="_model.ConfirmPassword" />
+                                    <ValidationMessage For="@(() => _model.ConfirmPassword)" class="text-xs text-red-500" />
+                                </div>
+                            </div>
+
+                            <label class="flex items-start gap-3 rounded-xl border border-[#dbe6e2] dark:border-white/10 p-4">
+                                <input type="checkbox" class="mt-1" @bind="_model.AcceptFlow" />
+                                <span class="text-sm text-[#111816] dark:text-gray-200">
+                                    @AcceptLabel
+                                </span>
+                            </label>
+
+                            <div class="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
+                                <a href="/login" class="text-sm font-semibold text-[#61897c] hover:text-primary">Prefiero iniciar sesión</a>
+                                <button type="submit"
+                                        class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm disabled:opacity-60"
+                                        disabled="@_isSubmitting">
+                                    @(_isSubmitting ? "Creando cuenta..." : SubmitLabel)
+                                </button>
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+            </section>
         </div>
-    </div>
-</main>
-<footer class="mt-12 py-8 border-t border-[#dbe6e2] dark:border-white/5">
-    <div class="max-w-7xl mx-auto px-4 text-center">
-        <p class="text-sm text-[#61897c]">@L.T("register.footer") <a class="underline" href="#">@L.T("register.footer.link")</a></p>
-    </div>
-</footer>
+    </main>
+</div>
 
 @code {
+    private readonly RegisterAccountModel _model = new();
+    private bool _loadingSession = true;
+    private bool _isSubmitting;
+    private bool _checkedAuth;
+    private string? _statusMessage;
+    private string _statusLevel = "info";
+    private string _intent = "buyer";
+
+    private bool IsPartnerIntent => string.Equals(_intent, "partner", StringComparison.OrdinalIgnoreCase);
+    private string HeroEyebrow => IsPartnerIntent ? "Pre-onboarding partner" : "Cuenta personal";
+    private string HeroTitle => IsPartnerIntent ? "Crea tu cuenta y sigue con tu negocio" : "Crea tu cuenta para reservar y explorar";
+    private string HeroDescription => IsPartnerIntent
+        ? "Este paso crea tu acceso personal a ComunaClic. Apenas termine, te llevaremos al formulario para crear tu negocio."
+        : "Este paso crea tu acceso personal a ComunaClic para buscar negocios, reservar servicios y seguir tus próximas compras.";
+    private string FormTitle => IsPartnerIntent ? "Regístrate gratis" : "Crea tu cuenta personal";
+    private string FormDescription => IsPartnerIntent
+        ? "Usa un correo real. Después podrás entrar con él y seguir con la creación del negocio."
+        : "Usa un correo real. Después podrás entrar con él y usar la experiencia buyer de ComunaClic.";
+    private string AcceptLabel => IsPartnerIntent
+        ? "Entiendo que después de crear mi cuenta continuaré con el registro del negocio."
+        : "Entiendo que esta cuenta será mi acceso personal para buscar, reservar o comprar en ComunaClic.";
+    private string SubmitLabel => IsPartnerIntent ? "Crear cuenta y continuar con mi negocio" : "Crear cuenta personal";
+
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        _intent = ReadIntent();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_checkedAuth)
+        {
+            return;
+        }
+
+        _checkedAuth = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (AuthState.IsAuthenticated)
+            {
+                Navigation.NavigateTo(IsPartnerIntent ? "/register/business" : "/buyer", true);
+                return;
+            }
+
+            _loadingSession = false;
+            StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+            _checkedAuth = false;
+        }
     }
 
     private void HandleChange()
@@ -168,5 +244,98 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (!_model.AcceptFlow)
+        {
+            _statusLevel = "warning";
+            _statusMessage = IsPartnerIntent
+                ? "Debes confirmar que continuarás con el registro del negocio en el siguiente paso."
+                : "Debes confirmar que crearás tu cuenta personal para continuar.";
+            return;
+        }
+
+        if (!string.Equals(_model.Password, _model.ConfirmPassword, StringComparison.Ordinal))
+        {
+            _statusLevel = "error";
+            _statusMessage = "Las contraseñas no coinciden.";
+            return;
+        }
+
+        _isSubmitting = true;
+        _statusMessage = null;
+
+        try
+        {
+            var tokens = await AuthClient.RegisterAsync(new ComunaClick.Shared.Auth.RegisterRequest(
+                _model.Name.Trim(),
+                _model.Email.Trim(),
+                _model.Password));
+
+            await AuthState.SetTokensAsync(tokens);
+            Navigation.NavigateTo(IsPartnerIntent ? "/register/business" : "/buyer", true);
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private string ReadIntent()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return "buyer";
+        }
+
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "intent", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            return string.Equals(value, "partner", StringComparison.OrdinalIgnoreCase) ? "partner" : "buyer";
+        }
+
+        return "buyer";
+    }
+
+    private string GetIntentCardClass(string intent)
+    {
+        var isActive = string.Equals(_intent, intent, StringComparison.OrdinalIgnoreCase);
+        return isActive
+            ? "flex items-start gap-3 rounded-xl border border-primary bg-primary/5 p-4"
+            : "flex items-start gap-3 rounded-xl border border-[#dbe6e2] dark:border-white/10 p-4 hover:border-primary/40 transition-colors";
+    }
+
+    private sealed class RegisterAccountModel
+    {
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El correo es obligatorio.")]
+        [EmailAddress(ErrorMessage = "Ingresa un correo valido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es obligatoria.")]
+        [MinLength(8, ErrorMessage = "La contraseña debe tener al menos 8 caracteres.")]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Confirma tu contraseña.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        public bool AcceptFlow { get; set; }
     }
 }

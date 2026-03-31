@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
 
 <PageTitle>Primer valor - ComunaClic</PageTitle>
@@ -65,8 +66,32 @@
                         <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" @bind="_product.Description"></textarea>
                     </div>
                     <div>
-                        <label class="text-sm font-semibold">Categoría visible</label>
-                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.Category" />
+                        <label class="text-sm font-semibold">Categoría</label>
+                        <select class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12"
+                                value="@(_product.CategoryId?.ToString() ?? string.Empty)"
+                                @onchange="OnProductCategoryChangedAsync"
+                                disabled="@_loadingCatalog">
+                            <option value="">Selecciona categoría</option>
+                            @foreach (var item in _categories)
+                            {
+                                <option value="@item.Id">@item.Name</option>
+                            }
+                        </select>
+                        <ValidationMessage For="@(() => _product.CategoryId)" class="text-xs text-red-500" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold">Subcategoría</label>
+                        <select class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12"
+                                value="@(_product.SubcategoryId?.ToString() ?? string.Empty)"
+                                @onchange="OnProductSubcategoryChanged"
+                                disabled="@(_loadingCatalog || _subcategories.Count == 0)">
+                            <option value="">Selecciona subcategoría</option>
+                            @foreach (var item in _subcategories)
+                            {
+                                <option value="@item.Id">@item.Name</option>
+                            }
+                        </select>
+                        <ValidationMessage For="@(() => _product.SubcategoryId)" class="text-xs text-red-500" />
                     </div>
                     <div>
                         <label class="text-sm font-semibold">Precio</label>
@@ -157,8 +182,11 @@
 @code {
     private ComunaClick.Shared.Api.Partner.PartnerDto? _partner;
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicSubcategoryItem> _subcategories = new();
     private string? _statusMessage;
     private string _statusLevel = "info";
+    private bool _loadingCatalog;
     private bool _submitting;
 
     private readonly ProductForm _product = new();
@@ -186,6 +214,11 @@
 
         _partner = await PartnerApi.GetPartnerAsync(AuthState.PartnerId.Value);
         _activation = await PartnerApi.GetActivationStatusAsync(AuthState.PartnerId.Value);
+
+        if (_partner?.Type == "A")
+        {
+            await LoadProductCategoriesAsync();
+        }
     }
 
     private async Task CreateProductAsync()
@@ -199,11 +232,12 @@
         _statusMessage = null;
         try
         {
+            var visibleCategory = SelectedProductSubcategoryName ?? SelectedProductCategoryName;
             await PartnerApi.CreateProductAsync(new ComunaClick.Shared.Api.Partner.ProductCreateRequest(
                 _partner.Id,
                 _product.Name.Trim(),
                 NullIfWhiteSpace(_product.Description),
-                NullIfWhiteSpace(_product.Category),
+                visibleCategory,
                 _product.Price,
                 "CLP",
                 true));
@@ -291,11 +325,84 @@
 
     private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private async Task LoadProductCategoriesAsync()
+    {
+        _loadingCatalog = true;
+        try
+        {
+            _categories.Clear();
+            var items = await BuyerApi.GetProductCategoriesAsync();
+            if (items is not null)
+            {
+                _categories.AddRange(items);
+            }
+
+            if (_partner?.CategoryId is Guid categoryId && categoryId != Guid.Empty)
+            {
+                _product.CategoryId = categoryId;
+                await LoadProductSubcategoriesAsync(categoryId);
+
+                if (_partner.SubcategoryId is Guid subcategoryId && subcategoryId != Guid.Empty)
+                {
+                    _product.SubcategoryId = subcategoryId;
+                }
+            }
+        }
+        finally
+        {
+            _loadingCatalog = false;
+        }
+    }
+
+    private async Task OnProductCategoryChangedAsync(ChangeEventArgs args)
+    {
+        _product.CategoryId = Guid.TryParse(args.Value?.ToString(), out var categoryId) ? categoryId : null;
+        _product.SubcategoryId = null;
+        _subcategories.Clear();
+
+        if (_product.CategoryId.HasValue)
+        {
+            await LoadProductSubcategoriesAsync(_product.CategoryId.Value);
+        }
+    }
+
+    private void OnProductSubcategoryChanged(ChangeEventArgs args)
+    {
+        _product.SubcategoryId = Guid.TryParse(args.Value?.ToString(), out var subcategoryId) ? subcategoryId : null;
+    }
+
+    private async Task LoadProductSubcategoriesAsync(Guid categoryId)
+    {
+        _loadingCatalog = true;
+        try
+        {
+            _subcategories.Clear();
+            var items = await BuyerApi.GetProductSubcategoriesAsync(categoryId);
+            if (items is not null)
+            {
+                _subcategories.AddRange(items);
+            }
+        }
+        finally
+        {
+            _loadingCatalog = false;
+        }
+    }
+
+    private string? SelectedProductCategoryName
+        => _product.CategoryId.HasValue ? _categories.FirstOrDefault(x => x.Id == _product.CategoryId.Value)?.Name : null;
+
+    private string? SelectedProductSubcategoryName
+        => _product.SubcategoryId.HasValue ? _subcategories.FirstOrDefault(x => x.Id == _product.SubcategoryId.Value)?.Name : null;
+
     private sealed class ProductForm
     {
         [Required] public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public string? Category { get; set; }
+        [Required(ErrorMessage = "Selecciona una categoría.")]
+        public Guid? CategoryId { get; set; }
+        [Required(ErrorMessage = "Selecciona una subcategoría.")]
+        public Guid? SubcategoryId { get; set; }
         [Range(0.01, 999999999)] public double Price { get; set; }
     }
 

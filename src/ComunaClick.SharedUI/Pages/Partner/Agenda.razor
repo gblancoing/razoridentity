@@ -9,48 +9,95 @@
 
 <PageTitle>@L.T("partner.agenda.title")</PageTitle>
 
-<div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
+<div class="space-y-8">
+    <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-            <h1 class="text-2xl font-bold">@L.T("partner.agenda.heading")</h1>
-            <p class="text-sm text-[#61897c]">@L.T("partner.agenda.subtitle")</p>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Agenda editorial</p>
+            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.agenda.heading")</h1>
+            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.agenda.subtitle")</p>
         </div>
-        <a href="/partner/quickstart" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Crear primer servicio</a>
+        <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
+            <span class="material-symbols-outlined text-[20px]">calendar_add_on</span>
+            Crear primer servicio
+        </a>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">RESERVAS</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_bookings.Count</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Reservas visibles en la agenda actual.</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">PRÓXIMA HORA</p>
+            <h2 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@NextBookingLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Primera reserva disponible en el listado actual.</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ESTADO</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@_statusMessage</p>
+        </article>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="lg:col-span-2 bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-            <h2 class="font-semibold mb-4">@L.T("partner.agenda.calendar")</h2>
-            <div class="h-56 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center text-sm text-[#61897c]">
-                @L.T("partner.agenda.placeholder")
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <section class="xl:col-span-2 bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
+            <div class="flex items-center justify-between gap-4 mb-8">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Calendario</p>
+                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.agenda.calendar")</h2>
+                </div>
             </div>
-        </div>
-        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-            <h2 class="font-semibold mb-4">@L.T("partner.agenda.today")</h2>
-            <div class="space-y-3 text-sm">
+            <div class="bg-white rounded-3xl min-h-[320px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center text-center px-6">
+                <div class="w-16 h-16 rounded-full bg-[#a7f255]/20 text-[#325800] flex items-center justify-center mb-5">
+                    <span class="material-symbols-outlined text-3xl">calendar_month</span>
+                </div>
+                <p class="text-lg font-bold text-[#2c2f30]">@L.T("partner.agenda.placeholder")</p>
+                <p class="mt-2 text-sm text-[#595c5d] max-w-xl">Esta vista está lista para crecer con calendario, disponibilidad y control editorial de horarios.</p>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center justify-between gap-4 mb-8">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Hoy</p>
+                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.agenda.today")</h2>
+                </div>
+            </div>
+
+            <div class="space-y-4">
                 @if (_isLoading)
                 {
                     <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos revisando tu agenda de hoy." Compact="true" />
                 }
                 else if (_bookings.Count == 0)
                 {
-                    <div class="text-[#61897c] space-y-3">
-                        <div>@_statusMessage</div>
-                        <a href="/partner/quickstart" class="inline-flex bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Cargar primer servicio</a>
+                    <div class="space-y-4 text-center py-6">
+                        <div class="w-14 h-14 rounded-full bg-[#eff1f2] text-[#325800] flex items-center justify-center mx-auto">
+                            <span class="material-symbols-outlined">event_busy</span>
+                        </div>
+                        <p class="text-sm text-[#595c5d]">@_statusMessage</p>
+                        <a href="/partner/quickstart" class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm">
+                            <span class="material-symbols-outlined text-[18px]">add</span>
+                            Cargar primer servicio
+                        </a>
                     </div>
                 }
                 else
                 {
                     @foreach (var booking in _bookings)
                     {
-                        <div class="flex justify-between">
-                            <span>@booking.StartAt.ToLocalTime().ToString("HH:mm")</span>
-                            <span>@booking.Status</span>
-                        </div>
+                        <article class="rounded-2xl bg-[#f5f6f7] px-4 py-4 flex items-center justify-between gap-4">
+                            <div>
+                                <p class="text-sm font-bold text-[#2c2f30]">@booking.StartAt.ToLocalTime().ToString("dd MMM")</p>
+                                <p class="text-xs text-[#595c5d]">@booking.Status</p>
+                            </div>
+                            <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@booking.StartAt.ToLocalTime().ToString("HH:mm")</p>
+                        </article>
                     }
                 }
             </div>
-        </div>
+        </section>
     </div>
 </div>
 
@@ -58,6 +105,9 @@
     private readonly List<PartnerBooking> _bookings = new();
     private string _statusMessage = "—";
     private bool _isLoading;
+
+    private string NextBookingLabel => _bookings.Count == 0 ? "--:--" : _bookings.OrderBy(x => x.StartAt).First().StartAt.ToLocalTime().ToString("HH:mm");
+    private string StatusLabel => _bookings.Count == 0 ? "Sin agenda" : "Con movimiento";
 
     protected override void OnInitialized()
     {
@@ -87,9 +137,9 @@
             var bookings = await PartnerApi.GetPartnerBookingsAsync(partnerId.Value);
             if (bookings is not null)
             {
-                _bookings.AddRange(bookings);
+                _bookings.AddRange(bookings.OrderBy(x => x.StartAt));
             }
-            _statusMessage = _bookings.Count == 0 ? L.T("partner.status.noBookings") : string.Empty;
+            _statusMessage = _bookings.Count == 0 ? L.T("partner.status.noBookings") : "Tu agenda ya muestra actividad para revisar.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {

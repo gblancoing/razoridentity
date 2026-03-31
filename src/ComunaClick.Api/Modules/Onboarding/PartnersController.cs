@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Onboarding.Contracts.Partners;
@@ -58,10 +59,27 @@ public sealed class PartnersController : ControllerBase
             .ThenInclude(x => x!.Category)
             .Where(x => x.TenantId == tenantId.Value);
 
-        var scopedPartnerId = _tenantContext.PartnerId ?? ResolvePartnerIdFromUser();
-        if (scopedPartnerId.HasValue)
+        if (!HasAnyRole("tenant_admin", "platform_admin"))
         {
-            partnersQuery = partnersQuery.Where(x => x.Id == scopedPartnerId.Value);
+            var scopedPartnerId = _tenantContext.PartnerId ?? ResolvePartnerIdFromUser();
+            if (scopedPartnerId.HasValue)
+            {
+                partnersQuery = partnersQuery.Where(x => x.Id == scopedPartnerId.Value);
+            }
+            else
+            {
+                var userId = ResolveUserIdFromUser();
+                if (!userId.HasValue)
+                {
+                    return Ok(Array.Empty<object>());
+                }
+
+                var allowedPartnerIds = _db.PartnerStaff.AsNoTracking()
+                    .Where(x => x.TenantId == tenantId.Value && x.UserId == userId.Value)
+                    .Select(x => x.PartnerId);
+
+                partnersQuery = partnersQuery.Where(x => allowedPartnerIds.Contains(x.Id));
+            }
         }
 
         var partners = await partnersQuery
@@ -158,6 +176,26 @@ public sealed class PartnersController : ControllerBase
 
         _db.Partners.Add(partner);
         await _db.SaveChangesAsync();
+
+        var currentUserId = ResolveUserIdFromUser();
+        if (currentUserId.HasValue)
+        {
+            var hasOwnerLink = await _db.PartnerStaff.AnyAsync(x => x.PartnerId == partner.Id && x.UserId == currentUserId.Value);
+            if (!hasOwnerLink)
+            {
+                _db.PartnerStaff.Add(new PartnerStaff
+                {
+                    TenantId = tenantId.Value,
+                    PartnerId = partner.Id,
+                    UserId = currentUserId.Value,
+                    Role = "owner",
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+
+                await _db.SaveChangesAsync();
+            }
+        }
+
         partner.Subcategory = subcategory;
         var activation = await BuildActivationStatusAsync(partner);
         return Created($"/v1/partners/{partner.Id}", ToPartnerResponse(partner, activation));
@@ -483,6 +521,23 @@ public sealed class PartnersController : ControllerBase
     private Guid? ResolvePartnerIdFromUser()
     {
         return ResolveGuidClaim(User, AuthConstants.ClaimPartnerId, "partnerId", "partner_id");
+    }
+
+    private Guid? ResolveUserIdFromUser()
+    {
+        return ResolveGuidClaim(User, JwtRegisteredClaimNames.Sub, ClaimTypes.NameIdentifier, "userId", "user_id");
+    }
+
+    private bool HasAnyRole(params string[] roles)
+    {
+        return roles.Any(HasRole);
+    }
+
+    private bool HasRole(string role)
+    {
+        var roleClaims = User.FindAll(AuthConstants.ClaimRole).Select(x => x.Value)
+            .Concat(User.FindAll(AuthConstants.ClaimRoles).Select(x => x.Value));
+        return roleClaims.Contains(role, StringComparer.OrdinalIgnoreCase);
     }
 
     private static Guid? ResolveGuidClaim(ClaimsPrincipal? user, params string[] claimTypes)

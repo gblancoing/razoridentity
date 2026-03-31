@@ -13,11 +13,12 @@
 <div class="flex min-h-screen flex-col lg:flex-row">
     <!-- Left Side: Image (Visible on Desktop) -->
     <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div class="absolute inset-0 bg-cover bg-center" data-alt="Vibrant local farmers market with fresh produce" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD3OJoE_nofmiTITEIJCmG4fFYkhbuST4PcMRc_Capzvpa0K9U63MNKAYHYWyeT4Ya1Lu5Z7MHxRLVtK-3nWFG2P5zS4ERDZ14dbvohRKiJZbRyUvEe_YhtRvSjpj_88vYTHpKNc3IV0ORNxnsAazLwGyUE05nNcN-Y2gagJHgPz_K8LD_jzVRDLEc7EFRCq5fq2CuVX2GkeLEXBKwwqDbsajW6NPJ0GUJQG__XfZ_dz7Y6S2z2G_6bWnMx3poVQ-J_gUMtSnXglyA');">
+        <div class="absolute inset-0 bg-cover bg-center" data-alt="Fotografía editorial de barrio y comercio local" style="@($"background-image: url('{LoginHeroImageUrl}');")">
         </div>
         <div class="absolute inset-0 bg-black/40 flex flex-col justify-end p-12">
             <h1 class="text-white text-5xl font-bold mb-4">@L.T("login.hero.title")</h1>
             <p class="text-white/90 text-xl max-w-md">@L.T("login.hero.subtitle")</p>
+            <p class="text-white/70 text-xs mt-6 uppercase tracking-[0.18em]">Imagen editorial dinámica</p>
         </div>
     </div>
     <!-- Right Side: Login Form -->
@@ -26,9 +27,14 @@
         <div class="flex items-center bg-transparent p-4 pb-2 justify-between lg:px-8 gap-4">
             <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
             <LanguageToggle />
-            <a class="bg-primary/10 hover:bg-primary/20 text-[#111816] dark:text-primary px-4 py-2 rounded-lg text-sm font-bold leading-normal transition-colors" href="/register">
-                @L.T("nav.register")
-            </a>
+            <div class="hidden sm:flex items-center gap-2">
+                <a class="bg-primary/10 hover:bg-primary/20 text-[#111816] dark:text-primary px-4 py-2 rounded-lg text-sm font-bold leading-normal transition-colors" href="/register?intent=buyer">
+                    Cuenta personal
+                </a>
+                <a class="bg-[#111816] hover:bg-[#1d2d29] text-white px-4 py-2 rounded-lg text-sm font-bold leading-normal transition-colors" href="/register?intent=partner">
+                    Registrar negocio
+                </a>
+            </div>
         </div>
         <div class="flex-1 flex items-center justify-center p-6 lg:p-12">
             <div class="w-full max-w-[480px]">
@@ -83,10 +89,15 @@
                         </button>
                     </div>
                 </form>
-                <p class="mt-8 text-center text-[#61897c]">
-                    @L.T("login.signup.text")
-                    <a class="text-primary font-bold hover:underline" href="#">@L.T("login.signup.link")</a>
-                </p>
+                <div class="mt-8 text-center text-[#61897c] space-y-3">
+                    <p>
+                        @L.T("login.signup.text")
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                        <a class="text-primary font-bold hover:underline" href="/register?intent=buyer">Crear cuenta personal</a>
+                        <a class="text-primary font-bold hover:underline" href="/register?intent=partner">Registrar mi negocio</a>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- Footer (Optional) -->
@@ -102,6 +113,7 @@
     private bool _isSubmitting;
     private string? _errorMessage;
     private bool _checkedAuth;
+    private string LoginHeroImageUrl { get; set; } = BuildLoginHeroImageUrl();
 
     protected override void OnInitialized()
     {
@@ -140,6 +152,13 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+    }
+
+    private static string BuildLoginHeroImageUrl()
+    {
+        // Stable daily rotation so the login art feels fresh without flickering on each render.
+        var seed = DateTime.UtcNow.ToString("yyyyMMdd");
+        return $"https://picsum.photos/seed/comunaclic-login-{seed}/1400/1800";
     }
 
     private async Task HandleSubmit()

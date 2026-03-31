@@ -41,6 +41,40 @@ dotnet run --project src/ComunaClick
 - ACL: `http://localhost:5135/swagger`
 - API: `http://localhost:5277/swagger`
 
+## Producción AWS
+- Dominio raíz: `https://comunaclic.cl`
+- App: `https://app.comunaclic.cl`
+- ACL: `https://acl.comunaclic.cl`
+- API: `https://api.comunaclic.cl`
+- Proxy interno en EC2:
+  - App -> `127.0.0.1:5103`
+  - ACL -> `127.0.0.1:5102`
+  - API -> `127.0.0.1:5101`
+
+Nota:
+- En producción no usar `localhost:5135` ni `localhost:5277` para clientes HTTP del frontend o la API.
+- El repo ya incluye overrides de producción:
+  - `src/ComunaClick/appsettings.Production.json`
+  - `src/ComunaClick.Api/appsettings.Production.json`
+
+## Mejoras recientes
+- Se estabilizó la publicación en AWS con script dedicado de `publish + deploy` hacia el EC2 `3.92.248.0`.
+- Se corrigieron referencias de producción que estaban apuntando a `localhost`, reemplazándolas por `acl.comunaclic.cl` y `api.comunaclic.cl`.
+- Se emitió y configuró certificado Let's Encrypt válido para:
+  - `comunaclic.cl`
+  - `app.comunaclic.cl`
+  - `acl.comunaclic.cl`
+  - `api.comunaclic.cl`
+- Se arregló la resolución Razor de layouts/componentes en `SharedUI`, lo que permitió volver a publicar la app web sin errores de compilación.
+- Se actualizó el branding:
+  - logo principal del sitio
+  - imagen dedicada para loaders
+- Se incorporó loader visual con branding en páginas de carga del frontend.
+- Se agregaron tolerancias a errores HTTP (`403`, `404`, etc.) en varias páginas partner para evitar que Blazor Server corte el circuito completo.
+- Se corrigieron mapeos EF/PostgreSQL en `CoreDbContext` para entidades con columnas `snake_case`.
+- Se agregó migración SQL para columnas geográficas de catálogo (`country_id`, `region_id`, `comuna_id`) en productos, servicios y profesionales.
+- En login, el CTA `¿No tienes cuenta? Regístrate gratis` ya navega al flujo real de `/register` en vez de quedar en `#`.
+
 ## Multi-tenant por comuna (resumen)
 - Tenant real = comuna (`core.tenants.comuna_id`).
 - Catálogo geográfico: `core.countries`, `core.regions`, `core.comunas`.
@@ -63,6 +97,11 @@ Nota: si ya tienes datos reales de país/región/comuna, no ejecutes los inserts
 
 ## UI pública
 Incluye Home, Login, Registro de negocio, Centro de ayuda, Privacidad, Términos y páginas Discover.
+
+Estado actual:
+- `/login` ya enlaza correctamente al CTA de registro.
+- `/register` sigue siendo una pantalla de onboarding UI.
+- El alta real de usuario aún no está expuesta como endpoint en ACL, así que ese flujo todavía no es end-to-end.
 
 ## Notas
 Para más contexto del estado del proyecto, revisar `agent.md`.

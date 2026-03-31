@@ -8,55 +8,95 @@
 
 <PageTitle>@L.T("partner.leads.title")</PageTitle>
 
-<div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
+<div class="space-y-8">
+    <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-            <h1 class="text-2xl font-bold">@L.T("partner.leads.heading")</h1>
-            <p class="text-sm text-[#61897c]">@L.T("partner.leads.subtitle")</p>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Leads editoriales</p>
+            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.leads.heading")</h1>
+            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.leads.subtitle")</p>
         </div>
-        <a href="/partner/quickstart" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Registrar primer profesional</a>
+        <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
+            <span class="material-symbols-outlined text-[20px]">group_add</span>
+            Registrar primer profesional
+        </a>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">LEADS</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_items.Count</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Contactos entrantes disponibles para seguimiento.</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ÚLTIMO ESTADO</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@LastLeadStatus</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Lectura rápida del estado más reciente.</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ESTADO</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@_statusMessage</p>
+        </article>
     </div>
 
-    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl">
-        <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <h2 class="font-semibold">@L.T("partner.leads.table.title")</h2>
-            <span class="text-xs text-[#61897c]">@L.T("partner.leads.table.count")</span>
+    <section class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
+        <div class="flex items-center justify-between gap-4 mb-8">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">@L.T("partner.leads.table.count")</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.leads.table.title")</h2>
+            </div>
         </div>
-        <div class="divide-y divide-gray-100 dark:divide-gray-800">
+
+        <div class="space-y-4">
             @if (_isLoading)
             {
-                <div class="p-4">
+                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
                     <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos trayendo tus leads mas recientes." Compact="true" />
                 </div>
             }
             else if (_items.Count == 0)
             {
-                <div class="p-6 text-sm text-[#61897c] space-y-3">
-                    <div>@_statusMessage</div>
-                    <a href="/partner/quickstart" class="inline-flex bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Registrar primer profesional</a>
+                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-[#a7f255]/20 text-[#325800] flex items-center justify-center mx-auto">
+                        <span class="material-symbols-outlined text-3xl">contact_support</span>
+                    </div>
+                    <p class="text-lg font-bold text-[#2c2f30]">Aún no tienes leads</p>
+                    <p class="text-sm text-[#595c5d] max-w-xl mx-auto">@_statusMessage</p>
+                    <a href="/partner/quickstart" class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                        Registrar primer profesional
+                    </a>
                 </div>
             }
             else
             {
                 @foreach (var lead in _items)
                 {
-                    <div class="p-4 flex items-center justify-between text-sm">
-                        <div>
-                            <p class="font-semibold">#@lead.Id.ToString()[..8]</p>
-                            <p class="text-xs text-[#61897c]">@lead.Message</p>
+                    <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                            <div class="space-y-2">
+                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">Lead #@lead.Id.ToString()[..8]</p>
+                                <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(lead.Message) ? "Sin mensaje adicional." : lead.Message)</p>
+                            </div>
+                            <div class="text-left md:text-right">
+                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Estado</p>
+                                <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@lead.Status</p>
+                            </div>
                         </div>
-                        <span class="text-xs text-[#61897c]">@lead.Status</span>
-                    </div>
+                    </article>
                 }
             }
         </div>
-    </div>
+    </section>
 </div>
 
 @code {
     private readonly List<ComunaClick.Shared.Api.Partner.Lead> _items = new();
     private string _statusMessage = "Sin leads.";
     private bool _isLoading;
+
+    private string LastLeadStatus => _items.Count == 0 ? "Sin actividad" : _items.Last().Status;
+    private string StatusLabel => _items.Count == 0 ? "Vacío" : "Con oportunidades";
 
     protected override void OnInitialized()
     {
@@ -81,7 +121,7 @@
             {
                 _items.AddRange(leads);
             }
-            _statusMessage = _items.Count == 0 ? L.T("partner.status.noLeads") : string.Empty;
+            _statusMessage = _items.Count == 0 ? L.T("partner.status.noLeads") : "Tus leads más recientes ya están organizados para seguimiento.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {

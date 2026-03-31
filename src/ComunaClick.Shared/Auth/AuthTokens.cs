@@ -5,5 +5,7 @@ public sealed record AuthTokens(
     string RefreshToken,
     DateTimeOffset ExpiresAt,
     Guid? TenantId = null,
-    Guid? PartnerId = null
+    Guid? PartnerId = null,
+    string? DisplayName = null,
+    string? Email = null
 );

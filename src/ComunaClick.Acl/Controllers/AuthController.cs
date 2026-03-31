@@ -71,6 +71,79 @@ public sealed class AuthController : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("register")]
+    public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return BadRequest(new { message = "Name is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            return BadRequest(new { message = "Email is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
+        {
+            return BadRequest(new { message = "Password must be at least 8 characters." });
+        }
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        var exists = await _db.Users.AnyAsync(x => x.Email.ToLower() == email);
+        if (exists)
+        {
+            return Conflict(new { message = "Email already exists." });
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var user = new User
+        {
+            Email = email,
+            DisplayName = request.Name.Trim(),
+            PasswordHash = PasswordHasher.Hash(request.Password),
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        var defaultRole = _configuration["Auth:RegisterDefaultRole"] ?? _configuration["Auth:ExternalDefaultRole"] ?? "customer";
+        var role = await _db.Roles.FirstOrDefaultAsync(x => x.Name == defaultRole);
+        if (role is not null)
+        {
+            user.UserRoles.Add(new UserRole { RoleId = role.Id, User = user });
+        }
+
+        Guid? tenantId = null;
+        var defaultTenantRaw = _configuration["Auth:RegisterDefaultTenantId"];
+        if (Guid.TryParse(defaultTenantRaw, out var defaultTenantId))
+        {
+            tenantId = defaultTenantId;
+            user.TenantAccess.Add(new UserTenantAccess
+            {
+                User = user,
+                TenantId = defaultTenantId
+            });
+        }
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        var roles = user.UserRoles.Select(x => x.Role?.Name ?? defaultRole).ToList();
+        var accessToken = _tokenService.CreateAccessToken(user, roles, tenantId, null, now);
+        var refresh = await IssueRefreshToken(user, now);
+        var accessMinutes = _configuration.GetValue("Jwt:AccessTokenMinutes", 30);
+
+        var response = new AuthResponse(
+            AccessToken: accessToken,
+            RefreshToken: refresh.RawToken,
+            ExpiresIn: accessMinutes * 60,
+            TokenType: "Bearer",
+            User: new AuthUserDto(user.Id, user.Email, user.DisplayName, roles, tenantId, null));
+
+        return Ok(response);
+    }
+
     [HttpPost("refresh")]
     public async Task<ActionResult<AuthResponse>> Refresh(RefreshRequest request)
     {

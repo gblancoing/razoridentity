@@ -1,5 +1,7 @@
 ﻿@page "/"
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@using ComunaClick.SharedUI.Services
 @implements IDisposable
 
 <PageTitle>@L.T("home.title")</PageTitle>
@@ -42,68 +44,78 @@
             <section>
                 <div class="flex items-center justify-between px-2 mb-4">
                     <h2 class="text-[#111816] dark:text-white text-2xl font-bold">@L.T("home.categories.title")</h2>
-                    <a class="text-primary font-bold text-sm" href="#">@L.T("home.categories.viewAll")</a>
+                    <a class="text-primary font-bold text-sm" href="/categorias">@L.T("home.categories.viewAll")</a>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Professional handyman fixing a wooden door" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuDiKCN2SzwpGwQ-8f_etrmgnw8At3VkYqXFRIXsMLL2rrJElO3KSqqbuwz2sRMNMsW4zjxjNqKqhaqaNiHTTQ9qT0y6vcR9Cmyye8w4xAsM3pktSphpqAiPWb4pkPEbXg_OMQmwnkMLpvOcST-eCNh4_ojAJc9pgZG09Pi-hRdIAwVAO6Jjod8OMo7K4RRuocjcdb4fgXs5ERnySu-QZ8y8jo0exljAuH1Iy14Xjx0eGpkci6emPKINFYnfhluOuYOwOQJ2fcLh1Hw");'>
-                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.handyman")</p>
+                @if (_categoriesLoading)
+                {
+                    <BrandedLoading Title="Cargando categorías" Message="Estamos preparando las categorías principales para ti." Compact="true" />
+                }
+                else if (_categories.Count == 0)
+                {
+                    <StatusBanner Message="@_categoriesStatusMessage" Level="warning" />
+                }
+                else
+                {
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        @foreach (var category in _categories)
+                        {
+                            var image = CategoryVisualService.ResolveImage(category.Code, category.Name);
+                            <a href="@GetCategoryHref(category)"
+                               class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]"
+                               style="@BuildCategoryStyle(image)">
+                                <p class="text-white text-lg font-bold leading-tight">@category.Name</p>
+                            </a>
+                        }
                     </div>
-                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Close up of fresh organic vegetables" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuDfuTobRyLOO4X-9NBXn--mQQM75S3NyXdJ8EeaIvhIioOmFWePRk3k0Uqd7Xwe3yLPKj9gLk9eveAZfiKW8X8wjQixxS4pUyXArik6WpNMjX-cy4wnZYKm7GqMQR07hHZegR_XHhLbdLAsnQn2v0TEA5Lbgkfj6Q4ZqKDczcv1dt6PU4RRjVG6equyMus_qoNoJ9NxluiSJkKBUwiUyPB2iVTRoFoVVL-cnvIsUyp-PvM6GKMPVXJrgksr0krEHyUvQhMi59sBWcE");'>
-                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.localFood")</p>
-                    </div>
-                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Modern barbershop interior" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuACUiE-JRIM0b_ZK1RcZWP-DDAiUiLcY9ddIhvODY1H518ZQikrFOwOpUtaSGR5kx-URhHEJzEh8k7Z2zdPRrZjTMU7cUrhfuKAEUrShEww19rWve81jDd0KVfzYFNk9zkrKfHM7zh6ks1RXCKnu3gVZOuiygx7ZpO4zmZGigDBdHWCsJkILSUO4fWSnSGlgpWLncFP52Me5pY9TQ6_cXZNAv5nZu0OvJIqKeHCmD9XCndCQU8R4QtPJGp3mtYeITtJJvbeadx5NA4");'>
-                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.beauty")</p>
-                    </div>
-                    <div class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]" data-alt="Cleaning supplies and organized home" style='background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuAlHWYY8R7yyrKAUxswNHL64wwbS7mms1sj9U9Bty9Z5Y0vsLT0UgOW0ijK0b4c21gsc9t17mvZT_8FIR1vnj-oyjI8xzdC_Wl7E1M18_YuwvglD1L6_FDg-3ZhMVpRP1Mf4knsWDs7KFM1f4tmRPCZW9FsfjzQg7bkXGe1Xc2oMskw3HYxpyjyyeQfP8vnxww-YPnoqBZD36We3VLGch3ZlFc9-jgXQVaTHK-GFVjY_qaSJPlJe_6XmtWioGyIgXwaiKpLgBrTsJQ");'>
-                        <p class="text-white text-lg font-bold leading-tight">@L.T("home.category.cleaning")</p>
-                    </div>
-                </div>
+                }
             </section>
             <!-- Featured Businesses Grid -->
             <section class="mt-12">
                 <div class="flex items-center justify-between px-2 mb-6">
                     <h2 class="text-[#111816] dark:text-white text-2xl font-bold">@L.T("home.featured.title")</h2>
-                    <div class="flex gap-2">
-                        <span class="material-symbols-outlined p-2 rounded-full border border-gray-200 dark:border-gray-800 cursor-pointer">chevron_left</span>
-                        <span class="material-symbols-outlined p-2 rounded-full border border-gray-200 dark:border-gray-800 cursor-pointer">chevron_right</span>
-                    </div>
+                    <a class="text-primary font-bold text-sm" href="/buyer/home">Explorar más</a>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Business Card 1 -->
-                    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div class="h-48 bg-cover bg-center" data-alt="Freshly baked artisan sourdough bread" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAKImQ1YmyxWOKZWsezNlLr0qiq_7KVXKsQChdYFn-TKuPLpwMyoRiwzya8c4A-87JZjkZcj92BhBsaO0fE53DFOC-7Ho0Sgz8Bnc_j0pDqihONenw7eX8WUu3G4LfI-cFfHPOpz3hbS0-PT5IyuAEjfzlDP0lujNhbmSKONux7qYdwIyaqtjxI9rY9O_pdzm49DtNQnFUbGhGoSev2otFvDT5_aPvmN8i0o2DrFUbF5KPlynmaF3eX1aqM--llMwiuX_49DiYjQpE')"></div>
-                        <div class="p-4">
-                            <div class="flex justify-between items-start mb-2">
-                                <h3 class="text-lg font-bold">@L.T("home.business1.name")</h3>
-                                <span class="flex items-center text-sm font-bold bg-primary/20 text-primary-dark px-2 py-0.5 rounded">
-                                    <span class="material-symbols-outlined text-sm mr-1" style="font-size: 16px;">star</span> 4.9
-                                </span>
-                            </div>
-                            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">@L.T("home.business1.desc")</p>
-                            <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
-                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">location_on</span> @L.T("home.business1.distance")</span>
-                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> @L.T("home.business1.openUntil")</span>
-                            </div>
-                        </div>
+                @if (_featuredLoading)
+                {
+                    <BrandedLoading Title="Cargando negocios destacados" Message="Estamos seleccionando vitrinas visibles para esta portada." Compact="true" />
+                }
+                else if (_featuredBusinesses.Count == 0)
+                {
+                    <StatusBanner Message="@_featuredStatusMessage" Level="warning" />
+                }
+                else
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        @foreach (var business in _featuredBusinesses)
+                        {
+                            <a href="@(business.CtaHref ?? "#")"
+                               class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                <div class="h-48 bg-cover bg-center" style="@BuildFeaturedStyle(business)"></div>
+                                <div class="p-4">
+                                    <div class="flex justify-between items-start mb-2 gap-4">
+                                        <h3 class="text-lg font-bold text-[#111816]">@business.Name</h3>
+                                        <span class="shrink-0 flex items-center text-xs font-bold bg-primary/20 text-primary-dark px-2 py-1 rounded-full">
+                                            @FeaturedTypeLabel(business.Category, business.CtaLabel)
+                                        </span>
+                                    </div>
+                                    <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                                        Descubre este negocio local publicado en ComunaClic y entra a su vitrina para ver más detalles.
+                                    </p>
+                                    <div class="flex items-center justify-between gap-4 text-xs font-medium text-gray-500">
+                                        <span class="flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">storefront</span>
+                                            Negocio visible
+                                        </span>
+                                        <span class="flex items-center gap-1 text-primary">
+                                            <span>@(business.CtaLabel ?? "Ver detalle")</span>
+                                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        }
                     </div>
-                    <!-- Business Card 2 -->
-                    <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div class="h-48 bg-cover bg-center" data-alt="Yoga studio with sunlight streaming through windows" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBKHWZz-OyM0z9lGCnsOW7dI-1hJyGHYYgUYDAviS6PrYKt6qqj9jzrNn3aQEf7ydXBdw2EZ_c9VpWCYzK3hBc9mvvAEUTe9l0sJ_BRhmOaG5QE2ocO3JvbdVKBy8rKB6M5z8TR6O57Ax-9JqD7mMOE95k8_5usDgNRd96MBg3qq9RrtZsBL6bNggZWxFaWuV83wpoREi72XULL5ErMCKTpGlL14RTAD5cnGrvOOym9EAxSOTSJlbbnUXx-wwSD_13ghhym5FpmpAM')"></div>
-                        <div class="p-4">
-                            <div class="flex justify-between items-start mb-2">
-                                <h3 class="text-lg font-bold">@L.T("home.business2.name")</h3>
-                                <span class="flex items-center text-sm font-bold bg-primary/20 text-primary-dark px-2 py-0.5 rounded">
-                                    <span class="material-symbols-outlined text-sm mr-1" style="font-size: 16px;">star</span> 4.7
-                                </span>
-                            </div>
-                            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">@L.T("home.business2.desc")</p>
-                            <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
-                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">location_on</span> @L.T("home.business2.distance")</span>
-                                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> @L.T("home.business2.nextClass")</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                }
             </section>
         </div>
         <!-- Right Sidebar -->
@@ -178,9 +190,100 @@
 <PublicFooter />
 
 @code {
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _featuredBusinesses = new();
+    private bool _categoriesLoading = true;
+    private bool _featuredLoading = true;
+    private string _categoriesStatusMessage = "No encontramos categorías activas por ahora.";
+    private string _featuredStatusMessage = "No encontramos negocios destacados por ahora.";
+
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var items = await BuyerApi.GetProductCategoriesAsync();
+            if (items is not null)
+            {
+                _categories.AddRange(items
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+                    .GroupBy(x => NormalizeCategoryName(x.Name))
+                    .Select(g => g
+                        .OrderByDescending(x => !string.IsNullOrWhiteSpace(CategoryVisualService.ResolveImage(x.Code, x.Name)))
+                        .ThenBy(x => x.Name)
+                        .First())
+                    .Take(4));
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _categoriesStatusMessage = $"No se pudieron cargar las categorías ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _categoriesLoading = false;
+        }
+
+        try
+        {
+            var items = await BuyerApi.SearchAsync(null, "partners", 4);
+            if (items is not null)
+            {
+                _featuredBusinesses.AddRange(items
+                    .Where(x => string.Equals(x.Type, "partner", StringComparison.OrdinalIgnoreCase))
+                    .Take(4));
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _featuredStatusMessage = $"No se pudieron cargar los negocios destacados ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _featuredLoading = false;
+        }
+    }
+
+    private string GetCategoryHref(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => $"/categorias/{CategoryVisualService.ToSlug(category.Code, category.Name)}?code={Uri.EscapeDataString(category.Code)}";
+
+    private static string BuildCategoryStyle(string? image)
+    {
+        return !string.IsNullOrWhiteSpace(image)
+            ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url('{image}');"
+            : "background-image: linear-gradient(135deg, rgba(59,103,0,0.95) 0%, rgba(118,188,33,0.8) 55%, rgba(167,242,85,0.55) 100%);";
+    }
+
+    private static string BuildFeaturedStyle(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
+    {
+        var image = CategoryVisualService.ResolveImage(item.Category, item.Category);
+        return !string.IsNullOrWhiteSpace(image)
+            ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.05) 100%), url('{image}');"
+            : "background-image: linear-gradient(135deg, rgba(167,242,85,0.45) 0%, rgba(239,241,242,0.95) 55%, rgba(255,255,255,1) 100%);";
+    }
+
+    private static string FeaturedTypeLabel(string? category, string? ctaLabel)
+        => !string.IsNullOrWhiteSpace(category) ? category! : ctaLabel ?? "Negocio local";
+
+    private static string NormalizeCategoryName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return value.Trim()
+            .ToLowerInvariant()
+            .Replace("á", "a", StringComparison.Ordinal)
+            .Replace("é", "e", StringComparison.Ordinal)
+            .Replace("í", "i", StringComparison.Ordinal)
+            .Replace("ó", "o", StringComparison.Ordinal)
+            .Replace("ú", "u", StringComparison.Ordinal)
+            .Replace("ñ", "n", StringComparison.Ordinal);
     }
 
     private void HandleChange()

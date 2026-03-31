@@ -21,9 +21,12 @@ public sealed class AclAuthClient : IAuthClient
         return ToTokens(auth);
     }
 
-    public Task<AuthTokens> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    public async Task<AuthTokens> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
-        throw new NotSupportedException("Register endpoint not available in ACL swagger.");
+        var response = await _httpClient.PostAsJsonAsync("/v1/auth/register", request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var auth = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken: cancellationToken);
+        return ToTokens(auth);
     }
 
     public async Task<AuthTokens> LoginExternalAsync(ExternalLoginRequest request, CancellationToken cancellationToken = default)
@@ -67,6 +70,8 @@ public sealed class AclAuthClient : IAuthClient
         var expiresAt = DateTimeOffset.UtcNow.AddSeconds(auth.ExpiresIn);
         var tenantId = auth.User?.TenantId ?? JwtHelper.GetGuidClaim(auth.AccessToken, "tenant_id");
         var partnerId = auth.User?.PartnerId ?? JwtHelper.GetGuidClaim(auth.AccessToken, "partner_id");
-        return new AuthTokens(auth.AccessToken, auth.RefreshToken, expiresAt, tenantId, partnerId);
+        var displayName = auth.User?.DisplayName ?? JwtHelper.GetStringClaim(auth.AccessToken, "name");
+        var email = auth.User?.Email ?? JwtHelper.GetStringClaim(auth.AccessToken, "email");
+        return new AuthTokens(auth.AccessToken, auth.RefreshToken, expiresAt, tenantId, partnerId, displayName, email);
     }
 }

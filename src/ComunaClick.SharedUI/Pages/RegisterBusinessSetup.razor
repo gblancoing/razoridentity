@@ -1,5 +1,6 @@
 @page "/register/business"
 @using System.ComponentModel.DataAnnotations
+@using System.Net
 @using Microsoft.AspNetCore.Components.Forms
 @using ComunaClick.Shared.Api.Buyer
 @inject ComunaClick.SharedUI.Services.LocaleService L
@@ -250,6 +251,16 @@
                 _categories.AddRange(items);
             }
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusLevel = "warning";
+            _statusMessage = "Las categorías aún no están disponibles en este ambiente. Puedes continuar con tipo B o C mientras se publica el catálogo.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = $"No se pudo cargar el catálogo de categorías ({(int?)ex.StatusCode ?? 0}).";
+        }
         finally
         {
             _loadingCatalog = false;
@@ -305,6 +316,16 @@
             {
                 _subcategories.AddRange(items);
             }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _statusLevel = "warning";
+            _statusMessage = "La lista de subcategorías aún no está disponible en este ambiente.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = $"No se pudo cargar las subcategorías ({(int?)ex.StatusCode ?? 0}).";
         }
         finally
         {

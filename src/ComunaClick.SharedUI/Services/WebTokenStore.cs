@@ -17,23 +17,53 @@ public sealed class WebTokenStore : ITokenStore
 
     public async Task<AuthTokens?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var json = await _jsRuntime.InvokeAsync<string>("comunaclic.getTokens", cancellationToken);
-        if (string.IsNullOrWhiteSpace(json))
+        try
+        {
+            var json = await _jsRuntime.InvokeAsync<string>("comunaclic.getTokens", cancellationToken);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<AuthTokens>(json);
+        }
+        catch (InvalidOperationException)
+        {
+            // Blazor Server prerender: JS interop is not available yet.
+            return null;
+        }
+        catch (JSDisconnectedException)
         {
             return null;
         }
-
-        return JsonSerializer.Deserialize<AuthTokens>(json);
     }
 
     public async Task SaveAsync(AuthTokens tokens, CancellationToken cancellationToken = default)
     {
-        var json = JsonSerializer.Serialize(tokens);
-        await _jsRuntime.InvokeVoidAsync("comunaclic.setTokens", cancellationToken, json);
+        try
+        {
+            var json = JsonSerializer.Serialize(tokens);
+            await _jsRuntime.InvokeVoidAsync("comunaclic.setTokens", cancellationToken, json);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
-    public Task ClearAsync(CancellationToken cancellationToken = default)
+    public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
-        return _jsRuntime.InvokeVoidAsync("comunaclic.clearTokens", cancellationToken).AsTask();
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync("comunaclic.clearTokens", cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 }

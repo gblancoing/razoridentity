@@ -8,46 +8,86 @@
 
 <PageTitle>@L.T("partner.notifications.title")</PageTitle>
 
-<div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
+<div class="space-y-8">
+    <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-            <h1 class="text-2xl font-bold">@L.T("partner.notifications.heading")</h1>
-            <p class="text-sm text-[#61897c]">@L.T("partner.notifications.subtitle")</p>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Notificaciones editoriales</p>
+            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.notifications.heading")</h1>
+            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.notifications.subtitle")</p>
         </div>
-        <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("partner.notifications.primaryAction")</button>
+        <button class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
+            <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+            @L.T("partner.notifications.primaryAction")
+        </button>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ALERTAS</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_items.Count</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Mensajes e hitos visibles para tu operación.</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ÚLTIMO TIPO</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@LastTypeLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Referencia rápida del tipo más reciente recibido.</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ESTADO</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@_statusMessage</p>
+        </article>
     </div>
 
-    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-800">
-        @if (_isLoading)
-        {
-            <div class="p-4">
-                <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tus notificaciones." Compact="true" />
+    <section class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
+        <div class="flex items-center justify-between gap-4 mb-8">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Bandeja</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Notificaciones recientes</h2>
             </div>
-        }
-        else if (_items.Count == 0)
-        {
-            <div class="p-6 text-sm text-[#61897c]">@_statusMessage</div>
-        }
-        else
-        {
-            @foreach (var note in _items)
+        </div>
+
+        <div class="space-y-4">
+            @if (_isLoading)
             {
-                <div class="p-4 flex items-start gap-3">
-                    <span class="material-symbols-outlined text-primary">notifications</span>
-                    <div>
-                        <p class="font-semibold">@note.Type</p>
-                        <p class="text-sm text-[#61897c]">@note.Payload</p>
-                    </div>
+                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tus notificaciones." Compact="true" />
                 </div>
             }
-        }
-    </div>
+            else if (_items.Count == 0)
+            {
+                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center">
+                    <p class="text-sm text-[#595c5d]">@_statusMessage</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var note in _items)
+                {
+                    <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-[#a7f255]/20 text-[#325800] flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined">notifications</span>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@note.Type</p>
+                                <p class="text-sm text-[#595c5d]">@note.Payload</p>
+                            </div>
+                        </div>
+                    </article>
+                }
+            }
+        </div>
+    </section>
 </div>
 
 @code {
     private readonly List<ComunaClick.Shared.Api.Partner.Notification> _items = new();
     private string _statusMessage = "Sin notificaciones.";
     private bool _isLoading;
+
+    private string LastTypeLabel => _items.Count == 0 ? "Sin actividad" : _items.Last().Type;
+    private string StatusLabel => _items.Count == 0 ? "Vacío" : "Activo";
 
     protected override void OnInitialized()
     {
@@ -71,7 +111,7 @@
             {
                 _items.AddRange(notes);
             }
-            _statusMessage = _items.Count == 0 ? L.T("partner.status.noNotifications") : string.Empty;
+            _statusMessage = _items.Count == 0 ? L.T("partner.status.noNotifications") : "Tu bandeja de notificaciones ya está disponible para seguimiento.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {

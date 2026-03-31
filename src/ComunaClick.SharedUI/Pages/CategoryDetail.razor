@@ -1,0 +1,217 @@
+@page "/categorias/{CategorySlug}"
+@inject NavigationManager Navigation
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@using ComunaClick.SharedUI.Services
+@implements IDisposable
+
+<PageTitle>@(_detail?.Category.Name ?? "Categoría") - ComunaClic</PageTitle>
+
+<PublicNav />
+
+<main class="max-w-7xl mx-auto px-4 py-10 space-y-8">
+    @if (_isLoading)
+    {
+        <BrandedLoading Title="Cargando categoría" Message="Estamos reuniendo negocios, servicios y profesiones para esta categoría." />
+    }
+    else if (_detail is null)
+    {
+        <StatusBanner Message="@_statusMessage" Level="warning" />
+    }
+    else
+    {
+        <section class="rounded-[2rem] overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            @if (!string.IsNullOrWhiteSpace(CategoryImage))
+            {
+                <div class="h-72 bg-cover bg-center" style="@($"background-image:linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0.05)), url('{CategoryImage}')")">
+                    <div class="h-full flex items-end p-8">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-white/80 mb-3">@_detail.Category.Code</p>
+                            <h1 class="text-4xl font-black tracking-[-0.04em] text-white">@_detail.Category.Name</h1>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="p-8 bg-gradient-to-br from-[#a7f255] via-[#eff1f2] to-white">
+                    <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#3b6700] mb-3">@_detail.Category.Code</p>
+                    <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@_detail.Category.Name</h1>
+                </div>
+            }
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">NEGOCIOS</p>
+                <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_detail.Businesses?.Count ?? 0)</h2>
+            </article>
+            <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">SERVICIOS</p>
+                <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_detail.Services?.Count ?? 0)</h2>
+            </article>
+            <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">PROFESIONES</p>
+                <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_detail.Professionals?.Count ?? 0)</h2>
+            </article>
+        </section>
+
+        <section class="space-y-8">
+            <div>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mb-4">Negocios registrados</h2>
+                @if (_detail.Businesses?.Count > 0)
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach (var business in _detail.Businesses)
+                        {
+                            <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
+                                <p class="text-sm text-[#595c5d] mt-2">@(business.SubcategoryName ?? business.CategoryName ?? $"Tipo {business.Type}")</p>
+                                <p class="text-sm text-[#595c5d] mt-1">@(business.Address ?? business.Phone ?? business.Email ?? "Sin datos de contacto publicados.")</p>
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <StatusBanner Message="No hay negocios visibles registrados en esta categoría." Level="warning" />
+                }
+            </div>
+
+            <div>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mb-4">Servicios registrados</h2>
+                @if (_detail.Services?.Count > 0)
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach (var service in _detail.Services)
+                        {
+                            <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@service.Name</p>
+                                        <p class="text-sm text-[#595c5d] mt-2">@(service.Description ?? service.Category ?? "Servicio disponible")</p>
+                                        @if (!string.IsNullOrWhiteSpace(service.PartnerName))
+                                        {
+                                            <p class="text-xs text-[#7b8081] mt-2">Negocio: @service.PartnerName</p>
+                                        }
+                                    </div>
+                                    <p class="text-xl font-black tracking-[-0.03em] text-[#3b6700]">@($"{service.Price:N0}")</p>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <StatusBanner Message="No hay servicios registrados en esta categoría." Level="warning" />
+                }
+            </div>
+
+            <div>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mb-4">Profesiones registradas</h2>
+                @if (_detail.Professionals?.Count > 0)
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach (var professional in _detail.Professionals)
+                        {
+                            <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@professional.Name</p>
+                                <p class="text-sm text-[#595c5d] mt-2">@(professional.Specialty ?? "Profesional activo")</p>
+                                @if (!string.IsNullOrWhiteSpace(professional.Bio))
+                                {
+                                    <p class="text-sm text-[#595c5d] mt-1">@professional.Bio</p>
+                                }
+                                <p class="text-xs text-[#7b8081] mt-2">@(professional.Email ?? professional.Phone ?? "Sin contacto publicado.")</p>
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <StatusBanner Message="No hay profesiones registradas en esta categoría." Level="warning" />
+                }
+            </div>
+        </section>
+    }
+</main>
+
+<PublicFooter />
+
+@code {
+    [Parameter] public string CategorySlug { get; set; } = string.Empty;
+
+    private ComunaClick.Shared.Api.Buyer.CategoryDiscoveryResponse? _detail;
+    private bool _isLoading = true;
+    private string _statusMessage = "No encontramos la categoría solicitada.";
+
+    private string? CategoryImage => _detail is null ? null : CategoryVisualService.ResolveImage(_detail.Category.Code, _detail.Category.Name);
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _detail = null;
+
+        var categoryCode = ReadQueryValue("code") ?? CategorySlug;
+        if (string.IsNullOrWhiteSpace(categoryCode))
+        {
+            _statusMessage = "La categoría indicada no es válida.";
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            _detail = await BuyerApi.GetCategoryDiscoveryAsync(categoryCode);
+            if (_detail is null)
+            {
+                _statusMessage = "No encontramos la categoría solicitada.";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo cargar la categoría ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string? ReadQueryValue(string key)
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+        }
+
+        return null;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

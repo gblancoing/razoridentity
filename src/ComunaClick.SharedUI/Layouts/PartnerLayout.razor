@@ -4,55 +4,98 @@
 @inject NavigationManager Navigation
 @implements IDisposable
 
-<div class="min-h-screen bg-background-light dark:bg-background-dark text-[#111816] dark:text-white">
-    <div class="flex min-h-screen">
-        <aside class="hidden lg:flex lg:w-72 flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#122620]">
-            <div class="flex items-center gap-2 px-6 py-5 border-b border-gray-100 dark:border-gray-800">
-                <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
+<div class="min-h-screen bg-[#f5f6f7] text-[#2c2f30]">
+    <aside class="hidden lg:flex fixed left-0 top-0 h-full w-72 flex-col bg-white border-r border-[#e3e6e8] z-50">
+        <div class="p-8 pb-10">
+            <div class="flex items-center gap-4 mb-10">
+                <div class="w-11 h-11 rounded-xl bg-[#a7f255] flex items-center justify-center shadow-[0_10px_30px_-18px_rgba(59,103,0,0.5)]">
+                    <img src="_content/ComunaClick.SharedUI/loading.png" alt="ComunaClic" class="w-7 h-7 object-contain" />
+                </div>
+                <div>
+                    <h1 class="text-[1.75rem] font-black tracking-[-0.04em] text-[#111816]">ComunaClic</h1>
+                    <p class="text-[10px] uppercase tracking-[0.25em] text-[#8a8f90] font-bold">Editorial Service</p>
+                </div>
             </div>
-            <nav class="flex-1 px-4 py-6 space-y-2 text-sm">
-                <a class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10" href="/partner">@L.T("partner.nav.dashboard")</a>
-                <a class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10" href="/partner/catalog">@L.T("partner.nav.catalog")</a>
-                <a class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10" href="/partner/agenda">@L.T("partner.nav.agenda")</a>
-                <a class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10" href="/partner/leads">@L.T("partner.nav.leads")</a>
-                <a class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10" href="/partner/payouts">@L.T("partner.nav.payouts")</a>
-                <a class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10" href="/partner/notifications">@L.T("partner.nav.notifications")</a>
+
+            <nav class="space-y-2 text-sm font-semibold">
+                <a class="@GetNavLinkClass("/partner")" href="/partner">
+                    <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                    @L.T("partner.nav.dashboard")
+                </a>
+                <a class="@GetNavLinkClass("/partner/catalog")" href="/partner/catalog">
+                    <span class="material-symbols-outlined text-[20px]">inventory_2</span>
+                    @L.T("partner.nav.catalog")
+                </a>
+                <a class="@GetNavLinkClass("/partner/agenda")" href="/partner/agenda">
+                    <span class="material-symbols-outlined text-[20px]">calendar_today</span>
+                    @L.T("partner.nav.agenda")
+                </a>
+                <a class="@GetNavLinkClass("/partner/leads")" href="/partner/leads">
+                    <span class="material-symbols-outlined text-[20px]">group_add</span>
+                    @L.T("partner.nav.leads")
+                </a>
+                <a class="@GetNavLinkClass("/partner/payouts")" href="/partner/payouts">
+                    <span class="material-symbols-outlined text-[20px]">payments</span>
+                    @L.T("partner.nav.payouts")
+                </a>
+                <a class="@GetNavLinkClass("/partner/notifications")" href="/partner/notifications">
+                    <span class="material-symbols-outlined text-[20px]">notifications</span>
+                    @L.T("partner.nav.notifications")
+                </a>
             </nav>
-            <div class="px-4 py-6 border-t border-gray-100 dark:border-gray-800">
-                <div class="flex flex-col items-center gap-2">
-                    <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-16 w-auto" />
-                    <span class="text-xs text-[#61897c]">@L.T("partner.footer")</span>
+        </div>
+
+        <div class="mt-auto p-8">
+            <a href="/partner/quickstart"
+               class="flex items-center justify-center gap-2 w-full py-4 px-4 rounded-2xl bg-[#3b6700] text-[#d9ffad] font-bold shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)] hover:bg-[#335900] transition-colors">
+                <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                Crear oferta
+            </a>
+        </div>
+    </aside>
+
+    <div class="lg:ml-72 min-h-screen">
+        <header class="sticky top-0 z-40 h-16 flex justify-between items-center px-4 sm:px-6 lg:px-8 bg-white/90 backdrop-blur-xl border-b border-[#e3e6e8] shadow-[0_8px_24px_-20px_rgba(12,15,16,0.4)]">
+            <div class="flex items-center gap-4 flex-1 max-w-xl">
+                <span class="material-symbols-outlined text-[#7b8081]">search</span>
+                <div class="flex-1 h-11 rounded-full bg-[#f0f2f3] px-4 flex items-center text-sm text-[#7b8081]">
+                    Search insights...
                 </div>
             </div>
-        </aside>
 
-        <div class="flex-1 flex flex-col">
-            <header class="sticky top-0 z-40 bg-white/95 dark:bg-background-dark/95 backdrop-blur border-b border-gray-200 dark:border-gray-800">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-primary">dashboard</span>
-                        <span class="text-sm font-semibold">@L.T("partner.header")</span>
+            <div class="flex items-center gap-3 sm:gap-5">
+                <div class="hidden md:flex items-center gap-3 text-sm font-semibold">
+                    <a class="text-[#3b6700]" href="/my-businesses">Mis negocios</a>
+                    <a class="text-[#5c5b5b] hover:text-[#3b6700]" href="/">@L.T("partner.backHome")</a>
+                </div>
+                <LanguageToggle />
+                <button type="button" class="material-symbols-outlined text-[#5c5b5b] hover:text-[#3b6700] transition-colors">settings</button>
+                <div class="hidden sm:flex items-center gap-3 rounded-full border border-[#dadddf] bg-[#f5f6f7] px-4 py-2">
+                    <div class="w-8 h-8 rounded-full bg-[#a7f255] text-[#325800] flex items-center justify-center font-bold text-sm">
+                        @UserInitial
                     </div>
-                    <div class="flex items-center gap-3">
-                        <LanguageToggle />
-                        <a class="text-sm font-semibold text-primary" href="/my-businesses">Mis negocios</a>
-                        <a class="text-sm font-semibold text-primary" href="/">@L.T("partner.backHome")</a>
-                        <button class="text-sm font-semibold text-[#61897c] hover:text-primary" type="button" @onclick="HandleLogout">
-                            @L.T("nav.logout")
-                        </button>
+                    <div class="leading-tight">
+                        <p class="text-sm font-bold text-[#111816]">@UserLabel</p>
+                        <p class="text-[11px] text-[#7b8081]">Panel de gestión</p>
                     </div>
                 </div>
-            </header>
+                <button class="inline-flex items-center gap-2 rounded-full bg-[#eff1f2] px-4 py-2 text-sm font-semibold text-[#3b6700] hover:bg-[#e6e8ea] transition-colors" type="button" @onclick="HandleLogout">
+                    <span class="material-symbols-outlined text-[18px]">logout</span>
+                    @L.T("nav.logout")
+                </button>
+            </div>
+        </header>
 
-            <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-                @Body
-            </main>
-        </div>
+        <main class="px-4 sm:px-6 lg:px-10 pt-8 pb-16">
+            @Body
+        </main>
     </div>
 </div>
 
 @code {
     private bool _authInitialized;
+    private string UserLabel => AuthState.DisplayName ?? AuthState.Email ?? "ComunaClic";
+    private string UserInitial => string.IsNullOrWhiteSpace(UserLabel) ? "C" : UserLabel.Trim()[0].ToString().ToUpperInvariant();
 
     protected override void OnInitialized()
     {
@@ -99,5 +142,14 @@
     {
         await AuthState.ClearAsync();
         Navigation.NavigateTo("/login", true);
+    }
+
+    private string GetNavLinkClass(string href)
+    {
+        var currentPath = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+        var isActive = string.Equals(currentPath, href, StringComparison.OrdinalIgnoreCase);
+        return isActive
+            ? "flex items-center gap-3 px-4 py-3 text-[#76BC21] border-l-4 border-[#76BC21] bg-[#a7f255]/10 font-semibold tracking-tight"
+            : "flex items-center gap-3 px-4 py-3 text-[#5c5b5b] hover:bg-[#f5f6f7] transition-colors tracking-tight";
     }
 }

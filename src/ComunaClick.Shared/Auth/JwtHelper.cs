@@ -4,38 +4,76 @@ namespace ComunaClick.Shared.Auth;
 
 public static class JwtHelper
 {
-    public static Guid? GetGuidClaim(string token, string claim)
+    public static string? GetStringClaim(string token, string claim)
     {
-        if (string.IsNullOrWhiteSpace(token))
+        if (!TryGetPayload(token, out var doc) || doc is null)
         {
             return null;
+        }
+
+        using (doc)
+        {
+            if (!doc.RootElement.TryGetProperty(claim, out var element) || element.ValueKind != JsonValueKind.String)
+            {
+                return null;
+            }
+
+            return element.GetString();
+        }
+    }
+
+    public static Guid? GetGuidClaim(string token, string claim)
+    {
+        if (!TryGetPayload(token, out var doc) || doc is null)
+        {
+            return null;
+        }
+
+        using (doc)
+        {
+            if (!doc.RootElement.TryGetProperty(claim, out var element))
+            {
+                return null;
+            }
+
+            if (element.ValueKind == JsonValueKind.String && Guid.TryParse(element.GetString(), out var guid))
+            {
+                return guid;
+            }
+
+            return null;
+        }
+    }
+
+    private static bool TryGetPayload(string token, out JsonDocument? doc)
+    {
+        doc = null;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
         }
 
         var parts = token.Split('.');
         if (parts.Length < 2)
         {
-            return null;
+            return false;
         }
 
-        var payload = parts[1];
-        var json = DecodeBase64Url(payload);
+        var json = DecodeBase64Url(parts[1]);
         if (json is null)
         {
-            return null;
+            return false;
         }
 
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty(claim, out var element))
+        try
         {
-            return null;
+            doc = JsonDocument.Parse(json);
+            return true;
         }
-
-        if (element.ValueKind == JsonValueKind.String && Guid.TryParse(element.GetString(), out var guid))
+        catch
         {
-            return guid;
+            return false;
         }
-
-        return null;
     }
 
     private static string? DecodeBase64Url(string input)

@@ -80,6 +80,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<IReadOnlyList<PublicSubcategoryItem>?> GetProductSubcategoriesAsync(Guid categoryId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<PublicSubcategoryItem>>($"/v1/public/catalog/subcategories?categoryId={categoryId}", cancellationToken);
 
+    public Task<CategoryDiscoveryResponse?> GetCategoryDiscoveryAsync(string categoryCode, CancellationToken cancellationToken = default)
+        => GetAsync<CategoryDiscoveryResponse>($"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}", cancellationToken);
+
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Professional>($"/v1/professionals/{id}", cancellationToken);
 
@@ -344,6 +347,45 @@ public sealed record PublicSubcategoryItem(
     Guid CategoryId,
     string Code,
     string Name
+);
+
+public sealed record CategoryDiscoveryResponse(
+    PublicCategoryItem Category,
+    IReadOnlyList<PublicSubcategoryItem>? Subcategories,
+    IReadOnlyList<CategoryBusinessItem>? Businesses,
+    IReadOnlyList<CategoryServiceItem>? Services,
+    IReadOnlyList<CategoryProfessionalItem>? Professionals
+);
+
+public sealed record CategoryBusinessItem(
+    Guid Id,
+    string? Type,
+    string? Name,
+    string? Address,
+    string? Phone,
+    string? Email,
+    string? CategoryName,
+    string? SubcategoryName
+);
+
+public sealed record CategoryServiceItem(
+    Guid Id,
+    string? Name,
+    string? Description,
+    string? Category,
+    double Price,
+    string? Currency,
+    Guid PartnerId,
+    string? PartnerName
+);
+
+public sealed record CategoryProfessionalItem(
+    Guid Id,
+    string? Name,
+    string? Specialty,
+    string? Bio,
+    string? Email,
+    string? Phone
 );
 
 public sealed class SupportTicketRequest
