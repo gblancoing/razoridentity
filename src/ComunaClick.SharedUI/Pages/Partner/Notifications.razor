@@ -86,7 +86,7 @@
     private string _statusMessage = "Sin notificaciones.";
     private bool _isLoading;
 
-    private string LastTypeLabel => _items.Count == 0 ? "Sin actividad" : _items.Last().Type;
+    private string LastTypeLabel => _items.Count == 0 ? "Sin actividad" : _items.Last().Type ?? "Sin tipo";
     private string StatusLabel => _items.Count == 0 ? "Vacío" : "Activo";
 
     protected override void OnInitialized()

@@ -95,7 +95,7 @@
     private string _statusMessage = "Sin leads.";
     private bool _isLoading;
 
-    private string LastLeadStatus => _items.Count == 0 ? "Sin actividad" : _items.Last().Status;
+    private string LastLeadStatus => _items.Count == 0 ? "Sin actividad" : _items.Last().Status ?? "Sin estado";
     private string StatusLabel => _items.Count == 0 ? "Vacío" : "Con oportunidades";
 
     protected override void OnInitialized()
