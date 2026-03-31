@@ -75,6 +75,41 @@
                     </article>
                 }
             </div>
+
+            <div class="mt-6 flex flex-wrap gap-3">
+                @if (_activation.IsVisible)
+                {
+                    <button class="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 font-bold text-sm"
+                            @onclick="() => ToggleVisibilityAsync(false)"
+                            disabled="@_isUpdatingVisibility">
+                        <span class="material-symbols-outlined text-[18px]">visibility_off</span>
+                        Despublicar negocio
+                    </button>
+                }
+                else if (_activation.CanPublish)
+                {
+                    <button class="inline-flex items-center gap-2 rounded-2xl border border-[#3b6700] bg-[#f3f9eb] text-[#3b6700] px-5 py-3 font-bold text-sm"
+                            @onclick="() => ToggleVisibilityAsync(true)"
+                            disabled="@_isUpdatingVisibility">
+                        <span class="material-symbols-outlined text-[18px]">publish</span>
+                        Publicar negocio
+                    </button>
+                }
+                else
+                {
+                    <a href="/register/business"
+                       class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm">
+                        <span class="material-symbols-outlined text-[18px]">edit_square</span>
+                        Completar negocio
+                    </a>
+                }
+
+                <a href="/partner/catalog"
+                   class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm">
+                    <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+                    Revisar catálogo
+                </a>
+            </div>
         </section>
     }
 
@@ -228,6 +263,7 @@
     private string? _userLabel;
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
     private readonly List<ComunaClick.Shared.Api.Partner.PartnerDto> _businesses = new();
+    private bool _isUpdatingVisibility;
     private readonly List<BookingCard> _upcomingBookings =
     [
         new("calendar_today", "Corte de cabello", "Juan R.", "12:30", "Hoy"),
@@ -235,11 +271,19 @@
         new("spa", "Masaje relajante", "Pablo M.", "18:10", "Hoy")
     ];
 
-    private string PrimaryActionHref => "/partner/quickstart";
+    private string PrimaryActionHref => _activation is null
+        ? "/partner/quickstart"
+        : _activation.IsVisible
+            ? "/partner/catalog"
+            : _activation.CanPublish
+                ? "#publish"
+                : "/register/business";
 
-    private string PrimaryActionLabel => _activation?.CanPublish == true
-        ? "Seguir gestionando oferta"
-        : _activation?.PartnerType switch
+    private string PrimaryActionLabel => _activation?.IsVisible == true
+        ? "Gestionar catálogo"
+        : _activation?.CanPublish == true
+            ? "Publicar negocio"
+            : _activation?.PartnerType switch
         {
             "B" => "Crear primer servicio",
             "C" => "Registrar primer profesional",
@@ -301,6 +345,46 @@
         catch (HttpRequestException ex)
         {
             _statusMessage = $"No se pudo cargar el dashboard ({(int?)ex.StatusCode ?? 0}).";
+        }
+    }
+
+    private async Task ToggleVisibilityAsync(bool isVisible)
+    {
+        var partnerId = AuthState.PartnerId;
+        if (partnerId is null || partnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        _isUpdatingVisibility = true;
+        _statusMessage = isVisible ? "Publicando negocio..." : "Despublicando negocio...";
+
+        try
+        {
+            var updated = await PartnerApi.UpdateVisibilityAsync(partnerId.Value, isVisible);
+            _activation = updated?.Activation ?? _activation;
+
+            if (updated is not null)
+            {
+                var index = _businesses.FindIndex(x => x.Id == updated.Id);
+                if (index >= 0)
+                {
+                    _businesses[index] = updated;
+                }
+            }
+
+            _statusMessage = isVisible
+                ? "Tu negocio ya está publicado y visible para buyer."
+                : "Tu negocio quedó en borrador y ya no es visible públicamente.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar la publicación ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _isUpdatingVisibility = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
