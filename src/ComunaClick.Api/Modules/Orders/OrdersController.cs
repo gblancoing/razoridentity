@@ -32,6 +32,57 @@ public sealed class OrdersController : ControllerBase
         return order is null ? NotFound() : Ok(order);
     }
 
+    [AllowAnonymous]
+    [HttpGet("/v1/public/orders/{id:guid}")]
+    public async Task<ActionResult<object>> GetPublic(Guid id)
+    {
+        var order = await _db.Orders.AsNoTracking()
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == order.PartnerId);
+
+        var productIds = order.Items.Select(x => x.ProductId).Distinct().ToList();
+        var productNames = await _db.Products.AsNoTracking()
+            .Where(x => productIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Name);
+
+        return Ok(new
+        {
+            order.Id,
+            order.Status,
+            order.Subtotal,
+            order.DeliveryFee,
+            order.TotalAmount,
+            order.Currency,
+            order.CreatedAt,
+            order.UpdatedAt,
+            Partner = partner is null ? null : new
+            {
+                partner.Id,
+                partner.Name,
+                partner.Address,
+                partner.Phone,
+                partner.Email
+            },
+            Items = order.Items.Select(item => new
+            {
+                item.Id,
+                item.ProductId,
+                ProductName = productNames.TryGetValue(item.ProductId, out var productName) ? productName : null,
+                item.Quantity,
+                item.UnitPrice,
+                item.TotalPrice
+            })
+        });
+    }
+
     [HttpGet("/v1/partners/{partnerId:guid}/orders")]
     public async Task<ActionResult<IEnumerable<Order>>> ListByPartner(Guid partnerId)
     {

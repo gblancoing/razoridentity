@@ -28,6 +28,54 @@ public sealed class BookingsController : ControllerBase
         return booking is null ? NotFound() : Ok(booking);
     }
 
+    [AllowAnonymous]
+    [HttpGet("/v1/public/bookings/{id:guid}")]
+    public async Task<ActionResult<object>> GetPublic(Guid id)
+    {
+        var booking = await _db.Bookings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (booking is null)
+        {
+            return NotFound();
+        }
+
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == booking.PartnerId);
+
+        var service = await _db.Services.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == booking.ServiceId);
+
+        return Ok(new
+        {
+            booking.Id,
+            booking.Status,
+            booking.StartAt,
+            booking.EndAt,
+            booking.Amount,
+            booking.Currency,
+            booking.CancellationPolicy,
+            booking.CreatedAt,
+            booking.UpdatedAt,
+            Partner = partner is null ? null : new
+            {
+                partner.Id,
+                partner.Name,
+                partner.Address,
+                partner.Phone,
+                partner.Email
+            },
+            Service = service is null ? null : new
+            {
+                service.Id,
+                service.Name,
+                service.Description,
+                service.Category,
+                service.DurationMinutes
+            }
+        });
+    }
+
     [HttpGet("/v1/partners/{partnerId:guid}/bookings")]
     public async Task<ActionResult<IEnumerable<Booking>>> ListByPartner(Guid partnerId)
     {

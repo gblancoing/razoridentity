@@ -64,11 +64,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         @foreach (var business in _detail.Businesses)
                         {
-                            <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
-                                <p class="text-sm text-[#595c5d] mt-2">@(business.SubcategoryName ?? business.CategoryName ?? $"Tipo {business.Type}")</p>
-                                <p class="text-sm text-[#595c5d] mt-1">@(business.Address ?? business.Phone ?? business.Email ?? "Sin datos de contacto publicados.")</p>
-                            </article>
+                            <a href="/buyer/detail/partner/@business.Id"
+                               class="block rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] transition-transform hover:scale-[1.01]">
+                                <div class="h-44 bg-cover bg-center" style="@BuildBusinessStyle(business)"></div>
+                                <div class="p-6">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
+                                    <p class="text-sm text-[#595c5d] mt-2">@(business.SubcategoryName ?? business.CategoryName ?? $"Tipo {business.Type}")</p>
+                                    <p class="text-sm text-[#595c5d] mt-1">@(business.Address ?? business.Phone ?? business.Email ?? "Sin datos de contacto publicados.")</p>
+                                </div>
+                            </a>
                         }
                     </div>
                 }
@@ -208,6 +212,14 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private static string BuildBusinessStyle(ComunaClick.Shared.Api.Buyer.CategoryBusinessItem business)
+    {
+        var image = CategoryVisualService.ResolveImage(business.CategoryName, business.SubcategoryName ?? business.CategoryName);
+        return !string.IsNullOrWhiteSpace(image)
+            ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.08) 100%), url('{image}');"
+            : "background-image: linear-gradient(135deg, rgba(167,242,85,0.45) 0%, rgba(239,241,242,0.95) 55%, rgba(255,255,255,1) 100%);";
     }
 
     public void Dispose()

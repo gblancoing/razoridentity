@@ -2,55 +2,222 @@
 @layout BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject NavigationManager Navigation
 @implements IDisposable
-@using BuyerOrder = ComunaClick.Shared.Api.Buyer.Order
-@using BuyerBooking = ComunaClick.Shared.Api.Buyer.Booking
+@using BuyerOrder = ComunaClick.Shared.Api.Buyer.OrderTracking
+@using BuyerBooking = ComunaClick.Shared.Api.Buyer.BookingTracking
 
 <PageTitle>@L.T("buyer.orders.title")</PageTitle>
 
-<div class="flex flex-col gap-6">
-    <div>
-        <h1 class="text-2xl font-bold">@L.T("buyer.orders.heading")</h1>
-        <p class="text-sm text-[#61897c]">@L.T("buyer.orders.subtitle")</p>
-    </div>
-
-    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="OrderId" @bind="OrderId" />
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="BookingId" @bind="BookingId" />
+<div class="space-y-8">
+    <section class="rounded-[2rem] bg-gradient-to-br from-[#f5f6f7] via-white to-[#eff1f2] border border-[#dadddf] px-8 py-10">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="space-y-3">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Seguimiento buyer</p>
+                <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.orders.heading")</h1>
+                <p class="max-w-3xl text-sm text-[#595c5d]">Consulta el estado real de una orden o una reserva usando su identificador. La vista ahora muestra negocio, detalle, montos y fechas reales.</p>
+            </div>
+            <div class="w-full max-w-sm rounded-[1.75rem] bg-white p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)]">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Consejo rápido</p>
+                <p class="mt-3 text-sm text-[#595c5d]">Si llegas desde checkout o booking con `orderId` o `bookingId`, el seguimiento se cargará automáticamente.</p>
+            </div>
         </div>
-        <button class="mt-4 bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold" @onclick="HandleLookup">
-            Consultar
-        </button>
-        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
-        @if (_order is not null)
+    </section>
+
+    <section class="bg-white border border-[#dadddf] rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <input class="rounded-2xl border border-[#dadddf] px-4 h-12" placeholder="OrderId" @bind="OrderId" />
+            <input class="rounded-2xl border border-[#dadddf] px-4 h-12" placeholder="BookingId" @bind="BookingId" />
+        </div>
+        <div class="mt-4 flex flex-wrap gap-3">
+            <button class="inline-flex items-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]" @onclick="HandleLookup">
+                Consultar seguimiento
+            </button>
+            <a href="/buyer/profile" class="inline-flex items-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">
+                Ver mi perfil buyer
+            </a>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
-            <div class="mt-4 text-sm">
-                <p class="font-semibold">Orden: @_order.Id</p>
-                <p class="text-[#61897c]">@_order.Status</p>
+            <div class="mt-4">
+                <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
             </div>
         }
-        @if (_booking is not null)
-        {
-            <div class="mt-4 text-sm">
-                <p class="font-semibold">Reserva: @_booking.Id</p>
-                <p class="text-[#61897c]">@_booking.Status</p>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ORDEN</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_order is null ? "--" : ShortId(_order.Id))</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Estado actual: @(_order?.Status ?? "Sin consulta")</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">RESERVA</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_booking is null ? "--" : ShortId(_booking.Id))</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Estado actual: @(_booking?.Status ?? "Sin consulta")</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">MOVIMIENTO</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusHeadline</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@StatusBody</p>
+        </article>
+    </section>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <section class="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center justify-between gap-4 mb-6">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-2">Pedido</p>
+                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Tus órdenes</h2>
+                </div>
             </div>
-        }
+
+            @if (_isLoading)
+            {
+                <BrandedLoading Title="Cargando seguimiento" Message="Estamos consultando el estado real de tu orden o reserva." Compact="true" />
+            }
+            else if (_order is null)
+            {
+                <StatusBanner Message="Ingresa un `OrderId` válido para ver el seguimiento detallado del pedido." Level="warning" />
+            }
+            else
+            {
+                <div class="space-y-5">
+                    <article class="rounded-3xl bg-[#f5f6f7] p-5">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@(_order.Partner?.Name ?? "Negocio asociado")</p>
+                                <p class="text-sm text-[#595c5d] mt-2">@FormatOrderStatus(_order.Status)</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Total</p>
+                                <p class="text-2xl font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(_order.TotalAmount, _order.Currency)</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 grid grid-cols-2 gap-4 text-sm text-[#595c5d]">
+                            <p><span class="font-bold text-[#2c2f30]">Creada:</span> @_order.CreatedAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
+                            <p><span class="font-bold text-[#2c2f30]">Actualizada:</span> @_order.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
+                            @if (!string.IsNullOrWhiteSpace(_order.Partner?.Address))
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Dirección:</span> @_order.Partner.Address</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_order.Partner?.Phone))
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Contacto:</span> @_order.Partner.Phone</p>
+                            }
+                        </div>
+                    </article>
+
+                    <div class="space-y-3">
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Productos</p>
+                        @foreach (var item in _order.Items ?? Array.Empty<ComunaClick.Shared.Api.Buyer.OrderTrackingItem>())
+                        {
+                            <article class="rounded-3xl border border-[#dadddf] p-5">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <p class="text-base font-black tracking-[-0.02em] text-[#2c2f30]">@item.ProductName</p>
+                                        <p class="text-sm text-[#595c5d] mt-1">Cantidad: @item.Quantity · Unitario: @FormatMoney(item.UnitPrice, _order.Currency)</p>
+                                    </div>
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(item.TotalPrice, _order.Currency)</p>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                </div>
+            }
+        </section>
+
+        <section class="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center justify-between gap-4 mb-6">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-2">Reserva</p>
+                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Tus reservas</h2>
+                </div>
+            </div>
+
+            @if (_isLoading)
+            {
+                <BrandedLoading Title="Cargando seguimiento" Message="Estamos consultando el estado real de tu orden o reserva." Compact="true" />
+            }
+            else if (_booking is null)
+            {
+                <StatusBanner Message="Ingresa un `BookingId` válido para ver el seguimiento detallado de la reserva." Level="warning" />
+            }
+            else
+            {
+                <div class="space-y-5">
+                    <article class="rounded-3xl bg-[#f5f6f7] p-5">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@(_booking.Service?.Name ?? "Servicio reservado")</p>
+                                <p class="text-sm text-[#595c5d] mt-2">@FormatBookingStatus(_booking.Status)</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Monto</p>
+                                <p class="text-2xl font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(_booking.Amount, _booking.Currency)</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 grid grid-cols-1 gap-3 text-sm text-[#595c5d]">
+                            <p><span class="font-bold text-[#2c2f30]">Negocio:</span> @(_booking.Partner?.Name ?? "Sin negocio")</p>
+                            <p><span class="font-bold text-[#2c2f30]">Inicio:</span> @_booking.StartAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
+                            <p><span class="font-bold text-[#2c2f30]">Fin:</span> @_booking.EndAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
+                            @if (!string.IsNullOrWhiteSpace(_booking.Service?.Category))
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Categoría:</span> @_booking.Service.Category</p>
+                            }
+                            @if (_booking.Service is not null)
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Duración:</span> @_booking.Service.DurationMinutes min</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_booking.CancellationPolicy))
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Política:</span> @FormatCancellationPolicy(_booking.CancellationPolicy)</p>
+                            }
+                        </div>
+                    </article>
+
+                    @if (!string.IsNullOrWhiteSpace(_booking.Service?.Description))
+                    {
+                        <article class="rounded-3xl border border-[#dadddf] p-5">
+                            <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Detalle del servicio</p>
+                            <p class="text-sm leading-7 text-[#595c5d]">@_booking.Service.Description</p>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
     </div>
 </div>
 
 @code {
-    private string _statusMessage = "—";
+    private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
     private string OrderId = string.Empty;
     private string BookingId = string.Empty;
     private BuyerOrder? _order;
     private BuyerBooking? _booking;
+    private bool _isLoading;
+
+    private string StatusHeadline => _order is null && _booking is null ? "Sin consulta" : "Seguimiento actualizado";
+    private string StatusBody => _order is null && _booking is null
+        ? "Carga una orden o una reserva para ver el seguimiento real."
+        : "La información se muestra con datos reales del pedido o la reserva consultada.";
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        OrderId = GetQueryParameter(uri.Query, "orderId") ?? string.Empty;
+        BookingId = GetQueryParameter(uri.Query, "bookingId") ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(OrderId) || !string.IsNullOrWhiteSpace(BookingId))
+        {
+            await HandleLookup();
+        }
     }
 
     private async Task HandleLookup()
@@ -59,32 +226,96 @@
         _statusLevel = "info";
         _order = null;
         _booking = null;
+        _isLoading = true;
 
-        if (Guid.TryParse(OrderId, out var orderId))
+        try
         {
-            _order = await BuyerApi.GetOrderAsync(orderId);
-        }
+            if (Guid.TryParse(OrderId, out var orderId))
+            {
+                _order = await BuyerApi.GetOrderAsync(orderId);
+            }
 
-        if (Guid.TryParse(BookingId, out var bookingId))
-        {
-            _booking = await BuyerApi.GetBookingAsync(bookingId);
-        }
+            if (Guid.TryParse(BookingId, out var bookingId))
+            {
+                _booking = await BuyerApi.GetBookingAsync(bookingId);
+            }
 
-        if (_order is null && _booking is null)
-        {
-            _statusMessage = L.T("buyer.status.lookupInvalid");
-            _statusLevel = "warning";
+            if (_order is null && _booking is null)
+            {
+                _statusMessage = L.T("buyer.status.lookupInvalid");
+                _statusLevel = "warning";
+            }
+            else
+            {
+                _statusMessage = "Seguimiento cargado correctamente.";
+                _statusLevel = "success";
+            }
         }
-        else
+        catch (HttpRequestException ex)
         {
-            _statusMessage = L.T("buyer.status.lookupOk");
-            _statusLevel = "success";
+            _statusMessage = $"No se pudo consultar el seguimiento ({(int?)ex.StatusCode ?? 0}).";
+            _statusLevel = "error";
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private static string ShortId(Guid id)
+        => id.ToString()[..8];
+
+    private static string FormatMoney(double amount, string? currency)
+        => string.IsNullOrWhiteSpace(currency) ? $"${amount:N0}" : $"{currency} {amount:N0}";
+
+    private static string FormatOrderStatus(string? status)
+        => status switch
+        {
+            "paid" => "Pago confirmado y registrado.",
+            "payment_pending" => "Pago pendiente de confirmación.",
+            "cancelled" => "Pedido cancelado.",
+            _ when !string.IsNullOrWhiteSpace(status) => $"Estado actual: {status}",
+            _ => "Estado no informado."
+        };
+
+    private static string FormatBookingStatus(string? status)
+        => status switch
+        {
+            "confirmed" => "Reserva confirmada.",
+            "payment_pending" => "Reserva pendiente de pago.",
+            "cancelled" => "Reserva cancelada.",
+            _ when !string.IsNullOrWhiteSpace(status) => $"Estado actual: {status}",
+            _ => "Estado no informado."
+        };
+
+    private static string FormatCancellationPolicy(string policy)
+        => policy.StartsWith("{", StringComparison.Ordinal)
+            ? policy.Replace("{\"label\":\"", string.Empty, StringComparison.Ordinal)
+                .Replace("\"}", string.Empty, StringComparison.Ordinal)
+            : policy;
+
+    private static string? GetQueryParameter(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            }
+        }
+
+        return null;
     }
 
     public void Dispose()

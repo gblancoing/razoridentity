@@ -41,11 +41,11 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
-    public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default)
-        => GetAsync<Order>($"/v1/orders/{id}", cancellationToken);
+    public Task<OrderTracking?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default)
+        => GetAsync<OrderTracking>($"/v1/public/orders/{id}", cancellationToken);
 
-    public Task<Booking?> GetBookingAsync(Guid id, CancellationToken cancellationToken = default)
-        => GetAsync<Booking>($"/v1/bookings/{id}", cancellationToken);
+    public Task<BookingTracking?> GetBookingAsync(Guid id, CancellationToken cancellationToken = default)
+        => GetAsync<BookingTracking>($"/v1/public/bookings/{id}", cancellationToken);
 
     public Task<Customer?> GetCustomerAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Customer>($"/v1/customers/{id}", cancellationToken);
@@ -169,6 +169,36 @@ public sealed record Order(
     IReadOnlyList<OrderItem>? Items
 );
 
+public sealed record OrderTracking(
+    Guid Id,
+    string? Status,
+    double Subtotal,
+    double DeliveryFee,
+    double TotalAmount,
+    string? Currency,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    OrderTrackingPartner? Partner,
+    IReadOnlyList<OrderTrackingItem>? Items
+);
+
+public sealed record OrderTrackingPartner(
+    Guid Id,
+    string? Name,
+    string? Address,
+    string? Phone,
+    string? Email
+);
+
+public sealed record OrderTrackingItem(
+    Guid Id,
+    Guid ProductId,
+    string? ProductName,
+    int Quantity,
+    double UnitPrice,
+    double TotalPrice
+);
+
 public sealed record OrderItem(
     Guid Id,
     Guid OrderId,
@@ -207,6 +237,36 @@ public sealed record Booking(
     string? CancellationPolicy,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt
+);
+
+public sealed record BookingTracking(
+    Guid Id,
+    string? Status,
+    DateTimeOffset StartAt,
+    DateTimeOffset EndAt,
+    double Amount,
+    string? Currency,
+    string? CancellationPolicy,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    BookingTrackingPartner? Partner,
+    BookingTrackingService? Service
+);
+
+public sealed record BookingTrackingPartner(
+    Guid Id,
+    string? Name,
+    string? Address,
+    string? Phone,
+    string? Email
+);
+
+public sealed record BookingTrackingService(
+    Guid Id,
+    string? Name,
+    string? Description,
+    string? Category,
+    int DurationMinutes
 );
 
 public sealed record BookingCreateRequest(

@@ -2,7 +2,6 @@
 @layout BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
-@inject NavigationManager Navigation
 @using ComunaClick.SharedUI.Services
 @implements IDisposable
 
@@ -11,20 +10,7 @@
 <div class="flex flex-col gap-6">
     <div class="flex flex-col gap-2">
         <h1 class="text-3xl font-bold">@L.T("buyer.home.heading")</h1>
-        <p class="text-sm text-[#61897c]">@L.T("buyer.home.subtitle")</p>
-    </div>
-
-    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-4">
-        <div class="flex flex-col md:flex-row gap-3">
-            <input class="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="@L.T("buyer.search.placeholder")" @bind="_query" />
-            <select class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" @bind="_type">
-                <option value="">@L.T("buyer.search.categoryAll")</option>
-                <option value="products">Productos</option>
-                <option value="services">Servicios</option>
-                <option value="professionals">Profesionales</option>
-            </select>
-            <button class="bg-primary text-[#111816] px-6 h-12 rounded-lg font-bold" @onclick="SearchAsync">@L.T("buyer.search.action")</button>
-        </div>
+        <p class="text-sm text-[#61897c]">Explora primero las categorías activas. Los negocios, servicios y profesionales aparecen cuando entras en una categoría.</p>
     </div>
 
     <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-4">
@@ -63,52 +49,22 @@
         }
     </div>
 
-    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-4">
-        <h2 class="font-semibold mb-3">@L.T("buyer.search.action")</h2>
-        @if (_isLoading)
-        {
-            <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos buscando los mejores resultados para tu comuna." Compact="true" />
-        }
-        else if (_results.Count == 0)
-        {
-            <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
-        }
-        else
-        {
-            <div class="space-y-3 text-sm">
-                @foreach (var item in _results)
-                {
-                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800 pb-3 last:border-b-0">
-                        <div>
-                            <p class="font-semibold">@item.Name</p>
-                            <p class="text-xs text-[#61897c]">@item.Category</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            @if (item.Price.HasValue)
-                            {
-                                <span class="font-semibold">@($"{item.Price.Value:N0}")</span>
-                            }
-                            <a href="@(item.CtaHref ?? $"/buyer/detail/{item.Type}/{item.Id}")" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-xs">
-                                @(item.CtaLabel ?? "Ver detalle")
-                            </a>
-                        </div>
-                    </div>
-                }
+    <div class="bg-[#eff1f2] border border-[#dadddf] rounded-3xl p-6">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#a7f255]/20 text-[#325800] flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined">category</span>
             </div>
-        }
+            <div class="space-y-2">
+                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">Exploración guiada por categoría</p>
+                <p class="text-sm text-[#595c5d]">Selecciona una categoría para ver solo la oferta relacionada: negocios, servicios y profesionales publicados dentro de esa temática.</p>
+            </div>
+        </div>
     </div>
 </div>
 
 @code {
-    private readonly List<SearchResultItem> _results = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
-    private string _statusMessage = "—";
-    private string _statusLevel = "info";
-    private bool _isLoading;
     private bool _categoriesLoading = true;
-    private string? _query;
-    private string? _type;
-    private ComunaClick.Shared.Api.Buyer.GeoFilter? _geo;
     private string _categoriesStatusMessage = "No encontramos categorías activas.";
 
     protected override void OnInitialized()
@@ -118,9 +74,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _geo = ReadGeoFromQuery();
         await LoadCategoriesAsync();
-        await SearchAsync();
     }
 
     private async Task LoadCategoriesAsync()
@@ -147,28 +101,6 @@
         {
             _categoriesLoading = false;
         }
-    }
-
-    private async Task SearchAsync()
-    {
-        _isLoading = true;
-        _results.Clear();
-        var results = await BuyerApi.SearchAsync(_query, _type, 10, _geo);
-        if (results is not null)
-        {
-            _results.AddRange(results);
-        }
-        if (_results.Count == 0)
-        {
-            _statusMessage = L.T("buyer.status.noResults");
-            _statusLevel = "warning";
-        }
-        else
-        {
-            _statusMessage = string.Empty;
-            _statusLevel = "info";
-        }
-        _isLoading = false;
     }
 
     private void HandleChange()
@@ -201,34 +133,6 @@
             .Replace("ó", "o", StringComparison.Ordinal)
             .Replace("ú", "u", StringComparison.Ordinal)
             .Replace("ñ", "n", StringComparison.Ordinal);
-    }
-
-    private ComunaClick.Shared.Api.Buyer.GeoFilter? ReadGeoFromQuery()
-    {
-        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var query = uri.Query.TrimStart('?');
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return null;
-        }
-
-        Guid? Read(string key)
-        {
-            foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var parts = pair.Split('=', 2);
-                if (!string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase)) continue;
-                return parts.Length > 1 && Guid.TryParse(Uri.UnescapeDataString(parts[1]), out var parsed) ? parsed : null;
-            }
-            return null;
-        }
-
-        var countryId = Read("countryId");
-        var regionId = Read("regionId");
-        var comunaId = Read("comunaId");
-        return countryId.HasValue || regionId.HasValue || comunaId.HasValue
-            ? new ComunaClick.Shared.Api.Buyer.GeoFilter(countryId, regionId, comunaId)
-            : null;
     }
 
     public void Dispose()
