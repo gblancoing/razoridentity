@@ -140,7 +140,7 @@
     private static string FormatType(string? type)
         => string.IsNullOrWhiteSpace(type)
             ? "Notificación"
-            : type.Replace('_', ' ', StringComparison.Ordinal).Trim();
+            : type.Replace("_", " ", StringComparison.Ordinal).Trim();
 
     private static string FormatPayload(string? payload)
     {
