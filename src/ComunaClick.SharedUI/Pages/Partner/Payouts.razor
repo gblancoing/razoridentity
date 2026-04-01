@@ -65,14 +65,30 @@
                 @foreach (var item in _items)
                 {
                     <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                            <div class="space-y-2">
-                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@item.BatchId</p>
-                                <p class="text-sm text-[#595c5d]">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</p>
+                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">Liquidación @item.BatchId.ToString()[..8]</p>
+                                    <p class="text-sm text-[#595c5d]">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</p>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3 text-xs text-[#595c5d]">
+                                    <div>
+                                        <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Bruto</p>
+                                        <p class="mt-1 text-sm font-bold text-[#2c2f30]">@FormatMoney(item.GrossAmount, item.Currency)</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Comisión</p>
+                                        <p class="mt-1 text-sm font-bold text-[#2c2f30]">@FormatMoney(item.CommissionAmount, item.Currency)</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Suscripción</p>
+                                        <p class="mt-1 text-sm font-bold text-[#2c2f30]">@FormatMoney(item.SubscriptionDeduction, item.Currency)</p>
+                                    </div>
+                                </div>
                             </div>
                             <div class="text-left md:text-right">
                                 <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Neto</p>
-                                <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@($"{item.NetAmount:N0}")</p>
+                                <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@FormatMoney(item.NetAmount, item.Currency)</p>
                             </div>
                         </div>
                     </article>
@@ -141,6 +157,9 @@
     {
         InvokeAsync(StateHasChanged);
     }
+
+    private static string FormatMoney(double amount, string? currency)
+        => string.IsNullOrWhiteSpace(currency) ? $"${amount:N0}" : $"{currency} {amount:N0}";
 
     public void Dispose()
     {

@@ -1,6 +1,7 @@
 @page "/partner/notifications"
 @layout PartnerLayout
 @using System.Net
+@using System.Text.Json
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -70,8 +71,11 @@
                                 <span class="material-symbols-outlined">notifications</span>
                             </div>
                             <div class="space-y-2">
-                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@note.Type</p>
-                                <p class="text-sm text-[#595c5d]">@note.Payload</p>
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@FormatType(note.Type)</p>
+                                    <span class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@note.CreatedAt.ToLocalTime().ToString("dd MMM · HH:mm")</span>
+                                </div>
+                                <p class="text-sm text-[#595c5d]">@FormatPayload(note.Payload)</p>
                             </div>
                         </div>
                     </article>
@@ -131,6 +135,35 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private static string FormatType(string? type)
+        => string.IsNullOrWhiteSpace(type)
+            ? "Notificación"
+            : type.Replace('_', ' ', StringComparison.Ordinal).Trim();
+
+    private static string FormatPayload(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return "Sin detalle adicional.";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty("message", out var messageElement))
+            {
+                return messageElement.GetString() ?? payload;
+            }
+        }
+        catch (JsonException)
+        {
+            return payload;
+        }
+
+        return payload;
     }
 
     public void Dispose()

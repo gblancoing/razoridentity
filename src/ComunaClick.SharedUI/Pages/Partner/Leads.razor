@@ -2,8 +2,8 @@
 @layout PartnerLayout
 @using System.Net
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
-@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @implements IDisposable
 
 <PageTitle>@L.T("partner.leads.title")</PageTitle>
@@ -106,17 +106,24 @@
     protected override async Task OnInitializedAsync()
     {
         _isLoading = true;
-        var professionalId = ApiOptions.Value.DefaultProfessionalId;
-        if (professionalId is null || professionalId == Guid.Empty)
+        if (!AuthState.IsAuthenticated)
         {
-            _statusMessage = L.T("partner.status.noLeads");
+            _statusMessage = L.T("partner.status.loginRequired");
+            _isLoading = false;
+            return;
+        }
+
+        var partnerId = AuthState.PartnerId;
+        if (partnerId is null || partnerId == Guid.Empty)
+        {
+            _statusMessage = L.T("partner.status.noPartner");
             _isLoading = false;
             return;
         }
 
         try
         {
-            var leads = await PartnerApi.GetProfessionalLeadsAsync(professionalId.Value);
+            var leads = await PartnerApi.GetPartnerLeadsAsync(partnerId.Value);
             if (leads is not null)
             {
                 _items.AddRange(leads);

@@ -38,6 +38,48 @@ public sealed class LeadsController : ControllerBase
         return Ok(leads);
     }
 
+    [HttpGet("/v1/partners/{partnerId:guid}/leads")]
+    public async Task<ActionResult<IEnumerable<Lead>>> ListByPartner(Guid partnerId)
+    {
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var scopedPartner = _tenantContext.PartnerId;
+        if (scopedPartner.HasValue && scopedPartner.Value != partnerId)
+        {
+            return Forbid();
+        }
+
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == partnerId && x.TenantId == tenantId.Value);
+
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        var professionalIds = await _db.Professionals.AsNoTracking()
+            .Where(x => x.TenantId == partner.TenantId)
+            .Where(x => !partner.ComunaId.HasValue || x.ComunaId == partner.ComunaId)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        if (professionalIds.Count == 0)
+        {
+            return Ok(Array.Empty<Lead>());
+        }
+
+        var leads = await _db.Leads.AsNoTracking()
+            .Where(x => x.TenantId == tenantId.Value && professionalIds.Contains(x.ProfessionalId))
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return Ok(leads);
+    }
+
     [HttpPost]
     [AllowAnonymous]
     public async Task<ActionResult<Lead>> Create(LeadCreateRequest request)

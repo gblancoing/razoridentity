@@ -42,6 +42,9 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<IReadOnlyList<Professional>?> GetPartnerProfessionalsAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Professional>>($"/v1/partners/{partnerId}/professionals", cancellationToken);
 
+    public Task<IReadOnlyList<Lead>?> GetPartnerLeadsAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<Lead>>($"/v1/partners/{partnerId}/leads", cancellationToken);
+
     public Task<IReadOnlyList<Lead>?> GetProfessionalLeadsAsync(Guid professionalId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Lead>>($"/v1/professionals/{professionalId}/leads", cancellationToken);
 
