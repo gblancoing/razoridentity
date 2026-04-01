@@ -18,17 +18,25 @@ public sealed class PublicCatalogController : ControllerBase
     [HttpGet("categories")]
     public async Task<ActionResult<IEnumerable<object>>> Categories()
     {
-        var items = await _db.ProductCategories.AsNoTracking()
+        var categories = await _db.ProductCategories.AsNoTracking()
             .Where(x => x.IsActive)
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
+            .ToListAsync();
+
+        var items = categories
+            .GroupBy(x => NormalizeKey(x.Name))
+            .Select(group => group
+                .OrderBy(x => x.SortOrder)
+                .ThenBy(x => x.Name)
+                .First())
             .Select(x => new
             {
                 x.Id,
                 x.Code,
                 x.Name
             })
-            .ToListAsync();
+            .ToList();
 
         return Ok(items);
     }
@@ -41,10 +49,28 @@ public sealed class PublicCatalogController : ControllerBase
             return BadRequest(new { message = "categoryId is required." });
         }
 
+        var category = await _db.ProductCategories.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == categoryId && x.IsActive);
+
+        if (category is null)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var familyCategoryIds = await ResolveCategoryFamilyIdsAsync(category.Id, category.Name);
+
         var items = await _db.ProductSubcategories.AsNoTracking()
-            .Where(x => x.IsActive && x.CategoryId == categoryId)
+            .Where(x => x.IsActive && familyCategoryIds.Contains(x.CategoryId))
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
+            .ToListAsync();
+
+        return Ok(items
+            .GroupBy(x => NormalizeKey(x.Name))
+            .Select(group => group
+                .OrderBy(x => x.SortOrder)
+                .ThenBy(x => x.Name)
+                .First())
             .Select(x => new
             {
                 x.Id,
@@ -52,9 +78,7 @@ public sealed class PublicCatalogController : ControllerBase
                 x.Code,
                 x.Name
             })
-            .ToListAsync();
-
-        return Ok(items);
+            .ToList());
     }
 
     [HttpGet("discovery/{categoryCode}")]
@@ -73,8 +97,10 @@ public sealed class PublicCatalogController : ControllerBase
             return NotFound(new { message = "Category not found." });
         }
 
+        var familyCategoryIds = await ResolveCategoryFamilyIdsAsync(category.Id, category.Name);
+
         var subcategories = await _db.ProductSubcategories.AsNoTracking()
-            .Where(x => x.IsActive && x.CategoryId == category.Id)
+            .Where(x => x.IsActive && familyCategoryIds.Contains(x.CategoryId))
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
             .ToListAsync();
@@ -138,7 +164,7 @@ public sealed class PublicCatalogController : ControllerBase
 
         var businessIds = new HashSet<Guid>();
 
-        foreach (var partner in visiblePartners.Where(x => x.Subcategory?.CategoryId == category.Id))
+        foreach (var partner in visiblePartners.Where(x => x.Subcategory?.CategoryId is Guid categoryIdValue && familyCategoryIds.Contains(categoryIdValue)))
         {
             businessIds.Add(partner.Id);
         }
@@ -223,6 +249,88 @@ public sealed class PublicCatalogController : ControllerBase
         });
     }
 
+    [HttpGet("/v1/public/partners/{id:guid}/profile")]
+    public async Task<ActionResult<object>> PartnerProfile(Guid id)
+    {
+        var partner = await _db.Partners.AsNoTracking()
+            .Include(x => x.Subcategory)
+            .ThenInclude(x => x!.Category)
+            .FirstOrDefaultAsync(x => x.Id == id && x.IsVisible);
+
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        var products = await _db.Products.AsNoTracking()
+            .Where(x => x.PartnerId == id && x.IsActive)
+            .OrderBy(x => x.Name)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.Description,
+                x.Category,
+                x.Price,
+                x.Currency
+            })
+            .ToListAsync();
+
+        var services = await _db.Services.AsNoTracking()
+            .Where(x => x.PartnerId == id && x.IsActive)
+            .OrderBy(x => x.Name)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.Description,
+                x.Category,
+                x.Price,
+                x.Currency,
+                x.DurationMinutes
+            })
+            .ToListAsync();
+
+        var professionals = await _db.Professionals.AsNoTracking()
+            .Where(x => x.TenantId == partner.TenantId && x.IsActive && x.IsVerified)
+            .Where(x => !partner.ComunaId.HasValue || x.ComunaId == partner.ComunaId)
+            .OrderBy(x => x.Name)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.Specialty,
+                x.Bio,
+                x.Email,
+                x.Phone
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            Partner = new
+            {
+                partner.Id,
+                partner.Type,
+                partner.Name,
+                partner.Address,
+                partner.Phone,
+                partner.Email,
+                CategoryName = partner.Subcategory?.Category?.Name,
+                SubcategoryName = partner.Subcategory?.Name,
+                OfferLabel = partner.Type switch
+                {
+                    "B" => "Servicios activos",
+                    "C" => "Profesionales activos",
+                    _ => "Productos activos"
+                }
+            },
+            Products = products,
+            Services = services,
+            Professionals = professionals
+        });
+    }
+
     private static bool MatchesAny(string? value, IEnumerable<string> terms)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -232,4 +340,18 @@ public sealed class PublicCatalogController : ControllerBase
 
         return terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
+
+    private async Task<List<Guid>> ResolveCategoryFamilyIdsAsync(Guid categoryId, string categoryName)
+    {
+        var normalizedName = NormalizeKey(categoryName);
+
+        return await _db.ProductCategories.AsNoTracking()
+            .Where(x => x.IsActive && (x.Id == categoryId || (x.Name != null && x.Name.Trim().ToLower() == normalizedName)))
+            .Select(x => x.Id)
+            .Distinct()
+            .ToListAsync();
+    }
+
+    private static string NormalizeKey(string? value)
+        => value?.Trim().ToLowerInvariant() ?? string.Empty;
 }

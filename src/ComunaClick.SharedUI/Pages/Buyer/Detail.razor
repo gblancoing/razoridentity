@@ -1,160 +1,448 @@
 @page "/buyer/detail"
 @page "/buyer/detail/{Type}/{Id:guid}"
 @layout BuyerLayout
+@using BuyerModels = ComunaClick.Shared.Api.Buyer
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.detail.title")</PageTitle>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-2 bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-        <h1 class="text-2xl font-bold">@_title</h1>
-        <p class="text-sm text-[#61897c] mt-2">@_subtitle</p>
-        <div class="mt-6 h-48 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center text-sm text-[#61897c]">
-            @_statusMessage
+<div class="space-y-8">
+    <section class="rounded-[2rem] bg-gradient-to-br from-[#f5f6f7] via-white to-[#eff1f2] border border-[#dadddf] px-8 py-10">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="space-y-3">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@_eyebrow</p>
+                <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@_title</h1>
+                <p class="max-w-3xl text-sm text-[#595c5d]">@_subtitle</p>
+                <div class="flex flex-wrap gap-3 pt-2">
+                    @foreach (var badge in _badges)
+                    {
+                        <span class="inline-flex items-center rounded-full bg-white px-4 py-2 text-xs font-bold text-[#325800] border border-[#dadddf]">@badge</span>
+                    }
+                </div>
+            </div>
+            <div class="w-full max-w-sm rounded-[1.75rem] bg-white p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)]">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Acción sugerida</p>
+                <h2 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@_primaryCtaLabel</h2>
+                <p class="mt-2 text-sm text-[#595c5d]">@_ctaSubtitle</p>
+                <div class="mt-5 space-y-3">
+                    <a href="@_primaryCtaHref" class="block w-full rounded-2xl bg-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#d9ffad]">
+                        @_primaryCtaLabel
+                    </a>
+                    @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
+                    {
+                        <a href="@_secondaryCtaHref" class="block w-full rounded-2xl border border-[#dadddf] px-5 py-3 text-center text-sm font-bold text-[#2c2f30]">
+                            @_secondaryCtaLabel
+                        </a>
+                    }
+                </div>
+            </div>
         </div>
-        <div class="mt-6 space-y-3 text-sm">
-            <p>@_detailLine1</p>
-            <p>@_detailLine2</p>
+    </section>
+
+    @if (_isLoading)
+    {
+        <section class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando el detalle seleccionado." Compact="true" />
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <section class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center space-y-3">
+            <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">No pudimos cargar este detalle</p>
+            <p class="text-sm text-[#595c5d]">@_errorMessage</p>
+            <a href="/buyer" class="inline-flex items-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Volver al portal</a>
+        </section>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-6">
+            <section class="space-y-6">
+                <article class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Resumen</p>
+                    <div class="space-y-4">
+                        <p class="text-base leading-7 text-[#2c2f30]">@_detailLine1</p>
+                        <p class="text-sm leading-7 text-[#595c5d]">@_detailLine2</p>
+                    </div>
+                </article>
+
+                @if (_partnerProfile is not null)
+                {
+                    <article class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Perfil público</p>
+                                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Información del negocio</h2>
+                            </div>
+                            <div class="grid gap-3 text-sm text-[#595c5d]">
+                                @if (!string.IsNullOrWhiteSpace(_partnerProfile.Partner.Address))
+                                {
+                                    <p><span class="font-bold text-[#2c2f30]">Dirección:</span> @_partnerProfile.Partner.Address</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(_partnerProfile.Partner.Phone))
+                                {
+                                    <p><span class="font-bold text-[#2c2f30]">Teléfono:</span> @_partnerProfile.Partner.Phone</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(_partnerProfile.Partner.Email))
+                                {
+                                    <p><span class="font-bold text-[#2c2f30]">Email:</span> @_partnerProfile.Partner.Email</p>
+                                }
+                            </div>
+                        </div>
+                    </article>
+
+                    @if (_partnerProfile.Products?.Count > 0)
+                    {
+                        <article class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                            <div class="flex items-center justify-between gap-4 mb-6">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-2">Oferta</p>
+                                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Productos disponibles</h2>
+                                </div>
+                                <a href="/products" class="text-sm font-bold text-[#3b6700]">Ver más</a>
+                            </div>
+                            <div class="grid gap-4">
+                                @foreach (var product in _partnerProfile.Products!)
+                                {
+                                    <article class="rounded-3xl bg-[#f5f6f7] px-5 py-5">
+                                        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                            <div class="space-y-2">
+                                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@product.Name</p>
+                                                <p class="text-sm text-[#595c5d]">@product.Description</p>
+                                                <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#7b8081]">@product.Category</p>
+                                            </div>
+                                            <div class="text-left lg:text-right">
+                                                <p class="text-xl font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(product.Price, product.Currency)</p>
+                                                <a href="/buyer/detail/product/@product.Id" class="mt-3 inline-flex rounded-2xl border border-[#dadddf] px-4 py-2 text-sm font-bold text-[#2c2f30]">Ver producto</a>
+                                            </div>
+                                        </div>
+                                    </article>
+                                }
+                            </div>
+                        </article>
+                    }
+
+                    @if (_partnerProfile.Services?.Count > 0)
+                    {
+                        <article class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                            <div class="flex items-center justify-between gap-4 mb-6">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-2">Oferta</p>
+                                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Servicios disponibles</h2>
+                                </div>
+                                <a href="/services" class="text-sm font-bold text-[#3b6700]">Ver más</a>
+                            </div>
+                            <div class="grid gap-4">
+                                @foreach (var service in _partnerProfile.Services!)
+                                {
+                                    <article class="rounded-3xl bg-[#f5f6f7] px-5 py-5">
+                                        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                            <div class="space-y-2">
+                                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@service.Name</p>
+                                                <p class="text-sm text-[#595c5d]">@service.Description</p>
+                                                <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#7b8081]">@service.Category · @service.DurationMinutes min</p>
+                                            </div>
+                                            <div class="text-left lg:text-right">
+                                                <p class="text-xl font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(service.Price, service.Currency)</p>
+                                                <a href="/buyer/detail/service/@service.Id" class="mt-3 inline-flex rounded-2xl border border-[#dadddf] px-4 py-2 text-sm font-bold text-[#2c2f30]">Ver servicio</a>
+                                            </div>
+                                        </div>
+                                    </article>
+                                }
+                            </div>
+                        </article>
+                    }
+
+                    @if (_partnerProfile.Professionals?.Count > 0)
+                    {
+                        <article class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                            <div class="flex items-center justify-between gap-4 mb-6">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-2">Equipo</p>
+                                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Profesionales disponibles</h2>
+                                </div>
+                                <a href="/professionals" class="text-sm font-bold text-[#3b6700]">Ver más</a>
+                            </div>
+                            <div class="grid gap-4">
+                                @foreach (var professional in _partnerProfile.Professionals!)
+                                {
+                                    <article class="rounded-3xl bg-[#f5f6f7] px-5 py-5">
+                                        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                            <div class="space-y-2">
+                                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@professional.Name</p>
+                                                <p class="text-sm font-bold text-[#325800]">@professional.Specialty</p>
+                                                <p class="text-sm text-[#595c5d]">@professional.Bio</p>
+                                            </div>
+                                            <div class="text-left lg:text-right space-y-2 text-sm text-[#595c5d]">
+                                                @if (!string.IsNullOrWhiteSpace(professional.Email))
+                                                {
+                                                    <p>@professional.Email</p>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(professional.Phone))
+                                                {
+                                                    <p>@professional.Phone</p>
+                                                }
+                                                <a href="/buyer/detail/professional/@professional.Id" class="inline-flex rounded-2xl border border-[#dadddf] px-4 py-2 text-sm font-bold text-[#2c2f30]">Ver perfil</a>
+                                            </div>
+                                        </div>
+                                    </article>
+                                }
+                            </div>
+                        </article>
+                    }
+                }
+            </section>
+
+            <aside class="space-y-6">
+                <article class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-4">Estado actual</p>
+                    <div class="space-y-3 text-sm text-[#595c5d]">
+                        <p>@_statusMessage</p>
+                        @if (_partnerProfile is not null)
+                        {
+                            <p><span class="font-bold text-[#2c2f30]">Categoría:</span> @(_partnerProfile.Partner.CategoryName ?? "Sin categoría")</p>
+                            <p><span class="font-bold text-[#2c2f30]">Subcategoría:</span> @(_partnerProfile.Partner.SubcategoryName ?? "Sin subcategoría")</p>
+                            <p><span class="font-bold text-[#2c2f30]">Oferta:</span> @(_partnerProfile.Partner.OfferLabel ?? "Oferta publicada")</p>
+                        }
+                    </div>
+                </article>
+
+                <article class="rounded-[2rem] bg-[#eff1f2] p-8">
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-4">Siguiente paso</p>
+                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@_ctaSubtitle</p>
+                    <p class="mt-3 text-sm text-[#595c5d]">Usa el acceso directo de la ficha para completar compra, reserva o contacto sin perder contexto del negocio.</p>
+                </article>
+            </aside>
         </div>
-    </div>
-    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-        <h2 class="text-lg font-bold">@L.T("buyer.detail.cta.title")</h2>
-        <p class="text-sm text-[#61897c] mt-2">@_ctaSubtitle</p>
-        <div class="mt-4 space-y-3">
-            <a href="@_primaryCtaHref" class="block w-full bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-center">@_primaryCtaLabel</a>
-            @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
-            {
-                <a href="@_secondaryCtaHref" class="block w-full border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-center">@_secondaryCtaLabel</a>
-            }
-        </div>
-    </div>
+    }
 </div>
 
 @code {
     [Parameter] public string? Type { get; set; }
     [Parameter] public Guid? Id { get; set; }
 
+    private bool _isLoading;
+    private string? _errorMessage;
+    private string _eyebrow = "Detalle";
     private string _title = "Detalle";
     private string _subtitle = string.Empty;
     private string _detailLine1 = string.Empty;
     private string _detailLine2 = string.Empty;
-    private string _statusMessage = "—";
+    private string _statusMessage = "Selecciona un elemento para ver detalle.";
     private string _ctaSubtitle = "Revisa esta oferta y continúa la acción que corresponde.";
     private string _primaryCtaLabel = "Ver detalle";
     private string _primaryCtaHref = "/buyer";
     private string? _secondaryCtaLabel;
     private string? _secondaryCtaHref;
+    private readonly List<string> _badges = new();
+    private BuyerModels.PartnerProfileResponse? _partnerProfile;
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
+        _partnerProfile = null;
+        _badges.Clear();
+        _errorMessage = null;
+
         _title = L.T("buyer.detail.heading");
         _subtitle = L.T("buyer.detail.subtitle");
         _detailLine1 = L.T("buyer.detail.info1");
         _detailLine2 = L.T("buyer.detail.info2");
+        _statusMessage = "Selecciona un elemento para ver detalle.";
+        _ctaSubtitle = "Revisa esta oferta y continúa la acción que corresponde.";
+        _primaryCtaLabel = "Ver detalle";
+        _primaryCtaHref = "/buyer";
+        _secondaryCtaLabel = null;
+        _secondaryCtaHref = null;
+        _eyebrow = "Detalle";
 
         if (Id is null || string.IsNullOrWhiteSpace(Type))
         {
-            _statusMessage = "Selecciona un elemento para ver detalle.";
             return;
         }
 
-        _statusMessage = "Cargando...";
-        var type = Type.Trim().ToLowerInvariant();
-
+        _isLoading = true;
         try
         {
-            switch (type)
+            switch (Type.Trim().ToLowerInvariant())
             {
                 case "product":
-                    var product = await BuyerApi.GetProductAsync(Id.Value);
-                    if (product is not null)
-                    {
-                        _title = product.Name ?? _title;
-                        _detailLine1 = product.Description ?? _detailLine1;
-                        _detailLine2 = product.Category ?? _detailLine2;
-                        _ctaSubtitle = "Oferta lista para compra directa.";
-                        _primaryCtaLabel = "Comprar ahora";
-                        _primaryCtaHref = $"/buyer/checkout?productId={Id.Value}";
-                        _secondaryCtaLabel = "Ver negocio";
-                        _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : "/buyer";
-                    }
+                    await LoadProductAsync(Id.Value);
                     break;
                 case "service":
-                    var service = await BuyerApi.GetServiceAsync(Id.Value);
-                    if (service is not null)
-                    {
-                        _title = service.Name ?? _title;
-                        _detailLine1 = service.Description ?? _detailLine1;
-                        _detailLine2 = service.Category ?? _detailLine2;
-                        _ctaSubtitle = "Servicio elegible para reserva.";
-                        _primaryCtaLabel = "Reservar";
-                        _primaryCtaHref = $"/buyer/booking?serviceId={Id.Value}";
-                        _secondaryCtaLabel = "Ver negocio";
-                        _secondaryCtaHref = service.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{service.PartnerId}" : "/buyer";
-                    }
+                    await LoadServiceAsync(Id.Value);
                     break;
                 case "partner":
-                    var partner = await BuyerApi.GetPartnerAsync(Id.Value);
-                    if (partner is not null)
-                    {
-                        _title = partner.Name ?? _title;
-                        _detailLine1 = partner.Address ?? _detailLine1;
-                        _detailLine2 = partner.Phone ?? _detailLine2;
-                        _ctaSubtitle = partner.Type switch
-                        {
-                            "B" => "Negocio orientado a servicios. Revisa su agenda y disponibilidad.",
-                            "C" => "Perfil profesional listo para contacto y conversión.",
-                            _ => "Negocio con vitrina activa y ofertas elegibles."
-                        };
-                        _primaryCtaLabel = partner.Type switch
-                        {
-                            "B" => "Ver servicios",
-                            "C" => "Ver profesionales",
-                            _ => "Ver productos"
-                        };
-                        _primaryCtaHref = partner.Type switch
-                        {
-                            "B" => "/services",
-                            "C" => "/professionals",
-                            _ => "/products"
-                        };
-                        _secondaryCtaLabel = null;
-                        _secondaryCtaHref = null;
-                    }
+                    await LoadPartnerAsync(Id.Value);
                     break;
                 case "professional":
-                    var professional = await BuyerApi.GetProfessionalAsync(Id.Value);
-                    if (professional is not null)
-                    {
-                        _title = professional.Name ?? _title;
-                        _detailLine1 = professional.Specialty ?? _detailLine1;
-                        _detailLine2 = professional.Bio ?? _detailLine2;
-                        _ctaSubtitle = "Profesional verificado listo para contacto.";
-                        _primaryCtaLabel = "Contactar";
-                        _primaryCtaHref = $"/buyer/contact?professionalId={Id.Value}";
-                        _secondaryCtaLabel = professional.TenantId != Guid.Empty ? "Ver más profesionales" : null;
-                        _secondaryCtaHref = "/professionals";
-                    }
+                    await LoadProfessionalAsync(Id.Value);
                     break;
                 default:
-                    _statusMessage = "Tipo no soportado.";
-                    return;
+                    _errorMessage = "Tipo no soportado.";
+                    break;
             }
-
-            _statusMessage = L.T("buyer.detail.media");
         }
         catch
         {
-            _statusMessage = "Error al cargar.";
+            _errorMessage = "Error al cargar el detalle seleccionado.";
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
+
+    private async Task LoadProductAsync(Guid id)
+    {
+        var product = await BuyerApi.GetProductAsync(id);
+        if (product is null)
+        {
+            _errorMessage = "Producto no encontrado.";
+            return;
+        }
+
+        _eyebrow = "Producto";
+        _title = product.Name ?? _title;
+        _subtitle = "Producto disponible para compra directa dentro del portal.";
+        _detailLine1 = product.Description ?? "Sin descripción disponible.";
+        _detailLine2 = string.Join(" · ", new[]
+        {
+            product.Category,
+            FormatMoney(product.Price, product.Currency)
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        _statusMessage = "Oferta lista para compra.";
+        _ctaSubtitle = "Continúa al checkout o revisa el negocio que publica este producto.";
+        _primaryCtaLabel = "Comprar ahora";
+        _primaryCtaHref = $"/buyer/checkout?productId={id}";
+        _secondaryCtaLabel = product.PartnerId != Guid.Empty ? "Ver negocio" : null;
+        _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : null;
+        AddBadge(product.Category);
+        AddBadge(FormatMoney(product.Price, product.Currency));
+    }
+
+    private async Task LoadServiceAsync(Guid id)
+    {
+        var service = await BuyerApi.GetServiceAsync(id);
+        if (service is null)
+        {
+            _errorMessage = "Servicio no encontrado.";
+            return;
+        }
+
+        _eyebrow = "Servicio";
+        _title = service.Name ?? _title;
+        _subtitle = "Servicio disponible para reservar directamente en el portal.";
+        _detailLine1 = service.Description ?? "Sin descripción disponible.";
+        _detailLine2 = string.Join(" · ", new[]
+        {
+            service.Category,
+            $"{service.DurationMinutes} min",
+            FormatMoney(service.Price, service.Currency)
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        _statusMessage = "Servicio listo para reserva.";
+        _ctaSubtitle = "Reserva este servicio o revisa el negocio que publica la agenda.";
+        _primaryCtaLabel = "Reservar";
+        _primaryCtaHref = $"/buyer/booking?serviceId={id}";
+        _secondaryCtaLabel = service.PartnerId != Guid.Empty ? "Ver negocio" : null;
+        _secondaryCtaHref = service.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{service.PartnerId}" : null;
+        AddBadge(service.Category);
+        AddBadge($"{service.DurationMinutes} min");
+    }
+
+    private async Task LoadPartnerAsync(Guid id)
+    {
+        _partnerProfile = await BuyerApi.GetPartnerProfileAsync(id);
+        if (_partnerProfile is null)
+        {
+            _errorMessage = "Negocio no encontrado o no disponible públicamente.";
+            return;
+        }
+
+        var partner = _partnerProfile.Partner;
+        var featuredService = _partnerProfile.Services?.FirstOrDefault();
+        var featuredProfessional = _partnerProfile.Professionals?.FirstOrDefault();
+        var featuredProduct = _partnerProfile.Products?.FirstOrDefault();
+        _eyebrow = "Negocio";
+        _title = partner.Name ?? _title;
+        _subtitle = "Perfil público del negocio con su información de contacto y oferta activa.";
+        _detailLine1 = string.IsNullOrWhiteSpace(partner.Address)
+            ? "Este negocio ya está activo en el portal y preparado para conversión."
+            : partner.Address!;
+        _detailLine2 = string.Join(" · ", new[]
+        {
+            partner.CategoryName,
+            partner.SubcategoryName,
+            partner.OfferLabel
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        _statusMessage = "Perfil público disponible para consulta y conversión.";
+        _ctaSubtitle = partner.Type switch
+        {
+            "B" => "Explora los servicios activos y reserva la mejor alternativa.",
+            "C" => "Revisa el perfil profesional y toma contacto desde el portal.",
+            _ => "Explora los productos activos y continúa la compra."
+        };
+        _primaryCtaLabel = partner.Type switch
+        {
+            "B" => "Ver servicios",
+            "C" => "Ver profesionales",
+            _ => "Ver productos"
+        };
+        _primaryCtaHref = partner.Type switch
+        {
+            "B" when featuredService is not null => $"/buyer/detail/service/{featuredService.Id}",
+            "C" when featuredProfessional is not null => $"/buyer/detail/professional/{featuredProfessional.Id}",
+            _ when featuredProduct is not null => $"/buyer/detail/product/{featuredProduct.Id}",
+            "B" => "/services",
+            "C" => "/professionals",
+            _ => "/products"
+        };
+        _secondaryCtaLabel = "Volver al portal";
+        _secondaryCtaHref = "/buyer";
+        AddBadge(partner.CategoryName);
+        AddBadge(partner.SubcategoryName);
+        AddBadge(partner.OfferLabel);
+    }
+
+    private async Task LoadProfessionalAsync(Guid id)
+    {
+        var professional = await BuyerApi.GetProfessionalAsync(id);
+        if (professional is null)
+        {
+            _errorMessage = "Profesional no encontrado.";
+            return;
+        }
+
+        _eyebrow = "Profesional";
+        _title = professional.Name ?? _title;
+        _subtitle = "Perfil profesional visible para contacto y generación de leads.";
+        _detailLine1 = professional.Specialty ?? "Sin especialidad informada.";
+        _detailLine2 = professional.Bio ?? "Sin biografía disponible.";
+        _statusMessage = "Profesional listo para contacto.";
+        _ctaSubtitle = "Genera un lead o revisa más profesionales similares.";
+        _primaryCtaLabel = "Contactar";
+        _primaryCtaHref = $"/buyer/contact?professionalId={id}";
+        _secondaryCtaLabel = "Ver más profesionales";
+        _secondaryCtaHref = "/professionals";
+        AddBadge(professional.Specialty);
+        AddBadge(professional.IsVerified ? "Verificado" : null);
+    }
+
+    private void AddBadge(string? badge)
+    {
+        if (!string.IsNullOrWhiteSpace(badge))
+        {
+            _badges.Add(badge);
+        }
+    }
+
+    private static string FormatMoney(double amount, string? currency)
+        => string.IsNullOrWhiteSpace(currency) ? $"${amount:N0}" : $"{currency} {amount:N0}";
 
     private void HandleChange()
     {

@@ -62,6 +62,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<Partner?> GetPartnerAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Partner>($"/v1/partners/{id}", cancellationToken);
 
+    public Task<PartnerProfileResponse?> GetPartnerProfileAsync(Guid id, CancellationToken cancellationToken = default)
+        => GetAsync<PartnerProfileResponse>($"/v1/public/partners/{id}/profile", cancellationToken);
+
     public Task<IReadOnlyList<PublicCountryItem>?> GetCountriesAsync(CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<PublicCountryItem>>("/v1/public/geo/countries", cancellationToken);
 
@@ -380,6 +383,53 @@ public sealed record CategoryServiceItem(
 );
 
 public sealed record CategoryProfessionalItem(
+    Guid Id,
+    string? Name,
+    string? Specialty,
+    string? Bio,
+    string? Email,
+    string? Phone
+);
+
+public sealed record PartnerProfileResponse(
+    PartnerProfileSummary Partner,
+    IReadOnlyList<PartnerProfileProduct>? Products,
+    IReadOnlyList<PartnerProfileService>? Services,
+    IReadOnlyList<PartnerProfileProfessional>? Professionals
+);
+
+public sealed record PartnerProfileSummary(
+    Guid Id,
+    string? Type,
+    string? Name,
+    string? Address,
+    string? Phone,
+    string? Email,
+    string? CategoryName,
+    string? SubcategoryName,
+    string? OfferLabel
+);
+
+public sealed record PartnerProfileProduct(
+    Guid Id,
+    string? Name,
+    string? Description,
+    string? Category,
+    double Price,
+    string? Currency
+);
+
+public sealed record PartnerProfileService(
+    Guid Id,
+    string? Name,
+    string? Description,
+    string? Category,
+    double Price,
+    string? Currency,
+    int DurationMinutes
+);
+
+public sealed record PartnerProfileProfessional(
     Guid Id,
     string? Name,
     string? Specialty,
