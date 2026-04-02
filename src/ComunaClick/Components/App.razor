@@ -1,4 +1,6 @@
-﻿<!DOCTYPE html>
+﻿@inject IConfiguration Configuration
+
+<!DOCTYPE html>
 <html class="light" lang="es">
 
 <head>
@@ -108,6 +110,14 @@
             box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04);
         }
     </style>
+    <script>
+        window.comunaclicRecaptchaEnabled = @RecaptchaEnabled.ToString().ToLowerInvariant();
+        window.comunaclicRecaptchaSiteKey = "@RecaptchaSiteKey";
+    </script>
+    @if (RecaptchaEnabled && !string.IsNullOrWhiteSpace(RecaptchaSiteKey))
+    {
+        <script src="@($"https://www.google.com/recaptcha/api.js?render={Uri.EscapeDataString(RecaptchaSiteKey)}")"></script>
+    }
     <script src="_content/ComunaClick.SharedUI/app.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <link rel="stylesheet" href="app.css" />
@@ -124,3 +134,8 @@
 </body>
 
 </html>
+
+@code {
+    private bool RecaptchaEnabled => Configuration.GetValue("Recaptcha:Enabled", false);
+    private string RecaptchaSiteKey => Configuration["Recaptcha:SiteKey"] ?? string.Empty;
+}

@@ -68,6 +68,26 @@ window.comunaclic.getDeviceType = function () {
   }
 };
 
+window.comunaclic.executeRecaptcha = function (action) {
+  if (!window.comunaclicRecaptchaEnabled || !window.comunaclicRecaptchaSiteKey) {
+    return Promise.resolve("");
+  }
+
+  return new Promise((resolve, reject) => {
+    if (!window.grecaptcha || typeof window.grecaptcha.ready !== "function") {
+      reject(new Error("reCAPTCHA is not available."));
+      return;
+    }
+
+    window.grecaptcha.ready(() => {
+      window.grecaptcha
+        .execute(window.comunaclicRecaptchaSiteKey, { action: action || "submit" })
+        .then(resolve)
+        .catch(reject);
+    });
+  });
+};
+
 window.comunaclic.getCurrentPosition = function () {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {

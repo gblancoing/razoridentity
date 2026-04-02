@@ -4,4 +4,5 @@ public sealed record LoginRequest(
     string Email,
     string Password,
     Guid? TenantId,
-    Guid? PartnerId);
+    Guid? PartnerId,
+    string? RecaptchaToken);

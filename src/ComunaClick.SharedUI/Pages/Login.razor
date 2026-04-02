@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject ILogger<Login> Logger
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>@L.T("login.title")</PageTitle>
@@ -211,12 +212,14 @@
         try
         {
             Logger.LogInformation("Login submit started for {Email}", Email);
+            var recaptchaToken = await ExecuteRecaptchaAsync();
             var options = ApiOptions.Value;
             var tokens = await AuthClient.LoginAsync(new ComunaClick.Shared.Auth.LoginRequest(
                 Email,
                 Password,
                 options.DefaultTenantId,
-                null));
+                null,
+                recaptchaToken));
             await AuthState.SetTokensAsync(tokens);
             var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
             var destination = ResolvePostLoginTarget(isPersonalAccount, _returnUrl);
@@ -232,6 +235,18 @@
         {
             Logger.LogInformation("Login submit finished for {Email}", Email);
             _isSubmitting = false;
+        }
+    }
+
+    private async Task<string?> ExecuteRecaptchaAsync()
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<string>("comunaclic.executeRecaptcha", "login");
+        }
+        catch
+        {
+            return null;
         }
     }
 }

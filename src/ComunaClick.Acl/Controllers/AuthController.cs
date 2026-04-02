@@ -17,19 +17,31 @@ public sealed class AuthController : ControllerBase
     private readonly AclDbContext _db;
     private readonly JwtTokenService _tokenService;
     private readonly IConfiguration _configuration;
+    private readonly RecaptchaV3Verifier _recaptchaVerifier;
     private readonly IReadOnlyDictionary<string, IExternalTokenValidator> _externalValidators;
 
-    public AuthController(AclDbContext db, JwtTokenService tokenService, IConfiguration configuration, IEnumerable<IExternalTokenValidator> validators)
+    public AuthController(
+        AclDbContext db,
+        JwtTokenService tokenService,
+        IConfiguration configuration,
+        RecaptchaV3Verifier recaptchaVerifier,
+        IEnumerable<IExternalTokenValidator> validators)
     {
         _db = db;
         _tokenService = tokenService;
         _configuration = configuration;
+        _recaptchaVerifier = recaptchaVerifier;
         _externalValidators = validators.ToDictionary(v => v.Provider, StringComparer.OrdinalIgnoreCase);
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
+        if (!await _recaptchaVerifier.VerifyAsync(request.RecaptchaToken, "login", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.RequestAborted))
+        {
+            return BadRequest(new { message = "No se pudo validar reCAPTCHA." });
+        }
+
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
             return BadRequest(new { message = "Email and password are required." });
@@ -76,6 +88,11 @@ public sealed class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
+        if (!await _recaptchaVerifier.VerifyAsync(request.RecaptchaToken, "register", HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.RequestAborted))
+        {
+            return BadRequest(new { message = "No se pudo validar reCAPTCHA." });
+        }
+
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             return BadRequest(new { message = "Name is required." });

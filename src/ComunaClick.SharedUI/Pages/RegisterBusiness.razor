@@ -5,6 +5,7 @@
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>Crear cuenta - ComunaClic</PageTitle>
@@ -274,10 +275,12 @@
 
         try
         {
+            var recaptchaToken = await ExecuteRecaptchaAsync();
             var tokens = await AuthClient.RegisterAsync(new ComunaClick.Shared.Auth.RegisterRequest(
                 _model.Name.Trim(),
                 _model.Email.Trim(),
-                _model.Password));
+                _model.Password,
+                recaptchaToken));
 
             await AuthState.SetTokensAsync(tokens);
             var destination = IsPartnerIntent
@@ -368,6 +371,18 @@
         return isActive
             ? "flex items-start gap-3 rounded-xl border border-primary bg-primary/5 p-4"
             : "flex items-start gap-3 rounded-xl border border-[#dbe6e2] dark:border-white/10 p-4 hover:border-primary/40 transition-colors";
+    }
+
+    private async Task<string?> ExecuteRecaptchaAsync()
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<string>("comunaclic.executeRecaptcha", "register");
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private sealed class RegisterAccountModel

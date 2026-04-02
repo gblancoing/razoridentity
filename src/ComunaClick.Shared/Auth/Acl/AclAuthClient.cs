@@ -14,7 +14,7 @@ public sealed class AclAuthClient : IAuthClient
 
     public async Task<AuthTokens> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var dto = new LoginRequestDto(request.Email, request.Password, request.TenantId, request.PartnerId);
+        var dto = new LoginRequestDto(request.Email, request.Password, request.TenantId, request.PartnerId, request.RecaptchaToken);
         var response = await _httpClient.PostAsJsonAsync("/v1/auth/login", dto, cancellationToken);
         response.EnsureSuccessStatusCode();
         var auth = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken: cancellationToken);
