@@ -35,7 +35,7 @@ public sealed class ProductsController : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting("public-read")]
     [HttpGet("/v1/public/products/{id:guid}")]
-    public async Task<ActionResult<Product>> GetPublic(Guid id)
+    public async Task<ActionResult<object>> GetPublic(Guid id)
     {
         var product = await _db.Products.AsNoTracking()
             .Include(x => x.Inventory)
@@ -49,7 +49,31 @@ public sealed class ProductsController : ControllerBase
         var hasVisiblePartner = await _db.Partners.AsNoTracking()
             .AnyAsync(x => x.Id == product.PartnerId && x.IsVisible);
 
-        return hasVisiblePartner ? Ok(product) : NotFound();
+        if (!hasVisiblePartner)
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            product.Id,
+            product.TenantId,
+            product.PartnerId,
+            product.Name,
+            product.Description,
+            product.Category,
+            product.Price,
+            product.Currency,
+            product.IsActive,
+            product.CreatedAt,
+            product.UpdatedAt,
+            Inventory = product.Inventory is null ? null : new
+            {
+                product.Inventory.ProductId,
+                product.Inventory.Quantity,
+                product.Inventory.UpdatedAt
+            }
+        });
     }
 
     [HttpGet("/v1/partners/{partnerId:guid}/products")]
