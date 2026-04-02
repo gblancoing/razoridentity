@@ -1,0 +1,188 @@
+@inject BuyerApiClient BuyerApi
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+@if (_isLoading)
+{
+    <section class="bg-white rounded-[2rem] p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+        <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-[#a7f255]/20 text-[#3b6700] flex items-center justify-center">
+                <span class="material-symbols-outlined">near_me</span>
+            </div>
+            <div>
+                <p class="text-[11px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Cerca de ti</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mt-2">Buscando negocios alrededor de tu ubicación</h2>
+                <p class="text-sm text-[#595c5d] mt-3">Pedimos tu ubicación solo para ordenar el mapa y acercarte resultados útiles en esta categoría.</p>
+            </div>
+        </div>
+    </section>
+}
+else if (!string.IsNullOrWhiteSpace(_statusMessage))
+{
+    <section class="bg-white rounded-[2rem] p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-5">
+        <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-[#eff1f2] text-[#3b6700] flex items-center justify-center">
+                <span class="material-symbols-outlined">map</span>
+            </div>
+            <div>
+                <p class="text-[11px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Mapa cercano</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mt-2">Activa tu ubicación para ver negocios alrededor</h2>
+                <p class="text-sm text-[#595c5d] mt-3">@_statusMessage</p>
+            </div>
+        </div>
+        <p class="text-xs text-[#7b8081]">Si prefieres no compartir tu ubicación, puedes seguir usando la lista completa que aparece más abajo.</p>
+    </section>
+}
+else if (_nearby is not null)
+{
+    <section class="bg-white rounded-[2rem] p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div>
+                <p class="text-[11px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Mapa cercano</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mt-2">Partners alrededor de tu ubicación</h2>
+                <p class="text-sm text-[#595c5d] mt-3">Los puntos usan la comuna del negocio como referencia para darte una vista rápida sin cambiar el flujo actual.</p>
+            </div>
+            <div class="bg-[#eff1f2] rounded-2xl px-4 py-3">
+                <p class="text-[11px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Encontrados</p>
+                <p class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@(_nearby.Businesses?.Count ?? 0)</p>
+            </div>
+        </div>
+
+        <div id="@_mapId" class="h-[24rem] rounded-[1.5rem] overflow-hidden border border-[#dadddf]"></div>
+
+        @if (_nearby.Businesses?.Count > 0)
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                @foreach (var business in _nearby.Businesses.Take(6))
+                {
+                    <a href="/buyer/detail/partner/@business.Id"
+                       class="block rounded-3xl border border-[#eff1f2] p-5 transition-all hover:border-[#a7f255] hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                        <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
+                        <p class="text-sm text-[#595c5d] mt-2">@(business.ComunaName ?? business.Address ?? "Ubicación aproximada disponible")</p>
+                        <p class="text-sm font-bold text-[#3b6700] mt-3">@($"{business.DistanceKm:N1} km aprox.")</p>
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <StatusBanner Message="No encontramos partners cercanos para esta categoría con la referencia territorial disponible." Level="warning" />
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public string CategoryCode { get; set; } = string.Empty;
+
+    private readonly string _mapId = $"category-nearby-map-{Guid.NewGuid():N}";
+    private CategoryNearbyResponse? _nearby;
+    private string? _statusMessage;
+    private string? _loadedCategoryCode;
+    private bool _isLoading = true;
+    private bool _mapRendered;
+    private bool _loadAttempted;
+
+    protected override Task OnParametersSetAsync()
+    {
+        if (string.Equals(_loadedCategoryCode, CategoryCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        _loadedCategoryCode = CategoryCode;
+        _nearby = null;
+        _statusMessage = null;
+        _isLoading = true;
+        _mapRendered = false;
+        _loadAttempted = false;
+
+        if (string.IsNullOrWhiteSpace(CategoryCode))
+        {
+            _isLoading = false;
+            _statusMessage = "La categoría no tiene un código válido para ubicar negocios cercanos.";
+        }
+
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_loadAttempted && _isLoading && !string.IsNullOrWhiteSpace(CategoryCode))
+        {
+            _loadAttempted = true;
+            await LoadNearbyAsync();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (_mapRendered || _nearby?.Businesses is null || _nearby.Businesses.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, _nearby.Businesses);
+            _mapRendered = true;
+        }
+        catch (InvalidOperationException)
+        {
+            // Ignore prerender interop failures.
+        }
+    }
+
+    private async Task LoadNearbyAsync()
+    {
+        var completed = false;
+
+        try
+        {
+            var position = await JSRuntime.InvokeAsync<BrowserLocation>("comunaclic.getCurrentPosition");
+            _nearby = await BuyerApi.GetCategoryNearbyAsync(CategoryCode, position.Latitude, position.Longitude);
+            completed = true;
+
+            if (_nearby?.Businesses is null || _nearby.Businesses.Count == 0)
+            {
+                _statusMessage = "Todavía no encontramos partners cercanos en esta categoría desde tu zona actual.";
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            _loadAttempted = false;
+            return;
+        }
+        catch (JSException)
+        {
+            _statusMessage = "No pudimos acceder a tu ubicación. Puedes permitirla y recargar para ver el mapa cercano.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo cargar el mapa cercano ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            if (completed || !string.IsNullOrWhiteSpace(_statusMessage))
+            {
+                _isLoading = false;
+            }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.destroyCategoryNearbyMap", _mapId);
+        }
+        catch
+        {
+            // Ignore cleanup issues during teardown.
+        }
+    }
+
+    private sealed record BrowserLocation(
+        double Latitude,
+        double Longitude,
+        double Accuracy
+    );
+}

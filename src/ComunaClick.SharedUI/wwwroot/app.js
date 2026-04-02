@@ -1,4 +1,5 @@
 window.comunaclic = window.comunaclic || {};
+window.comunaclic._leafletMaps = window.comunaclic._leafletMaps || {};
 
 window.comunaclic.getLang = function () {
   try {
@@ -64,5 +65,113 @@ window.comunaclic.getDeviceType = function () {
     return "desktop";
   } catch {
     return "unknown";
+  }
+};
+
+window.comunaclic.getCurrentPosition = function () {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy || 0
+        });
+      },
+      (error) => {
+        reject(new Error(error && error.message ? error.message : "Location permission was denied."));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      }
+    );
+  });
+};
+
+window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, businesses) {
+  if (!window.L) {
+    throw new Error("Leaflet is not available.");
+  }
+
+  const element = document.getElementById(elementId);
+  if (!element) {
+    return;
+  }
+
+  const existingMap = window.comunaclic._leafletMaps[elementId];
+  if (existingMap) {
+    existingMap.remove();
+    delete window.comunaclic._leafletMaps[elementId];
+  }
+
+  const map = window.L.map(elementId, {
+    zoomControl: true,
+    scrollWheelZoom: false
+  });
+
+  window.comunaclic._leafletMaps[elementId] = map;
+
+  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  const markers = [];
+  const userLat = userLocation.latitude ?? userLocation.Latitude;
+  const userLng = userLocation.longitude ?? userLocation.Longitude;
+  const userMarker = window.L.circleMarker([userLat, userLng], {
+    radius: 10,
+    color: "#ffffff",
+    weight: 3,
+    fillColor: "#3b6700",
+    fillOpacity: 1
+  }).addTo(map);
+
+  userMarker.bindPopup("<strong>Tu ubicación aproximada</strong>");
+  markers.push(userMarker);
+
+  (businesses || []).forEach((business) => {
+    const latitude = business.latitude ?? business.Latitude;
+    const longitude = business.longitude ?? business.Longitude;
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      return;
+    }
+
+    const name = business.name ?? business.Name ?? "Negocio";
+    const comunaName = business.comunaName ?? business.ComunaName ?? "";
+    const address = business.address ?? business.Address ?? "";
+    const distanceKm = business.distanceKm ?? business.DistanceKm;
+    const href = `/buyer/detail/partner/${business.id ?? business.Id}`;
+    const popup = [
+      `<div style="min-width:200px">`,
+      `<strong>${name}</strong>`,
+      comunaName ? `<div style="margin-top:4px;color:#595c5d">${comunaName}</div>` : "",
+      address ? `<div style="margin-top:4px;color:#595c5d">${address}</div>` : "",
+      typeof distanceKm === "number" ? `<div style="margin-top:6px;color:#3b6700;font-weight:700">${distanceKm.toFixed(1)} km aprox.</div>` : "",
+      `<a href="${href}" style="display:inline-block;margin-top:8px;color:#3b6700;font-weight:700;text-decoration:none">Ver negocio</a>`,
+      `</div>`
+    ].join("");
+
+    const marker = window.L.marker([latitude, longitude]).addTo(map);
+    marker.bindPopup(popup);
+    markers.push(marker);
+  });
+
+  const group = window.L.featureGroup(markers);
+  map.fitBounds(group.getBounds().pad(0.18));
+};
+
+window.comunaclic.destroyCategoryNearbyMap = function (elementId) {
+  const existingMap = window.comunaclic._leafletMaps[elementId];
+  if (existingMap) {
+    existingMap.remove();
+    delete window.comunaclic._leafletMaps[elementId];
   }
 };

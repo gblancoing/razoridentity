@@ -86,6 +86,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<CategoryDiscoveryResponse?> GetCategoryDiscoveryAsync(string categoryCode, CancellationToken cancellationToken = default)
         => GetAsync<CategoryDiscoveryResponse>($"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}", cancellationToken);
 
+    public Task<CategoryNearbyResponse?> GetCategoryNearbyAsync(string categoryCode, double latitude, double longitude, int? limit = null, CancellationToken cancellationToken = default)
+        => GetAsync<CategoryNearbyResponse>($"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}/nearby?latitude={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&longitude={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&limit={(limit ?? 24)}", cancellationToken);
+
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Professional>($"/v1/public/professionals/{id}", cancellationToken);
 
@@ -458,6 +461,33 @@ public sealed record CategoryProfessionalItem(
     string? Bio,
     string? Email,
     string? Phone
+);
+
+public sealed record CategoryNearbyResponse(
+    PublicCategoryItem Category,
+    NearbyPoint UserLocation,
+    IReadOnlyList<CategoryNearbyBusinessItem>? Businesses
+);
+
+public sealed record NearbyPoint(
+    double Latitude,
+    double Longitude
+);
+
+public sealed record CategoryNearbyBusinessItem(
+    Guid Id,
+    string? Type,
+    string? Name,
+    string? Address,
+    string? Phone,
+    string? Email,
+    string? CategoryName,
+    string? SubcategoryName,
+    Guid? ComunaId,
+    string? ComunaName,
+    double Latitude,
+    double Longitude,
+    double DistanceKm
 );
 
 public sealed record PartnerProfileResponse(
