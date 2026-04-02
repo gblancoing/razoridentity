@@ -4,6 +4,7 @@ using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Catalog;
@@ -29,6 +30,26 @@ public sealed class ProductsController : ControllerBase
             .Include(x => x.Inventory)
             .FirstOrDefaultAsync(x => x.Id == id);
         return product is null ? NotFound() : Ok(product);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
+    [HttpGet("/v1/public/products/{id:guid}")]
+    public async Task<ActionResult<Product>> GetPublic(Guid id)
+    {
+        var product = await _db.Products.AsNoTracking()
+            .Include(x => x.Inventory)
+            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        var hasVisiblePartner = await _db.Partners.AsNoTracking()
+            .AnyAsync(x => x.Id == product.PartnerId && x.IsVisible);
+
+        return hasVisiblePartner ? Ok(product) : NotFound();
     }
 
     [HttpGet("/v1/partners/{partnerId:guid}/products")]

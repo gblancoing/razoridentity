@@ -160,6 +160,14 @@
                         </div>
                         <div class="mt-4 grid grid-cols-1 gap-3 text-sm text-[#595c5d]">
                             <p><span class="font-bold text-[#2c2f30]">Negocio:</span> @(_booking.Partner?.Name ?? "Sin negocio")</p>
+                            @if (!string.IsNullOrWhiteSpace(_booking.Professional?.Name))
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Profesional:</span> @_booking.Professional.Name</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_booking.Professional?.Specialty))
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Especialidad:</span> @_booking.Professional.Specialty</p>
+                            }
                             <p><span class="font-bold text-[#2c2f30]">Inicio:</span> @_booking.StartAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
                             <p><span class="font-bold text-[#2c2f30]">Fin:</span> @_booking.EndAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
                             @if (!string.IsNullOrWhiteSpace(_booking.Service?.Category))
@@ -173,6 +181,10 @@
                             @if (!string.IsNullOrWhiteSpace(_booking.CancellationPolicy))
                             {
                                 <p><span class="font-bold text-[#2c2f30]">Política:</span> @FormatCancellationPolicy(_booking.CancellationPolicy)</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_booking.Professional?.Phone))
+                            {
+                                <p><span class="font-bold text-[#2c2f30]">Teléfono profesional:</span> @_booking.Professional.Phone</p>
                             }
                         </div>
                     </article>

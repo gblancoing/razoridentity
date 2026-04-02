@@ -4,6 +4,7 @@ using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Catalog;
@@ -27,6 +28,25 @@ public sealed class ServicesController : ControllerBase
     {
         var service = await _db.Services.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         return service is null ? NotFound() : Ok(service);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
+    [HttpGet("/v1/public/services/{id:guid}")]
+    public async Task<ActionResult<Service>> GetPublic(Guid id)
+    {
+        var service = await _db.Services.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+
+        if (service is null)
+        {
+            return NotFound();
+        }
+
+        var hasVisiblePartner = await _db.Partners.AsNoTracking()
+            .AnyAsync(x => x.Id == service.PartnerId && x.IsVisible);
+
+        return hasVisiblePartner ? Ok(service) : NotFound();
     }
 
     [HttpGet("/v1/partners/{partnerId:guid}/services")]

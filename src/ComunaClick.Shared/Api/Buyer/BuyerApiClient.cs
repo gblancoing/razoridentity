@@ -54,10 +54,10 @@ public sealed class BuyerApiClient : ApiClientBase
         => PatchAsync<Customer>($"/v1/customers/{id}", request, cancellationToken);
 
     public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default)
-        => GetAsync<Product>($"/v1/products/{id}", cancellationToken);
+        => GetAsync<Product>($"/v1/public/products/{id}", cancellationToken);
 
     public Task<Service?> GetServiceAsync(Guid id, CancellationToken cancellationToken = default)
-        => GetAsync<Service>($"/v1/services/{id}", cancellationToken);
+        => GetAsync<Service>($"/v1/public/services/{id}", cancellationToken);
 
     public Task<Partner?> GetPartnerAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Partner>($"/v1/partners/{id}", cancellationToken);
@@ -250,7 +250,8 @@ public sealed record BookingTracking(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     BookingTrackingPartner? Partner,
-    BookingTrackingService? Service
+    BookingTrackingService? Service,
+    BookingTrackingProfessional? Professional
 );
 
 public sealed record BookingTrackingPartner(
@@ -267,6 +268,14 @@ public sealed record BookingTrackingService(
     string? Description,
     string? Category,
     int DurationMinutes
+);
+
+public sealed record BookingTrackingProfessional(
+    Guid Id,
+    string? Name,
+    string? Specialty,
+    string? Email,
+    string? Phone
 );
 
 public sealed record BookingCreateRequest(

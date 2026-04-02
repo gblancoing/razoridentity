@@ -48,6 +48,29 @@ public sealed class BookingsController : ControllerBase
         var service = await _db.Services.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == booking.ServiceId);
 
+        object? professional = null;
+
+        if (partner is not null && string.Equals(partner.Type, "C", StringComparison.OrdinalIgnoreCase))
+        {
+            var matchedProfessional = await _db.Professionals.AsNoTracking()
+                .Where(x => x.IsActive && x.IsVerified && x.TenantId == partner.TenantId)
+                .Where(x => x.ComunaId == partner.ComunaId || (x.ComunaId == null && partner.ComunaId == null))
+                .OrderBy(x => x.Name)
+                .FirstOrDefaultAsync();
+
+            if (matchedProfessional is not null)
+            {
+                professional = new
+                {
+                    matchedProfessional.Id,
+                    matchedProfessional.Name,
+                    matchedProfessional.Specialty,
+                    matchedProfessional.Email,
+                    matchedProfessional.Phone
+                };
+            }
+        }
+
         return Ok(new
         {
             booking.Id,
@@ -74,7 +97,8 @@ public sealed class BookingsController : ControllerBase
                 service.Description,
                 service.Category,
                 service.DurationMinutes
-            }
+            },
+            Professional = professional
         });
     }
 
