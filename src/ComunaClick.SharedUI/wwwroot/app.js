@@ -148,12 +148,14 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
     const comunaName = business.comunaName ?? business.ComunaName ?? "";
     const address = business.address ?? business.Address ?? "";
     const distanceKm = business.distanceKm ?? business.DistanceKm;
+    const usesExactLocation = business.usesExactLocation ?? business.UsesExactLocation;
     const href = `/buyer/detail/partner/${business.id ?? business.Id}`;
     const popup = [
       `<div style="min-width:200px">`,
       `<strong>${name}</strong>`,
       comunaName ? `<div style="margin-top:4px;color:#595c5d">${comunaName}</div>` : "",
       address ? `<div style="margin-top:4px;color:#595c5d">${address}</div>` : "",
+      `<div style="margin-top:4px;color:#595c5d">${usesExactLocation ? "Ubicación del negocio" : "Referencia por comuna"}</div>`,
       typeof distanceKm === "number" ? `<div style="margin-top:6px;color:#3b6700;font-weight:700">${distanceKm.toFixed(1)} km aprox.</div>` : "",
       `<a href="${href}" style="display:inline-block;margin-top:8px;color:#3b6700;font-weight:700;text-decoration:none">Ver negocio</a>`,
       `</div>`

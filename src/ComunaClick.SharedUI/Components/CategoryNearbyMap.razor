@@ -40,7 +40,7 @@ else if (_nearby is not null)
             <div>
                 <p class="text-[11px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Mapa cercano</p>
                 <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mt-2">Partners alrededor de tu ubicación</h2>
-                <p class="text-sm text-[#595c5d] mt-3">Los puntos usan la comuna del negocio como referencia para darte una vista rápida sin cambiar el flujo actual.</p>
+                <p class="text-sm text-[#595c5d] mt-3">Usamos la ubicación real del negocio cuando existe; si no, mostramos una referencia aproximada por comuna para mantener cobertura completa.</p>
             </div>
             <div class="bg-[#eff1f2] rounded-2xl px-4 py-3">
                 <p class="text-[11px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Encontrados</p>
@@ -58,7 +58,8 @@ else if (_nearby is not null)
                     <a href="/buyer/detail/partner/@business.Id"
                        class="block rounded-3xl border border-[#eff1f2] p-5 transition-all hover:border-[#a7f255] hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
                         <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
-                        <p class="text-sm text-[#595c5d] mt-2">@(business.ComunaName ?? business.Address ?? "Ubicación aproximada disponible")</p>
+                        <p class="text-sm text-[#595c5d] mt-2">@(business.UsesExactLocation ? (business.Address ?? business.ComunaName ?? "Ubicación del negocio disponible") : (business.ComunaName ?? business.Address ?? "Ubicación aproximada disponible"))</p>
+                        <p class="text-xs text-[#7b8081] mt-2">@(business.UsesExactLocation ? "Ubicación del negocio" : "Referencia por comuna")</p>
                         <p class="text-sm font-bold text-[#3b6700] mt-3">@($"{business.DistanceKm:N1} km aprox.")</p>
                     </a>
                 }

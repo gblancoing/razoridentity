@@ -9,6 +9,7 @@
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>Registro de Negocio - ComunaClic</PageTitle>
@@ -123,6 +124,37 @@
                                 <label class="text-sm font-semibold text-[#111816] dark:text-white">Dirección</label>
                                 <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Address" />
                             </div>
+                            <div class="md:col-span-2 rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-[#f7fbf9] dark:bg-[#10221c] p-4 space-y-3">
+                                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#111816] dark:text-white">Ubicación exacta del negocio</label>
+                                        <p class="text-xs text-[#61897c] mt-1">Opcional por ahora. Si la guardas, el mapa público podrá ubicar tu negocio con mayor precisión.</p>
+                                    </div>
+                                    <button type="button"
+                                            class="rounded-lg border border-primary/30 text-primary px-4 h-10 font-semibold text-sm disabled:opacity-60"
+                                            @onclick="CaptureLocationAsync"
+                                            disabled="@_capturingLocation">
+                                        @(_capturingLocation ? "Obteniendo ubicacion..." : "Usar mi ubicacion actual")
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(_locationMessage))
+                                {
+                                    <p class="text-xs @( _locationStatus == "error" ? "text-red-500" : "text-[#61897c]")">@_locationMessage</p>
+                                }
+                                @if (_model.Latitude.HasValue && _model.Longitude.HasValue)
+                                {
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                        <div class="rounded-xl bg-white dark:bg-[#163029] border border-[#dbe6e2] dark:border-white/10 px-4 py-3">
+                                            <p class="text-[10px] uppercase tracking-[0.15em] text-[#7b8081] font-bold">Latitud</p>
+                                            <p class="font-semibold text-[#111816] dark:text-white">@_model.Latitude.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)</p>
+                                        </div>
+                                        <div class="rounded-xl bg-white dark:bg-[#163029] border border-[#dbe6e2] dark:border-white/10 px-4 py-3">
+                                            <p class="text-[10px] uppercase tracking-[0.15em] text-[#7b8081] font-bold">Longitud</p>
+                                            <p class="font-semibold text-[#111816] dark:text-white">@_model.Longitude.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)</p>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                             <div>
                                 <label class="text-sm font-semibold text-[#111816] dark:text-white">Teléfono</label>
                                 <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Phone" />
@@ -155,8 +187,11 @@
     private bool _ready;
     private bool _isSubmitting;
     private bool _checkedAuth;
+    private bool _capturingLocation;
     private string? _statusMessage;
     private string _statusLevel = "info";
+    private string? _locationMessage;
+    private string _locationStatus = "info";
 
     protected override void OnInitialized()
     {
@@ -215,7 +250,9 @@
                 NullIfWhiteSpace(_model.Address),
                 NullIfWhiteSpace(_model.Phone),
                 NullIfWhiteSpace(_model.Email),
-                _model.Type == "A" ? _model.SubcategoryId : null));
+                _model.Type == "A" ? _model.SubcategoryId : null,
+                _model.Latitude,
+                _model.Longitude));
 
             if (partner is not null)
             {
@@ -338,6 +375,35 @@
         _model.SubcategoryId = Guid.TryParse(args.Value?.ToString(), out var subcategoryId) ? subcategoryId : null;
     }
 
+    private async Task CaptureLocationAsync()
+    {
+        _capturingLocation = true;
+        _locationMessage = null;
+        _locationStatus = "info";
+
+        try
+        {
+            var position = await JSRuntime.InvokeAsync<BrowserLocation>("comunaclic.getCurrentPosition");
+            _model.Latitude = Math.Round(position.Latitude, 6, MidpointRounding.AwayFromZero);
+            _model.Longitude = Math.Round(position.Longitude, 6, MidpointRounding.AwayFromZero);
+            _locationMessage = "Ubicación capturada. La usaremos como referencia exacta del negocio en el mapa público.";
+        }
+        catch (InvalidOperationException)
+        {
+            _locationStatus = "error";
+            _locationMessage = "La ubicación estará disponible cuando la página termine de cargarse por completo.";
+        }
+        catch (JSException)
+        {
+            _locationStatus = "error";
+            _locationMessage = "No pudimos acceder a tu ubicación. Revisa los permisos del navegador e inténtalo de nuevo.";
+        }
+        finally
+        {
+            _capturingLocation = false;
+        }
+    }
+
     private sealed class RegisterBusinessModel
     {
         [Required]
@@ -352,6 +418,8 @@
         public string? Address { get; set; }
         public string? Phone { get; set; }
         public string? Email { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
     }
 
     [AttributeUsage(AttributeTargets.Property)]
@@ -381,4 +449,10 @@
             return new ValidationResult("La subcategoría es obligatoria para partners tipo A.");
         }
     }
+
+    private sealed record BrowserLocation(
+        double Latitude,
+        double Longitude,
+        double Accuracy
+    );
 }

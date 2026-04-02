@@ -487,6 +487,7 @@ public sealed record CategoryNearbyBusinessItem(
     string? ComunaName,
     double Latitude,
     double Longitude,
+    bool UsesExactLocation,
     double DistanceKm
 );
 

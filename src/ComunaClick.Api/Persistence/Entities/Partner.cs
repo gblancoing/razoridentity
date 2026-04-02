@@ -14,6 +14,8 @@ public sealed class Partner
     public string? Address { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public bool IsVisible { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

@@ -7,4 +7,6 @@ public sealed record PartnerCreateRequest(
     string? Address,
     string? Phone,
     string? Email,
-    Guid? SubcategoryId);
+    Guid? SubcategoryId,
+    double? Latitude,
+    double? Longitude);

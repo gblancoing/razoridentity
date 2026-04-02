@@ -106,6 +106,8 @@ CREATE TABLE core.partners (
 	address text NULL,
 	phone text NULL,
 	email text NULL,
+	latitude double precision NULL,
+	longitude double precision NULL,
 	geo_point public.geography(point, 4326) NULL,
 	is_visible bool DEFAULT false NOT NULL,
 	created_at timestamptz DEFAULT now() NOT NULL,
@@ -116,6 +118,8 @@ CREATE TABLE core.partners (
 	CONSTRAINT partners_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES core.tenants(id) ON DELETE CASCADE
 );
 CREATE INDEX ix_core_partners_geo_gist ON core.partners USING gist (geo_point);
+CREATE INDEX ix_core_partners_latitude ON core.partners USING btree (latitude);
+CREATE INDEX ix_core_partners_longitude ON core.partners USING btree (longitude);
 CREATE INDEX ix_core_partners_tenant ON core.partners USING btree (tenant_id);
 CREATE INDEX ix_core_partners_type ON core.partners USING btree (type);
 CREATE INDEX ix_core_partners_visible ON core.partners USING btree (is_visible);

@@ -310,9 +310,14 @@ public sealed class PublicCatalogController : ControllerBase
                 SubcategoryName = x.Partner.Subcategory != null ? x.Partner.Subcategory.Name : null,
                 ComunaId = x.Comuna.Id,
                 ComunaName = x.Comuna.Name,
-                Latitude = x.Comuna.Latitude!.Value,
-                Longitude = x.Comuna.Longitude!.Value,
-                DistanceKm = CalculateDistanceKm(latitude, longitude, x.Comuna.Latitude.Value, x.Comuna.Longitude.Value)
+                Latitude = x.Partner.Latitude ?? x.Comuna.Latitude!.Value,
+                Longitude = x.Partner.Longitude ?? x.Comuna.Longitude!.Value,
+                UsesExactLocation = x.Partner.Latitude.HasValue && x.Partner.Longitude.HasValue,
+                DistanceKm = CalculateDistanceKm(
+                    latitude,
+                    longitude,
+                    x.Partner.Latitude ?? x.Comuna.Latitude.Value,
+                    x.Partner.Longitude ?? x.Comuna.Longitude.Value)
             })
             .OrderBy(x => x.DistanceKm)
             .ThenBy(x => x.Name)

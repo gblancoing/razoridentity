@@ -133,6 +133,11 @@ public sealed class PartnersController : ControllerBase
             return BadRequest(new { message = "Subcategory is required for partner type A." });
         }
 
+        if (!HasValidCoordinates(request.Latitude, request.Longitude))
+        {
+            return BadRequest(new { message = "Latitude/Longitude are not valid." });
+        }
+
         ProductSubcategory? subcategory = null;
         if (request.SubcategoryId.HasValue)
         {
@@ -169,6 +174,8 @@ public sealed class PartnersController : ControllerBase
             Address = request.Address,
             Phone = request.Phone,
             Email = request.Email,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
             IsVisible = false,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -253,6 +260,17 @@ public sealed class PartnersController : ControllerBase
         if (request.Email is not null)
         {
             partner.Email = request.Email;
+        }
+
+        if (request.Latitude.HasValue || request.Longitude.HasValue)
+        {
+            if (!HasValidCoordinates(request.Latitude, request.Longitude))
+            {
+                return BadRequest(new { message = "Latitude/Longitude are not valid." });
+            }
+
+            partner.Latitude = request.Latitude;
+            partner.Longitude = request.Longitude;
         }
 
         if (request.SubcategoryId.HasValue || (request.SubcategoryId is null && string.Equals(partner.Type, "A", StringComparison.OrdinalIgnoreCase)))
@@ -466,6 +484,8 @@ public sealed class PartnersController : ControllerBase
             partner.Address,
             partner.Phone,
             partner.Email,
+            partner.Latitude,
+            partner.Longitude,
             partner.IsVisible,
             partner.CreatedAt,
             partner.UpdatedAt,
@@ -481,6 +501,22 @@ public sealed class PartnersController : ControllerBase
 
     private static bool HasContactChannel(Partner partner)
         => !string.IsNullOrWhiteSpace(partner.Phone) || !string.IsNullOrWhiteSpace(partner.Email);
+
+    private static bool HasValidCoordinates(double? latitude, double? longitude)
+    {
+        if (!latitude.HasValue && !longitude.HasValue)
+        {
+            return true;
+        }
+
+        if (!latitude.HasValue || !longitude.HasValue)
+        {
+            return false;
+        }
+
+        return latitude.Value is >= -90 and <= 90
+            && longitude.Value is >= -180 and <= 180;
+    }
 
     private static string NormalizeType(string? type)
         => type?.Trim().ToUpperInvariant() switch

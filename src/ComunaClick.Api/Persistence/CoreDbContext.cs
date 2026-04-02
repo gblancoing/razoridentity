@@ -148,6 +148,8 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Address).HasColumnName("address");
             entity.Property(x => x.Phone).HasColumnName("phone");
             entity.Property(x => x.Email).HasColumnName("email");
+            entity.Property(x => x.Latitude).HasColumnName("latitude").HasColumnType("double precision");
+            entity.Property(x => x.Longitude).HasColumnName("longitude").HasColumnType("double precision");
             entity.Property(x => x.IsVisible).HasColumnName("is_visible").HasDefaultValue(false);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");

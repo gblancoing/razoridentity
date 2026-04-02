@@ -215,6 +215,8 @@ public sealed record PartnerDto(
     string? Address,
     string? Phone,
     string? Email,
+    double? Latitude,
+    double? Longitude,
     bool IsVisible,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
@@ -247,7 +249,9 @@ public sealed record PartnerCreateRequest(
     string? Address,
     string? Phone,
     string? Email,
-    Guid? SubcategoryId
+    Guid? SubcategoryId,
+    double? Latitude,
+    double? Longitude
 );
 
 public sealed record ProductCreateRequest(

@@ -8,4 +8,6 @@ public sealed record PartnerUpdateRequest(
     string? Phone,
     string? Email,
     Guid? SubcategoryId,
+    double? Latitude,
+    double? Longitude,
     bool? IsVisible);
