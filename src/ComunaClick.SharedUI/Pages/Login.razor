@@ -113,11 +113,13 @@
     private bool _isSubmitting;
     private string? _errorMessage;
     private bool _checkedAuth;
+    private string? _returnUrl;
     private string LoginHeroImageUrl { get; set; } = BuildLoginHeroImageUrl();
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        _returnUrl = ReadReturnUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -133,8 +135,9 @@
             await AuthState.InitializeAsync();
             if (AuthState.IsAuthenticated)
             {
-                Logger.LogInformation("Already authenticated on login page. Redirecting to /my-businesses");
-                Navigation.NavigateTo("/my-businesses", true);
+                var destination = ResolvePostLoginTarget(AuthState.IsPersonalAccount, _returnUrl);
+                Logger.LogInformation("Already authenticated on login page. Redirecting to {Destination}", destination);
+                Navigation.NavigateTo(destination, true);
             }
         }
         catch (InvalidOperationException)
@@ -161,6 +164,45 @@
         return $"https://picsum.photos/seed/comunaclic-login-{seed}/1400/1800";
     }
 
+    private string? ReadReturnUrl()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "returnUrl", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            if (string.IsNullOrWhiteSpace(value) || !value.StartsWith('/'))
+            {
+                return null;
+            }
+
+            return value;
+        }
+
+        return null;
+    }
+
+    private static string ResolvePostLoginTarget(bool isPersonalAccount, string? returnUrl)
+    {
+        if (isPersonalAccount && !string.IsNullOrWhiteSpace(returnUrl) && !returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            return returnUrl;
+        }
+
+        return isPersonalAccount ? "/buyer" : "/my-businesses";
+    }
+
     private async Task HandleSubmit()
     {
         _isSubmitting = true;
@@ -176,8 +218,10 @@
                 options.DefaultTenantId,
                 null));
             await AuthState.SetTokensAsync(tokens);
-            Logger.LogInformation("Login successful for {Email}. Redirecting to /my-businesses", Email);
-            Navigation.NavigateTo("/my-businesses");
+            var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
+            var destination = ResolvePostLoginTarget(isPersonalAccount, _returnUrl);
+            Logger.LogInformation("Login successful for {Email}. Redirecting to {Destination}", Email, destination);
+            Navigation.NavigateTo(destination);
         }
         catch (Exception ex)
         {

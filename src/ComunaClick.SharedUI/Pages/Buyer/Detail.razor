@@ -4,6 +4,7 @@
 @using BuyerModels = ComunaClick.Shared.Api.Buyer
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.detail.title")</PageTitle>
@@ -245,6 +246,15 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        try
+        {
+            await AuthState.InitializeAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop may not be available during prerender; fall back to current in-memory state.
+        }
+
         _partnerProfile = null;
         _badges.Clear();
         _errorMessage = null;
@@ -318,8 +328,8 @@
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
         _statusMessage = "Oferta lista para compra.";
         _ctaSubtitle = "Continúa al checkout o revisa el negocio que publica este producto.";
-        _primaryCtaLabel = "Comprar ahora";
-        _primaryCtaHref = $"/buyer/checkout?productId={id}";
+        _primaryCtaLabel = AuthState.IsPersonalAccount ? "Comprar ahora" : "Inicia sesión para comprar";
+        _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/checkout?productId={id}");
         _secondaryCtaLabel = product.PartnerId != Guid.Empty ? "Ver negocio" : null;
         _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : null;
         AddBadge(product.Category);
@@ -347,8 +357,8 @@
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
         _statusMessage = "Servicio listo para reserva.";
         _ctaSubtitle = "Reserva este servicio o revisa el negocio que publica la agenda.";
-        _primaryCtaLabel = "Reservar";
-        _primaryCtaHref = $"/buyer/booking?serviceId={id}";
+        _primaryCtaLabel = AuthState.IsPersonalAccount ? "Reservar" : "Inicia sesión para reservar";
+        _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/booking?serviceId={id}");
         _secondaryCtaLabel = service.PartnerId != Guid.Empty ? "Ver negocio" : null;
         _secondaryCtaHref = service.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{service.PartnerId}" : null;
         AddBadge(service.Category);
@@ -425,8 +435,8 @@
         _detailLine2 = professional.Bio ?? "Sin biografía disponible.";
         _statusMessage = "Profesional listo para contacto.";
         _ctaSubtitle = "Genera un lead o revisa más profesionales similares.";
-        _primaryCtaLabel = "Contactar";
-        _primaryCtaHref = $"/buyer/contact?professionalId={id}";
+        _primaryCtaLabel = AuthState.IsPersonalAccount ? "Contactar" : "Inicia sesión para contactar";
+        _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/contact?professionalId={id}");
         _secondaryCtaLabel = "Ver más profesionales";
         _secondaryCtaHref = "/professionals";
         AddBadge(professional.Specialty);
@@ -443,6 +453,11 @@
 
     private static string FormatMoney(double amount, string? currency)
         => string.IsNullOrWhiteSpace(currency) ? $"${amount:N0}" : $"{currency} {amount:N0}";
+
+    private string RequirePersonalBuyerSession(string targetPath)
+        => AuthState.IsPersonalAccount
+            ? targetPath
+            : $"/login?returnUrl={Uri.EscapeDataString(targetPath)}";
 
     private void HandleChange()
     {

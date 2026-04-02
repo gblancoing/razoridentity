@@ -188,6 +188,7 @@
     private string? _statusMessage;
     private string _statusLevel = "info";
     private string _intent = "buyer";
+    private string? _returnUrl;
 
     private bool IsPartnerIntent => string.Equals(_intent, "partner", StringComparison.OrdinalIgnoreCase);
     private string HeroEyebrow => IsPartnerIntent ? "Pre-onboarding partner" : "Cuenta personal";
@@ -208,6 +209,7 @@
     {
         L.OnChange += HandleChange;
         _intent = ReadIntent();
+        _returnUrl = ReadReturnUrl();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -223,7 +225,10 @@
             await AuthState.InitializeAsync();
             if (AuthState.IsAuthenticated)
             {
-                Navigation.NavigateTo(IsPartnerIntent ? "/register/business" : "/buyer", true);
+                var destination = IsPartnerIntent
+                    ? "/register/business"
+                    : ResolveAuthenticatedDestination(AuthState.IsPersonalAccount, _returnUrl);
+                Navigation.NavigateTo(destination, true);
                 return;
             }
 
@@ -275,7 +280,10 @@
                 _model.Password));
 
             await AuthState.SetTokensAsync(tokens);
-            Navigation.NavigateTo(IsPartnerIntent ? "/register/business" : "/buyer", true);
+            var destination = IsPartnerIntent
+                ? "/register/business"
+                : ResolveBuyerDestination(_returnUrl);
+            Navigation.NavigateTo(destination, true);
         }
         catch (Exception ex)
         {
@@ -311,6 +319,48 @@
 
         return "buyer";
     }
+
+    private string? ReadReturnUrl()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "returnUrl", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            if (string.IsNullOrWhiteSpace(value) || !value.StartsWith('/'))
+            {
+                return null;
+            }
+
+            return value;
+        }
+
+        return null;
+    }
+
+    private static string ResolveBuyerDestination(string? returnUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(returnUrl) && !returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            return returnUrl;
+        }
+
+        return "/buyer";
+    }
+
+    private static string ResolveAuthenticatedDestination(bool isPersonalAccount, string? returnUrl)
+        => isPersonalAccount ? ResolveBuyerDestination(returnUrl) : "/my-businesses";
 
     private string GetIntentCardClass(string intent)
     {

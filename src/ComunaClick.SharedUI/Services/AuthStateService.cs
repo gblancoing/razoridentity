@@ -17,6 +17,8 @@ public sealed class AuthStateService
     public AuthTokens? Tokens { get; private set; }
 
     public bool IsAuthenticated => Tokens is not null && Tokens.ExpiresAt > DateTimeOffset.UtcNow;
+    public bool IsPersonalAccount => IsAuthenticated && (!PartnerId.HasValue || PartnerId == Guid.Empty);
+    public bool IsPartnerAccount => IsAuthenticated && PartnerId.HasValue && PartnerId != Guid.Empty;
 
     public Guid? TenantId => Tokens?.TenantId;
     public Guid? PartnerId => Tokens?.PartnerId;

@@ -3,37 +3,57 @@
 @using ComunaClick.Common.Funnel
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.booking.title")</PageTitle>
 
-<div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-    <h1 class="text-2xl font-bold">@L.T("buyer.booking.heading")</h1>
-    <p class="text-sm text-[#61897c]">@L.T("buyer.booking.subtitle")</p>
-    @if (_serviceName is not null)
-    {
-        <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-            <strong>Servicio:</strong> @_serviceName<br />
-            <strong>Categoría:</strong> @_serviceCategory<br />
-            <strong>Monto sugerido:</strong> @($"{Amount:N0}")
+@if (_loadingSession)
+{
+    <BrandedLoading Title="Validando acceso" Message="Estamos comprobando que tu sesión corresponda a una cuenta personal." />
+}
+else if (!_canUsePersonalFlow)
+{
+    <section class="max-w-3xl mx-auto rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Acceso requerido</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">Ingresa con tu cuenta personal para reservar</h1>
+        <p class="text-sm text-[#595c5d]">Las reservas buyer solo están disponibles para usuarios con cuenta personal. Si estás con una sesión partner, cambia de cuenta antes de continuar.</p>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <a href="@LoginHref" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Iniciar sesión personal</a>
+            <a href="@RegisterHref" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Crear cuenta personal</a>
         </div>
-    }
-    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ServiceId" @bind="ServiceId" readonly="@_prefilled" />
-        <div class="space-y-2">
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="CustomerId" @bind="CustomerId" />
-            <a href="/buyer/profile" class="text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
+    </section>
+}
+else
+{
+    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
+        <h1 class="text-2xl font-bold">@L.T("buyer.booking.heading")</h1>
+        <p class="text-sm text-[#61897c]">@L.T("buyer.booking.subtitle")</p>
+        @if (_serviceName is not null)
+        {
+            <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                <strong>Servicio:</strong> @_serviceName<br />
+                <strong>Categoría:</strong> @_serviceCategory<br />
+                <strong>Monto sugerido:</strong> @($"{Amount:N0}")
+            </div>
+        }
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ServiceId" @bind="ServiceId" readonly="@_prefilled" />
+            <div class="space-y-2">
+                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="CustomerId" @bind="CustomerId" />
+                <a href="/buyer/profile" class="text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
+            </div>
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="StartAt (ISO)" @bind="StartAt" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="EndAt (ISO)" @bind="EndAt" />
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Amount" @bind="Amount" readonly="@_prefilled" />
         </div>
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="StartAt (ISO)" @bind="StartAt" />
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="EndAt (ISO)" @bind="EndAt" />
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Amount" @bind="Amount" readonly="@_prefilled" />
+        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+        <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold" @onclick="HandleBooking">@L.T("buyer.booking.confirm")</button>
     </div>
-    <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
-    <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold" @onclick="HandleBooking">@L.T("buyer.booking.confirm")</button>
-</div>
+}
 
 @code {
     private string PartnerId = string.Empty;
@@ -50,49 +70,44 @@
     private bool _startedTracked;
     private bool _completed;
     private Guid? _tenantId;
+    private bool _loadingSession = true;
+    private bool _canUsePersonalFlow;
+    private bool _checkedAuth;
+    private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
+    private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
+    private string RegisterHref => $"/register?intent=buyer&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var serviceId = GetQueryParameter(uri.Query, "serviceId");
-        var customerId = GetQueryParameter(uri.Query, "customerId");
-        if (!string.IsNullOrWhiteSpace(customerId))
-        {
-            CustomerId = customerId;
-        }
-        else
-        {
-            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        }
-        if (!Guid.TryParse(serviceId, out var parsedServiceId))
+        if (_checkedAuth)
         {
             return;
         }
 
-        var service = await BuyerApi.GetServiceAsync(parsedServiceId);
-        if (service is null)
-        {
-            return;
-        }
+        _checkedAuth = true;
 
-        ServiceId = service.Id.ToString();
-        PartnerId = service.PartnerId.ToString();
-        Amount = service.Price;
-        _serviceName = service.Name;
-        _serviceCategory = service.Category;
-        _tenantId = service.TenantId;
-        var suggestedStart = DateTimeOffset.UtcNow.AddDays(1).Date.AddHours(10);
-        var suggestedEnd = suggestedStart.AddMinutes(Math.Max(service.DurationMinutes, 30));
-        StartAt = suggestedStart.ToString("O");
-        EndAt = suggestedEnd.ToString("O");
-        _prefilled = true;
-        await TrackAsync("start_booking", "start", "started");
-        _startedTracked = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            _canUsePersonalFlow = AuthState.IsPersonalAccount;
+            _loadingSession = false;
+
+            if (_canUsePersonalFlow)
+            {
+                await LoadBookingAsync();
+            }
+
+            StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+            _checkedAuth = false;
+        }
     }
 
     private async Task HandleBooking()
@@ -176,6 +191,46 @@
                 ["startAt"] = StartAt,
                 ["endAt"] = EndAt
             }));
+    }
+
+    private async Task LoadBookingAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var serviceId = GetQueryParameter(uri.Query, "serviceId");
+        var customerId = GetQueryParameter(uri.Query, "customerId");
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            CustomerId = customerId;
+        }
+        else
+        {
+            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        }
+
+        if (!Guid.TryParse(serviceId, out var parsedServiceId))
+        {
+            return;
+        }
+
+        var service = await BuyerApi.GetServiceAsync(parsedServiceId);
+        if (service is null)
+        {
+            return;
+        }
+
+        ServiceId = service.Id.ToString();
+        PartnerId = service.PartnerId.ToString();
+        Amount = service.Price;
+        _serviceName = service.Name;
+        _serviceCategory = service.Category;
+        _tenantId = service.TenantId;
+        var suggestedStart = DateTimeOffset.UtcNow.AddDays(1).Date.AddHours(10);
+        var suggestedEnd = suggestedStart.AddMinutes(Math.Max(service.DurationMinutes, 30));
+        StartAt = suggestedStart.ToString("O");
+        EndAt = suggestedEnd.ToString("O");
+        _prefilled = true;
+        await TrackAsync("start_booking", "start", "started");
+        _startedTracked = true;
     }
 
     private static string? GetQueryParameter(string query, string key)

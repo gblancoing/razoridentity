@@ -2,44 +2,64 @@
 @layout BuyerLayout
 @using ComunaClick.Common.Funnel
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>Contactar profesional - ComunaClic</PageTitle>
 
-<div class="max-w-3xl mx-auto flex flex-col gap-6">
-    <div>
-        <h1 class="text-2xl font-bold">Contactar profesional</h1>
-        <p class="text-sm text-[#61897c]">Deja tu mensaje y generamos el lead para seguimiento.</p>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(_statusMessage))
-    {
-        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
-    }
-
-    @if (_professionalName is not null)
-    {
-        <div class="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-            <strong>Profesional:</strong> @_professionalName<br />
-            <strong>Especialidad:</strong> @_professionalSpecialty
+@if (_loadingSession)
+{
+    <BrandedLoading Title="Validando acceso" Message="Estamos comprobando que tu sesión corresponda a una cuenta personal." />
+}
+else if (!_canUsePersonalFlow)
+{
+    <section class="max-w-3xl mx-auto rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Acceso requerido</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">Ingresa con tu cuenta personal para contactar</h1>
+        <p class="text-sm text-[#595c5d]">El contacto con profesionales desde buyer solo está disponible para usuarios con cuenta personal. Si estás con una sesión partner, cambia de cuenta antes de continuar.</p>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <a href="@LoginHref" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Iniciar sesión personal</a>
+            <a href="@RegisterHref" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Crear cuenta personal</a>
         </div>
-    }
-
-    <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
+    </section>
+}
+else
+{
+    <div class="max-w-3xl mx-auto flex flex-col gap-6">
         <div>
-            <label class="text-sm font-semibold">CustomerId</label>
-            <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="CustomerId" />
-            <a href="/buyer/profile" class="mt-2 inline-block text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
+            <h1 class="text-2xl font-bold">Contactar profesional</h1>
+            <p class="text-sm text-[#61897c]">Deja tu mensaje y generamos el lead para seguimiento.</p>
         </div>
-        <div>
-            <label class="text-sm font-semibold">Mensaje</label>
-            <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" rows="5" @bind="Message"></textarea>
+
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+        }
+
+        @if (_professionalName is not null)
+        {
+            <div class="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                <strong>Profesional:</strong> @_professionalName<br />
+                <strong>Especialidad:</strong> @_professionalSpecialty
+            </div>
+        }
+
+        <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
+            <div>
+                <label class="text-sm font-semibold">CustomerId</label>
+                <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="CustomerId" />
+                <a href="/buyer/profile" class="mt-2 inline-block text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
+            </div>
+            <div>
+                <label class="text-sm font-semibold">Mensaje</label>
+                <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" rows="5" @bind="Message"></textarea>
+            </div>
+            <button class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" @onclick="SubmitAsync" disabled="@_submitting">@(_submitting ? "Enviando..." : "Enviar contacto")</button>
         </div>
-        <button class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" @onclick="SubmitAsync" disabled="@_submitting">@(_submitting ? "Enviando..." : "Enviar contacto")</button>
     </div>
-</div>
+}
 
 @code {
     private string CustomerId = string.Empty;
@@ -53,40 +73,39 @@
     private bool _startedTracked;
     private bool _completed;
     private Guid? _tenantId;
+    private bool _loadingSession = true;
+    private bool _canUsePersonalFlow;
+    private bool _checkedAuth;
+    private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
+    private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
+    private string RegisterHref => $"/register?intent=buyer&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var professionalId = GetQueryParameter(uri.Query, "professionalId");
-        var customerId = GetQueryParameter(uri.Query, "customerId");
-        if (!string.IsNullOrWhiteSpace(customerId))
+        if (_checkedAuth)
         {
-            CustomerId = customerId;
-        }
-        else
-        {
-            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        }
-
-        if (!Guid.TryParse(professionalId, out var parsedProfessionalId))
-        {
-            _statusMessage = "Falta professionalId para generar el contacto.";
-            _statusLevel = "warning";
             return;
         }
 
-        _professionalId = parsedProfessionalId;
-        var professional = await BuyerApi.GetProfessionalAsync(parsedProfessionalId);
-        if (professional is not null)
-        {
-            _professionalName = professional.Name;
-            _professionalSpecialty = professional.Specialty;
-            _tenantId = professional.TenantId;
-            Message = $"Hola {_professionalName}, me interesa tu perfil en ComunaClic.";
-        }
+        _checkedAuth = true;
 
-        await TrackAsync("start_contact", "start", "started");
-        _startedTracked = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            _canUsePersonalFlow = AuthState.IsPersonalAccount;
+            _loadingSession = false;
+
+            if (_canUsePersonalFlow)
+            {
+                await LoadContactAsync();
+            }
+
+            StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+            _checkedAuth = false;
+        }
     }
 
     private async Task SubmitAsync()
@@ -149,6 +168,41 @@
                 ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
                 ["messageLength"] = Message?.Length.ToString()
             }));
+    }
+
+    private async Task LoadContactAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var professionalId = GetQueryParameter(uri.Query, "professionalId");
+        var customerId = GetQueryParameter(uri.Query, "customerId");
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            CustomerId = customerId;
+        }
+        else
+        {
+            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        }
+
+        if (!Guid.TryParse(professionalId, out var parsedProfessionalId))
+        {
+            _statusMessage = "Falta professionalId para generar el contacto.";
+            _statusLevel = "warning";
+            return;
+        }
+
+        _professionalId = parsedProfessionalId;
+        var professional = await BuyerApi.GetProfessionalAsync(parsedProfessionalId);
+        if (professional is not null)
+        {
+            _professionalName = professional.Name;
+            _professionalSpecialty = professional.Specialty;
+            _tenantId = professional.TenantId;
+            Message = $"Hola {_professionalName}, me interesa tu perfil en ComunaClic.";
+        }
+
+        await TrackAsync("start_contact", "start", "started");
+        _startedTracked = true;
     }
 
     private static string? GetQueryParameter(string query, string key)
