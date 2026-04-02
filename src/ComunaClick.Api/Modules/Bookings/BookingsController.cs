@@ -3,6 +3,7 @@ using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Bookings;
@@ -29,6 +30,7 @@ public sealed class BookingsController : ControllerBase
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
     [HttpGet("/v1/public/bookings/{id:guid}")]
     public async Task<ActionResult<object>> GetPublic(Guid id)
     {

@@ -3,6 +3,7 @@ using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Leads;
@@ -82,6 +83,7 @@ public sealed class LeadsController : ControllerBase
 
     [HttpPost]
     [AllowAnonymous]
+    [EnableRateLimiting("public-write")]
     public async Task<ActionResult<Lead>> Create(LeadCreateRequest request)
     {
         var tenantId = _tenantContext.TenantId;

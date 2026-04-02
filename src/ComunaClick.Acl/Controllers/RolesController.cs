@@ -1,6 +1,7 @@
 using ComunaClick.Acl.Contracts.Roles;
 using ComunaClick.Acl.Domain;
 using ComunaClick.Acl.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,7 @@ namespace ComunaClick.Acl.Controllers;
 
 [ApiController]
 [Route("v1/roles")]
+[Authorize(Policy = "platform.admin")]
 public sealed class RolesController : ControllerBase
 {
     private readonly AclDbContext _db;

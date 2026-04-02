@@ -1,10 +1,12 @@
 using ComunaClick.Common.Funnel;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ComunaClick.Api.Modules.Funnel;
 
 [ApiController]
 [Route("v1/funnel/events")]
+[EnableRateLimiting("public-write")]
 public sealed class FunnelEventsController : ControllerBase
 {
     private readonly ILogger<FunnelEventsController> _logger;

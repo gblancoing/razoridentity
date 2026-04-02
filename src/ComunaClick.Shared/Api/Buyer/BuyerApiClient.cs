@@ -87,7 +87,7 @@ public sealed class BuyerApiClient : ApiClientBase
         => GetAsync<CategoryDiscoveryResponse>($"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}", cancellationToken);
 
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
-        => GetAsync<Professional>($"/v1/professionals/{id}", cancellationToken);
+        => GetAsync<Professional>($"/v1/public/professionals/{id}", cancellationToken);
 
     public Task<SupportTicketResponse?> CreateSupportTicketAsync(SupportTicketRequest request, Guid? tenantId = null, CancellationToken cancellationToken = default)
     {

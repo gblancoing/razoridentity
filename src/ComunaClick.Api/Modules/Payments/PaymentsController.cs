@@ -3,6 +3,7 @@ using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Payments;
@@ -70,6 +71,7 @@ public sealed class PaymentsController : ControllerBase
 
     [HttpPost("provider-notify")]
     [AllowAnonymous]
+    [EnableRateLimiting("webhook")]
     public async Task<IActionResult> ProviderNotify(PaymentProviderNotifyRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ProviderEventId))

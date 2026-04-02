@@ -4,6 +4,7 @@ using ComunaClick.Api.Persistence.Entities;
 using ComunaClick.Common.Types;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Orders;
@@ -33,6 +34,7 @@ public sealed class OrdersController : ControllerBase
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
     [HttpGet("/v1/public/orders/{id:guid}")]
     public async Task<ActionResult<object>> GetPublic(Guid id)
     {

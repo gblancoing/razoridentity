@@ -3,6 +3,7 @@ using ComunaClick.Acl.Contracts.Auth;
 using ComunaClick.Acl.Domain;
 using ComunaClick.Acl.Persistence;
 using ComunaClick.Acl.Security;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace ComunaClick.Acl.Controllers;
 
 [ApiController]
 [Route("v1/auth")]
+[EnableRateLimiting("auth")]
 public sealed class AuthController : ControllerBase
 {
     private readonly AclDbContext _db;

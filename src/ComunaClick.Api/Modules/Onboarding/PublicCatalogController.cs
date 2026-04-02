@@ -1,10 +1,12 @@
 using ComunaClick.Api.Persistence;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Onboarding;
 
 [ApiController]
+[EnableRateLimiting("public-read")]
 [Route("v1/public/catalog")]
 public sealed class PublicCatalogController : ControllerBase
 {

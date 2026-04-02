@@ -4,6 +4,7 @@ using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Catalog;
@@ -68,6 +69,34 @@ public sealed class ProfessionalsController : ControllerBase
     {
         var professional = await _db.Professionals.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         return professional is null ? NotFound() : Ok(professional);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
+    [HttpGet("/v1/public/professionals/{id:guid}")]
+    public async Task<ActionResult<Professional>> GetPublic(Guid id)
+    {
+        var professional = await _db.Professionals.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive && x.IsVerified);
+
+        if (professional is null)
+        {
+            return NotFound();
+        }
+
+        var hasVisiblePartner = await _db.Partners.AsNoTracking()
+            .AnyAsync(x =>
+                x.IsVisible &&
+                x.Type == "C" &&
+                x.TenantId == professional.TenantId &&
+                (x.ComunaId == professional.ComunaId || (!x.ComunaId.HasValue && !professional.ComunaId.HasValue)));
+
+        if (!hasVisiblePartner)
+        {
+            return NotFound();
+        }
+
+        return Ok(professional);
     }
 
     [HttpPost]

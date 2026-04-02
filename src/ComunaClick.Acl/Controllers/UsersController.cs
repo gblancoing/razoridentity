@@ -2,6 +2,7 @@ using ComunaClick.Acl.Contracts.Users;
 using ComunaClick.Acl.Domain;
 using ComunaClick.Acl.Persistence;
 using ComunaClick.Acl.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ namespace ComunaClick.Acl.Controllers;
 
 [ApiController]
 [Route("v1/users")]
+[Authorize(Policy = "platform.admin")]
 public sealed class UsersController : ControllerBase
 {
     private readonly AclDbContext _db;
