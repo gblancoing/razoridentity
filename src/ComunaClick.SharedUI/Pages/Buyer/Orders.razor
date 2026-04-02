@@ -4,6 +4,7 @@
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
 @implements IDisposable
+@using System.Text.Json
 @using BuyerOrder = ComunaClick.Shared.Api.Buyer.OrderTracking
 @using BuyerBooking = ComunaClick.Shared.Api.Buyer.BookingTracking
 
@@ -294,10 +295,35 @@
         };
 
     private static string FormatCancellationPolicy(string policy)
-        => policy.StartsWith("{", StringComparison.Ordinal)
-            ? policy.Replace("{\"label\":\"", string.Empty, StringComparison.Ordinal)
-                .Replace("\"}", string.Empty, StringComparison.Ordinal)
-            : policy;
+    {
+        if (string.IsNullOrWhiteSpace(policy))
+        {
+            return "Política no informada.";
+        }
+
+        if (!policy.TrimStart().StartsWith("{", StringComparison.Ordinal))
+        {
+            return policy;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(policy);
+            if (doc.RootElement.TryGetProperty("label", out var labelElement))
+            {
+                var label = labelElement.GetString();
+                if (!string.IsNullOrWhiteSpace(label))
+                {
+                    return label;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return policy;
+    }
 
     private static string? GetQueryParameter(string query, string key)
     {
