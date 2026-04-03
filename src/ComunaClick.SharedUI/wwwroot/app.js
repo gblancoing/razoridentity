@@ -150,6 +150,15 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
   }).addTo(map);
 
   const markers = [];
+  const useClusters = Array.isArray(businesses) && businesses.length >= 8 && typeof window.L.markerClusterGroup === "function";
+  const businessLayer = useClusters
+    ? window.L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 16,
+        maxClusterRadius: window.innerWidth && window.innerWidth < 640 ? 48 : 64
+      })
+    : null;
   const userLat = userLocation.latitude ?? userLocation.Latitude;
   const userLng = userLocation.longitude ?? userLocation.Longitude;
   const userMarker = window.L.circleMarker([userLat, userLng], {
@@ -187,10 +196,21 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
       `</div>`
     ].join("");
 
-    const marker = window.L.marker([latitude, longitude]).addTo(map);
+    const marker = window.L.marker([latitude, longitude]);
     marker.bindPopup(popup);
+
+    if (businessLayer) {
+      businessLayer.addLayer(marker);
+    } else {
+      marker.addTo(map);
+    }
+
     markers.push(marker);
   });
+
+  if (businessLayer) {
+    map.addLayer(businessLayer);
+  }
 
   const group = window.L.featureGroup(markers);
   map.fitBounds(group.getBounds().pad(0.18));

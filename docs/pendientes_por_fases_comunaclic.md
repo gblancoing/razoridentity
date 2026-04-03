@@ -31,7 +31,7 @@ Un usuario partner puede publicar una oferta y un usuario buyer puede encontrarl
 - [x] Mostrar en panel partner si la ubicación usada es exacta o referencia por comuna.
 - [x] Mejorar la UX móvil del mapa por categoría.
 - [x] Agregar fallback visual claro si el usuario niega geolocalización o si el navegador no entrega coordenadas.
-- [ ] Evaluar clustering de marcadores si una categoría tiene muchos negocios cerca.
+- [x] Evaluar clustering de marcadores si una categoría tiene muchos negocios cerca.
 
 ### Criterio De Cierre
 
