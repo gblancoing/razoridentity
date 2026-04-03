@@ -32,6 +32,21 @@ else
         <div class="lg:col-span-2 bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
             <h1 class="text-2xl font-bold">@L.T("buyer.checkout.heading")</h1>
             <p class="text-sm text-[#61897c]">@L.T("buyer.checkout.subtitle")</p>
+            @if (_createdOrder is not null)
+            {
+                <div class="mt-6 rounded-[1.5rem] border border-[#a7f255] bg-[#f8fff1] p-5 space-y-3">
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">Compra registrada</p>
+                    <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">Tu orden quedó creada correctamente</h2>
+                    <p class="text-sm text-[#595c5d]">
+                        Orden <strong>#@ShortId(_createdOrder.Id)</strong> con estado <strong>@(_createdOrder.Status ?? "registrado")</strong>.
+                        Puedes revisar su seguimiento y volver al portal cuando quieras.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <a href="@($"/buyer/orders?orderId={_createdOrder.Id}")" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Ver seguimiento</a>
+                        <a href="/buyer" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Volver al portal</a>
+                    </div>
+                </div>
+            }
             @if (_productName is not null)
             {
                 <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
@@ -47,10 +62,13 @@ else
                     <a href="/buyer/profile" class="text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
                 </div>
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ProductId" @bind="ProductId" readonly="@_prefilled" />
-                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" />
+                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" disabled="@(_isSubmitting || _createdOrder is not null)" />
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" readonly="@_prefilled" />
             </div>
-        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+            @if (!string.IsNullOrWhiteSpace(_statusMessage))
+            {
+                <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+            }
         </div>
         <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
             <h2 class="text-lg font-bold">@L.T("buyer.checkout.summary")</h2>
@@ -60,7 +78,22 @@ else
                     <span class="font-semibold">@_total</span>
                 </div>
             </div>
-            <button class="w-full mt-6 bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold" @onclick="HandleCheckout">@L.T("buyer.checkout.pay")</button>
+            <button class="w-full mt-6 bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+                    @onclick="HandleCheckout"
+                    disabled="@(_isSubmitting || _createdOrder is not null)">
+                @if (_isSubmitting)
+                {
+                    <span>Procesando compra...</span>
+                }
+                else if (_createdOrder is not null)
+                {
+                    <span>Compra completada</span>
+                }
+                else
+                {
+                    <span>@L.T("buyer.checkout.pay")</span>
+                }
+            </button>
         </div>
     </div>
 }
@@ -83,6 +116,8 @@ else
     private bool _loadingSession = true;
     private bool _canUsePersonalFlow;
     private bool _checkedAuth;
+    private bool _isSubmitting;
+    private ComunaClick.Shared.Api.Buyer.Order? _createdOrder;
     private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
     private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
     private string RegisterHref => $"/register?intent=buyer&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
@@ -122,12 +157,17 @@ else
 
     private async Task HandleCheckout()
     {
+        if (_isSubmitting || _createdOrder is not null)
+        {
+            return;
+        }
+
         _statusMessage = string.Empty;
         _statusLevel = "info";
         UpdateTotal();
         if (string.IsNullOrWhiteSpace(CustomerId))
         {
-            _statusMessage = "Primero ingresa tu CustomerId para completar la compra.";
+            _statusMessage = "Primero ingresa tu CustomerId para completar la compra. Si no lo tienes a mano, ábrelo desde tu perfil buyer en una nueva pestaña.";
             _statusLevel = "warning";
             await TrackAsync("flow_error", "identity", "missing_customer");
             return;
@@ -145,27 +185,42 @@ else
             return;
         }
 
-        var request = new OrderCreateRequest(
-            partnerId,
-            customerId,
-            0,
-            "CLP",
-            new List<OrderItemCreateRequest> { new(productId, Quantity, UnitPrice) });
+        _isSubmitting = true;
+        try
+        {
+            var request = new OrderCreateRequest(
+                partnerId,
+                customerId,
+                0,
+                "CLP",
+                new List<OrderItemCreateRequest> { new(productId, Quantity, UnitPrice) });
 
-        var order = await BuyerApi.CreateOrderAsync(request);
-        _total = order is null ? "$0" : $"{order.TotalAmount:N0}";
-        if (order is null)
-        {
-            _statusMessage = L.T("buyer.status.orderFailed");
-            _statusLevel = "error";
-            await TrackAsync("flow_error", "submit", "order_failed");
+            var order = await BuyerApi.CreateOrderAsync(request);
+            _total = order is null ? "$0" : $"{order.TotalAmount:N0}";
+            if (order is null)
+            {
+                _statusMessage = L.T("buyer.status.orderFailed");
+                _statusLevel = "error";
+                await TrackAsync("flow_error", "submit", "order_failed");
+            }
+            else
+            {
+                _createdOrder = order;
+                _statusMessage = $"{L.T("buyer.status.orderCreated")} #{order.Id}";
+                _statusLevel = "success";
+                _completed = true;
+                await TrackAsync("submit_checkout", "submit", "success");
+            }
         }
-        else
+        catch (HttpRequestException ex)
         {
-            _statusMessage = $"{L.T("buyer.status.orderCreated")} #{order.Id}";
-            _statusLevel = "success";
-            _completed = true;
-            await TrackAsync("submit_checkout", "submit", "success");
+            _statusMessage = $"No se pudo completar la compra ({(int?)ex.StatusCode ?? 0}). Revisa los datos e inténtalo nuevamente.";
+            _statusLevel = "error";
+            await TrackAsync("flow_error", "submit", "http_exception");
+        }
+        finally
+        {
+            _isSubmitting = false;
         }
     }
 
@@ -253,6 +308,9 @@ else
         }
         return null;
     }
+
+    private static string ShortId(Guid id)
+        => id.ToString()[..8];
 
     public void Dispose()
     {

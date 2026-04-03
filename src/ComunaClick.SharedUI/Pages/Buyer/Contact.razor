@@ -46,6 +46,25 @@ else
             </div>
         }
 
+        @if (_createdLead is not null)
+        {
+            <div class="rounded-[1.5rem] border border-[#a7f255] bg-[#f8fff1] p-5 space-y-3">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">Contacto enviado</p>
+                <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">Tu solicitud quedó registrada</h2>
+                <p class="text-sm text-[#595c5d]">
+                    Lead <strong>#@ShortId(_createdLead.Id)</strong> creado correctamente.
+                    El profesional ya puede revisar tu mensaje desde su panel.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    @if (_professionalId.HasValue)
+                    {
+                        <a href="@($"/buyer/detail/professional/{_professionalId.Value}")" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Volver al perfil</a>
+                    }
+                    <a href="/buyer" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Volver al portal</a>
+                </div>
+            </div>
+        }
+
         <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
             <div>
                 <label class="text-sm font-semibold">CustomerId</label>
@@ -54,9 +73,24 @@ else
             </div>
             <div>
                 <label class="text-sm font-semibold">Mensaje</label>
-                <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" rows="5" @bind="Message"></textarea>
+                <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" rows="5" @bind="Message" disabled="@(_submitting || _createdLead is not null)"></textarea>
             </div>
-            <button class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" @onclick="SubmitAsync" disabled="@_submitting">@(_submitting ? "Enviando..." : "Enviar contacto")</button>
+            <button class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    @onclick="SubmitAsync"
+                    disabled="@(_submitting || _createdLead is not null)">
+                @if (_submitting)
+                {
+                    <span>Enviando...</span>
+                }
+                else if (_createdLead is not null)
+                {
+                    <span>Contacto enviado</span>
+                }
+                else
+                {
+                    <span>Enviar contacto</span>
+                }
+            </button>
         </div>
     </div>
 }
@@ -76,6 +110,7 @@ else
     private bool _loadingSession = true;
     private bool _canUsePersonalFlow;
     private bool _checkedAuth;
+    private ComunaClick.Shared.Api.Buyer.Lead? _createdLead;
     private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
     private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
     private string RegisterHref => $"/register?intent=buyer&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
@@ -110,6 +145,11 @@ else
 
     private async Task SubmitAsync()
     {
+        if (_submitting || _createdLead is not null)
+        {
+            return;
+        }
+
         if (!_professionalId.HasValue || !Guid.TryParse(CustomerId, out var customerId))
         {
             _statusMessage = "Debes ingresar un CustomerId válido.";
@@ -132,6 +172,7 @@ else
             }
             else
             {
+                _createdLead = lead;
                 _completed = true;
                 await TrackAsync("submit_lead", "submit", "success");
             }
@@ -218,6 +259,9 @@ else
         }
         return null;
     }
+
+    private static string ShortId(Guid id)
+        => id.ToString()[..8];
 
     public void Dispose()
     {

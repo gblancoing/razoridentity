@@ -11,7 +11,7 @@ Ordenar el trabajo pendiente en etapas cortas y publicables, priorizando primero
 - [ ] Validar en producción el flujo partner completo con usuario nuevo: registro, creación de negocio, carga de oferta, publicación y visibilidad pública.
 - [ ] Validar en producción el flujo buyer completo con cuenta personal: registro, login, navegación por categorías, detalle, contacto, reserva y compra.
 - [ ] Completar el flujo real de compra y reserva si todavía hay pasos simulados o no persistidos.
-- [ ] Completar estados de confirmación y error post-compra/post-reserva para que el usuario entienda el resultado de la operación.
+- [x] Completar estados de confirmación y error post-compra/post-reserva/contacto para que el usuario entienda el resultado de la operación y tenga navegación directa a seguimiento o retorno.
 - [ ] Mejorar la ficha pública de negocio, producto, servicio y profesional con más datos comerciales, contacto y visuales propios cuando existan.
 
 ### Criterio De Cierre

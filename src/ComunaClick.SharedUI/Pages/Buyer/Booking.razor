@@ -39,6 +39,21 @@ else
                 <strong>Monto sugerido:</strong> @($"{Amount:N0}")
             </div>
         }
+        @if (_createdBooking is not null)
+        {
+            <div class="mt-6 rounded-[1.5rem] border border-[#a7f255] bg-[#f8fff1] p-5 space-y-3">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">Reserva registrada</p>
+                <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">Tu reserva quedó creada correctamente</h2>
+                <p class="text-sm text-[#595c5d]">
+                    Reserva <strong>#@ShortId(_createdBooking.Id)</strong> con estado <strong>@(_createdBooking.Status ?? "registrado")</strong>.
+                    Revisa su seguimiento para confirmar horario, negocio y política de cancelación.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <a href="@($"/buyer/orders?bookingId={_createdBooking.Id}")" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Ver seguimiento</a>
+                    <a href="/buyer" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Volver al portal</a>
+                </div>
+            </div>
+        }
         <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ServiceId" @bind="ServiceId" readonly="@_prefilled" />
@@ -50,8 +65,26 @@ else
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="EndAt (ISO)" @bind="EndAt" />
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Amount" @bind="Amount" readonly="@_prefilled" />
         </div>
-        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
-        <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold" @onclick="HandleBooking">@L.T("buyer.booking.confirm")</button>
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+        }
+        <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+                @onclick="HandleBooking"
+                disabled="@(_isSubmitting || _createdBooking is not null)">
+            @if (_isSubmitting)
+            {
+                <span>Creando reserva...</span>
+            }
+            else if (_createdBooking is not null)
+            {
+                <span>Reserva completada</span>
+            }
+            else
+            {
+                <span>@L.T("buyer.booking.confirm")</span>
+            }
+        </button>
     </div>
 }
 
@@ -73,6 +106,8 @@ else
     private bool _loadingSession = true;
     private bool _canUsePersonalFlow;
     private bool _checkedAuth;
+    private bool _isSubmitting;
+    private ComunaClick.Shared.Api.Buyer.Booking? _createdBooking;
     private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
     private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
     private string RegisterHref => $"/register?intent=buyer&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
@@ -112,11 +147,16 @@ else
 
     private async Task HandleBooking()
     {
+        if (_isSubmitting || _createdBooking is not null)
+        {
+            return;
+        }
+
         _statusMessage = string.Empty;
         _statusLevel = "info";
         if (string.IsNullOrWhiteSpace(CustomerId))
         {
-            _statusMessage = "Primero ingresa tu CustomerId para completar la reserva.";
+            _statusMessage = "Primero ingresa tu CustomerId para completar la reserva. Si no lo recuerdas, consúltalo en tu perfil buyer.";
             _statusLevel = "warning";
             await TrackAsync("flow_error", "identity", "missing_customer");
             return;
@@ -136,30 +176,45 @@ else
             return;
         }
 
-        var request = new BookingCreateRequest(
-            partnerId,
-            serviceId,
-            null,
-            customerId,
-            startAt,
-            endAt,
-            Amount,
-            "CLP",
-            null);
+        _isSubmitting = true;
+        try
+        {
+            var request = new BookingCreateRequest(
+                partnerId,
+                serviceId,
+                null,
+                customerId,
+                startAt,
+                endAt,
+                Amount,
+                "CLP",
+                null);
 
-        var booking = await BuyerApi.CreateBookingAsync(request);
-        if (booking is null)
-        {
-            _statusMessage = L.T("buyer.status.bookingFailed");
-            _statusLevel = "error";
-            await TrackAsync("flow_error", "submit", "booking_failed");
+            var booking = await BuyerApi.CreateBookingAsync(request);
+            if (booking is null)
+            {
+                _statusMessage = L.T("buyer.status.bookingFailed");
+                _statusLevel = "error";
+                await TrackAsync("flow_error", "submit", "booking_failed");
+            }
+            else
+            {
+                _createdBooking = booking;
+                _statusMessage = $"{L.T("buyer.status.bookingCreated")} #{booking.Id}";
+                _statusLevel = "success";
+                _completed = true;
+                await TrackAsync("submit_booking", "submit", "success");
+            }
         }
-        else
+        catch (HttpRequestException ex)
         {
-            _statusMessage = $"{L.T("buyer.status.bookingCreated")} #{booking.Id}";
-            _statusLevel = "success";
-            _completed = true;
-            await TrackAsync("submit_booking", "submit", "success");
+            _statusMessage = $"No se pudo crear la reserva ({(int?)ex.StatusCode ?? 0}). Revisa los datos del horario e inténtalo otra vez.";
+            _statusLevel = "error";
+            await TrackAsync("flow_error", "submit", "http_exception");
+        }
+        finally
+        {
+            _isSubmitting = false;
         }
     }
 
@@ -246,6 +301,9 @@ else
         }
         return null;
     }
+
+    private static string ShortId(Guid id)
+        => id.ToString()[..8];
 
     public void Dispose()
     {
