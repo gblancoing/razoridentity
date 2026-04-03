@@ -57,6 +57,9 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<PartnerDto?> CreatePartnerAsync(PartnerCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<PartnerDto>("/v1/partners", request, cancellationToken);
 
+    public Task<PartnerDto?> UpdatePartnerAsync(Guid partnerId, PartnerUpdateRequest request, CancellationToken cancellationToken = default)
+        => PatchAsync<PartnerDto>($"/v1/partners/{partnerId}", request, cancellationToken);
+
     public Task<Product?> CreateProductAsync(ProductCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Product>("/v1/products", request, cancellationToken);
 
@@ -252,6 +255,19 @@ public sealed record PartnerCreateRequest(
     Guid? SubcategoryId,
     double? Latitude,
     double? Longitude
+);
+
+public sealed record PartnerUpdateRequest(
+    string? Type,
+    string? Name,
+    string? Rut,
+    string? Address,
+    string? Phone,
+    string? Email,
+    Guid? SubcategoryId,
+    double? Latitude,
+    double? Longitude,
+    bool? IsVisible
 );
 
 public sealed record ProductCreateRequest(

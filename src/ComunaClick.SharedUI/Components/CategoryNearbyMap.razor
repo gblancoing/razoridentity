@@ -30,6 +30,18 @@ else if (!string.IsNullOrWhiteSpace(_statusMessage))
                 <p class="text-sm text-[#595c5d] mt-3">@_statusMessage</p>
             </div>
         </div>
+        <div class="flex flex-wrap gap-3">
+            <button class="inline-flex items-center gap-2 rounded-2xl border border-[#3b6700] bg-[#f3f9eb] px-5 py-3 text-sm font-bold text-[#3b6700]"
+                    @onclick="RetryAsync">
+                <span class="material-symbols-outlined text-[18px]">my_location</span>
+                Reintentar ubicación
+            </button>
+            <a href="#category-results"
+               class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-5 py-3 text-sm font-bold text-[#2c2f30]">
+                <span class="material-symbols-outlined text-[18px]">list_alt</span>
+                Seguir con la lista
+            </a>
+        </div>
         <p class="text-xs text-[#7b8081]">Si prefieres no compartir tu ubicación, puedes seguir usando la lista completa que aparece más abajo.</p>
     </section>
 }
@@ -48,7 +60,7 @@ else if (_nearby is not null)
             </div>
         </div>
 
-        <div id="@_mapId" class="h-[24rem] rounded-[1.5rem] overflow-hidden border border-[#dadddf]"></div>
+        <div id="@_mapId" class="h-[20rem] sm:h-[24rem] rounded-[1.5rem] overflow-hidden border border-[#dadddf]"></div>
 
         @if (_nearby.Businesses?.Count > 0)
         {
@@ -167,6 +179,18 @@ else if (_nearby is not null)
                 _isLoading = false;
             }
         }
+    }
+
+    private async Task RetryAsync()
+    {
+        _nearby = null;
+        _statusMessage = null;
+        _isLoading = true;
+        _mapRendered = false;
+        _loadAttempted = true;
+
+        await LoadNearbyAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()

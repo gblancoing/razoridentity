@@ -131,9 +131,15 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
     delete window.comunaclic._leafletMaps[elementId];
   }
 
+  if (window.innerWidth && window.innerWidth < 640) {
+    element.style.minHeight = "320px";
+  }
+
   const map = window.L.map(elementId, {
     zoomControl: true,
-    scrollWheelZoom: false
+    scrollWheelZoom: false,
+    tap: true,
+    dragging: !(window.innerWidth && window.innerWidth < 640)
   });
 
   window.comunaclic._leafletMaps[elementId] = map;
@@ -188,6 +194,10 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
 
   const group = window.L.featureGroup(markers);
   map.fitBounds(group.getBounds().pad(0.18));
+
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 150);
 };
 
 window.comunaclic.destroyCategoryNearbyMap = function (elementId) {

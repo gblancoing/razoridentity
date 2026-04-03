@@ -237,6 +237,10 @@
                                 </div>
                                 <p class="mt-2 text-sm text-[#595c5d]">@(business.Email ?? business.Phone ?? business.Address ?? "Sin contacto")</p>
                                 <p class="mt-1 text-xs text-[#7b8081]">@(business.Activation?.StatusLabel ?? (business.IsVisible ? "Publicado" : "Pendiente"))</p>
+                                <div class="mt-3 flex items-center gap-2 text-xs font-bold @(HasExactLocation(business) ? "text-[#3b6700]" : "text-[#7b8081]")">
+                                    <span class="material-symbols-outlined text-[16px]">@(HasExactLocation(business) ? "my_location" : "location_on")</span>
+                                    @(HasExactLocation(business) ? "Ubicación exacta configurada" : "Usando referencia por comuna")
+                                </div>
                                 <a class="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#3b6700] hover:underline" href="@($"/buyer/detail/partner/{business.Id}")">
                                     Ver en público
                                     <span class="material-symbols-outlined text-[16px]">arrow_right_alt</span>
@@ -428,6 +432,9 @@
 
         return null;
     }
+
+    private static bool HasExactLocation(ComunaClick.Shared.Api.Partner.PartnerDto business)
+        => business.Latitude is not null && business.Longitude is not null;
 
     public void Dispose()
     {

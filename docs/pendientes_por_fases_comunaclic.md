@@ -27,10 +27,10 @@ Un usuario partner puede publicar una oferta y un usuario buyer puede encontrarl
 
 ### Pendientes
 
-- [ ] Permitir que el partner edite su ubicación exacta después del onboarding.
-- [ ] Mostrar en panel partner si la ubicación usada es exacta o referencia por comuna.
-- [ ] Mejorar la UX móvil del mapa por categoría.
-- [ ] Agregar fallback visual claro si el usuario niega geolocalización o si el navegador no entrega coordenadas.
+- [x] Permitir que el partner edite su ubicación exacta después del onboarding.
+- [x] Mostrar en panel partner si la ubicación usada es exacta o referencia por comuna.
+- [x] Mejorar la UX móvil del mapa por categoría.
+- [x] Agregar fallback visual claro si el usuario niega geolocalización o si el navegador no entrega coordenadas.
 - [ ] Evaluar clustering de marcadores si una categoría tiene muchos negocios cerca.
 
 ### Criterio De Cierre

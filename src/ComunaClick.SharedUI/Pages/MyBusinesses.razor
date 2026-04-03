@@ -3,6 +3,7 @@
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 @inject ILogger<MyBusinesses> Logger
 
 <PageTitle>Mis negocios - ComunaClic</PageTitle>
@@ -47,12 +48,19 @@
                                 <h2 class="text-xl font-bold">@item.Name</h2>
                                 <p class="text-sm text-[#61897c]">Tipo @item.Type · @VisibilityLabel(item)</p>
                             </div>
-                            <span class="@ActivationBadgeClass(item)">@(item.Activation?.StatusLabel ?? "Sin estado")</span>
+                            <div class="flex flex-col items-end gap-2">
+                                <span class="@ActivationBadgeClass(item)">@(item.Activation?.StatusLabel ?? "Sin estado")</span>
+                                <span class="@LocationBadgeClass(item)">@LocationLabel(item)</span>
+                            </div>
                         </div>
 
                         <div class="text-sm text-[#61897c] space-y-1">
                             <div>@(item.Address ?? "Sin dirección")</div>
                             <div>@(item.Email ?? item.Phone ?? "Sin contacto")</div>
+                            @if (item.Latitude is not null && item.Longitude is not null)
+                            {
+                                <div>Coordenadas: @item.Latitude.Value.ToString("N6"), @item.Longitude.Value.ToString("N6")</div>
+                            }
                             @if (item.Activation is not null)
                             {
                                 <div>Completitud: @item.Activation.CompletionPercent%</div>
@@ -83,6 +91,11 @@
                             {
                                 <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">Completar negocio</a>
                             }
+                            <button class="border border-[#dadddf] text-[#2c2f30] px-4 py-2 rounded-lg font-semibold text-sm"
+                                    @onclick="() => UpdateLocationAsync(item)"
+                                    disabled="@(_isUpdatingLocation || _isSwitching)">
+                                Actualizar ubicación
+                            </button>
                             <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">Crear nuevo negocio</a>
                         </div>
                     </div>
@@ -97,6 +110,7 @@
     private bool _isLoading = true;
     private bool _isSwitching;
     private bool _isTogglingVisibility;
+    private bool _isUpdatingLocation;
     private string? _statusMessage;
     private string _statusLevel = "info";
     private bool _checkedAuth;
@@ -230,6 +244,62 @@
         }
     }
 
+    private async Task UpdateLocationAsync(ComunaClick.Shared.Api.Partner.PartnerDto partner)
+    {
+        _isUpdatingLocation = true;
+        _statusLevel = "info";
+        _statusMessage = $"Obteniendo tu ubicación para actualizar {partner.Name}...";
+
+        try
+        {
+            var position = await JSRuntime.InvokeAsync<BrowserLocation>("comunaclic.getCurrentPosition");
+            var updated = await PartnerApi.UpdatePartnerAsync(
+                partner.Id,
+                new ComunaClick.Shared.Api.Partner.PartnerUpdateRequest(
+                    partner.Type,
+                    partner.Name,
+                    partner.Rut,
+                    partner.Address,
+                    partner.Phone,
+                    partner.Email,
+                    partner.SubcategoryId,
+                    position.Latitude,
+                    position.Longitude,
+                    partner.IsVisible));
+
+            if (updated is not null)
+            {
+                var index = _items.FindIndex(x => x.Id == partner.Id);
+                if (index >= 0)
+                {
+                    _items[index] = updated;
+                }
+            }
+
+            _statusLevel = "success";
+            _statusMessage = "Ubicación actualizada correctamente. Si abres una categoría en buyer, este negocio podrá aparecer con su coordenada exacta.";
+        }
+        catch (JSException)
+        {
+            _statusLevel = "warning";
+            _statusMessage = "No pudimos leer tu ubicación. Revisa permisos de geolocalización del navegador e inténtalo otra vez.";
+        }
+        catch (InvalidOperationException)
+        {
+            _statusLevel = "warning";
+            _statusMessage = "La ubicación todavía no está disponible durante prerender. Inténtalo cuando la página termine de cargar.";
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+        finally
+        {
+            _isUpdatingLocation = false;
+        }
+    }
+
     private static string VisibilityLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
         => item.IsVisible ? "Publicado" : "No publicado";
 
@@ -248,4 +318,20 @@
 
     private static string PublicPreviewHref(ComunaClick.Shared.Api.Partner.PartnerDto item)
         => $"/buyer/detail/partner/{item.Id}";
+
+    private static string LocationLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => item.Latitude is not null && item.Longitude is not null
+            ? "Ubicación exacta"
+            : "Referencia por comuna";
+
+    private static string LocationBadgeClass(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => item.Latitude is not null && item.Longitude is not null
+            ? "text-[11px] px-2 py-1 rounded-full bg-[#eff7e5] text-[#3b6700] font-semibold"
+            : "text-[11px] px-2 py-1 rounded-full bg-[#f5f6f7] text-[#595c5d] font-semibold";
+
+    private sealed record BrowserLocation(
+        double Latitude,
+        double Longitude,
+        double Accuracy
+    );
 }
