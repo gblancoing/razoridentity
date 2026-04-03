@@ -65,6 +65,11 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAssertion(context => HasPartnerSession(context.User) || HasAnyRole(context.User, "partner_owner", "tenant_admin", "platform_admin")));
     options.AddPolicy("partner.staff", policy =>
         policy.RequireAssertion(context => HasPartnerSession(context.User) || HasAnyRole(context.User, "partner_staff", "partner_owner", "tenant_admin", "platform_admin")));
+    options.AddPolicy("buyer.customer", policy =>
+        policy.RequireAssertion(context =>
+            context.User.Identity?.IsAuthenticated == true &&
+            !HasPartnerSession(context.User) &&
+            HasAnyRole(context.User, "customer", "tenant_admin", "platform_admin")));
 });
 builder.Services.AddRateLimiter(options =>
 {

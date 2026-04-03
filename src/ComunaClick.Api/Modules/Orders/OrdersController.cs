@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 namespace ComunaClick.Api.Modules.Orders;
 
 [ApiController]
-[Authorize(Policy = "partner.staff")]
 [Route("v1/orders")]
 public sealed class OrdersController : ControllerBase
 {
@@ -23,6 +22,7 @@ public sealed class OrdersController : ControllerBase
         _tenantContext = tenantContext;
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Order>> Get(Guid id)
     {
@@ -85,6 +85,7 @@ public sealed class OrdersController : ControllerBase
         });
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpGet("/v1/partners/{partnerId:guid}/orders")]
     public async Task<ActionResult<IEnumerable<Order>>> ListByPartner(Guid partnerId)
     {
@@ -102,6 +103,8 @@ public sealed class OrdersController : ControllerBase
         return Ok(orders);
     }
 
+    [Authorize(Policy = "buyer.customer")]
+    [EnableRateLimiting("public-write")]
     [HttpPost]
     public async Task<ActionResult<Order>> Create(OrderCreateRequest request)
     {
@@ -111,38 +114,77 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
-        var partnerId = _tenantContext.PartnerId ?? request.PartnerId;
-        if (partnerId == Guid.Empty)
-        {
-            return BadRequest(new { message = "PartnerId is required." });
-        }
-
-        if (_tenantContext.PartnerId.HasValue && request.PartnerId != Guid.Empty && request.PartnerId != _tenantContext.PartnerId.Value)
-        {
-            return Forbid();
-        }
-
         if (request.Items is null || request.Items.Count == 0)
         {
             return BadRequest(new { message = "Order must include at least one item." });
         }
 
+        if (request.CustomerId == Guid.Empty)
+        {
+            return BadRequest(new { message = "CustomerId is required." });
+        }
+
+        var hasCustomer = await _db.Customers.AsNoTracking()
+            .AnyAsync(x => x.Id == request.CustomerId && x.TenantId == tenantId.Value);
+
+        if (!hasCustomer)
+        {
+            return BadRequest(new { message = "CustomerId does not exist for current tenant." });
+        }
+
+        if (request.Items.Any(item => item.ProductId == Guid.Empty || item.Quantity <= 0))
+        {
+            return BadRequest(new { message = "Each item must include a valid ProductId and Quantity > 0." });
+        }
+
+        var productIds = request.Items.Select(item => item.ProductId).Distinct().ToList();
+        var products = await _db.Products.AsNoTracking()
+            .Where(x => productIds.Contains(x.Id) && x.TenantId == tenantId.Value && x.IsActive)
+            .ToListAsync();
+
+        if (products.Count != productIds.Count)
+        {
+            return BadRequest(new { message = "One or more products are not available for purchase." });
+        }
+
+        var partnerIds = products.Select(x => x.PartnerId).Distinct().ToList();
+        if (partnerIds.Count != 1)
+        {
+            return BadRequest(new { message = "All order items must belong to the same partner." });
+        }
+
+        var partnerId = partnerIds[0];
+        if (request.PartnerId != Guid.Empty && request.PartnerId != partnerId)
+        {
+            return BadRequest(new { message = "PartnerId does not match selected products." });
+        }
+
+        var hasVisiblePartner = await _db.Partners.AsNoTracking()
+            .AnyAsync(x => x.Id == partnerId && x.TenantId == tenantId.Value && x.IsVisible);
+
+        if (!hasVisiblePartner)
+        {
+            return BadRequest(new { message = "Selected partner is not publicly available." });
+        }
+
+        var productLookup = products.ToDictionary(x => x.Id);
         var items = request.Items.Select(item =>
         {
-            var total = item.UnitPrice * item.Quantity;
+            var product = productLookup[item.ProductId];
+            var total = product.Price * item.Quantity;
             return new OrderItem
             {
-                ProductId = item.ProductId,
+                ProductId = product.Id,
                 Quantity = item.Quantity,
-                UnitPrice = item.UnitPrice,
+                UnitPrice = product.Price,
                 TotalPrice = total
             };
         }).ToList();
 
         var subtotal = items.Sum(x => x.TotalPrice);
-        var deliveryFee = request.DeliveryFee;
+        var deliveryFee = Math.Max(0, request.DeliveryFee);
         var totalAmount = subtotal + deliveryFee;
-        var currency = request.NormalizeCurrency("CLP");
+        var currency = request.NormalizeCurrency(products[0].Currency);
         var subtotalMoney = new Money(subtotal, currency);
         var deliveryMoney = new Money(deliveryFee, currency);
         var totalMoney = new Money(totalAmount, currency);
@@ -167,6 +209,7 @@ public sealed class OrdersController : ControllerBase
         return Created($"/v1/orders/{order.Id}", order);
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<Order>> UpdateStatus(Guid id, OrderStatusUpdateRequest request)
     {
@@ -182,6 +225,7 @@ public sealed class OrdersController : ControllerBase
         return Ok(order);
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<Order>> Cancel(Guid id)
     {

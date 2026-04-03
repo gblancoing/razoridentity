@@ -10,7 +10,7 @@ Ordenar el trabajo pendiente en etapas cortas y publicables, priorizando primero
 
 - [ ] Validar en producción el flujo partner completo con usuario nuevo: registro, creación de negocio, carga de oferta, publicación y visibilidad pública.
 - [ ] Validar en producción el flujo buyer completo con cuenta personal: registro, login, navegación por categorías, detalle, contacto, reserva y compra.
-- [ ] Completar el flujo real de compra y reserva si todavía hay pasos simulados o no persistidos.
+- [x] Completar el flujo real de compra, reserva y contacto desde cuenta buyer autenticada, validando customer/producto/servicio/slot en backend y calculando partner/precio desde catálogo real.
 - [x] Completar estados de confirmación y error post-compra/post-reserva/contacto para que el usuario entienda el resultado de la operación y tenga navegación directa a seguimiento o retorno.
 - [x] Mejorar la ficha pública de negocio, producto, servicio y profesional con datos clave por tipo, hero visual con fallback por categoría y CTA más claros.
 

@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 namespace ComunaClick.Api.Modules.Leads;
 
 [ApiController]
-[Authorize(Policy = "partner.staff")]
 [Route("v1/leads")]
 public sealed class LeadsController : ControllerBase
 {
@@ -22,6 +21,7 @@ public sealed class LeadsController : ControllerBase
         _tenantContext = tenantContext;
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Lead>> Get(Guid id)
     {
@@ -29,6 +29,7 @@ public sealed class LeadsController : ControllerBase
         return lead is null ? NotFound() : Ok(lead);
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpGet("/v1/professionals/{professionalId:guid}/leads")]
     public async Task<ActionResult<IEnumerable<Lead>>> ListByProfessional(Guid professionalId)
     {
@@ -39,6 +40,7 @@ public sealed class LeadsController : ControllerBase
         return Ok(leads);
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpGet("/v1/partners/{partnerId:guid}/leads")]
     public async Task<ActionResult<IEnumerable<Lead>>> ListByPartner(Guid partnerId)
     {
@@ -82,7 +84,7 @@ public sealed class LeadsController : ControllerBase
     }
 
     [HttpPost]
-    [AllowAnonymous]
+    [Authorize(Policy = "buyer.customer")]
     [EnableRateLimiting("public-write")]
     public async Task<ActionResult<Lead>> Create(LeadCreateRequest request)
     {
@@ -90,6 +92,31 @@ public sealed class LeadsController : ControllerBase
         if (!tenantId.HasValue)
         {
             return BadRequest(new { message = "TenantId is required." });
+        }
+
+        if (request.CustomerId == Guid.Empty)
+        {
+            return BadRequest(new { message = "CustomerId is required." });
+        }
+
+        var hasCustomer = await _db.Customers.AsNoTracking()
+            .AnyAsync(x => x.Id == request.CustomerId && x.TenantId == tenantId.Value);
+
+        if (!hasCustomer)
+        {
+            return BadRequest(new { message = "CustomerId does not exist for current tenant." });
+        }
+
+        var hasProfessional = await _db.Professionals.AsNoTracking()
+            .AnyAsync(x =>
+                x.Id == request.ProfessionalId &&
+                x.TenantId == tenantId.Value &&
+                x.IsActive &&
+                x.IsVerified);
+
+        if (!hasProfessional)
+        {
+            return BadRequest(new { message = "Professional is not available for contact." });
         }
 
         var lead = new Lead

@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 namespace ComunaClick.Api.Modules.Bookings;
 
 [ApiController]
-[Authorize(Policy = "partner.staff")]
 [Route("v1/bookings")]
 public sealed class BookingsController : ControllerBase
 {
@@ -22,6 +21,7 @@ public sealed class BookingsController : ControllerBase
         _tenantContext = tenantContext;
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Booking>> Get(Guid id)
     {
@@ -102,6 +102,7 @@ public sealed class BookingsController : ControllerBase
         });
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpGet("/v1/partners/{partnerId:guid}/bookings")]
     public async Task<ActionResult<IEnumerable<Booking>>> ListByPartner(Guid partnerId)
     {
@@ -118,6 +119,8 @@ public sealed class BookingsController : ControllerBase
         return Ok(bookings);
     }
 
+    [Authorize(Policy = "buyer.customer")]
+    [EnableRateLimiting("public-write")]
     [HttpPost]
     public async Task<ActionResult<Booking>> Create(BookingCreateRequest request)
     {
@@ -127,15 +130,17 @@ public sealed class BookingsController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
-        var partnerId = _tenantContext.PartnerId ?? request.PartnerId;
-        if (partnerId == Guid.Empty)
+        if (request.CustomerId == Guid.Empty)
         {
-            return BadRequest(new { message = "PartnerId is required." });
+            return BadRequest(new { message = "CustomerId is required." });
         }
 
-        if (_tenantContext.PartnerId.HasValue && request.PartnerId != Guid.Empty && request.PartnerId != _tenantContext.PartnerId.Value)
+        var hasCustomer = await _db.Customers.AsNoTracking()
+            .AnyAsync(x => x.Id == request.CustomerId && x.TenantId == tenantId.Value);
+
+        if (!hasCustomer)
         {
-            return Forbid();
+            return BadRequest(new { message = "CustomerId does not exist for current tenant." });
         }
 
         if (request.EndAt <= request.StartAt)
@@ -143,18 +148,68 @@ public sealed class BookingsController : ControllerBase
             return BadRequest(new { message = "EndAt must be after StartAt." });
         }
 
+        var service = await _db.Services.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == request.ServiceId && x.TenantId == tenantId.Value && x.IsActive);
+
+        if (service is null)
+        {
+            return BadRequest(new { message = "Selected service is not available for booking." });
+        }
+
+        if (request.PartnerId != Guid.Empty && request.PartnerId != service.PartnerId)
+        {
+            return BadRequest(new { message = "PartnerId does not match selected service." });
+        }
+
+        var hasVisiblePartner = await _db.Partners.AsNoTracking()
+            .AnyAsync(x => x.Id == service.PartnerId && x.TenantId == tenantId.Value && x.IsVisible);
+
+        if (!hasVisiblePartner)
+        {
+            return BadRequest(new { message = "Selected partner is not publicly available." });
+        }
+
+        ServiceSlot? slot = null;
+        if (request.SlotId.HasValue)
+        {
+            slot = await _db.ServiceSlots
+                .FirstOrDefaultAsync(x =>
+                    x.Id == request.SlotId.Value &&
+                    x.TenantId == tenantId.Value &&
+                    x.PartnerId == service.PartnerId &&
+                    x.ServiceId == service.Id);
+
+            if (slot is null)
+            {
+                return BadRequest(new { message = "Selected slot does not belong to this service." });
+            }
+
+            if (!slot.IsAvailable || slot.Capacity <= 0)
+            {
+                return Conflict(new { message = "Selected slot is no longer available." });
+            }
+
+            if (slot.StartAt != request.StartAt || slot.EndAt != request.EndAt)
+            {
+                return BadRequest(new { message = "StartAt/EndAt must match the selected slot." });
+            }
+
+            slot.IsAvailable = false;
+            slot.Capacity = 0;
+        }
+
         var booking = new Booking
         {
             TenantId = tenantId.Value,
-            PartnerId = partnerId,
-            ServiceId = request.ServiceId,
+            PartnerId = service.PartnerId,
+            ServiceId = service.Id,
             SlotId = request.SlotId,
             CustomerId = request.CustomerId,
             Status = "payment_pending",
             StartAt = request.StartAt,
             EndAt = request.EndAt,
-            Amount = request.Amount,
-            Currency = string.IsNullOrWhiteSpace(request.Currency) ? "CLP" : request.Currency.Trim(),
+            Amount = service.Price,
+            Currency = string.IsNullOrWhiteSpace(request.Currency) ? service.Currency : request.Currency.Trim(),
             CancellationPolicy = string.IsNullOrWhiteSpace(request.CancellationPolicy) ? "{}" : request.CancellationPolicy,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -165,6 +220,7 @@ public sealed class BookingsController : ControllerBase
         return Created($"/v1/bookings/{booking.Id}", booking);
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<Booking>> UpdateStatus(Guid id, BookingStatusUpdateRequest request)
     {
@@ -180,6 +236,7 @@ public sealed class BookingsController : ControllerBase
         return Ok(booking);
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<Booking>> Cancel(Guid id)
     {
