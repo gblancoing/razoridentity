@@ -26,21 +26,43 @@ public sealed class OrdersController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Order>> Get(Guid id)
     {
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
         var order = await _db.Orders
             .AsNoTracking()
             .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id);
-        return order is null ? NotFound() : Ok(order);
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        if (_tenantContext.PartnerId.HasValue && _tenantContext.PartnerId.Value != order.PartnerId)
+        {
+            return Forbid();
+        }
+
+        return Ok(order);
     }
 
     [AllowAnonymous]
     [EnableRateLimiting("public-read")]
     [HttpGet("/v1/public/orders/{id:guid}")]
-    public async Task<ActionResult<object>> GetPublic(Guid id)
+    public async Task<ActionResult<object>> GetPublic(Guid id, [FromQuery] Guid customerId)
     {
+        if (customerId == Guid.Empty)
+        {
+            return NotFound();
+        }
+
         var order = await _db.Orders.AsNoTracking()
             .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == id && x.CustomerId == customerId);
 
         if (order is null)
         {
@@ -70,8 +92,7 @@ public sealed class OrdersController : ControllerBase
                 partner.Id,
                 partner.Name,
                 partner.Address,
-                partner.Phone,
-                partner.Email
+                partner.Phone
             },
             Items = order.Items.Select(item => new
             {
@@ -89,15 +110,28 @@ public sealed class OrdersController : ControllerBase
     [HttpGet("/v1/partners/{partnerId:guid}/orders")]
     public async Task<ActionResult<IEnumerable<Order>>> ListByPartner(Guid partnerId)
     {
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
         var scopedPartner = _tenantContext.PartnerId;
         if (scopedPartner.HasValue && scopedPartner.Value != partnerId)
         {
             return Forbid();
         }
 
+        var hasPartner = await _db.Partners.AsNoTracking()
+            .AnyAsync(x => x.Id == partnerId && x.TenantId == tenantId.Value);
+        if (!hasPartner)
+        {
+            return NotFound();
+        }
+
         var orders = await _db.Orders
             .AsNoTracking()
-            .Where(x => x.PartnerId == partnerId)
+            .Where(x => x.TenantId == tenantId.Value && x.PartnerId == partnerId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
         return Ok(orders);
@@ -213,10 +247,21 @@ public sealed class OrdersController : ControllerBase
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<Order>> UpdateStatus(Guid id, OrderStatusUpdateRequest request)
     {
-        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (order is null)
         {
             return NotFound();
+        }
+
+        if (_tenantContext.PartnerId.HasValue && _tenantContext.PartnerId.Value != order.PartnerId)
+        {
+            return Forbid();
         }
 
         order.Status = request.Status.Trim();
@@ -229,10 +274,21 @@ public sealed class OrdersController : ControllerBase
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<Order>> Cancel(Guid id)
     {
-        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (order is null)
         {
             return NotFound();
+        }
+
+        if (_tenantContext.PartnerId.HasValue && _tenantContext.PartnerId.Value != order.PartnerId)
+        {
+            return Forbid();
         }
 
         order.Status = "cancelled";

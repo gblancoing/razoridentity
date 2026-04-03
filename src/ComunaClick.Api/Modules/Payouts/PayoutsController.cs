@@ -52,9 +52,15 @@ public sealed class PayoutsController : ControllerBase
     [Authorize(Policy = "tenant.admin")]
     public async Task<ActionResult<PayoutBatch>> GetBatch(Guid id)
     {
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
         var batch = await _db.PayoutBatches.AsNoTracking()
             .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         return batch is null ? NotFound() : Ok(batch);
     }
 
@@ -62,7 +68,13 @@ public sealed class PayoutsController : ControllerBase
     [Authorize(Policy = "tenant.admin")]
     public async Task<ActionResult<PayoutBatch>> CloseBatch(Guid id)
     {
-        var batch = await _db.PayoutBatches.FirstOrDefaultAsync(x => x.Id == id);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var batch = await _db.PayoutBatches.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (batch is null)
         {
             return NotFound();
@@ -77,7 +89,13 @@ public sealed class PayoutsController : ControllerBase
     [Authorize(Policy = "tenant.admin")]
     public async Task<ActionResult<PayoutBatch>> MarkPaid(Guid id)
     {
-        var batch = await _db.PayoutBatches.FirstOrDefaultAsync(x => x.Id == id);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var batch = await _db.PayoutBatches.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (batch is null)
         {
             return NotFound();

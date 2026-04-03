@@ -47,9 +47,9 @@ El buyer puede explorar una categoría en mapa con ubicación cercana confiable 
 ### Pendientes
 
 - [ ] Ejecutar rotación de secretos productivos y mover credenciales sensibles fuera de `appsettings.json`.
-- [ ] Revisar todas las políticas de autorización y ownership en endpoints partner/admin para evitar acceso cruzado.
-- [ ] Endurecer endpoints públicos de tracking para que no expongan información sensible solo por conocer un GUID.
-- [ ] Revisar si `PasswordHasher` puede dejar de aceptar hash legacy o texto plano y definir plan de migración.
+- [x] Revisar todas las políticas de autorización y ownership en endpoints partner/admin para evitar acceso cruzado.
+- [x] Endurecer endpoints públicos de tracking para que no expongan información sensible solo por conocer un GUID.
+- [x] Revisar si `PasswordHasher` puede dejar de aceptar hash legacy o texto plano y definir plan de migración.
 - [ ] Confirmar comportamiento real de rate limiting y reCAPTCHA en producción con pruebas de abuso controladas.
 
 ### Criterio De Cierre

@@ -2,6 +2,7 @@
 @layout BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @implements IDisposable
 @using System.Text.Json
@@ -210,6 +211,8 @@
     private BuyerOrder? _order;
     private BuyerBooking? _booking;
     private bool _isLoading;
+    private Guid? _customerId;
+    private bool _browserCustomerReady;
 
     private string StatusHeadline => _order is null && _booking is null ? "Sin consulta" : "Seguimiento actualizado";
     private string StatusBody => _order is null && _booking is null
@@ -221,15 +224,41 @@
         L.OnChange += HandleChange;
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         OrderId = GetQueryParameter(uri.Query, "orderId") ?? string.Empty;
         BookingId = GetQueryParameter(uri.Query, "bookingId") ?? string.Empty;
+        return Task.CompletedTask;
+    }
 
-        if (!string.IsNullOrWhiteSpace(OrderId) || !string.IsNullOrWhiteSpace(BookingId))
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_browserCustomerReady)
         {
-            await HandleLookup();
+            return;
+        }
+
+        try
+        {
+            var rawCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+            if (Guid.TryParse(rawCustomerId, out var customerId) && customerId != Guid.Empty)
+            {
+                _customerId = customerId;
+            }
+
+            _browserCustomerReady = true;
+
+            if (!string.IsNullOrWhiteSpace(OrderId) || !string.IsNullOrWhiteSpace(BookingId))
+            {
+                await HandleLookup();
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException)
+        {
+            _browserCustomerReady = false;
         }
     }
 
@@ -243,14 +272,21 @@
 
         try
         {
+            if (_customerId is null || _customerId == Guid.Empty)
+            {
+                _statusMessage = "No encontramos tu CustomerId local. Ingresa a tu perfil buyer o vuelve a iniciar sesión antes de consultar seguimiento.";
+                _statusLevel = "warning";
+                return;
+            }
+
             if (Guid.TryParse(OrderId, out var orderId))
             {
-                _order = await BuyerApi.GetOrderAsync(orderId);
+                _order = await BuyerApi.GetOrderAsync(orderId, _customerId.Value);
             }
 
             if (Guid.TryParse(BookingId, out var bookingId))
             {
-                _booking = await BuyerApi.GetBookingAsync(bookingId);
+                _booking = await BuyerApi.GetBookingAsync(bookingId, _customerId.Value);
             }
 
             if (_order is null && _booking is null)

@@ -68,6 +68,8 @@ Rotar secretos expuestos en configuración sin cortar producción ni invalidar s
 
 ## Validación post rotación
 
+- `PasswordHashing:AllowPlainText` debe quedar `false` salvo una emergencia controlada de compatibilidad.
+- `PasswordHashing:AllowLegacySha256` puede quedar `true` solo durante una ventana corta de migración de usuarios antiguos.
 - `POST /v1/auth/login`
 - `POST /v1/auth/register`
 - `POST /v1/auth/refresh`

@@ -41,13 +41,28 @@ public sealed class SupportController : ControllerBase
         Customer? customer = null;
         if (request.CustomerId.HasValue && request.CustomerId.Value != Guid.Empty)
         {
-            customer = await _db.Customers.FirstOrDefaultAsync(x => x.Id == request.CustomerId.Value, cancellationToken);
+            customer = await _db.Customers.FirstOrDefaultAsync(
+                x => x.Id == request.CustomerId.Value && x.TenantId == tenantId.Value,
+                cancellationToken);
         }
 
         if (customer is null)
         {
             var email = request.Email.Trim().ToLowerInvariant();
-            customer = await _db.Customers.FirstOrDefaultAsync(x => x.Email != null && x.Email.ToLower() == email, cancellationToken);
+            customer = await _db.Customers.FirstOrDefaultAsync(
+                x => x.TenantId == tenantId.Value && x.Email != null && x.Email.ToLower() == email,
+                cancellationToken);
+        }
+
+        if (request.PartnerId.HasValue && request.PartnerId.Value != Guid.Empty)
+        {
+            var hasPartner = await _db.Partners.AsNoTracking()
+                .AnyAsync(x => x.Id == request.PartnerId.Value && x.TenantId == tenantId.Value, cancellationToken);
+
+            if (!hasPartner)
+            {
+                return BadRequest(new { message = "PartnerId does not exist for current tenant." });
+            }
         }
 
         if (customer is null)

@@ -25,16 +25,43 @@ public sealed class LeadsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Lead>> Get(Guid id)
     {
-        var lead = await _db.Leads.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        return lead is null ? NotFound() : Ok(lead);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var lead = await _db.Leads.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+        if (lead is null)
+        {
+            return NotFound();
+        }
+
+        if (!await CanAccessProfessionalAsync(lead.ProfessionalId, tenantId.Value))
+        {
+            return Forbid();
+        }
+
+        return Ok(lead);
     }
 
     [Authorize(Policy = "partner.staff")]
     [HttpGet("/v1/professionals/{professionalId:guid}/leads")]
     public async Task<ActionResult<IEnumerable<Lead>>> ListByProfessional(Guid professionalId)
     {
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        if (!await CanAccessProfessionalAsync(professionalId, tenantId.Value))
+        {
+            return Forbid();
+        }
+
         var leads = await _db.Leads.AsNoTracking()
-            .Where(x => x.ProfessionalId == professionalId)
+            .Where(x => x.TenantId == tenantId.Value && x.ProfessionalId == professionalId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
         return Ok(leads);
@@ -135,18 +162,54 @@ public sealed class LeadsController : ControllerBase
         return Created($"/v1/leads/{lead.Id}", lead);
     }
 
+    [Authorize(Policy = "partner.staff")]
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<Lead>> UpdateStatus(Guid id, LeadStatusUpdateRequest request)
     {
-        var lead = await _db.Leads.FirstOrDefaultAsync(x => x.Id == id);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var lead = await _db.Leads.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (lead is null)
         {
             return NotFound();
+        }
+
+        if (!await CanAccessProfessionalAsync(lead.ProfessionalId, tenantId.Value))
+        {
+            return Forbid();
         }
 
         lead.Status = request.Status.Trim();
         lead.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(lead);
+    }
+
+    private async Task<bool> CanAccessProfessionalAsync(Guid professionalId, Guid tenantId)
+    {
+        var scopedPartner = _tenantContext.PartnerId;
+        if (!scopedPartner.HasValue)
+        {
+            return await _db.Professionals.AsNoTracking()
+                .AnyAsync(x => x.Id == professionalId && x.TenantId == tenantId);
+        }
+
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == scopedPartner.Value && x.TenantId == tenantId);
+
+        if (partner is null)
+        {
+            return false;
+        }
+
+        return await _db.Professionals.AsNoTracking()
+            .AnyAsync(x =>
+                x.Id == professionalId &&
+                x.TenantId == tenantId &&
+                (x.ComunaId == partner.ComunaId || (!x.ComunaId.HasValue && !partner.ComunaId.HasValue)));
     }
 }

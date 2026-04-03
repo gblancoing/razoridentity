@@ -59,7 +59,9 @@ public sealed class AuthController : ControllerBase
             return Unauthorized();
         }
 
-        if (!PasswordHasher.Verify(request.Password, user.PasswordHash))
+        var allowLegacySha256 = _configuration.GetValue("PasswordHashing:AllowLegacySha256", true);
+        var allowPlainText = _configuration.GetValue("PasswordHashing:AllowPlainText", false);
+        if (!PasswordHasher.Verify(request.Password, user.PasswordHash, allowLegacySha256, allowPlainText))
         {
             return Unauthorized();
         }

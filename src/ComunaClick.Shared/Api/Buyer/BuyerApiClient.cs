@@ -41,11 +41,11 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
-    public Task<OrderTracking?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default)
-        => GetAsync<OrderTracking>($"/v1/public/orders/{id}", cancellationToken);
+    public Task<OrderTracking?> GetOrderAsync(Guid id, Guid customerId, CancellationToken cancellationToken = default)
+        => GetAsync<OrderTracking>($"/v1/public/orders/{id}?customerId={customerId}", cancellationToken);
 
-    public Task<BookingTracking?> GetBookingAsync(Guid id, CancellationToken cancellationToken = default)
-        => GetAsync<BookingTracking>($"/v1/public/bookings/{id}", cancellationToken);
+    public Task<BookingTracking?> GetBookingAsync(Guid id, Guid customerId, CancellationToken cancellationToken = default)
+        => GetAsync<BookingTracking>($"/v1/public/bookings/{id}?customerId={customerId}", cancellationToken);
 
     public Task<Customer?> GetCustomerAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Customer>($"/v1/customers/{id}", cancellationToken);
@@ -189,8 +189,7 @@ public sealed record OrderTrackingPartner(
     Guid Id,
     string? Name,
     string? Address,
-    string? Phone,
-    string? Email
+    string? Phone
 );
 
 public sealed record OrderTrackingItem(
@@ -261,8 +260,7 @@ public sealed record BookingTrackingPartner(
     Guid Id,
     string? Name,
     string? Address,
-    string? Phone,
-    string? Email
+    string? Phone
 );
 
 public sealed record BookingTrackingService(
@@ -277,7 +275,6 @@ public sealed record BookingTrackingProfessional(
     Guid Id,
     string? Name,
     string? Specialty,
-    string? Email,
     string? Phone
 );
 

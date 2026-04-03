@@ -25,17 +25,38 @@ public sealed class BookingsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Booking>> Get(Guid id)
     {
-        var booking = await _db.Bookings.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        return booking is null ? NotFound() : Ok(booking);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var booking = await _db.Bookings.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+        if (booking is null)
+        {
+            return NotFound();
+        }
+
+        if (_tenantContext.PartnerId.HasValue && _tenantContext.PartnerId.Value != booking.PartnerId)
+        {
+            return Forbid();
+        }
+
+        return Ok(booking);
     }
 
     [AllowAnonymous]
     [EnableRateLimiting("public-read")]
     [HttpGet("/v1/public/bookings/{id:guid}")]
-    public async Task<ActionResult<object>> GetPublic(Guid id)
+    public async Task<ActionResult<object>> GetPublic(Guid id, [FromQuery] Guid customerId)
     {
+        if (customerId == Guid.Empty)
+        {
+            return NotFound();
+        }
+
         var booking = await _db.Bookings.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == id && x.CustomerId == customerId);
 
         if (booking is null)
         {
@@ -65,7 +86,6 @@ public sealed class BookingsController : ControllerBase
                     matchedProfessional.Id,
                     matchedProfessional.Name,
                     matchedProfessional.Specialty,
-                    matchedProfessional.Email,
                     matchedProfessional.Phone
                 };
             }
@@ -87,8 +107,7 @@ public sealed class BookingsController : ControllerBase
                 partner.Id,
                 partner.Name,
                 partner.Address,
-                partner.Phone,
-                partner.Email
+                partner.Phone
             },
             Service = service is null ? null : new
             {
@@ -106,14 +125,27 @@ public sealed class BookingsController : ControllerBase
     [HttpGet("/v1/partners/{partnerId:guid}/bookings")]
     public async Task<ActionResult<IEnumerable<Booking>>> ListByPartner(Guid partnerId)
     {
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
         var scopedPartner = _tenantContext.PartnerId;
         if (scopedPartner.HasValue && scopedPartner.Value != partnerId)
         {
             return Forbid();
         }
 
+        var hasPartner = await _db.Partners.AsNoTracking()
+            .AnyAsync(x => x.Id == partnerId && x.TenantId == tenantId.Value);
+        if (!hasPartner)
+        {
+            return NotFound();
+        }
+
         var bookings = await _db.Bookings.AsNoTracking()
-            .Where(x => x.PartnerId == partnerId)
+            .Where(x => x.TenantId == tenantId.Value && x.PartnerId == partnerId)
             .OrderByDescending(x => x.StartAt)
             .ToListAsync();
         return Ok(bookings);
@@ -224,10 +256,21 @@ public sealed class BookingsController : ControllerBase
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<Booking>> UpdateStatus(Guid id, BookingStatusUpdateRequest request)
     {
-        var booking = await _db.Bookings.FirstOrDefaultAsync(x => x.Id == id);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var booking = await _db.Bookings.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (booking is null)
         {
             return NotFound();
+        }
+
+        if (_tenantContext.PartnerId.HasValue && _tenantContext.PartnerId.Value != booking.PartnerId)
+        {
+            return Forbid();
         }
 
         booking.Status = request.Status.Trim();
@@ -240,10 +283,21 @@ public sealed class BookingsController : ControllerBase
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<Booking>> Cancel(Guid id)
     {
-        var booking = await _db.Bookings.FirstOrDefaultAsync(x => x.Id == id);
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var booking = await _db.Bookings.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (booking is null)
         {
             return NotFound();
+        }
+
+        if (_tenantContext.PartnerId.HasValue && _tenantContext.PartnerId.Value != booking.PartnerId)
+        {
+            return Forbid();
         }
 
         booking.Status = "cancelled";

@@ -17,7 +17,11 @@ public static class PasswordHasher
         return $"{Prefix}:{iter}:{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
     }
 
-    public static bool Verify(string password, string storedHash)
+    public static bool Verify(
+        string password,
+        string storedHash,
+        bool allowLegacySha256 = true,
+        bool allowPlainText = false)
     {
         if (string.IsNullOrWhiteSpace(storedHash))
         {
@@ -29,7 +33,7 @@ public static class PasswordHasher
             return VerifyPbkdf2(password, storedHash);
         }
 
-        if (IsSha256Hex(storedHash))
+        if (allowLegacySha256 && IsSha256Hex(storedHash))
         {
             var hash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(password)));
             return CryptographicOperations.FixedTimeEquals(
@@ -37,7 +41,7 @@ public static class PasswordHasher
                 System.Text.Encoding.UTF8.GetBytes(storedHash));
         }
 
-        return string.Equals(password, storedHash, StringComparison.Ordinal);
+        return allowPlainText && string.Equals(password, storedHash, StringComparison.Ordinal);
     }
 
     private static bool VerifyPbkdf2(string password, string storedHash)
