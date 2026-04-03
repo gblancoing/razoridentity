@@ -2,6 +2,7 @@
 @page "/buyer/detail/{Type}/{Id:guid}"
 @layout BuyerLayout
 @using BuyerModels = ComunaClick.Shared.Api.Buyer
+@using ComunaClick.SharedUI.Services
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
@@ -11,7 +12,7 @@
 
 <div class="space-y-8">
     <section class="rounded-[2rem] bg-gradient-to-br from-[#f5f6f7] via-white to-[#eff1f2] border border-[#dadddf] px-8 py-10">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:justify-between">
             <div class="space-y-3">
                 <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@_eyebrow</p>
                 <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@_title</h1>
@@ -23,20 +24,30 @@
                     }
                 </div>
             </div>
-            <div class="w-full max-w-sm rounded-[1.75rem] bg-white p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)]">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Acción sugerida</p>
-                <h2 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@_primaryCtaLabel</h2>
-                <p class="mt-2 text-sm text-[#595c5d]">@_ctaSubtitle</p>
-                <div class="mt-5 space-y-3">
-                    <a href="@_primaryCtaHref" class="block w-full rounded-2xl bg-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#d9ffad]">
-                        @_primaryCtaLabel
-                    </a>
-                    @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
-                    {
-                        <a href="@_secondaryCtaHref" class="block w-full rounded-2xl border border-[#dadddf] px-5 py-3 text-center text-sm font-bold text-[#2c2f30]">
-                            @_secondaryCtaLabel
+            <div class="grid w-full max-w-xl gap-4 md:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
+                <div class="relative min-h-[220px] overflow-hidden rounded-[1.75rem] border border-white bg-[#dadddf] shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)]">
+                    <div class="absolute inset-0 bg-cover bg-center" style="@HeroImageStyle"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-6">
+                        <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-white/80">@_heroLabel</p>
+                        <p class="mt-2 text-xl font-black tracking-[-0.04em] text-white">@_heroTitle</p>
+                    </div>
+                </div>
+                <div class="rounded-[1.75rem] bg-white p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)]">
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Acción sugerida</p>
+                    <h2 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@_primaryCtaLabel</h2>
+                    <p class="mt-2 text-sm text-[#595c5d]">@_ctaSubtitle</p>
+                    <div class="mt-5 space-y-3">
+                        <a href="@_primaryCtaHref" class="block w-full rounded-2xl bg-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#d9ffad]">
+                            @_primaryCtaLabel
                         </a>
-                    }
+                        @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
+                        {
+                            <a href="@_secondaryCtaHref" class="block w-full rounded-2xl border border-[#dadddf] px-5 py-3 text-center text-sm font-bold text-[#2c2f30]">
+                                @_secondaryCtaLabel
+                            </a>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -66,6 +77,18 @@
                         <p class="text-base leading-7 text-[#2c2f30]">@_detailLine1</p>
                         <p class="text-sm leading-7 text-[#595c5d]">@_detailLine2</p>
                     </div>
+                    @if (_detailFacts.Count > 0)
+                    {
+                        <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+                            @foreach (var fact in _detailFacts)
+                            {
+                                <div class="rounded-3xl bg-[#f5f6f7] px-5 py-4">
+                                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@fact.Label</p>
+                                    <p class="mt-2 text-sm font-black tracking-[-0.03em] text-[#2c2f30]">@fact.Value</p>
+                                </div>
+                            }
+                        </div>
+                    }
                 </article>
 
                 @if (_partnerProfile is not null)
@@ -236,8 +259,14 @@
     private string _primaryCtaHref = "/buyer";
     private string? _secondaryCtaLabel;
     private string? _secondaryCtaHref;
+    private string _heroImageUrl = "_content/ComunaClick.SharedUI/logo.png";
+    private string _heroLabel = "ComunaClic";
+    private string _heroTitle = "Explora la oferta publicada";
     private readonly List<string> _badges = new();
+    private readonly List<DetailFact> _detailFacts = new();
     private BuyerModels.PartnerProfileResponse? _partnerProfile;
+
+    private string HeroImageStyle => $"background-image: url('{_heroImageUrl}')";
 
     protected override void OnInitialized()
     {
@@ -257,6 +286,7 @@
 
         _partnerProfile = null;
         _badges.Clear();
+        _detailFacts.Clear();
         _errorMessage = null;
 
         _title = L.T("buyer.detail.heading");
@@ -270,6 +300,9 @@
         _secondaryCtaLabel = null;
         _secondaryCtaHref = null;
         _eyebrow = "Detalle";
+        _heroImageUrl = "_content/ComunaClick.SharedUI/logo.png";
+        _heroLabel = "ComunaClic";
+        _heroTitle = "Explora la oferta publicada";
 
         if (Id is null || string.IsNullOrWhiteSpace(Type))
         {
@@ -332,8 +365,15 @@
         _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/checkout?productId={id}");
         _secondaryCtaLabel = product.PartnerId != Guid.Empty ? "Ver negocio" : null;
         _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : null;
+        _heroImageUrl = ResolveHeroImage(product.Category, product.Name);
+        _heroLabel = "Producto destacado";
+        _heroTitle = product.Category ?? "Disponible para compra";
         AddBadge(product.Category);
         AddBadge(FormatMoney(product.Price, product.Currency));
+        AddFact("Categoría", product.Category ?? "Sin categoría informada");
+        AddFact("Precio", FormatMoney(product.Price, product.Currency));
+        AddFact("Estado", product.IsActive ? "Disponible" : "No disponible");
+        AddFact("Publicado", product.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy"));
     }
 
     private async Task LoadServiceAsync(Guid id)
@@ -361,8 +401,15 @@
         _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/booking?serviceId={id}");
         _secondaryCtaLabel = service.PartnerId != Guid.Empty ? "Ver negocio" : null;
         _secondaryCtaHref = service.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{service.PartnerId}" : null;
+        _heroImageUrl = ResolveHeroImage(service.Category, service.Name);
+        _heroLabel = "Servicio agendable";
+        _heroTitle = service.Category ?? "Disponible para reserva";
         AddBadge(service.Category);
         AddBadge($"{service.DurationMinutes} min");
+        AddFact("Categoría", service.Category ?? "Sin categoría informada");
+        AddFact("Duración", $"{service.DurationMinutes} minutos");
+        AddFact("Tarifa", FormatMoney(service.Price, service.Currency));
+        AddFact("Estado", service.IsActive ? "Agenda disponible" : "Agenda pausada");
     }
 
     private async Task LoadPartnerAsync(Guid id)
@@ -414,9 +461,21 @@
         };
         _secondaryCtaLabel = "Volver al portal";
         _secondaryCtaHref = "/buyer";
+        _heroImageUrl = ResolveHeroImage(partner.CategoryName, partner.SubcategoryName ?? partner.Name);
+        _heroLabel = partner.Type switch
+        {
+            "B" => "Negocio de servicios",
+            "C" => "Perfil profesional",
+            _ => "Negocio local"
+        };
+        _heroTitle = partner.SubcategoryName ?? partner.CategoryName ?? partner.OfferLabel ?? "Oferta publicada";
         AddBadge(partner.CategoryName);
         AddBadge(partner.SubcategoryName);
         AddBadge(partner.OfferLabel);
+        AddFact("Estado público", partner.IsVisible ? "Publicado" : "No visible");
+        AddFact("Tipo de oferta", partner.OfferLabel ?? "No informado");
+        AddFact("Categoría", partner.CategoryName ?? "Sin categoría informada");
+        AddFact("Subcategoría", partner.SubcategoryName ?? "Sin subcategoría informada");
     }
 
     private async Task LoadProfessionalAsync(Guid id)
@@ -439,8 +498,23 @@
         _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/contact?professionalId={id}");
         _secondaryCtaLabel = "Ver más profesionales";
         _secondaryCtaHref = "/professionals";
+        _heroImageUrl = ResolveHeroImage(professional.Specialty, professional.Name);
+        _heroLabel = professional.IsVerified ? "Profesional verificado" : "Profesional disponible";
+        _heroTitle = professional.Specialty ?? "Disponible para contacto";
         AddBadge(professional.Specialty);
         AddBadge(professional.IsVerified ? "Verificado" : null);
+        AddFact("Especialidad", professional.Specialty ?? "Sin especialidad informada");
+        AddFact("Verificación", professional.IsVerified ? "Perfil verificado" : "Pendiente de verificación");
+        AddFact("Estado", professional.IsActive ? "Disponible" : "No disponible");
+        if (!string.IsNullOrWhiteSpace(professional.Email))
+        {
+            AddFact("Email", professional.Email);
+        }
+
+        if (!string.IsNullOrWhiteSpace(professional.Phone))
+        {
+            AddFact("Teléfono", professional.Phone);
+        }
     }
 
     private void AddBadge(string? badge)
@@ -450,6 +524,18 @@
             _badges.Add(badge);
         }
     }
+
+    private void AddFact(string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _detailFacts.Add(new DetailFact(label, value));
+        }
+    }
+
+    private static string ResolveHeroImage(string? codeOrCategory, string? name)
+        => CategoryVisualService.ResolveImage(codeOrCategory, name)
+            ?? "_content/ComunaClick.SharedUI/logo.png";
 
     private static string FormatMoney(double amount, string? currency)
         => string.IsNullOrWhiteSpace(currency) ? $"${amount:N0}" : $"{currency} {amount:N0}";
@@ -468,4 +554,6 @@
     {
         L.OnChange -= HandleChange;
     }
+
+    private sealed record DetailFact(string Label, string Value);
 }
