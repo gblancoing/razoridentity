@@ -99,9 +99,10 @@ Nota: si ya tienes datos reales de país/región/comuna, no ejecutes los inserts
 Incluye Home, Login, Registro de negocio, Centro de ayuda, Privacidad, Términos y páginas Discover.
 
 Estado actual:
-- `/login` ya enlaza correctamente al CTA de registro.
-- `/register` sigue siendo una pantalla de onboarding UI.
-- El alta real de usuario aún no está expuesta como endpoint en ACL, así que ese flujo todavía no es end-to-end.
+- `/login` ofrece rutas separadas para cuenta personal y registro de negocio.
+- `/register` crea cuenta real en ACL y usa `intent=buyer|partner` para dirigir el siguiente paso.
+- `POST /v1/auth/register` ya está expuesto en ACL y conectado al frontend.
+- El onboarding de negocio continúa en `/register/business` para partners.
 
 ## Notas
 Para más contexto del estado del proyecto, revisar `agent.md`.

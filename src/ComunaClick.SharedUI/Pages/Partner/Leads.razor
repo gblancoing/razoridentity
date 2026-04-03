@@ -80,7 +80,7 @@
                             </div>
                             <div class="text-left md:text-right">
                                 <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Estado</p>
-                                <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@lead.Status</p>
+                                <span class="@GetLeadStatusClass(lead.Status)">@MapLeadStatus(lead.Status)</span>
                             </div>
                         </div>
                     </article>
@@ -95,7 +95,7 @@
     private string _statusMessage = "Sin leads.";
     private bool _isLoading;
 
-    private string LastLeadStatus => _items.Count == 0 ? "Sin actividad" : _items.Last().Status ?? "Sin estado";
+    private string LastLeadStatus => _items.Count == 0 ? "Sin actividad" : MapLeadStatus(_items.Last().Status);
     private string StatusLabel => _items.Count == 0 ? "Vacío" : "Con oportunidades";
 
     protected override void OnInitialized()
@@ -149,6 +149,27 @@
     {
         InvokeAsync(StateHasChanged);
     }
+
+    private static string MapLeadStatus(string? status)
+        => status?.Trim().ToLowerInvariant() switch
+        {
+            "new" => "Nuevo",
+            "pending" => "Pendiente",
+            "contacted" => "Contactado",
+            "in_follow_up" or "follow_up" => "En seguimiento",
+            "closed" => "Cerrado",
+            _ => string.IsNullOrWhiteSpace(status) ? "Sin estado" : status
+        };
+
+    private static string GetLeadStatusClass(string? status)
+        => status?.Trim().ToLowerInvariant() switch
+        {
+            "new" => "inline-flex mt-2 rounded-full bg-[#a7f255]/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
+            "pending" => "inline-flex mt-2 rounded-full bg-[#fcf661]/40 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#605d00]",
+            "contacted" or "in_follow_up" or "follow_up" => "inline-flex mt-2 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]",
+            "closed" => "inline-flex mt-2 rounded-full bg-[#dadddf] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#2c2f30]",
+            _ => "inline-flex mt-2 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]"
+        };
 
     public void Dispose()
     {

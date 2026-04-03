@@ -48,12 +48,23 @@
                     <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.agenda.calendar")</h2>
                 </div>
             </div>
-            <div class="bg-white rounded-3xl min-h-[320px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center text-center px-6">
-                <div class="w-16 h-16 rounded-full bg-[#a7f255]/20 text-[#325800] flex items-center justify-center mb-5">
-                    <span class="material-symbols-outlined text-3xl">calendar_month</span>
+            <div class="bg-white rounded-3xl min-h-[320px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] p-6">
+                <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[#7b8081] mb-4">
+                    <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
                 </div>
-                <p class="text-lg font-bold text-[#2c2f30]">@L.T("partner.agenda.placeholder")</p>
-                <p class="mt-2 text-sm text-[#595c5d] max-w-xl">Esta vista está lista para crecer con calendario, disponibilidad y control editorial de horarios.</p>
+                <div class="grid grid-cols-7 gap-2">
+                    @foreach (var day in CalendarDays)
+                    {
+                        <div class="@GetCalendarDayClass(day)">
+                            <span class="text-sm font-bold">@day.ToString("dd")</span>
+                            @if (HasBookingOnDay(day))
+                            {
+                                <span class="mt-2 inline-flex h-2 w-2 rounded-full bg-[#76BC21]"></span>
+                            }
+                        </div>
+                    }
+                </div>
+                <p class="mt-6 text-xs text-[#595c5d]">Los días marcados muestran reservas registradas en tu agenda actual.</p>
             </div>
         </section>
 
@@ -90,7 +101,7 @@
                         <article class="rounded-2xl bg-[#f5f6f7] px-4 py-4 flex items-center justify-between gap-4">
                             <div>
                                 <p class="text-sm font-bold text-[#2c2f30]">@booking.StartAt.ToLocalTime().ToString("dd MMM")</p>
-                                <p class="text-xs text-[#595c5d]">@booking.Status</p>
+                                <span class="@GetBookingStatusClass(booking.Status)">@MapBookingStatus(booking.Status)</span>
                             </div>
                             <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@booking.StartAt.ToLocalTime().ToString("HH:mm")</p>
                         </article>
@@ -108,6 +119,15 @@
 
     private string NextBookingLabel => _bookings.Count == 0 ? "--:--" : _bookings.OrderBy(x => x.StartAt).First().StartAt.ToLocalTime().ToString("HH:mm");
     private string StatusLabel => _bookings.Count == 0 ? "Sin agenda" : "Con movimiento";
+    private IEnumerable<DateTime> CalendarDays
+    {
+        get
+        {
+            var today = DateTime.Today;
+            var start = today.AddDays(-((7 + ((int)today.DayOfWeek - 1)) % 7));
+            return Enumerable.Range(0, 35).Select(offset => start.AddDays(offset));
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -160,6 +180,37 @@
     {
         InvokeAsync(StateHasChanged);
     }
+
+    private bool HasBookingOnDay(DateTime day)
+        => _bookings.Any(booking => booking.StartAt.ToLocalTime().Date == day.Date);
+
+    private static string GetCalendarDayClass(DateTime day)
+    {
+        var isToday = day.Date == DateTime.Today;
+        return isToday
+            ? "min-h-16 rounded-2xl bg-[#a7f255]/30 text-[#325800] flex flex-col items-center justify-center"
+            : "min-h-16 rounded-2xl bg-[#f5f6f7] text-[#2c2f30] flex flex-col items-center justify-center";
+    }
+
+    private static string MapBookingStatus(string? status)
+        => status?.Trim().ToLowerInvariant() switch
+        {
+            "confirmed" => "Confirmada",
+            "pending" => "Pendiente",
+            "cancelled" or "canceled" => "Cancelada",
+            "completed" => "Completada",
+            _ => string.IsNullOrWhiteSpace(status) ? "Sin estado" : status
+        };
+
+    private static string GetBookingStatusClass(string? status)
+        => status?.Trim().ToLowerInvariant() switch
+        {
+            "confirmed" => "inline-flex mt-1 rounded-full bg-[#a7f255]/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
+            "pending" => "inline-flex mt-1 rounded-full bg-[#fcf661]/40 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#605d00]",
+            "cancelled" or "canceled" => "inline-flex mt-1 rounded-full bg-[#f95630]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#b02500]",
+            "completed" => "inline-flex mt-1 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]",
+            _ => "inline-flex mt-1 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]"
+        };
 
     public void Dispose()
     {

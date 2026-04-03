@@ -1,27 +1,77 @@
 @page "/buyer/profile"
 @layout BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.profile.title")</PageTitle>
 
-<div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-    <h1 class="text-2xl font-bold">@L.T("buyer.profile.heading")</h1>
-    <p class="text-sm text-[#61897c]">@L.T("buyer.profile.subtitle")</p>
-    <div class="mt-6 space-y-4">
-        <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="CustomerId" @bind="CustomerId" />
-        <div>
-            <label class="text-xs text-[#61897c]">@L.T("buyer.profile.name")</label>
-            <input class="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" @bind="FullName" />
+<div class="space-y-6">
+    <section class="rounded-[2rem] bg-gradient-to-br from-[#3b6700] to-[#76BC21] p-8 text-[#f8ffef] shadow-[0_24px_48px_-24px_rgba(59,103,0,0.65)]">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div class="flex items-center gap-5">
+                <div class="flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-white/20 text-3xl font-black">
+                    @UserInitial
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.24em] text-white/80 font-bold">Cuenta personal</p>
+                    <h1 class="mt-2 text-4xl font-black tracking-[-0.05em]">@(string.IsNullOrWhiteSpace(FullName) ? L.T("buyer.profile.heading") : FullName)</h1>
+                    <p class="mt-2 text-sm text-white/85">@L.T("buyer.profile.subtitle")</p>
+                </div>
+            </div>
+            <div class="rounded-3xl bg-white/12 px-5 py-4">
+                <p class="text-[10px] uppercase tracking-[0.18em] text-white/70 font-bold">Identificador interno</p>
+                <p class="mt-2 text-sm font-semibold break-all">@MaskedCustomerId</p>
+            </div>
         </div>
-        <div>
-            <label class="text-xs text-[#61897c]">@L.T("buyer.profile.email")</label>
-            <input class="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" @bind="Email" />
-        </div>
-        <button class="bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold" @onclick="HandleSave">@L.T("buyer.profile.save")</button>
-        <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+        <section class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-[2rem] p-6 md:p-8">
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30] dark:text-white">@L.T("buyer.profile.heading")</h2>
+            <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.subtitle")</p>
+
+            <div class="mt-8 space-y-5">
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.name")</label>
+                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="FullName" />
+                </div>
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.email")</label>
+                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="Email" type="email" />
+                </div>
+
+                <button class="inline-flex items-center gap-2 bg-primary text-[#111816] px-6 py-3 rounded-2xl font-bold disabled:opacity-60"
+                        type="button"
+                        @onclick="HandleSave"
+                        disabled="@_isSaving">
+                    <span class="material-symbols-outlined text-[20px]">save</span>
+                    @(_isSaving ? L.T("ui.loading") : L.T("buyer.profile.save"))
+                </button>
+
+                @if (!string.IsNullOrWhiteSpace(_statusMessage))
+                {
+                    <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+                }
+            </div>
+        </section>
+
+        <aside class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
+            <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">Preferencias</p>
+            <h3 class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">Tu experiencia buyer</h3>
+            <div class="mt-6 space-y-4">
+                <div class="rounded-3xl bg-white p-5">
+                    <p class="text-sm font-bold text-[#2c2f30]">Reservas y compras</p>
+                    <p class="mt-2 text-xs text-[#595c5d]">Usaremos tu cuenta personal para mantener seguimiento de órdenes, reservas y contactos con profesionales.</p>
+                </div>
+                <div class="rounded-3xl bg-white p-5">
+                    <p class="text-sm font-bold text-[#2c2f30]">Privacidad</p>
+                    <p class="mt-2 text-xs text-[#595c5d]">Tu identificador interno no se edita manualmente; se usa solo para asociar operaciones de seguimiento.</p>
+                </div>
+            </div>
+        </aside>
     </div>
 </div>
 
@@ -31,43 +81,94 @@
     private string Email = string.Empty;
     private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
+    private bool _isSaving;
+    private bool _profileInitialized;
+
+    private string UserInitial
+        => string.IsNullOrWhiteSpace(FullName)
+            ? (string.IsNullOrWhiteSpace(AuthState.DisplayName) ? "C" : AuthState.DisplayName.Trim()[0].ToString().ToUpperInvariant())
+            : FullName.Trim()[0].ToString().ToUpperInvariant();
+
+    private string MaskedCustomerId
+        => Guid.TryParse(CustomerId, out var customerId)
+            ? $"{customerId.ToString()[..8]}•••{customerId.ToString()[^4..]}"
+            : "Se asignará automáticamente al guardar o iniciar sesión.";
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        if (!string.IsNullOrWhiteSpace(storedCustomerId))
+        if (_profileInitialized)
         {
-            CustomerId = storedCustomerId;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(AuthState.DisplayName))
+        {
+            FullName = AuthState.DisplayName!;
+        }
+
+        if (!string.IsNullOrWhiteSpace(AuthState.Email))
+        {
+            Email = AuthState.Email!;
+        }
+
+        try
+        {
+            var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+            if (!string.IsNullOrWhiteSpace(storedCustomerId))
+            {
+                CustomerId = storedCustomerId;
+            }
+
+            _profileInitialized = true;
+            StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop is unavailable during prerender; retry after hydration.
         }
     }
 
     private async Task HandleSave()
     {
+        _isSaving = true;
         _statusMessage = string.Empty;
         _statusLevel = "info";
         if (!Guid.TryParse(CustomerId, out var customerId))
         {
             _statusMessage = L.T("buyer.status.invalidCustomer");
             _statusLevel = "error";
+            _isSaving = false;
             return;
         }
 
-        var updated = await BuyerApi.UpdateCustomerAsync(customerId, new CustomerUpdateRequest(Email, null, FullName));
-        if (updated is null)
+        try
+        {
+            var updated = await BuyerApi.UpdateCustomerAsync(customerId, new CustomerUpdateRequest(Email, null, FullName));
+            if (updated is null)
+            {
+                _statusMessage = L.T("buyer.status.profileFailed");
+                _statusLevel = "error";
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                _statusMessage = L.T("buyer.status.profileUpdated");
+                _statusLevel = "success";
+            }
+        }
+        catch (HttpRequestException)
         {
             _statusMessage = L.T("buyer.status.profileFailed");
             _statusLevel = "error";
         }
-        else
+        finally
         {
-            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-            _statusMessage = L.T("buyer.status.profileUpdated");
-            _statusLevel = "success";
+            _isSaving = false;
         }
     }
 

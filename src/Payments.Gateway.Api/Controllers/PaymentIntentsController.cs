@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Payments.Common.Models;
 using Payments.Gateway.Api.Contracts.Intents;
 using Payments.Gateway.Api.Persistence;
 using Payments.Gateway.Api.Persistence.Entities;
 using Payments.Gateway.Api.Services;
+using Payments.Gateway.Api.Services.Providers;
 
 namespace Payments.Gateway.Api.Controllers;
 
@@ -12,14 +14,17 @@ namespace Payments.Gateway.Api.Controllers;
 public sealed class PaymentIntentsController : ControllerBase
 {
     private readonly PaymentsDbContext _db;
-    private readonly IConfiguration _configuration;
     private readonly IComunaClicNotifier _notifier;
+    private readonly IPaymentProviderResolver _paymentProviderResolver;
 
-    public PaymentIntentsController(PaymentsDbContext db, IConfiguration configuration, IComunaClicNotifier notifier)
+    public PaymentIntentsController(
+        PaymentsDbContext db,
+        IComunaClicNotifier notifier,
+        IPaymentProviderResolver paymentProviderResolver)
     {
         _db = db;
-        _configuration = configuration;
         _notifier = notifier;
+        _paymentProviderResolver = paymentProviderResolver;
     }
 
     [HttpGet("{id:guid}")]
@@ -47,7 +52,8 @@ public sealed class PaymentIntentsController : ControllerBase
             return BadRequest(new { message = "Amount must be greater than zero." });
         }
 
-        var provider = string.IsNullOrWhiteSpace(request.Provider) ? "transbank" : request.Provider.Trim();
+        var providerClient = _paymentProviderResolver.Resolve(request.Provider);
+        var provider = providerClient.Name;
         var exists = await _db.PaymentIntents.AnyAsync(x =>
             x.ExternalReference == request.ExternalReference && x.Provider == provider && x.Status == "pending");
         if (exists)
@@ -55,16 +61,27 @@ public sealed class PaymentIntentsController : ControllerBase
             return Conflict(new { message = "Pending intent already exists for this reference." });
         }
 
-        var providerToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        var returnUrl = string.IsNullOrWhiteSpace(request.ReturnUrl)
+            ? $"{Request.Scheme}://{Request.Host}/v1/payment-intents/return"
+            : request.ReturnUrl.Trim();
+        var providerResponse = await providerClient.CreatePaymentAsync(
+            new PaymentProviderCreateRequest(
+                request.ExternalReference.Trim(),
+                request.Amount,
+                string.IsNullOrWhiteSpace(request.Currency) ? "CLP" : request.Currency.Trim(),
+                returnUrl,
+                $"Pago ComunaClic {request.ExternalReference.Trim()}"),
+            HttpContext.RequestAborted);
+
         var intent = new PaymentIntent
         {
             ExternalReference = request.ExternalReference.Trim(),
             Amount = request.Amount,
             Currency = string.IsNullOrWhiteSpace(request.Currency) ? "CLP" : request.Currency.Trim(),
-            Status = "pending",
+            Status = providerResponse.Status,
             Provider = provider,
-            ProviderToken = providerToken,
-            RawResponse = "{}",
+            ProviderToken = providerResponse.ProviderToken,
+            RawResponse = string.IsNullOrWhiteSpace(providerResponse.RawResponse) ? "{}" : providerResponse.RawResponse,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -72,8 +89,7 @@ public sealed class PaymentIntentsController : ControllerBase
         _db.PaymentIntents.Add(intent);
         await _db.SaveChangesAsync();
 
-        var redirectUrl = BuildRedirectUrl(providerToken);
-        var response = new PaymentIntentResponse(intent.Id, intent.Status, intent.ProviderToken, redirectUrl);
+        var response = new PaymentIntentResponse(intent.Id, intent.Status, intent.ProviderToken, providerResponse.RedirectUrl);
         return Created($"/v1/payment-intents/{intent.Id}", response);
     }
 
@@ -129,24 +145,6 @@ public sealed class PaymentIntentsController : ControllerBase
         await _notifier.NotifyPaymentAsync(intent, intent.Status, providerEventId, request.RawPayload, cancellationToken);
 
         return Ok(ToDto(intent));
-    }
-
-    private string? BuildRedirectUrl(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return null;
-        }
-
-        var baseUrl = _configuration["Transbank:RedirectBaseUrl"];
-        if (string.IsNullOrWhiteSpace(baseUrl))
-        {
-            return null;
-        }
-
-        return baseUrl.Contains("{token}", StringComparison.OrdinalIgnoreCase)
-            ? baseUrl.Replace("{token}", token, StringComparison.OrdinalIgnoreCase)
-            : $"{baseUrl}?token_ws={token}";
     }
 
     private static PaymentIntentDto ToDto(PaymentIntent intent)

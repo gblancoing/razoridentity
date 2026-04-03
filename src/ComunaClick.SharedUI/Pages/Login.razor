@@ -47,14 +47,14 @@
                 <form class="space-y-4" @onsubmit="HandleSubmit" @onsubmit:preventDefault="true">
                     <div class="flex flex-col gap-1">
                         <label class="text-[#111816] dark:text-white text-base font-medium leading-normal pb-1">@L.T("login.email.label")
-                            <input class="form-input flex w-full min-w-0 resize-none overflow-hidden rounded-lg text-[#111816] dark:bg-background-dark dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#dbe6e2] dark:border-[#2d4a41] h-14 placeholder:text-[#61897c] p-[15px] text-base font-normal leading-normal" placeholder="@L.T("login.email.placeholder")" type="email" @bind="Email" />
+                            <input class="form-input flex w-full min-w-0 resize-none overflow-hidden rounded-2xl text-[#111816] dark:bg-background-dark dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#dbe6e2] dark:border-[#2d4a41] bg-[#F0FDF4] h-14 placeholder:text-[#61897c] p-[15px] text-base font-normal leading-normal" placeholder="@L.T("login.email.placeholder")" type="email" @bind="Email" />
                         </label>
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="text-[#111816] dark:text-white text-base font-medium leading-normal pb-1">@L.T("login.password.label")
                             <div class="flex w-full items-stretch rounded-lg group">
-                                <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border-r-0 text-[#111816] dark:bg-background-dark dark:text-white focus:outline-0 focus:ring-0 border border-[#dbe6e2] dark:border-[#2d4a41] h-14 placeholder:text-[#61897c] p-[15px] text-base font-normal leading-normal" placeholder="@L.T("login.password.placeholder")" type="password" @bind="Password" />
-                                <div class="text-[#61897c] flex border border-[#dbe6e2] dark:border-[#2d4a41] bg-white dark:bg-background-dark items-center justify-center pr-[15px] rounded-r-lg border-l-0">
+                                <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl rounded-r-none border-r-0 text-[#111816] dark:bg-background-dark dark:text-white focus:outline-0 focus:ring-0 border border-[#dbe6e2] dark:border-[#2d4a41] bg-[#F0FDF4] h-14 placeholder:text-[#61897c] p-[15px] text-base font-normal leading-normal" placeholder="@L.T("login.password.placeholder")" type="password" @bind="Password" />
+                                <div class="text-[#61897c] flex border border-[#dbe6e2] dark:border-[#2d4a41] bg-[#F0FDF4] dark:bg-background-dark items-center justify-center pr-[15px] rounded-r-2xl border-l-0">
                                     <span class="material-symbols-outlined cursor-pointer">visibility</span>
                                 </div>
                             </div>
@@ -65,7 +65,7 @@
                             <input class="form-checkbox w-5 h-5 rounded border-[#dbe6e2] text-primary focus:ring-primary" type="checkbox" />
                             <span class="text-[#111816] dark:text-white/80 text-sm">@L.T("login.stay")</span>
                         </label>
-                        <a class="text-sm font-semibold text-primary hover:underline" href="#">@L.T("login.forgot")</a>
+                        <a class="text-sm font-semibold text-primary hover:underline" href="mailto:soporte@comunaclic.cl?subject=Recuperar%20contraseña%20ComunaClic">@L.T("login.forgot")</a>
                     </div>
                     <button class="w-full bg-primary hover:opacity-90 text-[#10221c] h-14 rounded-xl font-bold text-lg transition-all shadow-lg shadow-primary/20" type="submit" disabled="@_isSubmitting">
                         @L.T("login.submit")

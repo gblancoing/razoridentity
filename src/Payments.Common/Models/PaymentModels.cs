@@ -13,10 +13,27 @@ public enum PaymentStatus
 public enum PaymentProvider
 {
     Unknown,
+    Transbank,
+    Khipu,
     Stripe,
     MercadoPago,
     PayPal
 }
+
+public sealed record PaymentProviderCreateRequest(
+    string ExternalReference,
+    decimal Amount,
+    string Currency,
+    string ReturnUrl,
+    string? Subject = null,
+    string? BuyerEmail = null);
+
+public sealed record PaymentProviderCreateResponse(
+    string Provider,
+    string? ProviderToken,
+    string? RedirectUrl,
+    string Status,
+    string RawResponse);
 
 public sealed record PaymentEvent(
     Guid PaymentId,
