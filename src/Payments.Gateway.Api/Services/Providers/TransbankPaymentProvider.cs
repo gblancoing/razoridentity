@@ -51,6 +51,94 @@ public sealed class TransbankPaymentProvider : IPaymentProvider
             string.IsNullOrWhiteSpace(rawResponse) ? "{}" : rawResponse);
     }
 
+    public async Task<PaymentProviderCallbackResult?> ProcessCallbackAsync(
+        PaymentProviderCallbackRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var token = ReadValue(request, "token_ws");
+        var abortToken = ReadValue(request, "TBK_TOKEN");
+        var buyOrder = ReadValue(request, "TBK_ORDEN_COMPRA");
+        var sessionId = ReadValue(request, "TBK_ID_SESION");
+        var providerToken = token ?? abortToken;
+
+        if (string.IsNullOrWhiteSpace(providerToken) && string.IsNullOrWhiteSpace(buyOrder))
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(abortToken) && string.IsNullOrWhiteSpace(token))
+        {
+            var abortPayload = JsonSerializer.Serialize(new
+            {
+                token = abortToken,
+                buyOrder,
+                sessionId,
+                status = "canceled",
+                source = request.CallbackType,
+                request.Query,
+                request.Form
+            }, JsonOptions);
+
+            return new PaymentProviderCallbackResult(
+                Name,
+                abortToken,
+                buyOrder,
+                "canceled",
+                $"{Name}:{abortToken}:canceled",
+                null,
+                abortPayload,
+                "Pago anulado por el usuario o flujo abortado en Webpay.");
+        }
+
+        if (_options.Simulate || string.IsNullOrWhiteSpace(_options.CommerceCode) || string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            var simulatedPayload = JsonSerializer.Serialize(new
+            {
+                token = providerToken,
+                buyOrder,
+                sessionId,
+                status = "AUTHORIZED",
+                response_code = 0,
+                authorization_code = $"SIM-{Guid.NewGuid():N}"[..12],
+                mode = "simulated",
+                source = request.CallbackType
+            }, JsonOptions);
+
+            return new PaymentProviderCallbackResult(
+                Name,
+                providerToken,
+                buyOrder,
+                "captured",
+                $"{Name}:{providerToken}:simulated",
+                "SIMULATED",
+                simulatedPayload,
+                "Pago Webpay confirmado en modo simulado.");
+        }
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Put, $"{_options.CreateTransactionUrl}/{providerToken}");
+        httpRequest.Headers.TryAddWithoutValidation("Tbk-Api-Key-Id", _options.CommerceCode);
+        httpRequest.Headers.TryAddWithoutValidation("Tbk-Api-Key-Secret", _options.ApiKey);
+
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        var rawResponse = await response.Content.ReadAsStringAsync(cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var payload = JsonSerializer.Deserialize<TransbankCommitResponse>(rawResponse, JsonOptions);
+        var status = string.Equals(payload?.Status, "AUTHORIZED", StringComparison.OrdinalIgnoreCase) && payload?.ResponseCode == 0
+            ? "captured"
+            : "failed";
+
+        return new PaymentProviderCallbackResult(
+            Name,
+            providerToken,
+            payload?.BuyOrder ?? buyOrder,
+            status,
+            $"{Name}:{providerToken}:{payload?.Status ?? status}",
+            payload?.AuthorizationCode,
+            string.IsNullOrWhiteSpace(rawResponse) ? "{}" : rawResponse,
+            status == "captured" ? "Pago Webpay confirmado." : "Pago Webpay rechazado o no autorizado.");
+    }
+
     private PaymentProviderCreateResponse BuildSimulatedResponse(PaymentProviderCreateRequest request)
     {
         var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
@@ -99,4 +187,22 @@ public sealed class TransbankPaymentProvider : IPaymentProvider
     private sealed record TransbankCreateResponse(
         [property: JsonPropertyName("token")] string? Token,
         [property: JsonPropertyName("url")] string? Url);
+
+    private sealed record TransbankCommitResponse(
+        [property: JsonPropertyName("buy_order")] string? BuyOrder,
+        [property: JsonPropertyName("status")] string? Status,
+        [property: JsonPropertyName("response_code")] int? ResponseCode,
+        [property: JsonPropertyName("authorization_code")] string? AuthorizationCode);
+
+    private static string? ReadValue(PaymentProviderCallbackRequest request, string key)
+    {
+        if (request.Form.TryGetValue(key, out var formValue) && !string.IsNullOrWhiteSpace(formValue))
+        {
+            return formValue;
+        }
+
+        return request.Query.TryGetValue(key, out var queryValue) && !string.IsNullOrWhiteSpace(queryValue)
+            ? queryValue
+            : null;
+    }
 }

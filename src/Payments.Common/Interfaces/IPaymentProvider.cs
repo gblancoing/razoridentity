@@ -9,4 +9,8 @@ public interface IPaymentProvider
     Task<PaymentProviderCreateResponse> CreatePaymentAsync(
         PaymentProviderCreateRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<PaymentProviderCallbackResult?> ProcessCallbackAsync(
+        PaymentProviderCallbackRequest request,
+        CancellationToken cancellationToken = default);
 }

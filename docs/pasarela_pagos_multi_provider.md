@@ -97,18 +97,27 @@ Notas:
   - `PaymentProviderResolver`
 - `PaymentIntentsController.Create(...)` ya no genera siempre un token local fijo, sino que delega la creación al proveedor seleccionado.
 - `appsettings.json` incorpora secciones `PaymentProviders:*` con `Simulate=true` por defecto.
+- Se agregaron callbacks/webhooks por proveedor:
+  - `GET|POST /v1/payment-callbacks/{provider}/return`
+  - `POST /v1/payment-callbacks/{provider}/webhook`
+- Cada callback:
+  - delega la interpretación/confirmación al adapter del proveedor
+  - busca la `PaymentIntent` por `Provider + ProviderToken` o `ExternalReference`
+  - actualiza `Status`, `AuthorizationCode`, `RawResponse`
+  - registra idempotente un `ProviderEvent`
+  - notifica a ComunaClic Core mediante `IComunaClicNotifier`
 
 ## Próximas etapas recomendadas
 
 ## Etapa 1 - Checkout redirigido real
 
 - Definir credenciales sandbox por proveedor fuera de `appsettings.json`.
-- Implementar endpoint de retorno/confirmación por proveedor:
+- Conectar credenciales reales sandbox en `PaymentProviders:*`.
+- Probar callbacks reales:
   - Transbank commit por `token_ws`
-  - Khipu consulta/confirmación por `payment_id`
-  - Mercado Pago consulta por `payment_id` o notificación recibida
-- Persistir cada actualización como `ProviderEvent`.
-- Notificar a ComunaClic Core con `IComunaClicNotifier`.
+  - Khipu notificación por `payment_id`
+  - Mercado Pago notificación/consulta por `id` y `data.id`
+- Definir una página de resultado/retorno en `app` para mostrar estado al comprador cuando vuelva desde el proveedor.
 
 ## Etapa 2 - Webhooks firmados y seguridad
 

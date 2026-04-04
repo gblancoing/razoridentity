@@ -61,6 +61,45 @@ public sealed class KhipuPaymentProvider : IPaymentProvider
             string.IsNullOrWhiteSpace(rawResponse) ? "{}" : rawResponse);
     }
 
+    public Task<PaymentProviderCallbackResult?> ProcessCallbackAsync(
+        PaymentProviderCallbackRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = ParsePayload(request.RawBody);
+        var paymentId = ReadValue(request, "payment_id")
+            ?? payload?.PaymentId;
+        var transactionId = payload?.TransactionId ?? ReadValue(request, "transaction_id");
+
+        if (string.IsNullOrWhiteSpace(paymentId) && string.IsNullOrWhiteSpace(transactionId))
+        {
+            return Task.FromResult<PaymentProviderCallbackResult?>(null);
+        }
+
+        var status = payload?.ConciliationDate is not null
+            ? "captured"
+            : payload?.Status?.Trim().ToLowerInvariant() switch
+            {
+                "done" or "ok" or "paid" or "conciliated" => "captured",
+                "failed" or "error" => "failed",
+                "cancelled" or "canceled" => "canceled",
+                _ => "pending"
+            };
+
+        var rawPayload = string.IsNullOrWhiteSpace(request.RawBody)
+            ? JsonSerializer.Serialize(new { paymentId, transactionId, source = request.CallbackType }, JsonOptions)
+            : request.RawBody;
+
+        return Task.FromResult<PaymentProviderCallbackResult?>(new PaymentProviderCallbackResult(
+            Name,
+            paymentId,
+            transactionId,
+            status,
+            $"{Name}:{paymentId ?? transactionId}:{payload?.ConciliationDate?.ToUnixTimeSeconds().ToString() ?? status}",
+            null,
+            rawPayload,
+            status == "captured" ? "Pago Khipu conciliado." : "Notificación Khipu registrada."));
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private sealed record KhipuCreateRequest(
@@ -75,4 +114,39 @@ public sealed class KhipuPaymentProvider : IPaymentProvider
     private sealed record KhipuCreateResponse(
         [property: JsonPropertyName("payment_id")] string? PaymentId,
         [property: JsonPropertyName("payment_url")] string? PaymentUrl);
+
+    private sealed record KhipuCallbackPayload(
+        [property: JsonPropertyName("payment_id")] string? PaymentId,
+        [property: JsonPropertyName("transaction_id")] string? TransactionId,
+        [property: JsonPropertyName("status")] string? Status,
+        [property: JsonPropertyName("conciliation_date")] DateTimeOffset? ConciliationDate);
+
+    private static KhipuCallbackPayload? ParsePayload(string? rawBody)
+    {
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<KhipuCallbackPayload>(rawBody, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ReadValue(PaymentProviderCallbackRequest request, string key)
+    {
+        if (request.Form.TryGetValue(key, out var formValue) && !string.IsNullOrWhiteSpace(formValue))
+        {
+            return formValue;
+        }
+
+        return request.Query.TryGetValue(key, out var queryValue) && !string.IsNullOrWhiteSpace(queryValue)
+            ? queryValue
+            : null;
+    }
 }

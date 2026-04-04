@@ -71,6 +71,70 @@ public sealed class MercadoPagoPaymentProvider : IPaymentProvider
             string.IsNullOrWhiteSpace(rawResponse) ? "{}" : rawResponse);
     }
 
+    public async Task<PaymentProviderCallbackResult?> ProcessCallbackAsync(
+        PaymentProviderCallbackRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = ParsePayload(request.RawBody);
+        var providerToken = ReadValue(request, "data.id")
+            ?? ReadValue(request, "id")
+            ?? payload?.Data?.Id
+            ?? payload?.Id;
+        var eventType = ReadValue(request, "type")
+            ?? ReadValue(request, "topic")
+            ?? payload?.Type
+            ?? payload?.Action
+            ?? "payment";
+
+        if (string.IsNullOrWhiteSpace(providerToken))
+        {
+            return null;
+        }
+
+        if (_options.Simulate || string.IsNullOrWhiteSpace(_options.AccessToken))
+        {
+            var simulatedPayload = string.IsNullOrWhiteSpace(request.RawBody)
+                ? JsonSerializer.Serialize(new { id = providerToken, eventType, mode = "simulated" }, JsonOptions)
+                : request.RawBody;
+
+            return new PaymentProviderCallbackResult(
+                Name,
+                providerToken,
+                null,
+                "captured",
+                $"{Name}:{providerToken}:{eventType}",
+                null,
+                simulatedPayload,
+                "Notificación Mercado Pago procesada en modo simulado.");
+        }
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Get, $"{_options.GetPaymentUrl}/{providerToken}");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        var rawResponse = await response.Content.ReadAsStringAsync(cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var payment = JsonSerializer.Deserialize<MercadoPagoPaymentResponse>(rawResponse, JsonOptions);
+        var status = payment?.Status?.Trim().ToLowerInvariant() switch
+        {
+            "approved" or "authorized" => "captured",
+            "rejected" => "failed",
+            "cancelled" or "canceled" => "canceled",
+            _ => "pending"
+        };
+
+        return new PaymentProviderCallbackResult(
+            Name,
+            providerToken,
+            payment?.ExternalReference,
+            status,
+            $"{Name}:{providerToken}:{payment?.Status ?? eventType}",
+            payment?.AuthorizationCode,
+            string.IsNullOrWhiteSpace(rawResponse) ? "{}" : rawResponse,
+            "Notificación Mercado Pago sincronizada.");
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private sealed record MercadoPagoPreferenceRequest(
@@ -96,4 +160,47 @@ public sealed class MercadoPagoPaymentProvider : IPaymentProvider
         [property: JsonPropertyName("id")] string? Id,
         [property: JsonPropertyName("init_point")] string? InitPoint,
         [property: JsonPropertyName("sandbox_init_point")] string? SandboxInitPoint);
+
+    private sealed record MercadoPagoCallbackPayload(
+        [property: JsonPropertyName("id")] string? Id,
+        [property: JsonPropertyName("type")] string? Type,
+        [property: JsonPropertyName("action")] string? Action,
+        [property: JsonPropertyName("data")] MercadoPagoCallbackData? Data);
+
+    private sealed record MercadoPagoCallbackData(
+        [property: JsonPropertyName("id")] string? Id);
+
+    private sealed record MercadoPagoPaymentResponse(
+        [property: JsonPropertyName("status")] string? Status,
+        [property: JsonPropertyName("external_reference")] string? ExternalReference,
+        [property: JsonPropertyName("authorization_code")] string? AuthorizationCode);
+
+    private static MercadoPagoCallbackPayload? ParsePayload(string? rawBody)
+    {
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<MercadoPagoCallbackPayload>(rawBody, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ReadValue(PaymentProviderCallbackRequest request, string key)
+    {
+        if (request.Form.TryGetValue(key, out var formValue) && !string.IsNullOrWhiteSpace(formValue))
+        {
+            return formValue;
+        }
+
+        return request.Query.TryGetValue(key, out var queryValue) && !string.IsNullOrWhiteSpace(queryValue)
+            ? queryValue
+            : null;
+    }
 }

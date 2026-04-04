@@ -21,6 +21,7 @@ public sealed class MercadoPagoProviderOptions
 {
     public bool Simulate { get; set; } = true;
     public string CreatePreferenceUrl { get; set; } = "https://api.mercadopago.com/checkout/preferences";
+    public string GetPaymentUrl { get; set; } = "https://api.mercadopago.com/v1/payments";
     public string AccessToken { get; set; } = string.Empty;
     public string? PlatformId { get; set; }
 }
