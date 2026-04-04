@@ -36,13 +36,11 @@
                     }
                     else
                     {
-                        <div class="h-56 bg-gradient-to-br from-[#a7f255] via-[#eff1f2] to-[#ffffff] flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[64px] text-[#3b6700]">category</span>
-                        </div>
+                        <div class="h-56 bg-cover bg-center" style="@BuildFallbackStyle(category)"></div>
                     }
                     <div class="p-5">
                         <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Categoría publicada</p>
-                        <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@category.Name</h2>
+                        <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@CategoryVisualService.ResolveDisplayName(category.Code, category.Name)</h2>
                     </div>
                 </a>
             }
@@ -87,6 +85,9 @@
 
     private static string? GetCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
         => CategoryVisualService.ResolveImage(category.Code, category.Name);
+
+    private static string BuildFallbackStyle(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.08) 100%), url('{CategoryVisualService.ResolveImage(category.Code, category.Name)}')";
 
     private void HandleChange()
     {

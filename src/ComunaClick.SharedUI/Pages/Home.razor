@@ -10,23 +10,23 @@
 <!-- Hero Section -->
 <div class="max-w-7xl mx-auto px-4 py-6">
     <div class="@@container">
-        <div class="flex min-h-[400px] flex-col gap-6 bg-cover bg-center bg-no-repeat rounded-xl items-center justify-center p-8" data-alt="Fotografía editorial de comercio local y vida de barrio" style='background-image: linear-gradient(rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.65) 100%), url("https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80");'>
+        <div class="flex min-h-[440px] flex-col gap-6 bg-cover bg-center bg-no-repeat rounded-[2rem] items-center justify-center p-8 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.45)]" data-alt="Fotografía de feria y vida de barrio con negocios locales" style='background-image: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.2)), url("https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=1600&q=80");'>
             <div class="flex flex-col gap-2 text-center max-w-2xl">
-                <h1 class="text-white text-4xl font-black leading-tight tracking-[-0.033em] @@[480px]:text-6xl">
+                <h1 class="text-white text-4xl font-black leading-tight tracking-[-0.05em] drop-shadow-[0_10px_26px_rgba(0,0,0,0.35)] @@[480px]:text-6xl">
                     @L.T("home.hero.title")
                 </h1>
-                <h2 class="text-white/90 text-lg font-normal">
+                <h2 class="text-white/95 text-lg font-medium drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]">
                     @L.T("home.hero.subtitle")
                 </h2>
             </div>
             <label class="flex flex-col min-w-40 h-14 w-full max-w-[600px] @@[480px]:h-16 mt-4">
-                <div class="flex w-full flex-1 items-stretch rounded-lg h-full shadow-xl">
+                <div class="flex w-full flex-1 items-stretch rounded-2xl h-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
                     <div class="text-[#61897c] flex border border-white bg-white items-center justify-center pl-[20px] rounded-l-lg border-r-0">
                         <span class="material-symbols-outlined">search</span>
                     </div>
                     <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#111816] focus:outline-0 focus:ring-0 border border-white bg-white focus:border-white h-full placeholder:text-[#61897c] px-[15px] rounded-r-none border-r-0 pr-2 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal" placeholder="@L.T("home.search.placeholder")" />
                     <div class="flex items-center justify-center rounded-r-lg border-l-0 border border-white bg-white pr-[10px]">
-                        <button class="flex min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-6 @@[480px]:h-12 bg-primary text-[#111816] font-bold text-base transition-transform active:scale-95">
+                        <button class="flex min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-6 @@[480px]:h-12 bg-primary text-white font-bold text-base shadow-[0_12px_24px_-12px_rgba(34,197,94,0.7)] transition-transform active:scale-95">
                             <span>@L.T("home.search.button")</span>
                         </button>
                     </div>
@@ -63,7 +63,7 @@
                             <a href="@GetCategoryHref(category)"
                                class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]"
                                style="@BuildCategoryStyle(image)">
-                                <p class="text-white text-lg font-bold leading-tight">@category.Name</p>
+                                <p class="text-white text-lg font-bold leading-tight">@CategoryVisualService.ResolveDisplayName(category.Code, category.Name)</p>
                             </a>
                         }
                     </div>
@@ -89,12 +89,12 @@
                         @foreach (var business in _featuredBusinesses)
                         {
                             <a href="@(business.CtaHref ?? "#")"
-                               class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                               class="bg-white dark:bg-background-dark border border-gray-200/80 dark:border-gray-800 rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_14px_34px_rgba(0,0,0,0.14)] hover:translate-y-[-2px] transition-all duration-200">
                                 <div class="h-48 bg-cover bg-center" style="@BuildFeaturedStyle(business)"></div>
                                 <div class="p-4">
                                     <div class="flex justify-between items-start mb-2 gap-4">
                                         <h3 class="text-lg font-bold text-[#111816]">@business.Name</h3>
-                                        <span class="shrink-0 flex items-center text-xs font-bold bg-primary/20 text-primary-dark px-2 py-1 rounded-full">
+                                        <span class="shrink-0 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-primary ring-1 ring-primary/15">
                                             @FeaturedTypeLabel(business.Category, business.CtaLabel)
                                         </span>
                                     </div>
@@ -128,17 +128,17 @@
                 </h3>
                 <div class="flex flex-col gap-4">
                     <div class="group cursor-pointer border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0">
-                        <span class="inline-flex rounded-full bg-primary/10 px-3 py-1 text-[10px] text-primary font-bold mb-2 uppercase tracking-wider">@L.T("home.news1.tag")</span>
+                        <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] text-emerald-700 font-bold mb-2 uppercase tracking-wider">@L.T("home.news1.tag")</span>
                         <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news1.title")</h4>
                         <p class="text-xs text-gray-500 mt-1">@L.T("home.news1.time")</p>
                     </div>
                     <div class="group cursor-pointer border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0">
-                        <span class="inline-flex rounded-full bg-primary/10 px-3 py-1 text-[10px] text-primary font-bold mb-2 uppercase tracking-wider">@L.T("home.news2.tag")</span>
+                        <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[10px] text-amber-700 font-bold mb-2 uppercase tracking-wider">@L.T("home.news2.tag")</span>
                         <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news2.title")</h4>
                         <p class="text-xs text-gray-500 mt-1">@L.T("home.news2.time")</p>
                     </div>
                     <div class="group cursor-pointer last:border-0">
-                        <span class="inline-flex rounded-full bg-primary/10 px-3 py-1 text-[10px] text-primary font-bold mb-2 uppercase tracking-wider">@L.T("home.news3.tag")</span>
+                        <span class="inline-flex rounded-full bg-sky-100 px-3 py-1 text-[10px] text-sky-700 font-bold mb-2 uppercase tracking-wider">@L.T("home.news3.tag")</span>
                         <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news3.title")</h4>
                         <p class="text-xs text-gray-500 mt-1">@L.T("home.news3.time")</p>
                     </div>
@@ -255,7 +255,7 @@
     {
         return !string.IsNullOrWhiteSpace(image)
             ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url('{image}');"
-            : "background-image: linear-gradient(135deg, rgba(59,103,0,0.95) 0%, rgba(118,188,33,0.8) 55%, rgba(167,242,85,0.55) 100%);";
+            : "background-image: linear-gradient(135deg, rgba(45,158,79,0.95) 0%, rgba(34,197,94,0.8) 55%, rgba(220,252,231,0.65) 100%);";
     }
 
     private static string BuildFeaturedStyle(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
@@ -263,11 +263,13 @@
         var image = CategoryVisualService.ResolveImage(item.Category, item.Category);
         return !string.IsNullOrWhiteSpace(image)
             ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.05) 100%), url('{image}');"
-            : "background-image: linear-gradient(135deg, rgba(167,242,85,0.45) 0%, rgba(239,241,242,0.95) 55%, rgba(255,255,255,1) 100%);";
+            : "background-image: linear-gradient(135deg, rgba(220,252,231,0.9) 0%, rgba(250,244,234,0.95) 55%, rgba(255,255,255,1) 100%);";
     }
 
     private static string FeaturedTypeLabel(string? category, string? ctaLabel)
-        => !string.IsNullOrWhiteSpace(category) ? category! : ctaLabel ?? "Negocio local";
+        => !string.IsNullOrWhiteSpace(category)
+            ? CategoryVisualService.ResolveDisplayName(category, category).ToUpperInvariant()
+            : ctaLabel ?? "Negocio local";
 
     private static string NormalizeCategoryName(string? value)
     {

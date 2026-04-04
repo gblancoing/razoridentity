@@ -38,10 +38,10 @@
                     var image = CategoryVisualService.ResolveImage(category.Code, category.Name);
                     <a href="@GetCategoryHref(category)"
                        class="group min-h-[180px] rounded-xl overflow-hidden bg-cover bg-center flex items-end p-4 transition-transform hover:scale-[1.02]"
-                       style="@BuildCategoryStyle(image)">
+                        style="@BuildCategoryStyle(image)">
                         <div>
                             <p class="text-xs uppercase tracking-[0.16em] font-bold text-white/80">Categoría local</p>
-                            <p class="text-base font-bold text-white">@category.Name</p>
+                            <p class="text-base font-bold text-white">@CategoryVisualService.ResolveDisplayName(category.Code, category.Name)</p>
                         </div>
                     </a>
                 }
@@ -115,7 +115,7 @@
     {
         return !string.IsNullOrWhiteSpace(image)
             ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 60%), url('{image}');"
-            : "background-image: linear-gradient(135deg, rgba(59,103,0,0.95) 0%, rgba(118,188,33,0.8) 55%, rgba(167,242,85,0.55) 100%);";
+            : "background-image: linear-gradient(135deg, rgba(45,158,79,0.95) 0%, rgba(34,197,94,0.8) 55%, rgba(220,252,231,0.65) 100%);";
     }
 
     private static string NormalizeCategoryName(string? value)

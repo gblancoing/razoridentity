@@ -165,7 +165,7 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
     radius: 10,
     color: "#ffffff",
     weight: 3,
-    fillColor: "#3b6700",
+    fillColor: "#2d9e4f",
     fillOpacity: 1
   }).addTo(map);
 
@@ -191,8 +191,8 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
       comunaName ? `<div style="margin-top:4px;color:#595c5d">${comunaName}</div>` : "",
       address ? `<div style="margin-top:4px;color:#595c5d">${address}</div>` : "",
       `<div style="margin-top:4px;color:#595c5d">${usesExactLocation ? "Ubicación del negocio" : "Referencia por comuna"}</div>`,
-      typeof distanceKm === "number" ? `<div style="margin-top:6px;color:#3b6700;font-weight:700">${distanceKm.toFixed(1)} km aprox.</div>` : "",
-      `<a href="${href}" style="display:inline-block;margin-top:8px;color:#3b6700;font-weight:700;text-decoration:none">Ver negocio</a>`,
+      typeof distanceKm === "number" ? `<div style="margin-top:6px;color:#2d9e4f;font-weight:700">${distanceKm.toFixed(1)} km aprox.</div>` : "",
+      `<a href="${href}" style="display:inline-block;margin-top:8px;color:#2d9e4f;font-weight:700;text-decoration:none">Ver negocio</a>`,
       `</div>`
     ].join("");
 
