@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick.Api", "src\Comu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Payments.Common", "src\Payments.Common\Payments.Common.csproj", "{287ADE90-E330-47F4-82BC-FBFB11DE5250}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick", "src\ComunaClick\ComunaClick.App.csproj", "{9C2CED48-7007-4D43-9B8E-12589BC1F3F6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick.App", "src\ComunaClick\ComunaClick.App.csproj", "{9C2CED48-7007-4D43-9B8E-12589BC1F3F6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Payments.Gateway.Api", "src\Payments.Gateway.Api\Payments.Gateway.Api.csproj", "{EA539B86-4487-47C8-9FEF-2BD98E336162}"
 EndProject
@@ -22,6 +22,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick.SharedUI", "src\ComunaClick.SharedUI\ComunaClick.SharedUI.csproj", "{E13B19F6-E91A-46F5-89B3-14C313AD1995}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComunaClick.Mobile", "src\ComunaClick.Mobile\ComunaClick.Mobile.csproj", "{185E72F1-0A69-4579-8502-3A50C2DF0B04}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Payments.App", "src\Payments.App\Payments.App.csproj", "{ED389674-A034-4C0D-BDD7-663F04EE8367}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -141,6 +143,18 @@ Global
 		{185E72F1-0A69-4579-8502-3A50C2DF0B04}.Release|x64.Build.0 = Release|Any CPU
 		{185E72F1-0A69-4579-8502-3A50C2DF0B04}.Release|x86.ActiveCfg = Release|Any CPU
 		{185E72F1-0A69-4579-8502-3A50C2DF0B04}.Release|x86.Build.0 = Release|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Debug|x64.Build.0 = Debug|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Debug|x86.Build.0 = Debug|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Release|x64.ActiveCfg = Release|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Release|x64.Build.0 = Release|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Release|x86.ActiveCfg = Release|Any CPU
+		{ED389674-A034-4C0D-BDD7-663F04EE8367}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -155,5 +169,6 @@ Global
 		{79E45481-62D8-4592-BAD3-40E38AAD9C37} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E13B19F6-E91A-46F5-89B3-14C313AD1995} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{185E72F1-0A69-4579-8502-3A50C2DF0B04} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{ED389674-A034-4C0D-BDD7-663F04EE8367} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

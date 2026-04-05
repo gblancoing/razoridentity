@@ -1,0 +1,79 @@
+@page "/suscripciones"
+@inject PaymentGatewayAdminClient Client
+
+@code {
+    private IReadOnlyList<PaymentSubscriptionSummary> _subscriptions = Array.Empty<PaymentSubscriptionSummary>();
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _subscriptions = await Client.ListSubscriptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Acceso</p>
+        <h1>No pudimos cargar suscripciones</h1>
+        <p>@_error</p>
+    </section>
+}
+else
+{
+<section class="page-header">
+    <p class="eyebrow">Suscripciones</p>
+    <h1>Planes recurrentes</h1>
+    <p class="page-description">Primera vista de control sobre suscripciones creadas desde botones de pago recurrente.</p>
+</section>
+
+<section class="subscription-grid">
+    @foreach (var subscription in _subscriptions)
+    {
+        <article class="panel-card subscription-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">@subscription.Provider</p>
+                    <h2>@subscription.PlanName</h2>
+                </div>
+                <span class="@($"status-badge {StatusClass(subscription.Status)}")">@StatusLabel(subscription.Status)</span>
+            </div>
+
+            <dl class="detail-list">
+                <div><dt>Cliente</dt><dd>@subscription.CustomerLabel</dd></div>
+                <div><dt>Negocio</dt><dd>@subscription.BusinessLabel</dd></div>
+                <div><dt>Monto</dt><dd>@subscription.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</dd></div>
+                <div><dt>Próximo cobro</dt><dd>@subscription.NextBillingAt.ToLocalTime().ToString("dd MMM yyyy", CultureInfo.GetCultureInfo("es-CL"))</dd></div>
+            </dl>
+        </article>
+    }
+</section>
+}
+
+@functions {
+    private static string StatusClass(string status) => status.ToLowerInvariant() switch
+    {
+        "active" => "status-success",
+        "trial" or "past_due" => "status-pending",
+        "paused" or "canceled" or "expired" => "status-failed",
+        _ => "status-muted"
+    };
+
+    private static string StatusLabel(string status) => status.ToLowerInvariant() switch
+    {
+        "active" => "Activa",
+        "trial" => "Prueba",
+        "past_due" => "Con deuda",
+        "paused" => "Pausada",
+        "canceled" => "Cancelada",
+        "expired" => "Expirada",
+        _ => status
+    };
+}

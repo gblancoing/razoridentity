@@ -1,0 +1,106 @@
+@page "/transacciones/{Id:guid}"
+@inject PaymentGatewayAdminClient Client
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Acceso</p>
+        <h1>No pudimos cargar la transacción</h1>
+        <p>@_error</p>
+    </section>
+}
+else if (_transaction is null)
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Transacción</p>
+        <h1>No encontramos esta transacción</h1>
+        <p>Revisa el identificador o vuelve al listado operacional.</p>
+        <a class="primary-link" href="/transacciones">Volver a transacciones</a>
+    </section>
+}
+else
+{
+    <section class="page-header">
+        <p class="eyebrow">Detalle de transacción</p>
+        <h1>@_transaction.ExternalReference</h1>
+        <p class="page-description">@_transaction.Provider.ToUpperInvariant() • @FormatMoney(_transaction.Amount) • creada el @_transaction.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", CultureInfo.GetCultureInfo("es-CL"))</p>
+    </section>
+
+    <section class="detail-grid">
+        <article class="panel-card">
+            <div class="panel-head">
+                <h2>Resumen del pago</h2>
+                <span class="@($"status-badge {StatusClass(_transaction.Status)}")">@StatusLabel(_transaction.Status)</span>
+            </div>
+
+            <dl class="detail-list">
+                <div><dt>Monto</dt><dd>@FormatMoney(_transaction.Amount)</dd></div>
+                <div><dt>Proveedor</dt><dd>@_transaction.Provider</dd></div>
+                <div><dt>Token proveedor</dt><dd>@_transaction.ProviderToken</dd></div>
+                <div><dt>Código autorización</dt><dd>@(_transaction.AuthorizationCode ?? "Pendiente")</dd></div>
+                <div><dt>Cliente</dt><dd>@_transaction.CustomerLabel</dd></div>
+                <div><dt>Plan suscripción</dt><dd>@_transaction.SubscriptionPlan</dd></div>
+            </dl>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <h2>Eventos del proveedor</h2>
+                <a class="primary-link" href="/transacciones">Volver</a>
+            </div>
+
+            <div class="event-timeline">
+                @foreach (var evt in _transaction.Events)
+                {
+                    <div class="event-item">
+                        <div class="event-dot"></div>
+                        <div>
+                            <p class="row-title">@evt.EventType</p>
+                            <p class="row-subtitle">@evt.ReceivedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", CultureInfo.GetCultureInfo("es-CL"))</p>
+                            <pre class="payload-box">@evt.Payload</pre>
+                        </div>
+                    </div>
+                }
+            </div>
+        </article>
+    </section>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private PaymentTransactionSummary? _transaction;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _transaction = await Client.GetTransactionAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string FormatMoney(decimal amount)
+        => amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"));
+
+    private static string StatusClass(string status) => status.ToLowerInvariant() switch
+    {
+        "captured" => "status-success",
+        "pending" => "status-pending",
+        "failed" or "canceled" => "status-failed",
+        _ => "status-muted"
+    };
+
+    private static string StatusLabel(string status) => status.ToLowerInvariant() switch
+    {
+        "captured" => "Capturado",
+        "pending" => "Pendiente",
+        "failed" => "Fallido",
+        "canceled" => "Cancelado",
+        _ => status
+    };
+}

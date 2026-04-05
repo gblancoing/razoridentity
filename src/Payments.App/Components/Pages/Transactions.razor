@@ -1,0 +1,109 @@
+@page "/transacciones"
+@inject PaymentGatewayAdminClient Client
+
+@code {
+    private IReadOnlyList<PaymentTransactionSummary> _transactions = Array.Empty<PaymentTransactionSummary>();
+    private string _selectedProvider = "todos";
+    private string _selectedStatus = "todos";
+    private string _search = string.Empty;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _transactions = await Client.ListTransactionsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private IEnumerable<PaymentTransactionSummary> FilteredTransactions => _transactions
+        .Where(x => _selectedProvider == "todos" || string.Equals(x.Provider, _selectedProvider, StringComparison.OrdinalIgnoreCase))
+        .Where(x => _selectedStatus == "todos" || string.Equals(x.Status, _selectedStatus, StringComparison.OrdinalIgnoreCase))
+        .Where(x => string.IsNullOrWhiteSpace(_search)
+            || x.ExternalReference.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || x.ProviderToken.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || x.CustomerLabel.Contains(_search, StringComparison.OrdinalIgnoreCase));
+}
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Acceso</p>
+        <h1>No pudimos cargar transacciones</h1>
+        <p>@_error</p>
+    </section>
+}
+else
+{
+<section class="page-header">
+    <p class="eyebrow">Transacciones</p>
+    <h1>Listado operacional</h1>
+    <p class="page-description">Consulta pagos por proveedor, estado, referencia externa o token del checkout.</p>
+</section>
+
+<section class="panel-card filters-card">
+    <input class="search-input" placeholder="Buscar referencia, token o cliente" @bind="_search" @bind:event="oninput" />
+
+    <select class="filter-select" @bind="_selectedProvider">
+        <option value="todos">Todos los proveedores</option>
+        <option value="transbank">Transbank</option>
+        <option value="khipu">Khipu</option>
+        <option value="mercadopago">Mercado Pago</option>
+    </select>
+
+    <select class="filter-select" @bind="_selectedStatus">
+        <option value="todos">Todos los estados</option>
+        <option value="captured">Capturado</option>
+        <option value="pending">Pendiente</option>
+        <option value="failed">Fallido</option>
+        <option value="canceled">Cancelado</option>
+    </select>
+</section>
+
+<section class="panel-card">
+    <div class="transaction-table-head">
+        <span>Referencia</span>
+        <span>Proveedor</span>
+        <span>Monto</span>
+        <span>Estado</span>
+        <span>Fecha</span>
+    </div>
+
+    @foreach (var item in FilteredTransactions)
+    {
+        <a class="transaction-table-row" href="@($"/transacciones/{item.Id}")">
+            <div>
+                <p class="row-title">@item.ExternalReference</p>
+                <p class="row-subtitle">@item.ProviderToken</p>
+            </div>
+            <p class="provider-pill">@item.Provider</p>
+            <p class="row-amount">@item.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</p>
+            <span class="@($"status-badge {StatusClass(item.Status)}")">@StatusLabel(item.Status)</span>
+            <p class="row-subtitle">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", CultureInfo.GetCultureInfo("es-CL"))</p>
+        </a>
+    }
+</section>
+}
+
+@functions {
+    private static string StatusClass(string status) => status.ToLowerInvariant() switch
+    {
+        "captured" => "status-success",
+        "pending" => "status-pending",
+        "failed" or "canceled" => "status-failed",
+        _ => "status-muted"
+    };
+
+    private static string StatusLabel(string status) => status.ToLowerInvariant() switch
+    {
+        "captured" => "Capturado",
+        "pending" => "Pendiente",
+        "failed" => "Fallido",
+        "canceled" => "Cancelado",
+        _ => status
+    };
+}

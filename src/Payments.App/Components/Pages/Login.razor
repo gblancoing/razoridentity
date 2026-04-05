@@ -1,0 +1,134 @@
+@page "/login"
+@layout Payments.App.Components.Layout.EmptyLayout
+@inject Payments.App.Services.PaymentsAclAuthClient AuthClient
+@inject Payments.App.Services.PaymentsAuthStateService AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Ingresar a Payments.App</PageTitle>
+
+<div class="min-h-screen flex items-center justify-center px-6 py-12" style="background:linear-gradient(180deg,#fffdf7 0%,#f4fbf6 100%);">
+    <div class="panel-card" style="width:min(100%, 460px);">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">Payments.App</p>
+                <h2>Ingreso administrativo</h2>
+            </div>
+        </div>
+
+        <p class="page-description">Accede con una cuenta `tenant_admin` o `platform_admin` para revisar transacciones, webhooks y suscripciones.</p>
+
+        <form class="space-y-4 mt-6" @onsubmit="HandleSubmit" @onsubmit:preventDefault="true">
+            <label>
+                <span class="kpi-label">Correo</span>
+                <input class="filter-input" type="email" @bind="_email" autocomplete="username" />
+            </label>
+
+            <label>
+                <span class="kpi-label">Contraseña</span>
+                <input class="filter-input" type="password" @bind="_password" autocomplete="current-password" />
+            </label>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <p class="text-sm" style="color:#b42318;">@_error</p>
+            }
+
+            <button class="primary-link" style="border:none; cursor:pointer;" type="submit" disabled="@_submitting">
+                @(_submitting ? "Ingresando..." : "Ingresar al dashboard")
+            </button>
+        </form>
+    </div>
+</div>
+
+@code {
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _error;
+    private bool _submitting;
+    private string? _returnUrl;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _returnUrl = ReadReturnUrl();
+        await AuthState.InitializeAsync();
+        if (AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo(_returnUrl ?? "/", true);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _submitting = true;
+        _error = null;
+
+        try
+        {
+            var recaptchaToken = await ExecuteRecaptchaAsync();
+            var tokens = await AuthClient.LoginAsync(_email, _password, recaptchaToken);
+            await AuthState.SetTokensAsync(tokens);
+
+            if (!AuthState.IsPaymentsAdmin)
+            {
+                _error = "Tu cuenta no tiene permisos administrativos para Payments.App.";
+                await AuthState.ClearAsync();
+                return;
+            }
+
+            Navigation.NavigateTo(_returnUrl ?? "/");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task<string?> ExecuteRecaptchaAsync()
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<string>("paymentsApp.executeRecaptcha", "login");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string? ReadReturnUrl()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "returnUrl", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            if (!string.IsNullOrWhiteSpace(value) && value.StartsWith('/'))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+}

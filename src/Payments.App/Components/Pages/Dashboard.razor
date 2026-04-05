@@ -1,0 +1,159 @@
+@page "/"
+@inject PaymentGatewayAdminClient Client
+
+@code {
+    private IReadOnlyList<PaymentTransactionSummary> _transactions = Array.Empty<PaymentTransactionSummary>();
+    private IReadOnlyList<PaymentSubscriptionSummary> _subscriptions = Array.Empty<PaymentSubscriptionSummary>();
+    private AdminDashboardSummaryModel _summary = new(0, 0, 0, 0, 0, Array.Empty<AdminProviderBreakdownDto>());
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _summary = await Client.GetDashboardAsync();
+            _transactions = await Client.ListTransactionsAsync();
+            _subscriptions = await Client.ListSubscriptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Acceso</p>
+        <h1>No pudimos cargar el dashboard</h1>
+        <p>@_error</p>
+    </section>
+}
+else
+{
+<section class="page-header">
+    <p class="eyebrow">Dashboard</p>
+    <h1>Resumen de transacciones por suscripción</h1>
+    <p class="page-description">Vista inicial operativa para monitorear pagos recurrentes, últimos cobros y estado de suscripciones.</p>
+</section>
+
+<section class="kpi-grid">
+    <article class="kpi-card">
+        <p class="kpi-label">Monto capturado</p>
+        <h2>@_summary.CapturedAmount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</h2>
+        <p class="kpi-footnote">Suma de pagos confirmados</p>
+    </article>
+    <article class="kpi-card">
+        <p class="kpi-label">Transacciones pendientes</p>
+        <h2>@_summary.PendingCount</h2>
+        <p class="kpi-footnote">Esperando callback/webhook</p>
+    </article>
+    <article class="kpi-card">
+        <p class="kpi-label">Suscripciones activas</p>
+        <h2>@_summary.ActiveSubscriptionCandidates</h2>
+        <p class="kpi-footnote">Planes recurrentes vigentes</p>
+    </article>
+    <article class="kpi-card">
+        <p class="kpi-label">Proveedores conectados</p>
+        <h2>3</h2>
+        <p class="kpi-footnote">Transbank, Khipu, Mercado Pago</p>
+    </article>
+</section>
+}
+
+<section class="dashboard-grid">
+    <article class="panel-card">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">Últimas transacciones</p>
+                <h2>Actividad reciente</h2>
+            </div>
+            <a class="primary-link" href="/transacciones">Ver todas</a>
+        </div>
+
+        <div class="table-list">
+            @foreach (var item in _transactions.Take(5))
+            {
+                <a class="table-row" href="@($"/transacciones/{item.Id}")">
+                    <div>
+                        <p class="row-title">@item.ExternalReference</p>
+                        <p class="row-subtitle">@item.CustomerLabel • @item.Provider</p>
+                    </div>
+                    <div class="row-right">
+                        <p class="row-amount">@item.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</p>
+                        <span class="@($"status-badge {StatusClass(item.Status)}")">@StatusLabel(item.Status)</span>
+                    </div>
+                </a>
+            }
+        </div>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">Suscripciones</p>
+                <h2>Planes recurrentes</h2>
+            </div>
+            <a class="primary-link" href="/suscripciones">Administrar</a>
+        </div>
+
+        <div class="subscription-list">
+            @foreach (var subscription in _subscriptions.Take(4))
+            {
+                <div class="subscription-item">
+                    <div>
+                        <p class="row-title">@subscription.PlanName</p>
+                        <p class="row-subtitle">@subscription.CustomerLabel • próximo cobro @subscription.NextBillingAt.ToString("dd MMM", CultureInfo.GetCultureInfo("es-CL"))</p>
+                    </div>
+                    <span class="@($"status-badge {StatusClass(subscription.Status)}")">@StatusLabel(subscription.Status)</span>
+                </div>
+            }
+        </div>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">Proveedores</p>
+                <h2>Distribución actual</h2>
+            </div>
+        </div>
+
+        <div class="subscription-list">
+            @foreach (var provider in _summary.Providers)
+            {
+                <div class="subscription-item">
+                    <div>
+                        <p class="row-title">@provider.Provider</p>
+                        <p class="row-subtitle">@provider.Count transacciones registradas</p>
+                    </div>
+                    <p class="row-amount">@provider.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</p>
+                </div>
+            }
+        </div>
+    </article>
+</section>
+
+@functions {
+    private static string StatusClass(string status) => status.ToLowerInvariant() switch
+    {
+        "captured" or "active" => "status-success",
+        "pending" or "trial" or "past_due" => "status-pending",
+        "failed" or "canceled" or "expired" => "status-failed",
+        _ => "status-muted"
+    };
+
+    private static string StatusLabel(string status) => status.ToLowerInvariant() switch
+    {
+        "captured" => "Capturado",
+        "pending" => "Pendiente",
+        "failed" => "Fallido",
+        "canceled" => "Cancelado",
+        "active" => "Activa",
+        "trial" => "Prueba",
+        "past_due" => "Con deuda",
+        "expired" => "Expirada",
+        _ => status
+    };
+}

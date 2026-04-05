@@ -1,0 +1,132 @@
+@inherits LayoutComponentBase
+@inject Payments.App.Services.PaymentsAuthStateService AuthState
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@if (!AuthState.IsInitialized)
+{
+    <div class="admin-shell">
+        <main class="content-shell">
+            <article class="page-body">
+                <section class="not-found-card">
+                    <p class="eyebrow">Payments.App</p>
+                    <h1>Cargando sesión segura</h1>
+                    <p>Estamos verificando tu acceso al dashboard de pagos.</p>
+                </section>
+            </article>
+        </main>
+    </div>
+}
+else if (!AuthState.IsAuthenticated)
+{
+    <div class="admin-shell">
+        <main class="content-shell">
+            <article class="page-body">
+                <section class="not-found-card">
+                    <p class="eyebrow">Payments.App</p>
+                    <h1>Redirigiendo al login</h1>
+                    <p>Necesitas una cuenta admin para entrar al dashboard de pagos.</p>
+                </section>
+            </article>
+        </main>
+    </div>
+}
+else
+{
+<div class="admin-shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <div class="brand-icon">CC</div>
+            <div>
+                <p class="brand-title">Payments.App</p>
+                <p class="brand-subtitle">Dashboard de suscripciones</p>
+            </div>
+        </a>
+
+        <nav class="sidebar-nav">
+            <NavLink href="/" Match="NavLinkMatch.All" class="nav-item">
+                <span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </NavLink>
+            <NavLink href="/transacciones" class="nav-item">
+                <span class="material-symbols-outlined">receipt_long</span>
+                Transacciones
+            </NavLink>
+            <NavLink href="/suscripciones" class="nav-item">
+                <span class="material-symbols-outlined">sync</span>
+                Suscripciones
+            </NavLink>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p class="footer-label">@((AuthState.IsPaymentsAdmin ? "Acceso" : "Estado"))</p>
+            <p class="footer-value">@(AuthState.IsPaymentsAdmin ? "Admin autorizado" : "Sin permisos admin")</p>
+            <button class="primary-link mt-4" @onclick="Logout">Cerrar sesión</button>
+        </div>
+    </aside>
+
+    <main class="content-shell">
+        <header class="topbar">
+            <div>
+                <p class="topbar-label">ComunaClic</p>
+                <p class="topbar-title">Monitoreo de pagos y suscripciones</p>
+            </div>
+            <div class="user-pill">
+                <span class="material-symbols-outlined">admin_panel_settings</span>
+                @(AuthState.Tokens?.DisplayName ?? AuthState.Tokens?.Email ?? "Operador Payments")
+            </div>
+        </header>
+
+        <article class="page-body">
+            @Body
+        </article>
+    </main>
+</div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        AuthState.OnChange += HandleAuthChange;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await AuthState.InitializeAsync();
+        EnsureAuthenticated();
+    }
+
+    private void HandleAuthChange()
+    {
+        EnsureAuthenticated();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void EnsureAuthenticated()
+    {
+        if (!AuthState.IsInitialized || AuthState.IsAuthenticated)
+        {
+            return;
+        }
+
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var returnUrl = string.IsNullOrWhiteSpace(relative) ? "/" : $"/{relative}";
+        Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", true);
+    }
+
+    private async Task Logout()
+    {
+        await AuthState.ClearAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+
+    public void Dispose()
+    {
+        AuthState.OnChange -= HandleAuthChange;
+    }
+}
