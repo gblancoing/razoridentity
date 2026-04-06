@@ -1,4 +1,5 @@
 @page "/my-businesses"
+@using System.ComponentModel.DataAnnotations
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
@@ -15,7 +16,15 @@
                 <h1 class="text-3xl font-bold">Mis negocios</h1>
                 <p class="text-sm text-[#61897c]">Elige qué negocio quieres administrar o crea el primero.</p>
             </div>
-            <a href="/register/business" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Crear nuevo negocio</a>
+            <div class="flex flex-wrap gap-3">
+                <a href="/" class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm">Volver al inicio</a>
+                <button type="button"
+                        class="border border-[#dadddf] text-[#2c2f30] px-4 py-2 rounded-lg font-semibold text-sm"
+                        @onclick="HandleLogoutAsync">
+                    Cerrar sesión
+                </button>
+                <a href="/register/business" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Crear nuevo negocio</a>
+            </div>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(_statusMessage))
@@ -70,6 +79,11 @@
 
                         <div class="flex flex-wrap gap-3">
                             <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm" @onclick="() => EnterPartnerAsync(item)" disabled="@_isSwitching">Entrar</button>
+                            <button class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm"
+                                    @onclick="() => BeginEditPartner(item)"
+                                    disabled="@(_isSwitching || _isSavingPartner)">
+                                Editar datos
+                            </button>
                             <a href="@PublicPreviewHref(item)" class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm">Ver en público</a>
                             @if (item.IsVisible)
                             {
@@ -98,6 +112,44 @@
                             </button>
                             <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">Crear nuevo negocio</a>
                         </div>
+
+                        @if (_editingPartnerId == item.Id)
+                        {
+                            <EditForm Model="_partnerEditor" OnValidSubmit="SavePartnerAsync">
+                                <DataAnnotationsValidator />
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl bg-[#f6faf8] border border-[#dfeee6] p-5">
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Nombre del negocio</label>
+                                        <input class="@InputClass" @bind="_partnerEditor.Name" />
+                                        <ValidationMessage For="@(() => _partnerEditor.Name)" class="text-xs text-red-500" />
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Teléfono</label>
+                                        <input class="@InputClass" @bind="_partnerEditor.Phone" />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Dirección</label>
+                                        <input class="@InputClass" @bind="_partnerEditor.Address" />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-semibold text-[#2c2f30]">Email público</label>
+                                        <input class="@InputClass" @bind="_partnerEditor.Email" />
+                                    </div>
+                                    <div class="md:col-span-2 flex flex-wrap gap-3">
+                                        <button type="submit"
+                                                class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm"
+                                                disabled="@_isSavingPartner">
+                                            Guardar cambios
+                                        </button>
+                                        <button type="button"
+                                                class="border border-[#dadddf] text-[#2c2f30] px-4 py-2 rounded-lg font-semibold text-sm"
+                                                @onclick="CancelEditPartner">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </EditForm>
+                        }
                     </div>
                 }
             </div>
@@ -111,9 +163,13 @@
     private bool _isSwitching;
     private bool _isTogglingVisibility;
     private bool _isUpdatingLocation;
+    private bool _isSavingPartner;
     private string? _statusMessage;
     private string _statusLevel = "info";
     private bool _checkedAuth;
+    private Guid? _editingPartnerId;
+    private readonly PartnerEditor _partnerEditor = new();
+    private string InputClass => "mt-1 w-full rounded-xl border border-[#dadddf] bg-white px-4 h-11 text-sm text-[#2c2f30]";
 
     protected override Task OnInitializedAsync()
     {
@@ -205,6 +261,77 @@
         finally
         {
             _isSwitching = false;
+        }
+    }
+
+    private void BeginEditPartner(ComunaClick.Shared.Api.Partner.PartnerDto partner)
+    {
+        _editingPartnerId = partner.Id;
+        _partnerEditor.Name = partner.Name ?? string.Empty;
+        _partnerEditor.Address = partner.Address;
+        _partnerEditor.Phone = partner.Phone;
+        _partnerEditor.Email = partner.Email;
+    }
+
+    private void CancelEditPartner()
+    {
+        _editingPartnerId = null;
+    }
+
+    private async Task SavePartnerAsync()
+    {
+        if (_editingPartnerId is null)
+        {
+            return;
+        }
+
+        var current = _items.FirstOrDefault(x => x.Id == _editingPartnerId.Value);
+        if (current is null)
+        {
+            return;
+        }
+
+        _isSavingPartner = true;
+        _statusLevel = "info";
+        _statusMessage = $"Guardando cambios en {current.Name}...";
+
+        try
+        {
+            var updated = await PartnerApi.UpdatePartnerAsync(
+                current.Id,
+                new ComunaClick.Shared.Api.Partner.PartnerUpdateRequest(
+                    current.Type,
+                    Clean(_partnerEditor.Name),
+                    current.Rut,
+                    Clean(_partnerEditor.Address),
+                    Clean(_partnerEditor.Phone),
+                    Clean(_partnerEditor.Email),
+                    current.SubcategoryId,
+                    current.Latitude,
+                    current.Longitude,
+                    current.IsVisible));
+
+            if (updated is not null)
+            {
+                var index = _items.FindIndex(x => x.Id == current.Id);
+                if (index >= 0)
+                {
+                    _items[index] = updated;
+                }
+            }
+
+            _statusLevel = "success";
+            _statusMessage = "Datos del negocio actualizados correctamente.";
+            _editingPartnerId = null;
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+        finally
+        {
+            _isSavingPartner = false;
         }
     }
 
@@ -300,6 +427,15 @@
         }
     }
 
+    private async Task HandleLogoutAsync()
+    {
+        await AuthState.ClearAsync();
+        Navigation.NavigateTo("/", true);
+    }
+
+    private static string? Clean(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static string VisibilityLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
         => item.IsVisible ? "Publicado" : "No publicado";
 
@@ -334,4 +470,13 @@
         double Longitude,
         double Accuracy
     );
+
+    private sealed class PartnerEditor
+    {
+        [Required(ErrorMessage = "El nombre del negocio es obligatorio.")]
+        public string Name { get; set; } = string.Empty;
+        public string? Address { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+    }
 }
