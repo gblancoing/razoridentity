@@ -1,0 +1,130 @@
+@page "/"
+@inject ComunaClick.Admin.Services.AdminApiClient ApiClient
+@inject ComunaClick.Admin.Services.AdminAclManagementClient AclClient
+
+<PageTitle>Dashboard - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Panel central</p>
+    <h1>Resumen general de la plataforma</h1>
+    <p class="page-description">Supervisa usuarios, tenants, partners, catálogo, órdenes y el estado editorial del sitio desde un solo lugar.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="not-found-card">
+        <p>@_error</p>
+    </section>
+}
+else if (_isLoading)
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Dashboard</p>
+        <h1>Cargando métricas</h1>
+        <p>Estamos reuniendo actividad de usuarios, partners y operaciones.</p>
+    </section>
+}
+else if (_dashboard is not null)
+{
+    <section class="kpi-grid">
+        <article class="kpi-card">
+            <p class="kpi-label">Usuarios</p>
+            <h2>@_userCount</h2>
+            <p class="kpi-footnote">Cuentas administrativas y operativas.</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Partners</p>
+            <h2>@_dashboard.PartnerCount</h2>
+            <p class="kpi-footnote">@_dashboard.VisiblePartnerCount publicados actualmente.</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Tenants</p>
+            <h2>@_dashboard.TenantCount</h2>
+            <p class="kpi-footnote">Espacios comunales activos en la plataforma.</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Catálogo</p>
+            <h2>@_dashboard.CategoryCount</h2>
+            <p class="kpi-footnote">Categorías activas disponibles al público.</p>
+        </article>
+    </section>
+
+    <section class="dashboard-grid">
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Operación</p>
+                    <h2>Actividad reciente</h2>
+                </div>
+            </div>
+
+            <div class="subscription-grid">
+                <div class="panel-card">
+                    <p class="kpi-label">Órdenes</p>
+                    <h2>@_dashboard.OrderCount</h2>
+                </div>
+                <div class="panel-card">
+                    <p class="kpi-label">Reservas</p>
+                    <h2>@_dashboard.BookingCount</h2>
+                </div>
+                <div class="panel-card">
+                    <p class="kpi-label">Leads</p>
+                    <h2>@_dashboard.LeadCount</h2>
+                </div>
+                <div class="panel-card">
+                    <p class="kpi-label">Publicados</p>
+                    <h2>@_dashboard.VisiblePartnerCount</h2>
+                </div>
+            </div>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Partners</p>
+                    <h2>Últimos cambios</h2>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                @foreach (var item in _dashboard.RecentPartners)
+                {
+                    <div class="row-card">
+                        <div>
+                            <p class="row-title">@item.Name</p>
+                            <p class="row-subtitle">Tipo @item.Type · @(item.IsVisible ? "Publicado" : "No publicado")</p>
+                        </div>
+                        <p class="kpi-footnote">@item.UpdatedAt.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                    </div>
+                }
+            </div>
+        </article>
+    </section>
+}
+
+@code {
+    private ComunaClick.Admin.Models.AdminDashboardDto? _dashboard;
+    private int _userCount;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var dashboardTask = ApiClient.GetDashboardAsync();
+            var usersTask = AclClient.GetUsersAsync();
+            await Task.WhenAll(dashboardTask, usersTask);
+            _dashboard = dashboardTask.Result;
+            _userCount = usersTask.Result.Count;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

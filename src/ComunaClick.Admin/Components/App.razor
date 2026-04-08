@@ -1,0 +1,37 @@
+@inject IConfiguration Configuration
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>ComunaClick.Admin - ComunaClic</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="app.css" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script>
+        window.comunaclicAdminRecaptchaEnabled = @RecaptchaEnabled.ToString().ToLowerInvariant();
+        window.comunaclicAdminRecaptchaSiteKey = "@RecaptchaSiteKey";
+    </script>
+    @if (RecaptchaEnabled && !string.IsNullOrWhiteSpace(RecaptchaSiteKey))
+    {
+        <script src="@($"https://www.google.com/recaptcha/api.js?render={Uri.EscapeDataString(RecaptchaSiteKey)}")"></script>
+    }
+    <script src="app.js"></script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
+
+@code {
+    private bool RecaptchaEnabled => Configuration.GetValue("Recaptcha:Enabled", false);
+    private string RecaptchaSiteKey => Configuration["Recaptcha:SiteKey"] ?? string.Empty;
+}

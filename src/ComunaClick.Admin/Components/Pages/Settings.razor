@@ -1,0 +1,21 @@
+@page "/configuracion"
+@inject IConfiguration Configuration
+
+<PageTitle>Configuración - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Sistema</p>
+    <h1>Configuración operativa</h1>
+    <p class="page-description">Vista rápida de endpoints y dependencias principales del panel admin.</p>
+</section>
+
+<section class="dashboard-grid">
+    <article class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">ACL</p><h2>Autenticación</h2></div></div>
+        <p class="page-description">@Configuration["Acl:BaseUrl"]</p>
+    </article>
+    <article class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">API</p><h2>Backoffice</h2></div></div>
+        <p class="page-description">@Configuration["AdminApi:BaseUrl"]</p>
+    </article>
+</section>

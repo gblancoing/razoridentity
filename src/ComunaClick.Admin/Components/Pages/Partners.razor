@@ -1,0 +1,102 @@
+@page "/partners"
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Partners - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Vitrina pública</p>
+    <h1>Partners y visibilidad</h1>
+    <p class="page-description">Revisa datos visibles, contacto y publicación de cada negocio registrado.</p>
+</section>
+
+<section class="panel-card">
+    <div class="panel-head"><div><p class="eyebrow">Partners</p><h2>Moderación</h2></div></div>
+    @if (_items is null)
+    {
+        <p class="page-description">Cargando partners...</p>
+    }
+    else
+    {
+        @foreach (var item in _items)
+        {
+            <div class="row-card">
+                <div>
+                    <p class="row-title">@item.Name</p>
+                    <p class="row-subtitle">@item.CategoryName / @item.SubcategoryName · @(item.IsVisible ? "Publicado" : "Oculto")</p>
+                </div>
+                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
+            </div>
+
+            @if (_editingId == item.Id)
+            {
+                <div class="panel-card">
+                    <label class="kpi-label">Nombre</label>
+                    <input class="filter-input" @bind="_name" />
+                    <label class="kpi-label">Dirección</label>
+                    <input class="filter-input" @bind="_address" />
+                    <label class="kpi-label">Teléfono</label>
+                    <input class="filter-input" @bind="_phone" />
+                    <label class="kpi-label">Email</label>
+                    <input class="filter-input" @bind="_email" />
+                    <label class="kpi-label">Publicado</label>
+                    <input type="checkbox" @bind="_isVisible" />
+                    <div class="flex gap-3 mt-4">
+                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                    </div>
+                </div>
+            }
+        }
+    }
+</section>
+
+@code {
+    private List<ComunaClick.Admin.Models.AdminPartnerListItemDto>? _items;
+    private Guid? _editingId;
+    private string _name = string.Empty;
+    private string? _address;
+    private string? _phone;
+    private string? _email;
+    private bool _isVisible;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await Client.GetPartnersAsync() ?? new();
+    }
+
+    private void BeginEdit(ComunaClick.Admin.Models.AdminPartnerListItemDto item)
+    {
+        _editingId = item.Id;
+        _name = item.Name;
+        _address = item.Address;
+        _phone = item.Phone;
+        _email = item.Email;
+        _isVisible = item.IsVisible;
+    }
+
+    private void Cancel()
+    {
+        _editingId = null;
+    }
+
+    private async Task SaveAsync(Guid id)
+    {
+        var updated = await Client.UpdatePartnerAsync(id, new
+        {
+            name = _name,
+            address = _address,
+            phone = _phone,
+            email = _email,
+            isVisible = _isVisible
+        });
+        if (updated is not null && _items is not null)
+        {
+            var index = _items.FindIndex(x => x.Id == id);
+            if (index >= 0)
+            {
+                _items[index] = updated;
+            }
+        }
+        Cancel();
+    }
+}

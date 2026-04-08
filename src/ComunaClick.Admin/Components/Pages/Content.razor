@@ -1,0 +1,75 @@
+@page "/contenido"
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Contenido - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Sitio público</p>
+    <h1>Hero y footer</h1>
+    <p class="page-description">Modifica el mensaje principal de la home y los enlaces sociales del footer sin tocar el código del sitio.</p>
+</section>
+
+@if (_content is null)
+{
+    <section class="not-found-card"><p>Cargando contenido...</p></section>
+}
+else
+{
+    <section class="dashboard-grid">
+        <article class="panel-card">
+            <div class="panel-head"><div><p class="eyebrow">Home</p><h2>Hero principal</h2></div></div>
+            <label class="kpi-label">Título</label>
+            <input class="filter-input" @bind="_content.Home.Title" />
+            <label class="kpi-label">Subtítulo</label>
+            <textarea class="filter-input" @bind="_content.Home.Subtitle"></textarea>
+            <label class="kpi-label">Imagen</label>
+            <input class="filter-input" @bind="_content.Home.BackgroundImageUrl" />
+            <label class="kpi-label">CTA primario</label>
+            <input class="filter-input" @bind="_content.Home.PrimaryCtaLabel" />
+            <label class="kpi-label">Href primario</label>
+            <input class="filter-input" @bind="_content.Home.PrimaryCtaHref" />
+            <label class="kpi-label">CTA secundario</label>
+            <input class="filter-input" @bind="_content.Home.SecondaryCtaLabel" />
+            <label class="kpi-label">Href secundario</label>
+            <input class="filter-input" @bind="_content.Home.SecondaryCtaHref" />
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head"><div><p class="eyebrow">Footer</p><h2>Redes y copy</h2></div></div>
+            <label class="kpi-label">Copy</label>
+            <input class="filter-input" @bind="_content.Footer.CopyrightText" />
+            <label class="kpi-label">Instagram</label>
+            <input class="filter-input" @bind="_content.Footer.InstagramUrl" />
+            <label class="kpi-label">Facebook</label>
+            <input class="filter-input" @bind="_content.Footer.FacebookUrl" />
+            <label class="kpi-label">LinkedIn</label>
+            <input class="filter-input" @bind="_content.Footer.LinkedInUrl" />
+            <button class="primary-link mt-4" @onclick="SaveAsync">Guardar contenido</button>
+            @if (!string.IsNullOrWhiteSpace(_status))
+            {
+                <p class="page-description">@_status</p>
+            }
+        </article>
+    </section>
+}
+
+@code {
+    private ComunaClick.Admin.Models.SiteContentDto? _content;
+    private string? _status;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _content = await Client.GetSiteContentAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_content is null)
+        {
+            return;
+        }
+
+        _content = await Client.SaveSiteContentAsync(_content);
+        _status = "Contenido actualizado correctamente.";
+    }
+}

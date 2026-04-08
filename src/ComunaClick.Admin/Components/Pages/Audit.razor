@@ -1,0 +1,40 @@
+@page "/auditoria"
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Auditoría - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Trazabilidad</p>
+    <h1>Actividad reciente</h1>
+    <p class="page-description">Consulta cambios recientes sobre tenants, partners y órdenes para tener una visión operativa rápida.</p>
+</section>
+
+<section class="panel-card">
+    <div class="panel-head"><div><p class="eyebrow">Auditoría</p><h2>Timeline</h2></div></div>
+    @if (_items is null)
+    {
+        <p class="page-description">Cargando eventos...</p>
+    }
+    else
+    {
+        @foreach (var item in _items)
+        {
+            <div class="row-card">
+                <div>
+                    <p class="row-title">@item.Description</p>
+                    <p class="row-subtitle">@item.EntityType · @item.Action · @item.EntityId</p>
+                </div>
+                <p class="kpi-footnote">@item.OccurredAt.ToLocalTime().ToString("dd/MM HH:mm")</p>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private List<ComunaClick.Admin.Models.AdminAuditEventDto>? _items;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await Client.GetAuditAsync() ?? new();
+    }
+}

@@ -1,0 +1,166 @@
+@inherits LayoutComponentBase
+@inject ComunaClick.Admin.Services.PaymentsAuthStateService AuthState
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@if (!AuthState.IsInitialized)
+{
+    <div class="admin-shell">
+        <main class="content-shell">
+            <article class="page-body">
+                <section class="not-found-card">
+                    <p class="eyebrow">ComunaClick.Admin</p>
+                    <h1>Cargando sesión administrativa</h1>
+                    <p>Estamos validando tu acceso al panel de gestión.</p>
+                </section>
+            </article>
+        </main>
+    </div>
+}
+else if (!AuthState.IsAuthenticated || !AuthState.IsPaymentsAdmin)
+{
+    <div class="admin-shell">
+        <main class="content-shell">
+            <article class="page-body">
+                <section class="not-found-card">
+                    <p class="eyebrow">ComunaClick.Admin</p>
+                    <h1>Redirigiendo al login</h1>
+                    <p>Necesitas una cuenta `platform_admin` o `tenant_admin` para entrar al panel.</p>
+                </section>
+            </article>
+        </main>
+    </div>
+}
+else
+{
+    <div class="admin-shell">
+        <aside class="sidebar">
+            <a class="brand" href="/">
+                <div class="brand-icon">CA</div>
+                <div>
+                    <p class="brand-title">ComunaClick.Admin</p>
+                    <p class="brand-subtitle">Control de plataforma</p>
+                </div>
+            </a>
+
+            <nav class="sidebar-nav">
+                <NavLink href="/" Match="NavLinkMatch.All" class="nav-item">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    Dashboard
+                </NavLink>
+                <NavLink href="/usuarios" class="nav-item">
+                    <span class="material-symbols-outlined">group</span>
+                    Usuarios
+                </NavLink>
+                <NavLink href="/tenants" class="nav-item">
+                    <span class="material-symbols-outlined">apartment</span>
+                    Tenants
+                </NavLink>
+                <NavLink href="/partners" class="nav-item">
+                    <span class="material-symbols-outlined">storefront</span>
+                    Partners
+                </NavLink>
+                <NavLink href="/categorias" class="nav-item">
+                    <span class="material-symbols-outlined">inventory_2</span>
+                    Categorías
+                </NavLink>
+                <NavLink href="/contenido" class="nav-item">
+                    <span class="material-symbols-outlined">edit_note</span>
+                    Contenido
+                </NavLink>
+                <NavLink href="/pagos" class="nav-item">
+                    <span class="material-symbols-outlined">payments</span>
+                    Pagos
+                </NavLink>
+                <NavLink href="/auditoria" class="nav-item">
+                    <span class="material-symbols-outlined">history</span>
+                    Auditoría
+                </NavLink>
+                <NavLink href="/configuracion" class="nav-item">
+                    <span class="material-symbols-outlined">settings</span>
+                    Configuración
+                </NavLink>
+            </nav>
+
+            <div class="sidebar-footer">
+                <p class="footer-label">Sesión</p>
+                <p class="footer-value">@RoleLabel</p>
+                <button class="primary-link mt-4" @onclick="Logout">Cerrar sesión</button>
+            </div>
+        </aside>
+
+        <main class="content-shell">
+            <header class="topbar">
+                <div>
+                    <p class="topbar-label">ComunaClic</p>
+                    <p class="topbar-title">Panel central de operación</p>
+                </div>
+                <div class="user-pill">
+                    <span class="material-symbols-outlined">admin_panel_settings</span>
+                    @(AuthState.Tokens?.DisplayName ?? AuthState.Tokens?.Email ?? "Administrador")
+                </div>
+            </header>
+
+            <article class="page-body">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+
+@code {
+    private string RoleLabel =>
+        AuthState.Tokens?.Roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase) == true
+            ? "Platform admin"
+            : "Tenant admin";
+
+    protected override void OnInitialized()
+    {
+        AuthState.OnChange += HandleAuthChange;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await AuthState.InitializeAsync();
+        EnsureAuthenticated();
+    }
+
+    private void HandleAuthChange()
+    {
+        EnsureAuthenticated();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void EnsureAuthenticated()
+    {
+        if (!AuthState.IsInitialized)
+        {
+            return;
+        }
+
+        if (AuthState.IsAuthenticated && AuthState.IsPaymentsAdmin)
+        {
+            return;
+        }
+
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var returnUrl = string.IsNullOrWhiteSpace(relative) ? "/" : $"/{relative}";
+        Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", true);
+    }
+
+    private async Task Logout()
+    {
+        await AuthState.ClearAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+
+    public void Dispose()
+    {
+        AuthState.OnChange -= HandleAuthChange;
+    }
+}

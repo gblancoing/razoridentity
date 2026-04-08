@@ -80,6 +80,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<IReadOnlyList<PublicCategoryItem>?> GetProductCategoriesAsync(CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<PublicCategoryItem>>("/v1/public/catalog/categories", cancellationToken);
 
+    public Task<PublicSiteContentResponse?> GetSiteContentAsync(CancellationToken cancellationToken = default)
+        => GetAsync<PublicSiteContentResponse>("/v1/public/site-content", cancellationToken);
+
     public Task<IReadOnlyList<PublicSubcategoryItem>?> GetProductSubcategoriesAsync(Guid categoryId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<PublicSubcategoryItem>>($"/v1/public/catalog/subcategories?categoryId={categoryId}", cancellationToken);
 
@@ -412,6 +415,28 @@ public sealed record PublicCategoryItem(
     Guid Id,
     string Code,
     string Name
+);
+
+public sealed record PublicSiteContentResponse(
+    PublicHomeContent Home,
+    PublicFooterContent Footer
+);
+
+public sealed record PublicHomeContent(
+    string Title,
+    string Subtitle,
+    string BackgroundImageUrl,
+    string PrimaryCtaLabel,
+    string PrimaryCtaHref,
+    string SecondaryCtaLabel,
+    string SecondaryCtaHref
+);
+
+public sealed record PublicFooterContent(
+    string CopyrightText,
+    string InstagramUrl,
+    string FacebookUrl,
+    string LinkedInUrl
 );
 
 public sealed record PublicSubcategoryItem(

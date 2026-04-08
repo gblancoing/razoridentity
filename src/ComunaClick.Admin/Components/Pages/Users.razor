@@ -1,0 +1,125 @@
+@page "/usuarios"
+@inject ComunaClick.Admin.Services.AdminAclManagementClient Client
+
+<PageTitle>Usuarios - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Acceso</p>
+    <h1>Usuarios administrativos</h1>
+    <p class="page-description">Activa, desactiva y resetea contraseñas de cuentas que operan sobre ACL.</p>
+</section>
+
+<section class="panel-card">
+    <div class="panel-head">
+        <div>
+            <p class="eyebrow">Usuarios</p>
+            <h2>Listado</h2>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_status))
+    {
+        <p class="page-description">@_status</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p class="page-description">Cargando usuarios...</p>
+    }
+    else
+    {
+        <div class="space-y-4">
+            @foreach (var item in _items)
+            {
+                <div class="row-card">
+                    <div>
+                        <p class="row-title">@item.DisplayName ?? @item.Email</p>
+                        <p class="row-subtitle">@item.Email · @string.Join(", ", item.Roles)</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="primary-link" @onclick="() => ToggleAsync(item)">
+                            @(item.IsActive ? "Desactivar" : "Activar")
+                        </button>
+                        <button class="primary-link" @onclick="() => ShowReset(item.Id)">
+                            Resetear clave
+                        </button>
+                    </div>
+                </div>
+
+                @if (_resetUserId == item.Id)
+                {
+                    <div class="panel-card">
+                        <label class="kpi-label">Nueva contraseña</label>
+                        <input class="filter-input" @bind="_newPassword" />
+                        <div class="flex gap-3 mt-4">
+                            <button class="primary-link" @onclick="() => ResetAsync(item.Id)">Guardar</button>
+                            <button class="primary-link" @onclick="CancelReset">Cancelar</button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<ComunaClick.Admin.Models.AdminUserDto> _items = Array.Empty<ComunaClick.Admin.Models.AdminUserDto>();
+    private bool _isLoading = true;
+    private string? _status;
+    private Guid? _resetUserId;
+    private string _newPassword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await Client.GetUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            _status = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ToggleAsync(ComunaClick.Admin.Models.AdminUserDto item)
+    {
+        await Client.ToggleUserActiveAsync(item.Id, !item.IsActive);
+        _status = item.IsActive ? "Usuario desactivado." : "Usuario activado.";
+        await LoadAsync();
+    }
+
+    private void ShowReset(Guid id)
+    {
+        _resetUserId = id;
+        _newPassword = string.Empty;
+    }
+
+    private void CancelReset()
+    {
+        _resetUserId = null;
+        _newPassword = string.Empty;
+    }
+
+    private async Task ResetAsync(Guid id)
+    {
+        if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword.Length < 8)
+        {
+            _status = "La nueva contraseña debe tener al menos 8 caracteres.";
+            return;
+        }
+
+        await Client.ResetPasswordAsync(id, _newPassword);
+        _status = "Contraseña restablecida correctamente.";
+        CancelReset();
+    }
+}

@@ -26,6 +26,7 @@ public sealed class CoreDbContext : DbContext
     public DbSet<ProductInventory> ProductInventories => Set<ProductInventory>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<ProductSubcategory> ProductSubcategories => Set<ProductSubcategory>();
+    public DbSet<SiteContentSetting> SiteContentSettings => Set<SiteContentSetting>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerPartnerLink> CustomerPartnerLinks => Set<CustomerPartnerLink>();
     public DbSet<Interaction> Interactions => Set<Interaction>();
@@ -184,6 +185,17 @@ public sealed class CoreDbContext : DbContext
             entity.HasIndex(x => x.Code).IsUnique();
             entity.HasIndex(x => x.CategoryId);
             entity.HasOne(x => x.Category).WithMany(x => x.Subcategories).HasForeignKey(x => x.CategoryId);
+        });
+
+        modelBuilder.Entity<SiteContentSetting>(entity =>
+        {
+            entity.ToTable("site_content_settings");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.Section).HasColumnName("section").IsRequired();
+            entity.Property(x => x.ContentJson).HasColumnName("content_json").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.Section).IsUnique();
         });
 
         modelBuilder.Entity<PartnerStaff>(entity =>

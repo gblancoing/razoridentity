@@ -1,0 +1,21 @@
+@page "/pagos"
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Pagos - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Finanzas</p>
+    <h1>Pasarela y suscripciones</h1>
+    <p class="page-description">El monitoreo detallado de transacciones vive en una app separada para mantener aislada la operación financiera.</p>
+</section>
+
+<section class="panel-card">
+    <div class="panel-head">
+        <div>
+            <p class="eyebrow">Payments</p>
+            <h2>Ir al dashboard financiero</h2>
+        </div>
+    </div>
+    <p class="page-description">Usa el subdominio dedicado para revisar payment intents, callbacks, suscripciones y conciliación por proveedor.</p>
+    <a class="primary-link" href="@Client.PaymentsAppUrl" target="_blank" rel="noopener noreferrer">Abrir Payments.App</a>
+</section>

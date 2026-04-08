@@ -1,0 +1,87 @@
+@page "/tenants"
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Tenants - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Organización</p>
+    <h1>Tenants y comunas</h1>
+    <p class="page-description">Administra el nombre, estado y timezone de los tenants del ecosistema.</p>
+</section>
+
+<section class="panel-card">
+    <div class="panel-head"><div><p class="eyebrow">Tenants</p><h2>Gestión</h2></div></div>
+    @if (_items is null)
+    {
+        <p class="page-description">Cargando tenants...</p>
+    }
+    else
+    {
+        @foreach (var item in _items)
+        {
+            <div class="row-card">
+                <div>
+                    <p class="row-title">@item.Name</p>
+                    <p class="row-subtitle">@item.ComunaName · @item.Timezone · @item.PartnerCount partners</p>
+                </div>
+                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
+            </div>
+
+            @if (_editingId == item.Id)
+            {
+                <div class="panel-card">
+                    <label class="kpi-label">Nombre</label>
+                    <input class="filter-input" @bind="_name" />
+                    <label class="kpi-label">Timezone</label>
+                    <input class="filter-input" @bind="_timezone" />
+                    <label class="kpi-label">Activo</label>
+                    <input type="checkbox" @bind="_isActive" />
+                    <div class="flex gap-3 mt-4">
+                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                    </div>
+                </div>
+            }
+        }
+    }
+</section>
+
+@code {
+    private List<ComunaClick.Admin.Models.AdminTenantListItemDto>? _items;
+    private Guid? _editingId;
+    private string _name = string.Empty;
+    private string _timezone = "America/Santiago";
+    private bool _isActive;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await Client.GetTenantsAsync() ?? new();
+    }
+
+    private void BeginEdit(ComunaClick.Admin.Models.AdminTenantListItemDto item)
+    {
+        _editingId = item.Id;
+        _name = item.Name;
+        _timezone = item.Timezone;
+        _isActive = item.IsActive;
+    }
+
+    private void Cancel()
+    {
+        _editingId = null;
+    }
+
+    private async Task SaveAsync(Guid id)
+    {
+        var updated = await Client.UpdateTenantAsync(id, new { name = _name, isActive = _isActive, timezone = _timezone });
+        if (updated is not null && _items is not null)
+        {
+            var index = _items.FindIndex(x => x.Id == id);
+            if (index >= 0)
+            {
+                _items[index] = updated;
+            }
+        }
+        Cancel();
+    }
+}

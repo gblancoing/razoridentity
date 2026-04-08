@@ -1,4 +1,5 @@
 using ComunaClick.Api.Middleware;
+using ComunaClick.Api.Modules.Admin;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Jobs;
 using ComunaClick.Common.Auth;
@@ -34,6 +35,7 @@ builder.Services.AddDbContext<PaymentsDbContext>(options =>
     options.UseNpgsql(paymentsConn);
 });
 builder.Services.AddHostedService<JobsHostedService>();
+builder.Services.AddScoped<SiteContentService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

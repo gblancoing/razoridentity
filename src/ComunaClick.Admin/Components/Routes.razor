@@ -1,0 +1,16 @@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(MainLayout)">
+            <section class="not-found-card">
+                <p class="eyebrow">404</p>
+                <h1>Vista no encontrada</h1>
+                <p>La ruta solicitada no existe en ComunaClick.Admin.</p>
+                <a href="/" class="primary-link">Volver al dashboard</a>
+            </section>
+        </LayoutView>
+    </NotFound>
+</Router>

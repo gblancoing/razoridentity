@@ -1,0 +1,87 @@
+@page "/categorias"
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Categorías - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Catálogo</p>
+    <h1>Categorías y orden público</h1>
+    <p class="page-description">Ajusta nombre visible, orden y activación del catálogo principal.</p>
+</section>
+
+<section class="panel-card">
+    <div class="panel-head"><div><p class="eyebrow">Categorías</p><h2>Gestión</h2></div></div>
+    @if (_items is null)
+    {
+        <p class="page-description">Cargando categorías...</p>
+    }
+    else
+    {
+        @foreach (var item in _items)
+        {
+            <div class="row-card">
+                <div>
+                    <p class="row-title">@item.Name</p>
+                    <p class="row-subtitle">@item.Code · Orden @item.SortOrder · @item.SubcategoryCount subcategorías</p>
+                </div>
+                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
+            </div>
+
+            @if (_editingId == item.Id)
+            {
+                <div class="panel-card">
+                    <label class="kpi-label">Nombre</label>
+                    <input class="filter-input" @bind="_name" />
+                    <label class="kpi-label">Orden</label>
+                    <input class="filter-input" type="number" @bind="_sortOrder" />
+                    <label class="kpi-label">Activa</label>
+                    <input type="checkbox" @bind="_isActive" />
+                    <div class="flex gap-3 mt-4">
+                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                    </div>
+                </div>
+            }
+        }
+    }
+</section>
+
+@code {
+    private List<ComunaClick.Admin.Models.AdminCategoryListItemDto>? _items;
+    private Guid? _editingId;
+    private string _name = string.Empty;
+    private int _sortOrder;
+    private bool _isActive;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await Client.GetCategoriesAsync() ?? new();
+    }
+
+    private void BeginEdit(ComunaClick.Admin.Models.AdminCategoryListItemDto item)
+    {
+        _editingId = item.Id;
+        _name = item.Name;
+        _sortOrder = item.SortOrder;
+        _isActive = item.IsActive;
+    }
+
+    private void Cancel()
+    {
+        _editingId = null;
+    }
+
+    private async Task SaveAsync(Guid id)
+    {
+        var updated = await Client.UpdateCategoryAsync(id, new { name = _name, sortOrder = _sortOrder, isActive = _isActive });
+        if (updated is not null && _items is not null)
+        {
+            var index = _items.FindIndex(x => x.Id == id);
+            if (index >= 0)
+            {
+                _items[index] = updated;
+            }
+        }
+        Cancel();
+    }
+}
