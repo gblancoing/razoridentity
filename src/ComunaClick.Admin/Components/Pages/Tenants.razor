@@ -11,7 +11,12 @@
 
 <section class="panel-card">
     <div class="panel-head"><div><p class="eyebrow">Tenants</p><h2>Gestión</h2></div></div>
-    @if (_items is null)
+    @if (!string.IsNullOrWhiteSpace(_status))
+    {
+        <p class="page-description">@_status</p>
+    }
+
+    @if (_isLoading)
     {
         <p class="page-description">Cargando tenants...</p>
     }
@@ -47,7 +52,9 @@
 </section>
 
 @code {
-    private List<ComunaClick.Admin.Models.AdminTenantListItemDto>? _items;
+    private List<ComunaClick.Admin.Models.AdminTenantListItemDto> _items = new();
+    private bool _isLoading = true;
+    private string? _status;
     private Guid? _editingId;
     private string _name = string.Empty;
     private string _timezone = "America/Santiago";
@@ -55,7 +62,25 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _items = await Client.GetTenantsAsync() ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await Client.GetTenantsAsync() ?? new();
+            _status = _items.Count == 0 ? "No hay tenants disponibles." : null;
+        }
+        catch (Exception ex)
+        {
+            _status = $"No fue posible cargar tenants: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     private void BeginEdit(ComunaClick.Admin.Models.AdminTenantListItemDto item)
@@ -74,7 +99,7 @@
     private async Task SaveAsync(Guid id)
     {
         var updated = await Client.UpdateTenantAsync(id, new { name = _name, isActive = _isActive, timezone = _timezone });
-        if (updated is not null && _items is not null)
+        if (updated is not null)
         {
             var index = _items.FindIndex(x => x.Id == id);
             if (index >= 0)
