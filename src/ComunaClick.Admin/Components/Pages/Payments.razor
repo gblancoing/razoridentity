@@ -1,21 +1,143 @@
 @page "/pagos"
 @inject ComunaClick.Admin.Services.AdminApiClient Client
+@inject ComunaClick.Admin.Services.PaymentGatewayAdminClient GatewayClient
 
 <PageTitle>Pagos - ComunaClick.Admin</PageTitle>
 
 <section class="page-header">
     <p class="eyebrow">Finanzas</p>
     <h1>Pasarela y suscripciones</h1>
-    <p class="page-description">El monitoreo detallado de transacciones vive en una app separada para mantener aislada la operación financiera.</p>
+    <p class="page-description">Resumen en tiempo real de la pasarela: transacciones, suscripciones y distribución por proveedor.</p>
 </section>
 
-<section class="panel-card">
-    <div class="panel-head">
-        <div>
-            <p class="eyebrow">Payments</p>
-            <h2>Ir al dashboard financiero</h2>
-        </div>
-    </div>
-    <p class="page-description">Usa el subdominio dedicado para revisar payment intents, callbacks, suscripciones y conciliación por proveedor.</p>
-    <a class="primary-link" href="@Client.PaymentsAppUrl" target="_blank" rel="noopener noreferrer">Abrir Payments.App</a>
-</section>
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="not-found-card">
+        <p>@_error</p>
+    </section>
+}
+else if (_isLoading)
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Pagos</p>
+        <h1>Cargando datos financieros</h1>
+        <p>Estamos consultando transacciones y suscripciones reales desde la pasarela.</p>
+    </section>
+}
+else
+{
+    <section class="kpi-grid">
+        <article class="kpi-card">
+            <p class="kpi-label">Monto capturado</p>
+            <h2>@(_dashboard?.CapturedAmount.ToString("N0") ?? "0")</h2>
+            <p class="kpi-footnote">CLP acumulado en intents capturados.</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Capturados</p>
+            <h2>@(_dashboard?.CapturedCount ?? 0)</h2>
+            <p class="kpi-footnote">Pagos aprobados por proveedor.</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Pendientes</p>
+            <h2>@(_dashboard?.PendingCount ?? 0)</h2>
+            <p class="kpi-footnote">Intents en espera de confirmación.</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Fallidos</p>
+            <h2>@(_dashboard?.FailedCount ?? 0)</h2>
+            <p class="kpi-footnote">Transacciones rechazadas o expiradas.</p>
+        </article>
+    </section>
+
+    <section class="dashboard-grid">
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Transacciones</p>
+                    <h2>Últimos payment intents</h2>
+                </div>
+                <a class="primary-link" href="@Client.PaymentsAppUrl" target="_blank" rel="noopener noreferrer">Abrir Payments.App</a>
+            </div>
+
+            @if (_transactions.Count == 0)
+            {
+                <p class="page-description">No hay transacciones recientes.</p>
+            }
+            else
+            {
+                <div class="space-y-3">
+                    @foreach (var tx in _transactions.Take(10))
+                    {
+                        <div class="row-card">
+                            <div>
+                                <p class="row-title">@tx.ExternalReference</p>
+                                <p class="row-subtitle">@tx.Provider · @tx.Status · @tx.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                            </div>
+                            <p class="kpi-footnote">@tx.Amount.ToString("N0") @tx.Currency</p>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Suscripciones</p>
+                    <h2>Candidatos activos</h2>
+                </div>
+            </div>
+
+            @if (_subscriptions.Count == 0)
+            {
+                <p class="page-description">No hay suscripciones candidatas activas.</p>
+            }
+            else
+            {
+                <div class="space-y-3">
+                    @foreach (var sub in _subscriptions.Take(10))
+                    {
+                        <div class="row-card">
+                            <div>
+                                <p class="row-title">@sub.PlanName</p>
+                                <p class="row-subtitle">@sub.Provider · @sub.Status · Próximo cobro @sub.NextBillingAt.ToLocalTime().ToString("dd/MM")</p>
+                            </div>
+                            <p class="kpi-footnote">@sub.Amount.ToString("N0") @sub.Currency</p>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+    </section>
+}
+
+@code {
+    private ComunaClick.Admin.Models.AdminDashboardSummaryModel? _dashboard;
+    private IReadOnlyList<ComunaClick.Admin.Models.PaymentTransactionSummary> _transactions = Array.Empty<ComunaClick.Admin.Models.PaymentTransactionSummary>();
+    private IReadOnlyList<ComunaClick.Admin.Models.PaymentSubscriptionSummary> _subscriptions = Array.Empty<ComunaClick.Admin.Models.PaymentSubscriptionSummary>();
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var dashboardTask = GatewayClient.GetDashboardAsync();
+            var transactionsTask = GatewayClient.ListTransactionsAsync();
+            var subscriptionsTask = GatewayClient.ListSubscriptionsAsync();
+            await Task.WhenAll(dashboardTask, transactionsTask, subscriptionsTask);
+
+            _dashboard = dashboardTask.Result;
+            _transactions = transactionsTask.Result;
+            _subscriptions = subscriptionsTask.Result;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

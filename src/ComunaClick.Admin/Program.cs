@@ -9,9 +9,11 @@ builder.Services.AddSingleton<PaymentDashboardStore>();
 builder.Services.AddScoped<PaymentsWebTokenStore>();
 builder.Services.AddScoped<PaymentsAuthStateService>();
 builder.Services.Configure<AdminApiOptions>(builder.Configuration.GetSection("AdminApi"));
+builder.Services.Configure<PaymentGatewayOptions>(builder.Configuration.GetSection("PaymentGateway"));
 builder.Services.Configure<PaymentsAuthOptions>(builder.Configuration.GetSection("Acl"));
 builder.Services.AddHttpClient<AdminApiClient>();
 builder.Services.AddHttpClient<AdminAclManagementClient>();
+builder.Services.AddHttpClient<PaymentGatewayAdminClient>();
 builder.Services.AddHttpClient<PaymentsAclAuthClient>();
 
 var app = builder.Build();
