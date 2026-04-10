@@ -119,6 +119,70 @@
         </section>
     }
 
+    @if (_businesses.Count > 0)
+    {
+        <section class="rounded-3xl bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] border border-[#e3e6e8] space-y-6">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Perfil del negocio</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Editar datos públicos</h2>
+                <p class="mt-2 text-sm text-[#595c5d]">Actualiza el nombre, dirección y canales de contacto que ve buyer.</p>
+            </div>
+
+            @if (_businesses.Count > 1)
+            {
+                <div>
+                    <label class="text-xs font-bold text-[#2c2f30]">Negocio a editar</label>
+                    <select class="mt-2 w-full md:max-w-xl h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                            value="@(_editingBusinessId?.ToString())"
+                            @onchange="HandleBusinessSelectionChanged">
+                        @foreach (var business in _businesses)
+                        {
+                            <option value="@business.Id">@business.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs font-bold text-[#2c2f30]">Nombre del negocio</label>
+                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                           @bind="_profileEditor.Name" />
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-[#2c2f30]">Dirección</label>
+                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                           @bind="_profileEditor.Address" />
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-[#2c2f30]">Teléfono</label>
+                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                           @bind="_profileEditor.Phone" />
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-[#2c2f30]">Correo de contacto</label>
+                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                           @bind="_profileEditor.Email" />
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                <button class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm disabled:opacity-60"
+                        @onclick="SaveBusinessProfileAsync"
+                        disabled="@_isSavingProfile">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    @(_isSavingProfile ? "Guardando..." : "Guardar cambios")
+                </button>
+                <button class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm"
+                        @onclick="ResetBusinessProfileEditor"
+                        disabled="@_isSavingProfile">
+                    <span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                    Restaurar
+                </button>
+            </div>
+        </section>
+    }
+
     <div class="grid grid-cols-12 gap-6">
         <div class="col-span-12 xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             <article class="bg-white p-8 rounded-3xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
@@ -278,6 +342,9 @@
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
     private readonly List<ComunaClick.Shared.Api.Partner.PartnerDto> _businesses = new();
     private bool _isUpdatingVisibility;
+    private bool _isSavingProfile;
+    private Guid? _editingBusinessId;
+    private readonly BusinessProfileEditor _profileEditor = new();
     private readonly List<BookingCard> _upcomingBookings =
     [
         new("calendar_today", "Corte de cabello", "Juan R.", "12:30", "Hoy"),
@@ -346,6 +413,7 @@
             if (businesses is not null)
             {
                 _businesses.AddRange(businesses);
+                ResetBusinessProfileEditor();
             }
 
             _bookingsCount = bookings?.Count ?? 0;
@@ -436,10 +504,135 @@
     private static bool HasExactLocation(ComunaClick.Shared.Api.Partner.PartnerDto business)
         => business.Latitude is not null && business.Longitude is not null;
 
+    private void HandleBusinessSelectionChanged(ChangeEventArgs args)
+    {
+        if (Guid.TryParse(args.Value?.ToString(), out var businessId))
+        {
+            _editingBusinessId = businessId;
+            PopulateEditor(GetEditableBusiness());
+        }
+    }
+
+    private void ResetBusinessProfileEditor()
+    {
+        var preferredId = AuthState.PartnerId;
+        _editingBusinessId = preferredId.HasValue && preferredId.Value != Guid.Empty
+            ? preferredId.Value
+            : _businesses.FirstOrDefault()?.Id;
+
+        PopulateEditor(GetEditableBusiness());
+    }
+
+    private ComunaClick.Shared.Api.Partner.PartnerDto? GetEditableBusiness()
+    {
+        if (_editingBusinessId.HasValue)
+        {
+            var selected = _businesses.FirstOrDefault(x => x.Id == _editingBusinessId.Value);
+            if (selected is not null)
+            {
+                return selected;
+            }
+        }
+
+        return _businesses.FirstOrDefault();
+    }
+
+    private void PopulateEditor(ComunaClick.Shared.Api.Partner.PartnerDto? business)
+    {
+        if (business is null)
+        {
+            _profileEditor.Name = string.Empty;
+            _profileEditor.Address = string.Empty;
+            _profileEditor.Phone = string.Empty;
+            _profileEditor.Email = string.Empty;
+            return;
+        }
+
+        _profileEditor.Name = business.Name ?? string.Empty;
+        _profileEditor.Address = business.Address ?? string.Empty;
+        _profileEditor.Phone = business.Phone ?? string.Empty;
+        _profileEditor.Email = business.Email ?? string.Empty;
+    }
+
+    private async Task SaveBusinessProfileAsync()
+    {
+        var business = GetEditableBusiness();
+        if (business is null)
+        {
+            _statusMessage = "No hay negocio seleccionado para actualizar.";
+            return;
+        }
+
+        var normalizedName = (_profileEditor.Name ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            _statusMessage = "El nombre del negocio es obligatorio.";
+            return;
+        }
+
+        _isSavingProfile = true;
+        _statusMessage = "Guardando datos del negocio...";
+        try
+        {
+            var updated = await PartnerApi.UpdatePartnerAsync(business.Id, new ComunaClick.Shared.Api.Partner.PartnerUpdateRequest(
+                business.Type,
+                normalizedName,
+                business.Rut,
+                NormalizeOptional(_profileEditor.Address),
+                NormalizeOptional(_profileEditor.Phone),
+                NormalizeOptional(_profileEditor.Email),
+                business.SubcategoryId,
+                business.Latitude,
+                business.Longitude,
+                business.IsVisible));
+
+            if (updated is not null)
+            {
+                var index = _businesses.FindIndex(x => x.Id == updated.Id);
+                if (index >= 0)
+                {
+                    _businesses[index] = updated;
+                }
+
+                if (_activation is not null && AuthState.PartnerId == updated.Id)
+                {
+                    _activation = updated.Activation ?? _activation;
+                }
+
+                PopulateEditor(updated);
+            }
+
+            _statusMessage = "Datos de negocio actualizados correctamente.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            _statusMessage = "Ya existe otro negocio con ese nombre en tu tenant.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo actualizar el negocio ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _isSavingProfile = false;
+        }
+    }
+
+    private static string NormalizeOptional(string? value)
+        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+
     public void Dispose()
     {
         L.OnChange -= HandleChange;
     }
 
     private sealed record BookingCard(string Icon, string Title, string Subtitle, string Time, string DayLabel);
+
+    private sealed class BusinessProfileEditor
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+    }
 }

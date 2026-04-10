@@ -5,6 +5,8 @@ public sealed record OrderCreateRequest(
     Guid CustomerId,
     decimal DeliveryFee,
     string? Currency,
-    List<OrderItemCreateRequest> Items);
+    List<OrderItemCreateRequest> Items,
+    Guid? DeliveryProviderId = null,
+    string? DeliveryAddress = null);
 
 public sealed record OrderItemCreateRequest(Guid ProductId, int Quantity, decimal UnitPrice);

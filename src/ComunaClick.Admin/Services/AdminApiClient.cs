@@ -42,6 +42,15 @@ public sealed class AdminApiClient
     public Task<AdminCategoryListItemDto?> UpdateCategoryAsync(Guid id, object request, CancellationToken cancellationToken = default)
         => PatchAsync<AdminCategoryListItemDto>($"v1/admin/categories/{id}", request, cancellationToken);
 
+    public Task<List<AdminDeliveryProviderDto>?> GetDeliveryProvidersAsync(CancellationToken cancellationToken = default)
+        => GetAsync<List<AdminDeliveryProviderDto>>("v1/admin/delivery-providers", cancellationToken);
+
+    public Task<AdminDeliveryProviderDto?> CreateDeliveryProviderAsync(object request, CancellationToken cancellationToken = default)
+        => PostAsync<AdminDeliveryProviderDto>("v1/admin/delivery-providers", request, cancellationToken);
+
+    public Task<AdminDeliveryProviderDto?> UpdateDeliveryProviderAsync(Guid id, object request, CancellationToken cancellationToken = default)
+        => PatchAsync<AdminDeliveryProviderDto>($"v1/admin/delivery-providers/{id}", request, cancellationToken);
+
     public Task<SiteContentDto?> GetSiteContentAsync(CancellationToken cancellationToken = default)
         => GetAsync<SiteContentDto>("v1/admin/site-content", cancellationToken);
 
@@ -71,6 +80,15 @@ public sealed class AdminApiClient
     private async Task<T?> PutAsync<T>(string path, object payload, CancellationToken cancellationToken)
     {
         using var request = CreateRequest(HttpMethod.Put, path);
+        request.Content = JsonContent.Create(payload);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken);
+    }
+
+    private async Task<T?> PostAsync<T>(string path, object payload, CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest(HttpMethod.Post, path);
         request.Content = JsonContent.Create(payload);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();

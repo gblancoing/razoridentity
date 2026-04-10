@@ -67,11 +67,6 @@ else
 
         <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
             <div>
-                <label class="text-sm font-semibold">CustomerId</label>
-                <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="CustomerId" />
-                <a href="/buyer/profile" class="mt-2 inline-block text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
-            </div>
-            <div>
                 <label class="text-sm font-semibold">Mensaje</label>
                 <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" rows="5" @bind="Message" disabled="@(_submitting || _createdLead is not null)"></textarea>
             </div>
@@ -96,7 +91,7 @@ else
 }
 
 @code {
-    private string CustomerId = string.Empty;
+    private Guid? _customerId;
     private string Message = "Hola, me interesa este perfil profesional.";
     private Guid? _professionalId;
     private string? _professionalName;
@@ -150,9 +145,9 @@ else
             return;
         }
 
-        if (!_professionalId.HasValue || !Guid.TryParse(CustomerId, out var customerId))
+        if (!_professionalId.HasValue || !_customerId.HasValue)
         {
-            _statusMessage = "Debes ingresar un CustomerId válido.";
+            _statusMessage = "No pudimos resolver tu perfil de cliente. Cierra sesión e ingresa nuevamente con tu cuenta personal.";
             _statusLevel = "warning";
             await TrackAsync("flow_error", "identity", "invalid_customer");
             return;
@@ -162,8 +157,7 @@ else
         _statusMessage = null;
         try
         {
-            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-            var lead = await BuyerApi.CreateLeadAsync(new ComunaClick.Shared.Api.Buyer.LeadCreateRequest(_professionalId.Value, customerId, Message));
+            var lead = await BuyerApi.CreateLeadAsync(new ComunaClick.Shared.Api.Buyer.LeadCreateRequest(_professionalId.Value, _customerId.Value, Message));
             _statusMessage = lead is null ? "No pudimos crear el lead." : $"Lead creado correctamente: {lead.Id}";
             _statusLevel = lead is null ? "warning" : "success";
             if (lead is null)
@@ -206,7 +200,7 @@ else
             DateTimeOffset.UtcNow,
             new Dictionary<string, string?>
             {
-                ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
+                ["customerId"] = _customerId?.ToString(),
                 ["messageLength"] = Message?.Length.ToString()
             }));
     }
@@ -215,15 +209,6 @@ else
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var professionalId = GetQueryParameter(uri.Query, "professionalId");
-        var customerId = GetQueryParameter(uri.Query, "customerId");
-        if (!string.IsNullOrWhiteSpace(customerId))
-        {
-            CustomerId = customerId;
-        }
-        else
-        {
-            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        }
 
         if (!Guid.TryParse(professionalId, out var parsedProfessionalId))
         {
@@ -240,6 +225,18 @@ else
             _professionalSpecialty = professional.Specialty;
             _tenantId = professional.TenantId;
             Message = $"Hola {_professionalName}, me interesa tu perfil en ComunaClic.";
+        }
+
+        var customer = await BuyerApi.EnsureBuyerCustomerAsync(_tenantId ?? AuthState.TenantId);
+        if (customer?.Id is Guid customerId && customerId != Guid.Empty)
+        {
+            _customerId = customerId;
+            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", customerId.ToString());
+        }
+        else
+        {
+            _statusMessage = "No pudimos asociar tu cuenta con un perfil de cliente para este tenant.";
+            _statusLevel = "warning";
         }
 
         await TrackAsync("start_contact", "start", "started");

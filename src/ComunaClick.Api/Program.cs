@@ -1,4 +1,5 @@
 using ComunaClick.Api.Middleware;
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Admin;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Jobs;
@@ -36,6 +37,9 @@ builder.Services.AddDbContext<PaymentsDbContext>(options =>
 });
 builder.Services.AddHostedService<JobsHostedService>();
 builder.Services.AddScoped<SiteContentService>();
+builder.Services.Configure<OrderNotificationOptions>(builder.Configuration.GetSection("OrderNotifications"));
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

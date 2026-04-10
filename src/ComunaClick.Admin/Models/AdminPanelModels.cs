@@ -98,3 +98,17 @@ public sealed record AdminUserDto(
 public sealed record AdminRoleDto(
     Guid Id,
     string Name);
+
+public sealed record AdminDeliveryProviderDto(
+    Guid Id,
+    Guid? TenantId,
+    Guid? RegionId,
+    Guid? ComunaId,
+    string Name,
+    string? ContactName,
+    string? ContactPhone,
+    string? ContactEmail,
+    decimal BaseFee,
+    int? EstimatedMinutes,
+    bool IsActive,
+    DateTimeOffset UpdatedAt);

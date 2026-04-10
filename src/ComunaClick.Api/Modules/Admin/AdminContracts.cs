@@ -102,3 +102,29 @@ public sealed record AdminAuditEventDto(
     string Action,
     string Description,
     DateTimeOffset OccurredAt);
+
+public sealed record AdminDeliveryProviderDto(
+    Guid Id,
+    Guid? TenantId,
+    Guid? RegionId,
+    Guid? ComunaId,
+    string Name,
+    string? ContactName,
+    string? ContactPhone,
+    string? ContactEmail,
+    decimal BaseFee,
+    int? EstimatedMinutes,
+    bool IsActive,
+    DateTimeOffset UpdatedAt);
+
+public sealed record AdminDeliveryProviderUpsertRequest(
+    Guid? TenantId,
+    Guid? RegionId,
+    Guid? ComunaId,
+    string Name,
+    string? ContactName,
+    string? ContactPhone,
+    string? ContactEmail,
+    decimal? BaseFee,
+    int? EstimatedMinutes,
+    bool? IsActive);

@@ -32,11 +32,29 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<Order?> CreateOrderAsync(OrderCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Order>("/v1/orders", request, cancellationToken);
 
+    public Task<CartSnapshot?> GetCartAsync(CancellationToken cancellationToken = default)
+        => GetAsync<CartSnapshot>("/v1/cart", cancellationToken);
+
+    public Task<CartInfo?> UpsertCartItemAsync(CartItemUpsertRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<CartInfo>("/v1/cart/items", request, cancellationToken);
+
+    public Task RemoveCartItemAsync(Guid itemId, CancellationToken cancellationToken = default)
+        => SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/v1/cart/items/{itemId}"), cancellationToken);
+
+    public Task<Order?> CheckoutCartAsync(CartCheckoutRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<Order>("/v1/cart/checkout", request, cancellationToken);
+
+    public Task<IReadOnlyList<DeliveryProviderOption>?> GetDeliveryProvidersAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<DeliveryProviderOption>>($"/v1/delivery/providers?partnerId={partnerId}", cancellationToken);
+
     public Task<Booking?> CreateBookingAsync(BookingCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Booking>("/v1/bookings", request, cancellationToken);
 
     public Task<Lead?> CreateLeadAsync(LeadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Lead>("/v1/leads", request, cancellationToken);
+
+    public Task<Customer?> EnsureBuyerCustomerAsync(Guid? tenantId, CancellationToken cancellationToken = default)
+        => PostAsync<Customer>("/v1/buyer/customer/ensure", new BuyerCustomerEnsureRequest(tenantId), cancellationToken);
 
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
@@ -170,6 +188,9 @@ public sealed record Order(
     double DeliveryFee,
     double TotalAmount,
     string? Currency,
+    Guid? DeliveryProviderId,
+    string? DeliveryProviderName,
+    string? DeliveryAddress,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<OrderItem>? Items
@@ -182,6 +203,9 @@ public sealed record OrderTracking(
     double DeliveryFee,
     double TotalAmount,
     string? Currency,
+    Guid? DeliveryProviderId,
+    string? DeliveryProviderName,
+    string? DeliveryAddress,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     OrderTrackingPartner? Partner,
@@ -224,7 +248,61 @@ public sealed record OrderCreateRequest(
     Guid CustomerId,
     double DeliveryFee,
     string? Currency,
-    IReadOnlyList<OrderItemCreateRequest>? Items
+    IReadOnlyList<OrderItemCreateRequest>? Items,
+    Guid? DeliveryProviderId = null,
+    string? DeliveryAddress = null
+);
+
+public sealed record CartItemUpsertRequest(
+    Guid ProductId,
+    int Quantity
+);
+
+public sealed record CartCheckoutRequest(
+    Guid CartId,
+    Guid? DeliveryProviderId,
+    string? DeliveryAddress,
+    double? DeliveryFee,
+    string? Currency
+);
+
+public sealed record CartSnapshot(
+    Guid CustomerId,
+    IReadOnlyList<CartInfo>? Carts
+);
+
+public sealed record CartInfo(
+    Guid Id,
+    Guid PartnerId,
+    string? Status,
+    double Subtotal,
+    double DeliveryFee,
+    double TotalAmount,
+    string? Currency,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<CartItem>? Items
+);
+
+public sealed record CartItem(
+    Guid Id,
+    Guid ProductId,
+    string? ProductName,
+    int Quantity,
+    double UnitPrice,
+    double TotalPrice
+);
+
+public sealed record DeliveryProviderOption(
+    Guid Id,
+    string Name,
+    string? ContactName,
+    string? ContactPhone,
+    string? ContactEmail,
+    double BaseFee,
+    int? EstimatedMinutes,
+    Guid? RegionId,
+    Guid? ComunaId
 );
 
 public sealed record Booking(
@@ -308,6 +386,10 @@ public sealed record LeadCreateRequest(
     Guid ProfessionalId,
     Guid CustomerId,
     string? Message
+);
+
+public sealed record BuyerCustomerEnsureRequest(
+    Guid? TenantId
 );
 
 public sealed record Customer(

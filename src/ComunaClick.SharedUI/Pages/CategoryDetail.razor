@@ -59,82 +59,121 @@
         <CategoryNearbyMap CategoryCode="@_detail.Category.Code" />
 
         <section id="category-results" class="space-y-8 scroll-mt-24">
+            <div class="rounded-3xl bg-white border border-[#e3e6e8] p-5 md:p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center gap-3">
+                    <div class="flex-1">
+                        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">Buscar dentro de la categoría</label>
+                        <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-4 text-sm"
+                               placeholder="Nombre, especialidad o negocio"
+                               @bind="_searchTerm" />
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <button class="@FilterClass("all")" @onclick='() => _activeFilter = "all"'>Todo</button>
+                    <button class="@FilterClass("businesses")" @onclick='() => _activeFilter = "businesses"'>Negocios</button>
+                    <button class="@FilterClass("services")" @onclick='() => _activeFilter = "services"'>Servicios</button>
+                    <button class="@FilterClass("professionals")" @onclick='() => _activeFilter = "professionals"'>Profesionales</button>
+                </div>
+            </div>
+
             <div>
                 <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mb-4">Negocios registrados</h2>
-                @if (_detail.Businesses?.Count > 0)
+                @if (ShowBusinesses)
                 {
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        @foreach (var business in _detail.Businesses)
-                        {
-                            <a href="/buyer/detail/partner/@business.Id"
-                               class="block rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] transition-transform hover:scale-[1.01]">
-                                <div class="h-44 bg-cover bg-center" style="@BuildBusinessStyle(business)"></div>
-                                <div class="p-6">
-                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
-                                    <p class="text-sm text-[#595c5d] mt-2">@(business.SubcategoryName ?? business.CategoryName ?? $"Tipo {business.Type}")</p>
-                                    <p class="text-sm text-[#595c5d] mt-1">@(business.Address ?? business.Phone ?? business.Email ?? "Sin datos de contacto publicados.")</p>
-                                </div>
-                            </a>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <StatusBanner Message="No hay negocios visibles registrados en esta categoría." Level="warning" />
+                    @if (FilteredBusinesses.Count > 0)
+                    {
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach (var business in FilteredBusinesses)
+                            {
+                                <a href="/buyer/detail/partner/@business.Id"
+                                   class="block rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] transition-transform hover:scale-[1.01]">
+                                    <div class="h-44 bg-cover bg-center" style="@BuildBusinessStyle(business)"></div>
+                                    <div class="p-6">
+                                        <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
+                                        <p class="text-sm text-[#595c5d] mt-2">@(business.SubcategoryName ?? business.CategoryName ?? $"Tipo {business.Type}")</p>
+                                        <p class="text-sm text-[#595c5d] mt-1">@(business.Address ?? business.Phone ?? business.Email ?? "Sin datos de contacto publicados.")</p>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <StatusBanner Message="No encontramos negocios con esos filtros." Level="warning" />
+                    }
                 }
             </div>
 
             <div>
                 <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mb-4">Servicios registrados</h2>
-                @if (_detail.Services?.Count > 0)
+                @if (ShowServices)
                 {
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        @foreach (var service in _detail.Services)
-                        {
-                            <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@service.Name</p>
-                                        <p class="text-sm text-[#595c5d] mt-2">@(service.Description ?? service.Category ?? "Servicio disponible")</p>
-                                        @if (!string.IsNullOrWhiteSpace(service.PartnerName))
-                                        {
-                                            <p class="text-xs text-[#7b8081] mt-2">Negocio: @service.PartnerName</p>
-                                        }
+                    @if (FilteredServices.Count > 0)
+                    {
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach (var service in FilteredServices)
+                            {
+                                <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@service.Name</p>
+                                            <p class="text-sm text-[#595c5d] mt-2">@(service.Description ?? service.Category ?? "Servicio disponible")</p>
+                                            @if (!string.IsNullOrWhiteSpace(service.PartnerName))
+                                            {
+                                                <p class="text-xs text-[#7b8081] mt-2">Negocio: @service.PartnerName</p>
+                                            }
+                                        </div>
+                                        <p class="text-xl font-black tracking-[-0.03em] text-[#3b6700]">@($"{service.Price:N0}")</p>
                                     </div>
-                                    <p class="text-xl font-black tracking-[-0.03em] text-[#3b6700]">@($"{service.Price:N0}")</p>
-                                </div>
-                            </article>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <StatusBanner Message="No hay servicios registrados en esta categoría." Level="warning" />
+                                    <div class="mt-4">
+                                        <a href="/buyer/detail/service/@service.Id"
+                                           class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad]">
+                                            Ver detalle y reservar
+                                        </a>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <StatusBanner Message="No encontramos servicios con esos filtros." Level="warning" />
+                    }
                 }
             </div>
 
             <div>
                 <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mb-4">Profesiones registradas</h2>
-                @if (_detail.Professionals?.Count > 0)
+                @if (ShowProfessionals)
                 {
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        @foreach (var professional in _detail.Professionals)
-                        {
-                            <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@professional.Name</p>
-                                <p class="text-sm text-[#595c5d] mt-2">@(professional.Specialty ?? "Profesional activo")</p>
-                                @if (!string.IsNullOrWhiteSpace(professional.Bio))
-                                {
-                                    <p class="text-sm text-[#595c5d] mt-1">@professional.Bio</p>
-                                }
-                                <p class="text-xs text-[#7b8081] mt-2">@(professional.Email ?? professional.Phone ?? "Sin contacto publicado.")</p>
-                            </article>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <StatusBanner Message="No hay profesiones registradas en esta categoría." Level="warning" />
+                    @if (FilteredProfessionals.Count > 0)
+                    {
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach (var professional in FilteredProfessionals)
+                            {
+                                <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@professional.Name</p>
+                                    <p class="text-sm text-[#595c5d] mt-2">@(professional.Specialty ?? "Profesional activo")</p>
+                                    @if (!string.IsNullOrWhiteSpace(professional.Bio))
+                                    {
+                                        <p class="text-sm text-[#595c5d] mt-1">@professional.Bio</p>
+                                    }
+                                    <p class="text-xs text-[#7b8081] mt-2">@(professional.Email ?? professional.Phone ?? "Sin contacto publicado.")</p>
+                                    <div class="mt-4">
+                                        <a href="/buyer/detail/professional/@professional.Id"
+                                           class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad]">
+                                            Ver perfil y contactar
+                                        </a>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <StatusBanner Message="No encontramos profesionales con esos filtros." Level="warning" />
+                    }
                 }
             </div>
         </section>
@@ -149,8 +188,25 @@
     private ComunaClick.Shared.Api.Buyer.CategoryDiscoveryResponse? _detail;
     private bool _isLoading = true;
     private string _statusMessage = "No encontramos la categoría solicitada.";
+    private string _activeFilter = "all";
+    private string _searchTerm = string.Empty;
 
     private string? CategoryImage => _detail is null ? null : CategoryVisualService.ResolveImage(_detail.Category.Code, _detail.Category.Name);
+    private bool ShowBusinesses => _activeFilter is "all" or "businesses";
+    private bool ShowServices => _activeFilter is "all" or "services";
+    private bool ShowProfessionals => _activeFilter is "all" or "professionals";
+    private List<ComunaClick.Shared.Api.Buyer.CategoryBusinessItem> FilteredBusinesses => (_detail?.Businesses ?? Array.Empty<ComunaClick.Shared.Api.Buyer.CategoryBusinessItem>())
+        .Where(x => MatchesSearch(x.Name, x.SubcategoryName, x.CategoryName, x.Address))
+        .OrderBy(x => x.Name)
+        .ToList();
+    private List<ComunaClick.Shared.Api.Buyer.CategoryServiceItem> FilteredServices => (_detail?.Services ?? Array.Empty<ComunaClick.Shared.Api.Buyer.CategoryServiceItem>())
+        .Where(x => MatchesSearch(x.Name, x.Category, x.PartnerName, x.Description))
+        .OrderBy(x => x.Name)
+        .ToList();
+    private List<ComunaClick.Shared.Api.Buyer.CategoryProfessionalItem> FilteredProfessionals => (_detail?.Professionals ?? Array.Empty<ComunaClick.Shared.Api.Buyer.CategoryProfessionalItem>())
+        .Where(x => MatchesSearch(x.Name, x.Specialty, x.Bio, x.Email))
+        .OrderBy(x => x.Name)
+        .ToList();
 
     protected override void OnInitialized()
     {
@@ -223,6 +279,22 @@
             ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.08) 100%), url('{image}');"
             : "background-image: linear-gradient(135deg, rgba(167,242,85,0.45) 0%, rgba(239,241,242,0.95) 55%, rgba(255,255,255,1) 100%);";
     }
+
+    private bool MatchesSearch(params string?[] values)
+    {
+        var term = _searchTerm?.Trim();
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            return true;
+        }
+
+        return values.Any(x => !string.IsNullOrWhiteSpace(x) && x.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string FilterClass(string filter)
+        => string.Equals(_activeFilter, filter, StringComparison.OrdinalIgnoreCase)
+            ? "inline-flex items-center rounded-full bg-[#3b6700] text-[#d9ffad] px-4 py-2 text-xs font-bold"
+            : "inline-flex items-center rounded-full border border-[#dadddf] bg-white text-[#2c2f30] px-4 py-2 text-xs font-bold hover:border-[#3b6700]/40";
 
     public void Dispose()
     {

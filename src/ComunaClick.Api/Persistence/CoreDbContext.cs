@@ -22,6 +22,9 @@ public sealed class CoreDbContext : DbContext
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<ShoppingCart> ShoppingCarts => Set<ShoppingCart>();
+    public DbSet<ShoppingCartItem> ShoppingCartItems => Set<ShoppingCartItem>();
+    public DbSet<DeliveryProvider> DeliveryProviders => Set<DeliveryProvider>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductInventory> ProductInventories => Set<ProductInventory>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
@@ -53,6 +56,9 @@ public sealed class CoreDbContext : DbContext
         modelBuilder.Entity<Subscription>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<Order>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<OrderItem>().HasQueryFilter(x => !tenantId.HasValue || x.Order.TenantId == tenantId.Value);
+        modelBuilder.Entity<ShoppingCart>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<ShoppingCartItem>().HasQueryFilter(x => !tenantId.HasValue || x.Cart.TenantId == tenantId.Value);
+        modelBuilder.Entity<DeliveryProvider>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value || x.TenantId == null);
         modelBuilder.Entity<Product>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<ProductInventory>().HasQueryFilter(x => !tenantId.HasValue || x.Product.TenantId == tenantId.Value);
         modelBuilder.Entity<Customer>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
@@ -254,6 +260,9 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.DeliveryFee).HasColumnName("delivery_fee").HasColumnType("numeric(14,2)");
             entity.Property(x => x.TotalAmount).HasColumnName("total_amount").HasColumnType("numeric(14,2)");
             entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.DeliveryProviderId).HasColumnName("delivery_provider_id");
+            entity.Property(x => x.DeliveryProviderName).HasColumnName("delivery_provider_name");
+            entity.Property(x => x.DeliveryAddress).HasColumnName("delivery_address");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasMany(x => x.Items).WithOne(x => x.Order).HasForeignKey(x => x.OrderId);
@@ -269,6 +278,60 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Quantity).HasColumnName("quantity").IsRequired();
             entity.Property(x => x.UnitPrice).HasColumnName("unit_price").HasColumnType("numeric(14,2)");
             entity.Property(x => x.TotalPrice).HasColumnName("total_price").HasColumnType("numeric(14,2)");
+        });
+
+        modelBuilder.Entity<ShoppingCart>(entity =>
+        {
+            entity.ToTable("shopping_carts");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id");
+            entity.Property(x => x.Status).HasColumnName("status").HasDefaultValue("active");
+            entity.Property(x => x.Subtotal).HasColumnName("subtotal").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.DeliveryFee).HasColumnName("delivery_fee").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.TotalAmount).HasColumnName("total_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.TenantId, x.CustomerId, x.PartnerId, x.Status });
+            entity.HasMany(x => x.Items).WithOne(x => x.Cart).HasForeignKey(x => x.CartId);
+        });
+
+        modelBuilder.Entity<ShoppingCartItem>(entity =>
+        {
+            entity.ToTable("shopping_cart_items");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.CartId).HasColumnName("cart_id");
+            entity.Property(x => x.ProductId).HasColumnName("product_id");
+            entity.Property(x => x.Quantity).HasColumnName("quantity");
+            entity.Property(x => x.UnitPrice).HasColumnName("unit_price").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.TotalPrice).HasColumnName("total_price").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.CartId, x.ProductId }).IsUnique();
+        });
+
+        modelBuilder.Entity<DeliveryProvider>(entity =>
+        {
+            entity.ToTable("delivery_providers");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.RegionId).HasColumnName("region_id");
+            entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.ContactName).HasColumnName("contact_name");
+            entity.Property(x => x.ContactPhone).HasColumnName("contact_phone");
+            entity.Property(x => x.ContactEmail).HasColumnName("contact_email");
+            entity.Property(x => x.BaseFee).HasColumnName("base_fee").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.EstimatedMinutes).HasColumnName("estimated_minutes");
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.TenantId, x.RegionId, x.ComunaId, x.IsActive });
         });
 
         modelBuilder.Entity<Product>(entity =>

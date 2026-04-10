@@ -1,0 +1,182 @@
+@page "/delivery-providers"
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Delivery - ComunaClick.Admin</PageTitle>
+
+<section class="page-header">
+    <p class="eyebrow">Despacho por zona</p>
+    <h1>Empresas delivery</h1>
+    <p class="page-description">Mantén proveedores de despacho por tenant/comuna/región para usarlos en checkout.</p>
+</section>
+
+<section class="panel-card">
+    <div class="panel-head"><div><p class="eyebrow">Delivery</p><h2>Mantenedor</h2></div></div>
+    @if (_items is null)
+    {
+        <p class="page-description">Cargando empresas delivery...</p>
+    }
+    else
+    {
+        <div class="panel-card">
+            <label class="kpi-label">Nombre</label>
+            <input class="filter-input" @bind="_newName" />
+            <label class="kpi-label">TenantId (opcional)</label>
+            <input class="filter-input" @bind="_newTenantId" />
+            <label class="kpi-label">RegionId (opcional)</label>
+            <input class="filter-input" @bind="_newRegionId" />
+            <label class="kpi-label">ComunaId (opcional)</label>
+            <input class="filter-input" @bind="_newComunaId" />
+            <label class="kpi-label">Teléfono contacto</label>
+            <input class="filter-input" @bind="_newContactPhone" />
+            <label class="kpi-label">Email contacto</label>
+            <input class="filter-input" @bind="_newContactEmail" />
+            <label class="kpi-label">Tarifa base</label>
+            <input class="filter-input" type="number" min="0" step="100" @bind="_newBaseFee" />
+            <label class="kpi-label">ETA minutos</label>
+            <input class="filter-input" type="number" min="0" step="5" @bind="_newEstimatedMinutes" />
+            <div class="flex gap-3 mt-4">
+                <button class="primary-link" @onclick="CreateAsync">Crear empresa</button>
+            </div>
+        </div>
+
+        @foreach (var item in _items)
+        {
+            <div class="row-card">
+                <div>
+                    <p class="row-title">@item.Name</p>
+                    <p class="row-subtitle">
+                        Zona: @(item.ComunaId?.ToString() ?? item.RegionId?.ToString() ?? "Global") ·
+                        Tarifa: @item.BaseFee.ToString("N0") ·
+                        @(item.IsActive ? "Activo" : "Inactivo")
+                    </p>
+                </div>
+                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
+            </div>
+
+            @if (_editingId == item.Id)
+            {
+                <div class="panel-card">
+                    <label class="kpi-label">Nombre</label>
+                    <input class="filter-input" @bind="_name" />
+                    <label class="kpi-label">Teléfono contacto</label>
+                    <input class="filter-input" @bind="_contactPhone" />
+                    <label class="kpi-label">Email contacto</label>
+                    <input class="filter-input" @bind="_contactEmail" />
+                    <label class="kpi-label">Tarifa base</label>
+                    <input class="filter-input" type="number" min="0" step="100" @bind="_baseFee" />
+                    <label class="kpi-label">ETA minutos</label>
+                    <input class="filter-input" type="number" min="0" step="5" @bind="_estimatedMinutes" />
+                    <label class="kpi-label">Activo</label>
+                    <input type="checkbox" @bind="_isActive" />
+                    <div class="flex gap-3 mt-4">
+                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                    </div>
+                </div>
+            }
+        }
+    }
+</section>
+
+@code {
+    private List<ComunaClick.Admin.Models.AdminDeliveryProviderDto>? _items;
+    private Guid? _editingId;
+    private string _name = string.Empty;
+    private string? _contactPhone;
+    private string? _contactEmail;
+    private decimal _baseFee;
+    private int? _estimatedMinutes;
+    private bool _isActive;
+
+    private string _newName = string.Empty;
+    private string? _newTenantId;
+    private string? _newRegionId;
+    private string? _newComunaId;
+    private string? _newContactPhone;
+    private string? _newContactEmail;
+    private decimal _newBaseFee;
+    private int? _newEstimatedMinutes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await Client.GetDeliveryProvidersAsync() ?? new();
+    }
+
+    private void BeginEdit(ComunaClick.Admin.Models.AdminDeliveryProviderDto item)
+    {
+        _editingId = item.Id;
+        _name = item.Name;
+        _contactPhone = item.ContactPhone;
+        _contactEmail = item.ContactEmail;
+        _baseFee = item.BaseFee;
+        _estimatedMinutes = item.EstimatedMinutes;
+        _isActive = item.IsActive;
+    }
+
+    private void Cancel()
+    {
+        _editingId = null;
+    }
+
+    private async Task SaveAsync(Guid id)
+    {
+        var updated = await Client.UpdateDeliveryProviderAsync(id, new
+        {
+            name = _name,
+            contactPhone = _contactPhone,
+            contactEmail = _contactEmail,
+            baseFee = _baseFee,
+            estimatedMinutes = _estimatedMinutes,
+            isActive = _isActive
+        });
+
+        if (updated is not null && _items is not null)
+        {
+            var index = _items.FindIndex(x => x.Id == id);
+            if (index >= 0)
+            {
+                _items[index] = updated;
+            }
+        }
+
+        Cancel();
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName))
+        {
+            return;
+        }
+
+        Guid? ParseGuid(string? value)
+            => Guid.TryParse(value, out var parsed) ? parsed : null;
+
+        var created = await Client.CreateDeliveryProviderAsync(new
+        {
+            name = _newName,
+            tenantId = ParseGuid(_newTenantId),
+            regionId = ParseGuid(_newRegionId),
+            comunaId = ParseGuid(_newComunaId),
+            contactPhone = _newContactPhone,
+            contactEmail = _newContactEmail,
+            baseFee = _newBaseFee,
+            estimatedMinutes = _newEstimatedMinutes,
+            isActive = true
+        });
+
+        if (created is not null && _items is not null)
+        {
+            _items.Insert(0, created);
+        }
+
+        _newName = string.Empty;
+        _newTenantId = null;
+        _newRegionId = null;
+        _newComunaId = null;
+        _newContactPhone = null;
+        _newContactEmail = null;
+        _newBaseFee = 0;
+        _newEstimatedMinutes = null;
+    }
+}

@@ -1,4 +1,5 @@
 using ComunaClick.Api.Modules.Orders.Contracts;
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using ComunaClick.Common.Types;
@@ -15,11 +16,13 @@ public sealed class OrdersController : ControllerBase
 {
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IOrderNotificationService _orderNotificationService;
 
-    public OrdersController(CoreDbContext db, ITenantContext tenantContext)
+    public OrdersController(CoreDbContext db, ITenantContext tenantContext, IOrderNotificationService orderNotificationService)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _orderNotificationService = orderNotificationService;
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -85,6 +88,9 @@ public sealed class OrdersController : ControllerBase
             order.DeliveryFee,
             order.TotalAmount,
             order.Currency,
+            order.DeliveryProviderId,
+            order.DeliveryProviderName,
+            order.DeliveryAddress,
             order.CreatedAt,
             order.UpdatedAt,
             Partner = partner is null ? null : new
@@ -193,12 +199,37 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { message = "PartnerId does not match selected products." });
         }
 
-        var hasVisiblePartner = await _db.Partners.AsNoTracking()
-            .AnyAsync(x => x.Id == partnerId && x.TenantId == tenantId.Value && x.IsVisible);
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == partnerId && x.TenantId == tenantId.Value);
 
-        if (!hasVisiblePartner)
+        if (partner is null || !partner.IsVisible)
         {
             return BadRequest(new { message = "Selected partner is not publicly available." });
+        }
+
+        DeliveryProvider? deliveryProvider = null;
+        if (request.DeliveryProviderId.HasValue && request.DeliveryProviderId.Value != Guid.Empty)
+        {
+            deliveryProvider = await _db.DeliveryProviders.AsNoTracking()
+                .FirstOrDefaultAsync(x =>
+                    x.Id == request.DeliveryProviderId.Value &&
+                    x.IsActive &&
+                    (!x.TenantId.HasValue || x.TenantId.Value == tenantId.Value));
+
+            if (deliveryProvider is null)
+            {
+                return BadRequest(new { message = "Selected delivery provider is not available." });
+            }
+
+            var providerAppliesToPartnerZone =
+                (deliveryProvider.ComunaId.HasValue && partner.ComunaId.HasValue && deliveryProvider.ComunaId.Value == partner.ComunaId.Value) ||
+                (!deliveryProvider.ComunaId.HasValue && deliveryProvider.RegionId.HasValue && partner.RegionId.HasValue && deliveryProvider.RegionId.Value == partner.RegionId.Value) ||
+                (!deliveryProvider.ComunaId.HasValue && !deliveryProvider.RegionId.HasValue);
+
+            if (!providerAppliesToPartnerZone)
+            {
+                return BadRequest(new { message = "Delivery provider does not serve this business zone." });
+            }
         }
 
         var productLookup = products.ToDictionary(x => x.Id);
@@ -216,7 +247,9 @@ public sealed class OrdersController : ControllerBase
         }).ToList();
 
         var subtotal = items.Sum(x => x.TotalPrice);
-        var deliveryFee = Math.Max(0, request.DeliveryFee);
+        var deliveryFee = deliveryProvider is null
+            ? Math.Max(0, request.DeliveryFee)
+            : Math.Max(deliveryProvider.BaseFee, request.DeliveryFee);
         var totalAmount = subtotal + deliveryFee;
         var currency = request.NormalizeCurrency(products[0].Currency);
         var subtotalMoney = new Money(subtotal, currency);
@@ -233,6 +266,9 @@ public sealed class OrdersController : ControllerBase
             DeliveryFee = deliveryMoney.Amount,
             TotalAmount = totalMoney.Amount,
             Currency = totalMoney.Currency,
+            DeliveryProviderId = deliveryProvider?.Id,
+            DeliveryProviderName = deliveryProvider?.Name,
+            DeliveryAddress = string.IsNullOrWhiteSpace(request.DeliveryAddress) ? null : request.DeliveryAddress.Trim(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
             Items = items
@@ -240,6 +276,15 @@ public sealed class OrdersController : ControllerBase
 
         _db.Orders.Add(order);
         await _db.SaveChangesAsync();
+
+        var customer = await _db.Customers.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == order.CustomerId && x.TenantId == order.TenantId);
+
+        if (customer is not null)
+        {
+            await _orderNotificationService.NotifyPartnerAsync(order, partner, customer, items);
+        }
+
         return Created($"/v1/orders/{order.Id}", order);
     }
 
