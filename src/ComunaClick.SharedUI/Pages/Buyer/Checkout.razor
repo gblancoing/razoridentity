@@ -57,10 +57,7 @@ else
             }
             <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
-                <div class="space-y-2">
-                    <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="CustomerId" @bind="CustomerId" />
-                    <a href="/buyer/profile" class="text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
-                </div>
+                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full bg-gray-50 dark:bg-gray-800" placeholder="CustomerId" @bind="CustomerId" readonly />
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ProductId" @bind="ProductId" readonly="@_prefilled" />
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" disabled="@(_isSubmitting || _createdOrder is not null)" />
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" readonly="@_prefilled" />
@@ -165,9 +162,15 @@ else
         _statusMessage = string.Empty;
         _statusLevel = "info";
         UpdateTotal();
+
         if (string.IsNullOrWhiteSpace(CustomerId))
         {
-            _statusMessage = "Primero ingresa tu CustomerId para completar la compra. Si no lo tienes a mano, ábrelo desde tu perfil buyer en una nueva pestaña.";
+            await ResolveCustomerIdAsync();
+        }
+
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            _statusMessage = "No pudimos validar tu perfil buyer para esta compra. Recarga la página e inténtalo nuevamente.";
             _statusLevel = "warning";
             await TrackAsync("flow_error", "identity", "missing_customer");
             return;
@@ -175,11 +178,19 @@ else
 
         await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
 
+        if (string.IsNullOrWhiteSpace(PartnerId) || string.IsNullOrWhiteSpace(ProductId))
+        {
+            _statusMessage = "No encontramos el producto seleccionado para checkout. Vuelve al detalle del producto e inténtalo otra vez.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "missing_product_context");
+            return;
+        }
+
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
             !Guid.TryParse(CustomerId, out var customerId) ||
             !Guid.TryParse(ProductId, out var productId))
         {
-            _statusMessage = L.T("buyer.status.invalidIds");
+            _statusMessage = "No pudimos validar los identificadores de compra en esta sesión. Recarga la página para sincronizar tus datos.";
             _statusLevel = "error";
             await TrackAsync("flow_error", "validation", "invalid_ids");
             return;
@@ -238,15 +249,6 @@ else
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var productId = GetQueryParameter(uri.Query, "productId");
-        var customerId = GetQueryParameter(uri.Query, "customerId");
-        if (!string.IsNullOrWhiteSpace(customerId))
-        {
-            CustomerId = customerId;
-        }
-        else
-        {
-            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        }
 
         if (!Guid.TryParse(productId, out var parsedProductId))
         {
@@ -266,9 +268,31 @@ else
         _productCategory = product.Category;
         _tenantId = product.TenantId;
         _prefilled = true;
+
+        await ResolveCustomerIdAsync();
         UpdateTotal();
         await TrackAsync("start_checkout", "start", "started");
         _startedTracked = true;
+    }
+
+    private async Task ResolveCustomerIdAsync()
+    {
+        try
+        {
+            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(_tenantId ?? AuthState.TenantId);
+            if (ensured?.Id is Guid customerId && customerId != Guid.Empty)
+            {
+                CustomerId = customerId.ToString();
+                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                return;
+            }
+        }
+        catch
+        {
+            // Fallback to local storage if ensure endpoint is temporarily unavailable.
+        }
+
+        CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
     }
 
     private async Task TrackAsync(string eventName, string step, string status)
