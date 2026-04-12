@@ -2,6 +2,7 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @using ComunaClick.SharedUI.Services
+@using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
 
 <PageTitle>@L.T("home.title")</PageTitle>
@@ -24,14 +25,102 @@
                     <div class="text-[#61897c] flex border border-white bg-white items-center justify-center pl-[20px] rounded-l-lg border-r-0">
                         <span class="material-symbols-outlined">search</span>
                     </div>
-                    <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#111816] focus:outline-0 focus:ring-0 border border-white bg-white focus:border-white h-full placeholder:text-[#61897c] px-[15px] rounded-r-none border-r-0 pr-2 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal" placeholder="@L.T("home.search.placeholder")" />
+                    <input @bind="_searchQuery"
+                           @bind:event="oninput"
+                           @onkeydown="HandleSearchKeyDown"
+                           class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#111816] focus:outline-0 focus:ring-0 border border-white bg-white focus:border-white h-full placeholder:text-[#61897c] px-[15px] rounded-r-none border-r-0 pr-2 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
+                           placeholder="@L.T("home.search.placeholder")" />
                     <div class="flex items-center justify-center rounded-r-lg border-l-0 border border-white bg-white pr-[10px]">
-                        <button class="flex min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-6 @@[480px]:h-12 bg-primary text-white font-bold text-base shadow-[0_12px_24px_-12px_rgba(34,197,94,0.7)] transition-transform active:scale-95">
+                        <button @onclick="ExecuteSearchAsync"
+                                class="flex min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-6 @@[480px]:h-12 bg-primary text-white font-bold text-base shadow-[0_12px_24px_-12px_rgba(34,197,94,0.7)] transition-transform active:scale-95">
                             <span>@L.T("home.search.button")</span>
                         </button>
                     </div>
                 </div>
             </label>
+            @if (_searchLoading)
+            {
+                <div class="w-full max-w-[920px] mt-4 rounded-2xl bg-white/95 p-5 text-[#2c2f30] shadow-[0_8px_30px_-18px_rgba(0,0,0,0.35)] backdrop-blur">
+                    <p class="text-sm font-semibold">Buscando en categorías, partners, servicios y profesionales...</p>
+                </div>
+            }
+            else if (_searchHasRun)
+            {
+                <div class="w-full max-w-[920px] mt-4 rounded-2xl bg-white/95 p-5 text-[#2c2f30] shadow-[0_8px_30px_-18px_rgba(0,0,0,0.35)] backdrop-blur">
+                    @if (!string.IsNullOrWhiteSpace(_searchError))
+                    {
+                        <p class="text-sm font-semibold text-[#b02500]">@_searchError</p>
+                    }
+                    else if (!HasSearchResults)
+                    {
+                        <p class="text-sm font-semibold">No encontramos coincidencias para "@_searchQuery".</p>
+                    }
+                    else
+                    {
+                        <div class="space-y-5">
+                            @if (_categorySearchResults.Count > 0)
+                            {
+                                <div>
+                                    <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">Categorías</p>
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach (var category in _categorySearchResults)
+                                        {
+                                            <a href="@GetCategoryHref(category)" class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-[#2d9e4f]">
+                                                @CategoryVisualService.ResolveDisplayName(category.Code, category.Name)
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @if (_partnerSearchResults.Count > 0)
+                            {
+                                <div>
+                                    <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">Partners</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        @foreach (var item in _partnerSearchResults)
+                                        {
+                                            <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold hover:bg-emerald-50">
+                                                @item.Name
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @if (_serviceSearchResults.Count > 0)
+                            {
+                                <div>
+                                    <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">Servicios</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        @foreach (var item in _serviceSearchResults)
+                                        {
+                                            <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold hover:bg-emerald-50">
+                                                @item.Name
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @if (_professionalSearchResults.Count > 0)
+                            {
+                                <div>
+                                    <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">Profesionales</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        @foreach (var item in _professionalSearchResults)
+                                        {
+                                            <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold hover:bg-emerald-50">
+                                                @item.Name
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
             @if (_siteContent is not null)
             {
                 <div class="flex flex-wrap items-center justify-center gap-3">
@@ -130,6 +219,54 @@
                     </div>
                 }
             </section>
+            <!-- Featured Services Grid -->
+            <section class="mt-12">
+                <div class="flex items-center justify-between px-2 mb-6">
+                    <h2 class="text-[#111816] dark:text-white text-2xl font-bold">Servicios destacados</h2>
+                    <a class="text-primary font-bold text-sm" href="/buyer/home">Ver servicios</a>
+                </div>
+                @if (_featuredServicesLoading)
+                {
+                    <BrandedLoading Title="Cargando servicios destacados" Message="Estamos preparando servicios activos para mostrar en portada." Compact="true" />
+                }
+                else if (_featuredServices.Count == 0)
+                {
+                    <StatusBanner Message="@_featuredServicesStatusMessage" Level="warning" />
+                }
+                else
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        @foreach (var service in _featuredServices)
+                        {
+                            <a href="@GetSearchResultHref(service)"
+                               class="bg-white dark:bg-background-dark border border-gray-200/80 dark:border-gray-800 rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_14px_34px_rgba(0,0,0,0.14)] hover:translate-y-[-2px] transition-all duration-200">
+                                <div class="h-44 bg-cover bg-center" style="@BuildFeaturedStyle(service)"></div>
+                                <div class="p-4">
+                                    <div class="flex justify-between items-start mb-2 gap-4">
+                                        <h3 class="text-lg font-bold text-[#111816]">@service.Name</h3>
+                                        <span class="shrink-0 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-primary ring-1 ring-primary/15">
+                                            @FeaturedTypeLabel(service.Category, "Servicio")
+                                        </span>
+                                    </div>
+                                    <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                                        Reserva este servicio publicado en ComunaClic y coordina tu agenda en minutos.
+                                    </p>
+                                    <div class="flex items-center justify-between gap-4 text-xs font-medium text-gray-500">
+                                        <span class="flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">schedule</span>
+                                            Servicio activo
+                                        </span>
+                                        <span class="flex items-center gap-1 text-primary">
+                                            <span>@(service.CtaLabel ?? "Reservar")</span>
+                                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                }
+            </section>
         </div>
         <!-- Right Sidebar -->
         <aside class="w-full lg:w-80 flex flex-col gap-8">
@@ -204,14 +341,31 @@
 
 @code {
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _allCategories = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _featuredBusinesses = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _featuredServices = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categorySearchResults = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _partnerSearchResults = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _serviceSearchResults = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _professionalSearchResults = new();
     private bool _categoriesLoading = true;
     private bool _featuredLoading = true;
+    private bool _featuredServicesLoading = true;
+    private bool _searchLoading;
+    private bool _searchHasRun;
     private string _categoriesStatusMessage = "No encontramos categorías activas por ahora.";
     private string _featuredStatusMessage = "No encontramos negocios destacados por ahora.";
+    private string _featuredServicesStatusMessage = "No encontramos servicios destacados por ahora.";
+    private string? _searchError;
+    private string _searchQuery = string.Empty;
     private ComunaClick.Shared.Api.Buyer.PublicSiteContentResponse? _siteContent;
     private string HomeHeroImageUrl { get; set; } = BuildHomeHeroImageUrl();
     private string HeroStyle => $"background-image: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.2)), url('{HomeHeroImageUrl}');";
+    private bool HasSearchResults
+        => _categorySearchResults.Count > 0
+        || _partnerSearchResults.Count > 0
+        || _serviceSearchResults.Count > 0
+        || _professionalSearchResults.Count > 0;
 
     protected override void OnInitialized()
     {
@@ -234,14 +388,17 @@
             var items = await BuyerApi.GetProductCategoriesAsync();
             if (items is not null)
             {
-                _categories.AddRange(items
+                var distinctCategories = items
                     .Where(x => !string.IsNullOrWhiteSpace(x.Name))
                     .GroupBy(x => NormalizeCategoryName(x.Name))
                     .Select(g => g
                         .OrderByDescending(x => !string.IsNullOrWhiteSpace(CategoryVisualService.ResolveImage(x.Code, x.Name)))
                         .ThenBy(x => x.Name)
                         .First())
-                    .Take(4));
+                    .ToList();
+
+                _allCategories.AddRange(distinctCategories);
+                _categories.AddRange(distinctCategories.Take(4));
             }
         }
         catch (HttpRequestException ex)
@@ -271,10 +428,103 @@
         {
             _featuredLoading = false;
         }
+
+        try
+        {
+            var items = await BuyerApi.SearchAsync(null, "services", 4);
+            if (items is not null)
+            {
+                _featuredServices.AddRange(items
+                    .Where(x => string.Equals(x.Type, "service", StringComparison.OrdinalIgnoreCase))
+                    .Take(4));
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _featuredServicesStatusMessage = $"No se pudieron cargar los servicios destacados ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _featuredServicesLoading = false;
+        }
     }
 
     private string GetCategoryHref(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
         => $"/categorias/{CategoryVisualService.ToSlug(category.Code, category.Name)}?code={Uri.EscapeDataString(category.Code)}";
+
+    private async Task ExecuteSearchAsync()
+    {
+        _searchHasRun = true;
+        _searchError = null;
+        _categorySearchResults.Clear();
+        _partnerSearchResults.Clear();
+        _serviceSearchResults.Clear();
+        _professionalSearchResults.Clear();
+
+        var query = _searchQuery?.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return;
+        }
+
+        _searchLoading = true;
+        try
+        {
+            var normalizedQuery = NormalizeCategoryName(query);
+            _categorySearchResults.AddRange(
+                _allCategories
+                    .Where(x =>
+                        NormalizeCategoryName(x.Name).Contains(normalizedQuery, StringComparison.Ordinal)
+                        || NormalizeCategoryName(x.Code).Contains(normalizedQuery, StringComparison.Ordinal))
+                    .Take(8));
+
+            var partnersTask = BuyerApi.SearchAsync(query, "partners", 8);
+            var servicesTask = BuyerApi.SearchAsync(query, "services", 8);
+            var professionalsTask = BuyerApi.SearchAsync(query, "professionals", 8);
+
+            await Task.WhenAll(partnersTask, servicesTask, professionalsTask);
+
+            _partnerSearchResults.AddRange((await partnersTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
+                .Where(x => string.Equals(x.Type, "partner", StringComparison.OrdinalIgnoreCase)));
+            _serviceSearchResults.AddRange((await servicesTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
+                .Where(x => string.Equals(x.Type, "service", StringComparison.OrdinalIgnoreCase)));
+            _professionalSearchResults.AddRange((await professionalsTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
+                .Where(x => string.Equals(x.Type, "professional", StringComparison.OrdinalIgnoreCase)));
+        }
+        catch (HttpRequestException ex)
+        {
+            _searchError = $"No se pudo completar la búsqueda ({(int?)ex.StatusCode ?? 0}).";
+        }
+        catch
+        {
+            _searchError = "No se pudo completar la búsqueda en este momento.";
+        }
+        finally
+        {
+            _searchLoading = false;
+        }
+    }
+
+    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (string.Equals(e.Key, "Enter", StringComparison.Ordinal))
+        {
+            await ExecuteSearchAsync();
+        }
+    }
+
+    private static string GetSearchResultHref(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
+    {
+        var kind = item.Type?.Trim().ToLowerInvariant();
+        return kind switch
+        {
+            "partner" => $"/buyer/detail/partner/{item.Id}",
+            "service" => $"/buyer/detail/service/{item.Id}",
+            "professional" => $"/buyer/detail/professional/{item.Id}",
+            "product" => $"/buyer/detail/product/{item.Id}",
+            _ => !string.IsNullOrWhiteSpace(item.CtaHref) ? item.CtaHref! : "#"
+        };
+    }
 
     private static string BuildCategoryStyle(string? image)
     {

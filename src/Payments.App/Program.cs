@@ -10,6 +10,7 @@ builder.Services.AddScoped<PaymentsWebTokenStore>();
 builder.Services.AddScoped<PaymentsAuthStateService>();
 builder.Services.Configure<PaymentGatewayOptions>(builder.Configuration.GetSection("PaymentsGateway"));
 builder.Services.Configure<PaymentsAuthOptions>(builder.Configuration.GetSection("Acl"));
+builder.Services.Configure<MercadoPagoAppOptions>(builder.Configuration.GetSection("PaymentProviders:MercadoPago"));
 builder.Services.AddHttpClient<PaymentGatewayAdminClient>();
 builder.Services.AddHttpClient<PaymentsAclAuthClient>();
 
