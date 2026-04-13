@@ -270,6 +270,7 @@ else
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var productId = GetQueryParameter(uri.Query, "productId");
+        var customerIdFromQuery = GetQueryParameter(uri.Query, "customerId");
 
         if (!Guid.TryParse(productId, out var parsedProductId))
         {
@@ -290,6 +291,12 @@ else
         _tenantId = product.TenantId;
         _prefilled = true;
 
+        if (Guid.TryParse(customerIdFromQuery, out var parsedCustomerId) && parsedCustomerId != Guid.Empty)
+        {
+            CustomerId = parsedCustomerId.ToString();
+            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+        }
+
         await ResolveCustomerIdAsync();
         UpdateTotal();
         await TrackAsync("start_checkout", "start", "started");
@@ -298,25 +305,73 @@ else
 
     private async Task ResolveCustomerIdAsync()
     {
+        if (Guid.TryParse(CustomerId, out var currentId) && currentId != Guid.Empty)
+        {
+            return;
+        }
+
+        await AuthState.InitializeAsync();
+
+        if (await TryUseStoredCustomerIdAsync())
+        {
+            return;
+        }
+
+        var tenantCandidates = new List<Guid?>();
+        if (_tenantId is Guid tenantFromProduct && tenantFromProduct != Guid.Empty)
+        {
+            tenantCandidates.Add(tenantFromProduct);
+        }
+
+        if (AuthState.TenantId is Guid tenantFromSession && tenantFromSession != Guid.Empty && !tenantCandidates.Contains(tenantFromSession))
+        {
+            tenantCandidates.Add(tenantFromSession);
+        }
+
+        tenantCandidates.Add(null);
+
+        foreach (var tenantCandidate in tenantCandidates)
+        {
+            if (await TryEnsureCustomerIdAsync(tenantCandidate))
+            {
+                return;
+            }
+        }
+
+        await TryUseStoredCustomerIdAsync();
+    }
+
+    private async Task<bool> TryEnsureCustomerIdAsync(Guid? tenantId)
+    {
         try
         {
-            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(_tenantId ?? AuthState.TenantId);
+            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
             if (ensured?.Id is Guid customerId && customerId != Guid.Empty)
             {
                 CustomerId = customerId.ToString();
                 await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-                return;
+                return true;
             }
         }
         catch
         {
-            // Fallback to local storage if ensure endpoint is temporarily unavailable.
+            // Continue with next tenant candidate.
         }
 
+        return false;
+    }
+
+    private async Task<bool> TryUseStoredCustomerIdAsync()
+    {
         var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        CustomerId = Guid.TryParse(storedCustomerId, out var parsedId) && parsedId != Guid.Empty
-            ? parsedId.ToString()
-            : string.Empty;
+        if (Guid.TryParse(storedCustomerId, out var parsedId) && parsedId != Guid.Empty)
+        {
+            CustomerId = parsedId.ToString();
+            return true;
+        }
+
+        CustomerId = string.Empty;
+        return false;
     }
 
     private async Task TrackAsync(string eventName, string step, string status)
