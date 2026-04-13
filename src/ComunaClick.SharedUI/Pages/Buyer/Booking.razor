@@ -187,13 +187,24 @@ else
         }
 
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
-            !Guid.TryParse(ServiceId, out var serviceId) ||
-            !Guid.TryParse(CustomerId, out var customerId))
+            !Guid.TryParse(ServiceId, out var serviceId))
         {
-            _statusMessage = "No pudimos validar los identificadores de reserva en esta sesión. Recarga la página para sincronizar tus datos.";
-            _statusLevel = "error";
-            await TrackAsync("flow_error", "validation", "invalid_booking_payload");
+            _statusMessage = "No encontramos el servicio seleccionado para reservar. Vuelve al detalle del servicio e inténtalo otra vez.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "invalid_service_context");
             return;
+        }
+
+        if (!Guid.TryParse(CustomerId, out var customerId))
+        {
+            await ResolveCustomerIdAsync();
+            if (!Guid.TryParse(CustomerId, out customerId))
+            {
+                _statusMessage = "No pudimos validar tu perfil buyer para esta reserva. Cierra sesión, vuelve a ingresar e inténtalo nuevamente.";
+                _statusLevel = "warning";
+                await TrackAsync("flow_error", "validation", "invalid_customer_context");
+                return;
+            }
         }
 
         if (!TryParseDateAndTime(BookingDate, StartTime, out var startAt) ||
@@ -336,7 +347,10 @@ else
             // Fallback to local storage if ensure endpoint is temporarily unavailable.
         }
 
-        CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        CustomerId = Guid.TryParse(storedCustomerId, out var parsedId) && parsedId != Guid.Empty
+            ? parsedId.ToString()
+            : string.Empty;
     }
 
     private static bool TryParseDateAndTime(string? dateRaw, string? timeRaw, out DateTimeOffset result)
