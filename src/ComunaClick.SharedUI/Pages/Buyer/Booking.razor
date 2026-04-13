@@ -58,7 +58,7 @@ else
         <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div class="space-y-2 md:col-span-2">
                 <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Fecha (día/mes/año)</label>
-                <input type="date" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" @bind="BookingDate" />
+                <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="dd/MM/yyyy" @bind="BookingDate" />
                 @if (TryParseDateAndTime(BookingDate, StartTime, out var parsedDateTime))
                 {
                     <p class="text-xs text-[#61897c]">Fecha seleccionada: @parsedDateTime.ToString("dd/MM/yyyy")</p>
@@ -66,11 +66,11 @@ else
             </div>
             <div class="space-y-2">
                 <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Hora inicio</label>
-                <input type="time" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" @bind="StartTime" />
+                <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="HH:mm" @bind="StartTime" />
             </div>
             <div class="space-y-2">
                 <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Hora término</label>
-                <input type="time" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" @bind="EndTime" />
+                <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="HH:mm" @bind="EndTime" />
             </div>
             <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 bg-gray-50 dark:bg-gray-800" placeholder="Monto" @bind="Amount" readonly />
         </div>
@@ -312,7 +312,7 @@ else
 
         var suggestedStart = DateTimeOffset.Now.Date.AddDays(1).AddHours(10);
         var suggestedEnd = suggestedStart.AddMinutes(Math.Max(service.DurationMinutes, 30));
-        BookingDate = suggestedStart.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        BookingDate = suggestedStart.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         StartTime = suggestedStart.ToString("HH:mm", CultureInfo.InvariantCulture);
         EndTime = suggestedEnd.ToString("HH:mm", CultureInfo.InvariantCulture);
         await TrackAsync("start_booking", "start", "started");
@@ -347,7 +347,7 @@ else
             return false;
         }
 
-        if (!DateOnly.TryParseExact(dateRaw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        if (!DateOnly.TryParseExact(dateRaw, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
         {
             return false;
         }
