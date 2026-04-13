@@ -276,24 +276,26 @@
                     <span class="material-symbols-outlined text-primary">newspaper</span>
                     @L.T("home.news.title")
                 </h3>
-                <div class="flex flex-col gap-4">
-                    <div class="group cursor-pointer border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0">
-                        <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] text-emerald-700 font-bold mb-2 uppercase tracking-wider">@L.T("home.news1.tag")</span>
-                        <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news1.title")</h4>
-                        <p class="text-xs text-gray-500 mt-1">@L.T("home.news1.time")</p>
+                @if (_newsCards.Count == 0)
+                {
+                    <p class="text-sm text-gray-500">No hay noticias para mostrar ahora.</p>
+                }
+                else
+                {
+                    <div class="flex flex-col gap-4">
+                        @foreach (var news in _newsCards)
+                        {
+                            <a href="@news.Href" target="_blank" rel="noopener noreferrer" class="group cursor-pointer border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0">
+                                <span class="@news.TagCss">@news.Tag</span>
+                                <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@news.Title</h4>
+                                <p class="text-xs text-gray-500 mt-1">@news.TimeLabel</p>
+                            </a>
+                        }
                     </div>
-                    <div class="group cursor-pointer border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0">
-                        <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[10px] text-amber-700 font-bold mb-2 uppercase tracking-wider">@L.T("home.news2.tag")</span>
-                        <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news2.title")</h4>
-                        <p class="text-xs text-gray-500 mt-1">@L.T("home.news2.time")</p>
-                    </div>
-                    <div class="group cursor-pointer last:border-0">
-                        <span class="inline-flex rounded-full bg-sky-100 px-3 py-1 text-[10px] text-sky-700 font-bold mb-2 uppercase tracking-wider">@L.T("home.news3.tag")</span>
-                        <h4 class="text-sm font-semibold leading-snug group-hover:text-primary">@L.T("home.news3.title")</h4>
-                        <p class="text-xs text-gray-500 mt-1">@L.T("home.news3.time")</p>
-                    </div>
-                </div>
-                <button class="w-full mt-4 py-2 border border-gray-200 dark:border-gray-800 rounded-lg text-sm font-bold">@L.T("home.news.button")</button>
+                    <a href="@NewsMoreHref" target="_blank" rel="noopener noreferrer" class="block w-full mt-4 py-2 border border-gray-200 dark:border-gray-800 rounded-lg text-sm font-bold text-center">
+                        @L.T("home.news.button")
+                    </a>
+                }
             </div>
             <!-- Upcoming Events -->
             <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-xl p-6">
@@ -301,38 +303,28 @@
                     <span class="material-symbols-outlined text-primary">event</span>
                     @L.T("home.events.title")
                 </h3>
-                <div class="flex flex-col gap-4">
-                    <div class="flex gap-3 items-center">
-                        <div class="flex flex-col items-center justify-center bg-primary/10 rounded-lg w-12 h-12 shrink-0">
-                            <span class="text-[10px] uppercase font-bold text-primary">Oct</span>
-                            <span class="text-lg font-black leading-none">12</span>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-bold">@L.T("home.event1.title")</h4>
-                            <p class="text-xs text-gray-500">@L.T("home.event1.time")</p>
-                        </div>
+                @if (_eventCards.Count == 0)
+                {
+                    <p class="text-sm text-gray-500">No hay eventos próximos por ahora.</p>
+                }
+                else
+                {
+                    <div class="flex flex-col gap-4">
+                        @foreach (var eventCard in _eventCards)
+                        {
+                            <div class="flex gap-3 items-center">
+                                <div class="flex flex-col items-center justify-center bg-primary/10 rounded-lg w-12 h-12 shrink-0">
+                                    <span class="text-[10px] uppercase font-bold text-primary">@eventCard.MonthLabel</span>
+                                    <span class="text-lg font-black leading-none">@eventCard.DayLabel</span>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold">@eventCard.Title</h4>
+                                    <p class="text-xs text-gray-500">@eventCard.TimeLabel</p>
+                                </div>
+                            </div>
+                        }
                     </div>
-                    <div class="flex gap-3 items-center">
-                        <div class="flex flex-col items-center justify-center bg-primary/10 rounded-lg w-12 h-12 shrink-0">
-                            <span class="text-[10px] uppercase font-bold text-primary">Oct</span>
-                            <span class="text-lg font-black leading-none">15</span>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-bold">@L.T("home.event2.title")</h4>
-                            <p class="text-xs text-gray-500">@L.T("home.event2.time")</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-3 items-center">
-                        <div class="flex flex-col items-center justify-center bg-primary/10 rounded-lg w-12 h-12 shrink-0">
-                            <span class="text-[10px] uppercase font-bold text-primary">Oct</span>
-                            <span class="text-lg font-black leading-none">20</span>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-bold">@L.T("home.event3.title")</h4>
-                            <p class="text-xs text-gray-500">@L.T("home.event3.time")</p>
-                        </div>
-                    </div>
-                </div>
+                }
             </div>
         </aside>
     </div>
@@ -348,6 +340,8 @@
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _partnerSearchResults = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _serviceSearchResults = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _professionalSearchResults = new();
+    private readonly List<HomeNewsCard> _newsCards = new();
+    private readonly List<HomeEventCard> _eventCards = new();
     private bool _categoriesLoading = true;
     private bool _featuredLoading = true;
     private bool _featuredServicesLoading = true;
@@ -360,6 +354,7 @@
     private string _searchQuery = string.Empty;
     private ComunaClick.Shared.Api.Buyer.PublicSiteContentResponse? _siteContent;
     private string HomeHeroImageUrl { get; set; } = BuildHomeHeroImageUrl();
+    private const string NewsMoreHref = "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FtVnVLQUFQAQ?hl=es-419&gl=CL&ceid=CL%3Aes-419";
     private string HeroStyle => $"background-image: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.2)), url('{HomeHeroImageUrl}');";
     private bool HasSearchResults
         => _categorySearchResults.Count > 0
@@ -370,6 +365,7 @@
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        RebuildSidebarCards();
     }
 
     protected override async Task OnInitializedAsync()
@@ -581,8 +577,92 @@
 
     private void HandleChange()
     {
+        RebuildSidebarCards();
         InvokeAsync(StateHasChanged);
     }
+
+    private void RebuildSidebarCards()
+    {
+        _newsCards.Clear();
+        _eventCards.Clear();
+
+        _newsCards.AddRange(BuildNewsCards());
+        _eventCards.AddRange(BuildEventCards());
+    }
+
+    private IReadOnlyList<HomeNewsCard> BuildNewsCards()
+    {
+        var firstTag = SafeLocale("home.news1.tag", "Infraestructura");
+        var secondTag = SafeLocale("home.news2.tag", "Negocios");
+        var thirdTag = SafeLocale("home.news3.tag", "Comunidad");
+
+        return new[]
+        {
+            new HomeNewsCard(
+                firstTag,
+                SafeLocale("home.news1.title", "La renovación de la Calle Principal comienza el próximo martes"),
+                SafeLocale("home.news1.time", "hace 2 horas"),
+                "https://news.google.com/topics/CAAqIAgKIh9DQkFTRVFvSUwyMHZNRGx1YkMxbkVnSmhiaWdBUAE?hl=es-419&gl=CL&ceid=CL:es-419",
+                "inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] text-emerald-700 font-bold mb-2 uppercase tracking-wider"),
+            new HomeNewsCard(
+                secondTag,
+                SafeLocale("home.news2.title", "Nuevo mercado orgánico abre en el Distrito Norte"),
+                SafeLocale("home.news2.time", "ayer"),
+                "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREk0ZHpBU0FtVnVLQUFQAQ?hl=es-419&gl=CL&ceid=CL:es-419",
+                "inline-flex rounded-full bg-amber-100 px-3 py-1 text-[10px] text-amber-700 font-bold mb-2 uppercase tracking-wider"),
+            new HomeNewsCard(
+                thirdTag,
+                SafeLocale("home.news3.title", "Reunión de seguridad vecinal: la seguridad primero"),
+                SafeLocale("home.news3.time", "hace 2 días"),
+                "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFkxTjJ3U0FtVnVLQUFQAQ?hl=es-419&gl=CL&ceid=CL:es-419",
+                "inline-flex rounded-full bg-sky-100 px-3 py-1 text-[10px] text-sky-700 font-bold mb-2 uppercase tracking-wider")
+        };
+    }
+
+    private IReadOnlyList<HomeEventCard> BuildEventCards()
+    {
+        return new[]
+        {
+            new HomeEventCard(
+                SafeLocale("home.event1.title", "Feria de agricultores de fin de semana"),
+                SafeLocale("home.event1.time", "08:00 - Plaza Central"),
+                "Oct",
+                "12"),
+            new HomeEventCard(
+                SafeLocale("home.event2.title", "Taller de tecnología para personas mayores"),
+                SafeLocale("home.event2.time", "16:00 - Biblioteca Pública"),
+                "Oct",
+                "15"),
+            new HomeEventCard(
+                SafeLocale("home.event3.title", "Exhibición de artistas locales"),
+                SafeLocale("home.event3.time", "18:30 - Centro de Artes"),
+                "Oct",
+                "20")
+        };
+    }
+
+    private string SafeLocale(string key, string fallback)
+    {
+        var value = L.T(key);
+        return string.IsNullOrWhiteSpace(value) || string.Equals(value, key, StringComparison.Ordinal)
+            ? fallback
+            : value;
+    }
+
+    private sealed record HomeNewsCard(
+        string Tag,
+        string Title,
+        string TimeLabel,
+        string Href,
+        string TagCss
+    );
+
+    private sealed record HomeEventCard(
+        string Title,
+        string TimeLabel,
+        string MonthLabel,
+        string DayLabel
+    );
 
     public void Dispose()
     {
