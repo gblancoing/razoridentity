@@ -450,7 +450,16 @@
     }
 
     private string GetCategoryHref(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
-        => $"/categorias/{CategoryVisualService.ToSlug(category.Code, category.Name)}?code={Uri.EscapeDataString(category.Code)}";
+    {
+        var code = category.Code?.Trim();
+        var name = string.IsNullOrWhiteSpace(category.Name) ? "categoria" : category.Name.Trim();
+        var slugSeed = string.IsNullOrWhiteSpace(code) ? name : code;
+        var slug = CategoryVisualService.ToSlug(slugSeed, name);
+
+        return string.IsNullOrWhiteSpace(code)
+            ? $"/categorias/{slug}"
+            : $"/categorias/{slug}?code={Uri.EscapeDataString(code)}";
+    }
 
     private async Task ExecuteSearchAsync()
     {
