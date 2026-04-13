@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -16,6 +17,15 @@
                 <a class="hover:text-primary" href="/buyer/orders">@L.T("buyer.nav.orders")</a>
                 <a class="hover:text-primary" href="/buyer/profile">@L.T("buyer.nav.profile")</a>
                 <LanguageToggle />
+                @if (AuthState.IsAuthenticated)
+                {
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-full bg-[#eff1f2] px-4 py-2 text-sm font-semibold text-[#3b6700] hover:bg-[#e6e8ea] transition-colors"
+                            @onclick="HandleLogout">
+                        <span class="material-symbols-outlined text-[18px]">logout</span>
+                        @L.T("nav.logout")
+                    </button>
+                }
             </div>
             <div class="md:hidden flex items-center gap-2">
                 <LanguageToggle />
@@ -38,6 +48,15 @@
                 <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/professionals" @onclick="CloseMenu">Profesionales</a>
                 <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer/orders" @onclick="CloseMenu">@L.T("buyer.nav.orders")</a>
                 <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer/profile" @onclick="CloseMenu">@L.T("buyer.nav.profile")</a>
+                @if (AuthState.IsAuthenticated)
+                {
+                    <button type="button"
+                            class="block w-full text-left rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary bg-white hover:bg-primary/10"
+                            @onclick="HandleLogout">
+                        <span class="material-symbols-outlined text-[18px] align-middle">logout</span>
+                        <span class="align-middle ml-1">@L.T("nav.logout")</span>
+                    </button>
+                }
             </div>
         }
     </header>
@@ -56,11 +75,31 @@
 
 @code {
     private bool _mobileMenuOpen;
+    private bool _authInitialized;
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
         Navigation.LocationChanged += HandleLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_authInitialized)
+        {
+            return;
+        }
+
+        try
+        {
+            await AuthState.InitializeAsync();
+            _authInitialized = true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop unavailable during prerender.
+        }
     }
 
     private void HandleChange()
@@ -85,6 +124,13 @@
             _mobileMenuOpen = false;
             InvokeAsync(StateHasChanged);
         }
+    }
+
+    private async Task HandleLogout()
+    {
+        CloseMenu();
+        await AuthState.ClearAsync();
+        Navigation.NavigateTo("/", true);
     }
 
     public void Dispose()
