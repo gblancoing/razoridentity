@@ -51,12 +51,23 @@ public static class CategoryVisualService
 
     public static string? ResolveImage(string? code, string? name)
     {
-        if (!string.IsNullOrWhiteSpace(code) && ImageMap.TryGetValue(code.Trim(), out var fromCode))
+        if (TryResolveImageFromMap(code, out var fromCode))
         {
             return fromCode;
         }
 
+        if (TryResolveImageFromMap(name, out var fromName))
+        {
+            return fromName;
+        }
+
         var normalizedName = Normalize(name);
+        var fromKeywords = ResolveImageByKeywords(normalizedName);
+        if (!string.IsNullOrWhiteSpace(fromKeywords))
+        {
+            return fromKeywords;
+        }
+
         return normalizedName switch
         {
             "alimentos y bebidas" => "_content/ComunaClick.SharedUI/category-images/alimentos-y-bebidas.png",
@@ -76,7 +87,7 @@ public static class CategoryVisualService
 
     public static string ResolveDisplayName(string? code, string? name)
     {
-        if (!string.IsNullOrWhiteSpace(code) && DisplayNameMap.TryGetValue(code.Trim(), out var mappedName))
+        if (TryResolveDisplayNameFromMap(code, out var mappedName))
         {
             return mappedName;
         }
@@ -86,7 +97,7 @@ public static class CategoryVisualService
             return name.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(name) && DisplayNameMap.TryGetValue(name.Trim(), out var mappedByName))
+        if (TryResolveDisplayNameFromMap(name, out var mappedByName))
         {
             return mappedByName;
         }
@@ -138,8 +149,115 @@ public static class CategoryVisualService
             return FallbackImages[0];
         }
 
-        var index = Math.Abs(source.GetHashCode()) % FallbackImages.Length;
+        var index = StableIndex(source, FallbackImages.Length);
         return FallbackImages[index];
+    }
+
+    private static bool TryResolveImageFromMap(string? value, out string image)
+    {
+        image = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var raw = value.Trim();
+        if (ImageMap.TryGetValue(raw, out image))
+        {
+            return true;
+        }
+
+        var canonical = Canonicalize(raw);
+        if (ImageMap.TryGetValue(canonical, out image))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveDisplayNameFromMap(string? value, out string displayName)
+    {
+        displayName = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var raw = value.Trim();
+        if (DisplayNameMap.TryGetValue(raw, out displayName))
+        {
+            return true;
+        }
+
+        var canonical = Canonicalize(raw);
+        if (DisplayNameMap.TryGetValue(canonical, out displayName))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? ResolveImageByKeywords(string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        return normalized switch
+        {
+            var s when s.Contains("alimento", StringComparison.Ordinal) || s.Contains("bebida", StringComparison.Ordinal) || s.Contains("comida", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/alimentos-y-bebidas.png",
+            var s when s.Contains("hogar", StringComparison.Ordinal) || s.Contains("limpieza", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png",
+            var s when s.Contains("salud", StringComparison.Ordinal) || s.Contains("cuidado", StringComparison.Ordinal) || s.Contains("wellness", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/salud-y-cuidado.png",
+            var s when s.Contains("moda", StringComparison.Ordinal) || s.Contains("fashion", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/moda.png",
+            var s when s.Contains("tecnologia", StringComparison.Ordinal) || s.Contains("tech", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/tecnologia.png",
+            var s when s.Contains("regalo", StringComparison.Ordinal) || s.Contains("celebr", StringComparison.Ordinal) || s.Contains("bebe", StringComparison.Ordinal) || s.Contains("nino", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/regalos.png",
+            var s when s.Contains("deporte", StringComparison.Ordinal) || s.Contains("sport", StringComparison.Ordinal) || s.Contains("aire libre", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/deporte.png",
+            var s when s.Contains("libreria", StringComparison.Ordinal) || s.Contains("oficina", StringComparison.Ordinal) || s.Contains("papeleria", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/libreria.png",
+            var s when s.Contains("artesania", StringComparison.Ordinal) || s.Contains("emprend", StringComparison.Ordinal) || s.Contains("craft", StringComparison.Ordinal)
+                => "_content/ComunaClick.SharedUI/category-images/artesania.png",
+            _ => null
+        };
+    }
+
+    private static string Canonicalize(string value)
+    {
+        var normalized = Normalize(value);
+        var chars = normalized
+            .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
+            .ToArray();
+        var canonical = new string(chars);
+        while (canonical.Contains("--", StringComparison.Ordinal))
+        {
+            canonical = canonical.Replace("--", "-", StringComparison.Ordinal);
+        }
+
+        return canonical.Trim('-');
+    }
+
+    private static int StableIndex(string source, int size)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (var c in source)
+            {
+                hash ^= c;
+                hash *= 16777619;
+            }
+
+            return (int)(hash % (uint)size);
+        }
     }
 
     private static bool LooksLikeTechnicalSlug(string value)
