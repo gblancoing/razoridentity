@@ -56,9 +56,10 @@ else
                 </div>
             }
             <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
-                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full bg-gray-50 dark:bg-gray-800" placeholder="CustomerId" @bind="CustomerId" readonly />
-                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ProductId" @bind="ProductId" readonly="@_prefilled" />
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-800 md:col-span-2">
+                    <p class="text-[11px] uppercase tracking-[0.12em] font-bold text-[#61897c]">Compra autenticada</p>
+                    <p class="text-sm text-[#2c2f30]">El perfil buyer y el producto se validan automáticamente en tu sesión.</p>
+                </div>
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" disabled="@(_isSubmitting || _createdOrder is not null)" />
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" readonly="@_prefilled" />
             </div>
@@ -159,6 +160,15 @@ else
             return;
         }
 
+        await AuthState.InitializeAsync();
+        if (!AuthState.IsPersonalAccount)
+        {
+            _statusMessage = "Tu sesión de cuenta personal no está activa. Inicia sesión para continuar con la compra.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "identity", "not_logged_personal");
+            return;
+        }
+
         _statusMessage = string.Empty;
         _statusLevel = "info";
         UpdateTotal();
@@ -187,13 +197,24 @@ else
         }
 
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
-            !Guid.TryParse(CustomerId, out var customerId) ||
             !Guid.TryParse(ProductId, out var productId))
         {
-            _statusMessage = "No pudimos validar los identificadores de compra en esta sesión. Recarga la página para sincronizar tus datos.";
-            _statusLevel = "error";
-            await TrackAsync("flow_error", "validation", "invalid_ids");
+            _statusMessage = "No encontramos el producto seleccionado para checkout. Vuelve al detalle del producto e inténtalo otra vez.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "invalid_product_context");
             return;
+        }
+
+        if (!Guid.TryParse(CustomerId, out var customerId))
+        {
+            await ResolveCustomerIdAsync();
+            if (!Guid.TryParse(CustomerId, out customerId))
+            {
+                _statusMessage = "No pudimos validar tu perfil buyer para esta compra. Cierra sesión, vuelve a ingresar e inténtalo nuevamente.";
+                _statusLevel = "warning";
+                await TrackAsync("flow_error", "validation", "invalid_customer_context");
+                return;
+            }
         }
 
         _isSubmitting = true;
@@ -292,7 +313,10 @@ else
             // Fallback to local storage if ensure endpoint is temporarily unavailable.
         }
 
-        CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+        CustomerId = Guid.TryParse(storedCustomerId, out var parsedId) && parsedId != Guid.Empty
+            ? parsedId.ToString()
+            : string.Empty;
     }
 
     private async Task TrackAsync(string eventName, string step, string status)
