@@ -172,21 +172,6 @@ else
 
         _statusMessage = string.Empty;
         _statusLevel = "info";
-        if (string.IsNullOrWhiteSpace(CustomerId))
-        {
-            await ResolveCustomerIdAsync();
-        }
-
-        if (string.IsNullOrWhiteSpace(CustomerId))
-        {
-            _statusMessage = "No pudimos validar tu perfil buyer para esta reserva. Recarga la página e inténtalo nuevamente.";
-            _statusLevel = "warning";
-            await TrackAsync("flow_error", "identity", "missing_customer");
-            return;
-        }
-
-        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-
         if (string.IsNullOrWhiteSpace(PartnerId) || string.IsNullOrWhiteSpace(ServiceId))
         {
             _statusMessage = "No encontramos el servicio seleccionado para reservar. Vuelve al detalle del servicio e inténtalo otra vez.";
@@ -203,6 +188,21 @@ else
             await TrackAsync("flow_error", "validation", "invalid_service_context");
             return;
         }
+
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            await ResolveCustomerIdAsync();
+        }
+
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            _statusMessage = "No pudimos validar tu perfil buyer para esta reserva. Recarga la página e inténtalo nuevamente.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "identity", "missing_customer");
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
 
         if (!Guid.TryParse(CustomerId, out var customerId))
         {
@@ -247,7 +247,7 @@ else
                 "CLP",
                 null);
 
-            var booking = await BuyerApi.CreateBookingAsync(request);
+            var booking = await BuyerApi.CreateBookingAsync(request, _tenantId ?? AuthState.TenantId);
             if (booking is null)
             {
                 _statusMessage = L.T("buyer.status.bookingFailed");

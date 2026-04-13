@@ -30,7 +30,22 @@ public sealed class BuyerApiClient : ApiClientBase
     }
 
     public Task<Order?> CreateOrderAsync(OrderCreateRequest request, CancellationToken cancellationToken = default)
-        => PostAsync<Order>("/v1/orders", request, cancellationToken);
+        => CreateOrderAsync(request, null, cancellationToken);
+
+    public Task<Order?> CreateOrderAsync(OrderCreateRequest request, Guid? tenantId, CancellationToken cancellationToken = default)
+    {
+        var message = new HttpRequestMessage(HttpMethod.Post, "/v1/orders")
+        {
+            Content = JsonContent.Create(request)
+        };
+
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        }
+
+        return SendAsync<Order>(message, cancellationToken);
+    }
 
     public Task<CartSnapshot?> GetCartAsync(CancellationToken cancellationToken = default)
         => GetAsync<CartSnapshot>("/v1/cart", cancellationToken);
@@ -48,13 +63,40 @@ public sealed class BuyerApiClient : ApiClientBase
         => GetAsync<IReadOnlyList<DeliveryProviderOption>>($"/v1/delivery/providers?partnerId={partnerId}", cancellationToken);
 
     public Task<Booking?> CreateBookingAsync(BookingCreateRequest request, CancellationToken cancellationToken = default)
-        => PostAsync<Booking>("/v1/bookings", request, cancellationToken);
+        => CreateBookingAsync(request, null, cancellationToken);
+
+    public Task<Booking?> CreateBookingAsync(BookingCreateRequest request, Guid? tenantId, CancellationToken cancellationToken = default)
+    {
+        var message = new HttpRequestMessage(HttpMethod.Post, "/v1/bookings")
+        {
+            Content = JsonContent.Create(request)
+        };
+
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        }
+
+        return SendAsync<Booking>(message, cancellationToken);
+    }
 
     public Task<Lead?> CreateLeadAsync(LeadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Lead>("/v1/leads", request, cancellationToken);
 
     public Task<Customer?> EnsureBuyerCustomerAsync(Guid? tenantId, CancellationToken cancellationToken = default)
-        => PostAsync<Customer>("/v1/buyer/customer/ensure", new BuyerCustomerEnsureRequest(tenantId), cancellationToken);
+    {
+        var message = new HttpRequestMessage(HttpMethod.Post, "/v1/buyer/customer/ensure")
+        {
+            Content = JsonContent.Create(new BuyerCustomerEnsureRequest(tenantId))
+        };
+
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        }
+
+        return SendAsync<Customer>(message, cancellationToken);
+    }
 
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);

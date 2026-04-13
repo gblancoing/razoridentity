@@ -173,21 +173,6 @@ else
         _statusLevel = "info";
         UpdateTotal();
 
-        if (string.IsNullOrWhiteSpace(CustomerId))
-        {
-            await ResolveCustomerIdAsync();
-        }
-
-        if (string.IsNullOrWhiteSpace(CustomerId))
-        {
-            _statusMessage = "No pudimos validar tu perfil buyer para esta compra. Recarga la página e inténtalo nuevamente.";
-            _statusLevel = "warning";
-            await TrackAsync("flow_error", "identity", "missing_customer");
-            return;
-        }
-
-        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-
         if (string.IsNullOrWhiteSpace(PartnerId) || string.IsNullOrWhiteSpace(ProductId))
         {
             _statusMessage = "No encontramos el producto seleccionado para checkout. Vuelve al detalle del producto e inténtalo otra vez.";
@@ -204,6 +189,21 @@ else
             await TrackAsync("flow_error", "validation", "invalid_product_context");
             return;
         }
+
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            await ResolveCustomerIdAsync();
+        }
+
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            _statusMessage = "No pudimos validar tu perfil buyer para esta compra. Recarga la página e inténtalo nuevamente.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "identity", "missing_customer");
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
 
         if (!Guid.TryParse(CustomerId, out var customerId))
         {
@@ -227,7 +227,7 @@ else
                 "CLP",
                 new List<OrderItemCreateRequest> { new(productId, Quantity, UnitPrice) });
 
-            var order = await BuyerApi.CreateOrderAsync(request);
+            var order = await BuyerApi.CreateOrderAsync(request, _tenantId ?? AuthState.TenantId);
             _total = order is null ? "$0" : $"{order.TotalAmount:N0}";
             if (order is null)
             {
