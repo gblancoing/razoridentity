@@ -161,6 +161,15 @@ else
             return;
         }
 
+        await AuthState.InitializeAsync();
+        if (!AuthState.IsPersonalAccount)
+        {
+            _statusMessage = "Tu sesión de cuenta personal no está activa. Inicia sesión para continuar con la reserva.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "identity", "not_logged_personal");
+            return;
+        }
+
         _statusMessage = string.Empty;
         _statusLevel = "info";
         if (string.IsNullOrWhiteSpace(CustomerId))
@@ -301,6 +310,7 @@ else
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var serviceId = GetQueryParameter(uri.Query, "serviceId");
+        var customerIdFromQuery = GetQueryParameter(uri.Query, "customerId");
 
         if (!Guid.TryParse(serviceId, out var parsedServiceId))
         {
@@ -319,6 +329,13 @@ else
         _serviceName = service.Name;
         _serviceCategory = service.Category;
         _tenantId = service.TenantId;
+
+        if (Guid.TryParse(customerIdFromQuery, out var parsedCustomerId) && parsedCustomerId != Guid.Empty)
+        {
+            CustomerId = parsedCustomerId.ToString();
+            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+        }
+
         await ResolveCustomerIdAsync();
 
         var suggestedStart = DateTimeOffset.Now.Date.AddDays(1).AddHours(10);
@@ -332,25 +349,73 @@ else
 
     private async Task ResolveCustomerIdAsync()
     {
+        if (Guid.TryParse(CustomerId, out var currentId) && currentId != Guid.Empty)
+        {
+            return;
+        }
+
+        await AuthState.InitializeAsync();
+
+        if (await TryUseStoredCustomerIdAsync())
+        {
+            return;
+        }
+
+        var tenantCandidates = new List<Guid?>();
+        if (_tenantId is Guid tenantFromService && tenantFromService != Guid.Empty)
+        {
+            tenantCandidates.Add(tenantFromService);
+        }
+
+        if (AuthState.TenantId is Guid tenantFromSession && tenantFromSession != Guid.Empty && !tenantCandidates.Contains(tenantFromSession))
+        {
+            tenantCandidates.Add(tenantFromSession);
+        }
+
+        tenantCandidates.Add(null);
+
+        foreach (var tenantCandidate in tenantCandidates)
+        {
+            if (await TryEnsureCustomerIdAsync(tenantCandidate))
+            {
+                return;
+            }
+        }
+
+        await TryUseStoredCustomerIdAsync();
+    }
+
+    private async Task<bool> TryEnsureCustomerIdAsync(Guid? tenantId)
+    {
         try
         {
-            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(_tenantId ?? AuthState.TenantId);
+            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
             if (ensured?.Id is Guid customerId && customerId != Guid.Empty)
             {
                 CustomerId = customerId.ToString();
                 await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-                return;
+                return true;
             }
         }
         catch
         {
-            // Fallback to local storage if ensure endpoint is temporarily unavailable.
+            // Continue with next tenant candidate.
         }
 
+        return false;
+    }
+
+    private async Task<bool> TryUseStoredCustomerIdAsync()
+    {
         var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        CustomerId = Guid.TryParse(storedCustomerId, out var parsedId) && parsedId != Guid.Empty
-            ? parsedId.ToString()
-            : string.Empty;
+        if (Guid.TryParse(storedCustomerId, out var parsedId) && parsedId != Guid.Empty)
+        {
+            CustomerId = parsedId.ToString();
+            return true;
+        }
+
+        CustomerId = string.Empty;
+        return false;
     }
 
     private static bool TryParseDateAndTime(string? dateRaw, string? timeRaw, out DateTimeOffset result)
