@@ -1,6 +1,7 @@
 @page "/buyer/booking"
 @layout BuyerLayout
 @using ComunaClick.Common.Funnel
+@using System.Globalization
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
@@ -55,15 +56,23 @@ else
             </div>
         }
         <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="PartnerId" @bind="PartnerId" readonly="@_prefilled" />
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="ServiceId" @bind="ServiceId" readonly="@_prefilled" />
-            <div class="space-y-2">
-                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="CustomerId" @bind="CustomerId" />
-                <a href="/buyer/profile" class="text-xs text-primary font-semibold">¿No recuerdas tu CustomerId? Revísalo en tu perfil.</a>
+            <div class="space-y-2 md:col-span-2">
+                <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Fecha (día/mes/año)</label>
+                <input type="date" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" @bind="BookingDate" />
+                @if (TryParseDateAndTime(BookingDate, StartTime, out var parsedDateTime))
+                {
+                    <p class="text-xs text-[#61897c]">Fecha seleccionada: @parsedDateTime.ToString("dd/MM/yyyy")</p>
+                }
             </div>
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="StartAt (ISO)" @bind="StartAt" />
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="EndAt (ISO)" @bind="EndAt" />
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Amount" @bind="Amount" readonly="@_prefilled" />
+            <div class="space-y-2">
+                <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Hora inicio</label>
+                <input type="time" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" @bind="StartTime" />
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Hora término</label>
+                <input type="time" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" @bind="EndTime" />
+            </div>
+            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 bg-gray-50 dark:bg-gray-800" placeholder="Monto" @bind="Amount" readonly />
         </div>
         @if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
@@ -92,14 +101,14 @@ else
     private string PartnerId = string.Empty;
     private string ServiceId = string.Empty;
     private string CustomerId = string.Empty;
-    private string StartAt = string.Empty;
-    private string EndAt = string.Empty;
+    private string BookingDate = string.Empty;
+    private string StartTime = string.Empty;
+    private string EndTime = string.Empty;
     private double Amount = 0;
     private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
     private string? _serviceName;
     private string? _serviceCategory;
-    private bool _prefilled;
     private bool _startedTracked;
     private bool _completed;
     private Guid? _tenantId;
@@ -156,7 +165,12 @@ else
         _statusLevel = "info";
         if (string.IsNullOrWhiteSpace(CustomerId))
         {
-            _statusMessage = "Primero ingresa tu CustomerId para completar la reserva. Si no lo recuerdas, consúltalo en tu perfil buyer.";
+            await ResolveCustomerIdAsync();
+        }
+
+        if (string.IsNullOrWhiteSpace(CustomerId))
+        {
+            _statusMessage = "No pudimos validar tu perfil buyer para esta reserva. Recarga la página e inténtalo nuevamente.";
             _statusLevel = "warning";
             await TrackAsync("flow_error", "identity", "missing_customer");
             return;
@@ -164,15 +178,38 @@ else
 
         await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
 
+        if (string.IsNullOrWhiteSpace(PartnerId) || string.IsNullOrWhiteSpace(ServiceId))
+        {
+            _statusMessage = "No encontramos el servicio seleccionado para reservar. Vuelve al detalle del servicio e inténtalo otra vez.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "missing_service_context");
+            return;
+        }
+
         if (!Guid.TryParse(PartnerId, out var partnerId) ||
             !Guid.TryParse(ServiceId, out var serviceId) ||
-            !Guid.TryParse(CustomerId, out var customerId) ||
-            !DateTimeOffset.TryParse(StartAt, out var startAt) ||
-            !DateTimeOffset.TryParse(EndAt, out var endAt))
+            !Guid.TryParse(CustomerId, out var customerId))
         {
-            _statusMessage = L.T("buyer.status.invalidIds");
+            _statusMessage = "No pudimos validar los identificadores de reserva en esta sesión. Recarga la página para sincronizar tus datos.";
             _statusLevel = "error";
             await TrackAsync("flow_error", "validation", "invalid_booking_payload");
+            return;
+        }
+
+        if (!TryParseDateAndTime(BookingDate, StartTime, out var startAt) ||
+            !TryParseDateAndTime(BookingDate, EndTime, out var endAt))
+        {
+            _statusMessage = "Debes ingresar una fecha válida (día/mes/año) y horas válidas para la reserva.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "invalid_booking_datetime");
+            return;
+        }
+
+        if (endAt <= startAt)
+        {
+            _statusMessage = "La hora de término debe ser posterior a la hora de inicio.";
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "invalid_booking_range");
             return;
         }
 
@@ -243,8 +280,9 @@ else
             {
                 ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
                 ["partnerId"] = PartnerId,
-                ["startAt"] = StartAt,
-                ["endAt"] = EndAt
+                ["bookingDate"] = BookingDate,
+                ["startTime"] = StartTime,
+                ["endTime"] = EndTime
             }));
     }
 
@@ -252,15 +290,6 @@ else
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var serviceId = GetQueryParameter(uri.Query, "serviceId");
-        var customerId = GetQueryParameter(uri.Query, "customerId");
-        if (!string.IsNullOrWhiteSpace(customerId))
-        {
-            CustomerId = customerId;
-        }
-        else
-        {
-            CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        }
 
         if (!Guid.TryParse(serviceId, out var parsedServiceId))
         {
@@ -279,13 +308,58 @@ else
         _serviceName = service.Name;
         _serviceCategory = service.Category;
         _tenantId = service.TenantId;
-        var suggestedStart = DateTimeOffset.UtcNow.AddDays(1).Date.AddHours(10);
+        await ResolveCustomerIdAsync();
+
+        var suggestedStart = DateTimeOffset.Now.Date.AddDays(1).AddHours(10);
         var suggestedEnd = suggestedStart.AddMinutes(Math.Max(service.DurationMinutes, 30));
-        StartAt = suggestedStart.ToString("O");
-        EndAt = suggestedEnd.ToString("O");
-        _prefilled = true;
+        BookingDate = suggestedStart.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        StartTime = suggestedStart.ToString("HH:mm", CultureInfo.InvariantCulture);
+        EndTime = suggestedEnd.ToString("HH:mm", CultureInfo.InvariantCulture);
         await TrackAsync("start_booking", "start", "started");
         _startedTracked = true;
+    }
+
+    private async Task ResolveCustomerIdAsync()
+    {
+        try
+        {
+            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(_tenantId ?? AuthState.TenantId);
+            if (ensured?.Id is Guid customerId && customerId != Guid.Empty)
+            {
+                CustomerId = customerId.ToString();
+                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                return;
+            }
+        }
+        catch
+        {
+            // Fallback to local storage if ensure endpoint is temporarily unavailable.
+        }
+
+        CustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+    }
+
+    private static bool TryParseDateAndTime(string? dateRaw, string? timeRaw, out DateTimeOffset result)
+    {
+        result = default;
+        if (string.IsNullOrWhiteSpace(dateRaw) || string.IsNullOrWhiteSpace(timeRaw))
+        {
+            return false;
+        }
+
+        if (!DateOnly.TryParseExact(dateRaw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        {
+            return false;
+        }
+
+        if (!TimeOnly.TryParseExact(timeRaw, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+        {
+            return false;
+        }
+
+        var localDateTime = date.ToDateTime(time, DateTimeKind.Local);
+        result = new DateTimeOffset(localDateTime);
+        return true;
     }
 
     private static string? GetQueryParameter(string query, string key)
