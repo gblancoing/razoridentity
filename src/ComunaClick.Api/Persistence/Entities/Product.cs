@@ -11,6 +11,7 @@ public sealed class Product
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? Category { get; set; }
+    public string? ImageUrl { get; set; }
     public decimal Price { get; set; }
     public string Currency { get; set; } = "CLP";
     public bool IsActive { get; set; } = true;
