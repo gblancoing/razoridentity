@@ -8,6 +8,14 @@
 </div>
 
 @code {
+    /// <summary>Estilo para pie de página oscuro (PublicFooter).</summary>
+    [Parameter]
+    public bool OnDarkFooter { get; set; }
+
+    /// <summary>Estilo para usar sobre la barra verde (primary) del sitio público.</summary>
+    [Parameter]
+    public bool OnBrandBar { get; set; }
+
     protected override void OnInitialized()
     {
         LocaleService.OnChange += HandleChange;
@@ -21,6 +29,20 @@
     private string ButtonClass(string language)
     {
         var isActive = string.Equals(LocaleService.Language, language, StringComparison.OrdinalIgnoreCase);
+        if (OnDarkFooter)
+        {
+            return isActive
+                ? "px-2 py-1 rounded-md bg-emerald-500 text-white font-bold shadow-sm"
+                : "px-2 py-1 rounded-md border border-white/40 text-slate-100 hover:border-white/70 hover:text-white";
+        }
+
+        if (OnBrandBar)
+        {
+            return isActive
+                ? "px-2 py-1 rounded-md bg-white text-primary font-bold shadow-sm"
+                : "px-2 py-1 rounded-md border border-white/60 text-white hover:bg-white/15";
+        }
+
         return isActive
             ? "px-2 py-1 rounded-md bg-primary text-[#111816]"
             : "px-2 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:text-primary";

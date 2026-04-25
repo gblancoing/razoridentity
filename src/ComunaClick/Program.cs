@@ -46,11 +46,11 @@ builder.Services.AddHttpClient<ComunaClick.Shared.Api.Partner.PartnerApiClient>(
     var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions>>().Value;
     client.BaseAddress = new Uri(options.ApiBaseUrl);
 });
-builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerCatalogService, ComunaClick.SharedUI.Services.Mocks.MockPartnerCatalogService>();
-builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerBookingService, ComunaClick.SharedUI.Services.Mocks.MockPartnerBookingService>();
-builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerLeadService, ComunaClick.SharedUI.Services.Mocks.MockPartnerLeadService>();
-builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerPayoutService, ComunaClick.SharedUI.Services.Mocks.MockPartnerPayoutService>();
-builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerNotificationService, ComunaClick.SharedUI.Services.Mocks.MockPartnerNotificationService>();
+builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerCatalogService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerCatalogService>();
+builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerBookingService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerBookingService>();
+builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerLeadService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerLeadService>();
+builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerPayoutService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerPayoutService>();
+builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerNotificationService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerNotificationService>();
 
 var app = builder.Build();
 

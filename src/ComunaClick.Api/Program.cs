@@ -1,3 +1,4 @@
+using ComunaClick.Api.Configuration;
 using ComunaClick.Api.Middleware;
 using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Admin;
@@ -38,6 +39,7 @@ builder.Services.AddDbContext<PaymentsDbContext>(options =>
 builder.Services.AddHostedService<JobsHostedService>();
 builder.Services.AddScoped<SiteContentService>();
 builder.Services.Configure<OrderNotificationOptions>(builder.Configuration.GetSection("OrderNotifications"));
+builder.Services.Configure<BusinessRulesOptions>(builder.Configuration.GetSection(BusinessRulesOptions.SectionName));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -75,7 +77,12 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAssertion(context =>
             context.User.Identity?.IsAuthenticated == true &&
             !HasPartnerSession(context.User) &&
-            HasAnyRole(context.User, "customer", "tenant_admin", "platform_admin")));
+            HasAnyRole(context.User, "customer", "buyer", "tenant_admin", "platform_admin")));
+    // Perfil CRM del comprador: socios autenticados también pueden tener fila en core.customers (misma cuenta).
+    options.AddPolicy("buyer.profile", policy =>
+        policy.RequireAssertion(context =>
+            context.User.Identity?.IsAuthenticated == true &&
+            HasAnyRole(context.User, "customer", "buyer", "tenant_admin", "platform_admin", "partner_owner", "partner_staff")));
 });
 builder.Services.AddRateLimiter(options =>
 {

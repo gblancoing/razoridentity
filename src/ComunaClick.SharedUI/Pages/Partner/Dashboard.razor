@@ -373,7 +373,7 @@
 
     private string PublicPreviewHref => AuthState.PartnerId is Guid partnerId && partnerId != Guid.Empty
         ? $"/buyer/detail/partner/{partnerId}"
-        : "/buyer";
+        : "/categorias";
 
     protected override void OnInitialized()
     {

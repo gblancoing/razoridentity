@@ -4,103 +4,151 @@
 
 <PageTitle>Dashboard - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Panel central</p>
-    <h1>Resumen general de la plataforma</h1>
-    <p class="page-description">Supervisa usuarios, tenants, partners, catálogo, órdenes y el estado editorial del sitio desde un solo lugar.</p>
-</section>
+<MudStack Spacing="6">
+    <MudStack Spacing="1">
+        <MudText Typo="Typo.overline" Color="Color.Success" Style="font-weight:700; letter-spacing:0.15em;">PANEL CENTRAL</MudText>
+        <MudText Typo="Typo.h4" Style="font-family:'Manrope',sans-serif; font-weight:800; color:#111816;">Resumen general de la plataforma</MudText>
+        <MudText Color="Color.Secondary">Supervisa usuarios, tenants, partners, catálogo, órdenes y el estado editorial del sitio.</MudText>
+    </MudStack>
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <section class="not-found-card">
-        <p>@_error</p>
-    </section>
-}
-else if (_isLoading)
-{
-    <section class="not-found-card">
-        <p class="eyebrow">Dashboard</p>
-        <h1>Cargando métricas</h1>
-        <p>Estamos reuniendo actividad de usuarios, partners y operaciones.</p>
-    </section>
-}
-else if (_dashboard is not null)
-{
-    <section class="kpi-grid">
-        <article class="kpi-card">
-            <p class="kpi-label">Usuarios</p>
-            <h2>@_userCount</h2>
-            <p class="kpi-footnote">Cuentas administrativas y operativas.</p>
-        </article>
-        <article class="kpi-card">
-            <p class="kpi-label">Partners</p>
-            <h2>@_dashboard.PartnerCount</h2>
-            <p class="kpi-footnote">@_dashboard.VisiblePartnerCount publicados actualmente.</p>
-        </article>
-        <article class="kpi-card">
-            <p class="kpi-label">Tenants</p>
-            <h2>@_dashboard.TenantCount</h2>
-            <p class="kpi-footnote">Espacios comunales activos en la plataforma.</p>
-        </article>
-        <article class="kpi-card">
-            <p class="kpi-label">Catálogo</p>
-            <h2>@_dashboard.CategoryCount</h2>
-            <p class="kpi-footnote">Categorías activas disponibles al público.</p>
-        </article>
-    </section>
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">@_error</MudAlert>
+    }
+    else if (_isLoading)
+    {
+        <MudGrid>
+            @for (int i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" Class="rounded-lg" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else if (_dashboard is not null)
+    {
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="pa-5 rounded-xl" Style="border:1px solid #e8e5dc;">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.overline" Color="Color.Secondary">Usuarios</MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.Group" Color="Color.Success" Size="Size.Medium" />
+                        </MudStack>
+                        <MudText Typo="Typo.h3" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_userCount</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Cuentas administrativas y operativas.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="pa-5 rounded-xl" Style="border:1px solid #e8e5dc;">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.overline" Color="Color.Secondary">Partners</MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.Storefront" Color="Color.Success" Size="Size.Medium" />
+                        </MudStack>
+                        <MudText Typo="Typo.h3" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_dashboard.PartnerCount</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@_dashboard.VisiblePartnerCount publicados actualmente.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="pa-5 rounded-xl" Style="border:1px solid #e8e5dc;">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.overline" Color="Color.Secondary">Tenants</MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.Apartment" Color="Color.Success" Size="Size.Medium" />
+                        </MudStack>
+                        <MudText Typo="Typo.h3" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_dashboard.TenantCount</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Espacios comunales activos en la plataforma.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="pa-5 rounded-xl" Style="border:1px solid #e8e5dc;">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.overline" Color="Color.Secondary">Catálogo</MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Color="Color.Success" Size="Size.Medium" />
+                        </MudStack>
+                        <MudText Typo="Typo.h3" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_dashboard.CategoryCount</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Categorías activas disponibles al público.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
 
-    <section class="dashboard-grid">
-        <article class="panel-card">
-            <div class="panel-head">
-                <div>
-                    <p class="eyebrow">Operación</p>
-                    <h2>Actividad reciente</h2>
-                </div>
-            </div>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="0" Class="pa-5 rounded-xl" Style="border:1px solid #e8e5dc;">
+                    <MudStack Spacing="4">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.overline" Color="Color.Success" Style="font-weight:700;">Operación</MudText>
+                            <MudText Typo="Typo.h6" Style="font-family:'Manrope',sans-serif; font-weight:800;">Actividad reciente</MudText>
+                        </MudStack>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="6">
+                                <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background:#f8faf8; border:1px solid #e8e5dc;">
+                                    <MudText Typo="Typo.overline" Color="Color.Secondary">Órdenes</MudText>
+                                    <MudText Typo="Typo.h5" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_dashboard.OrderCount</MudText>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background:#f8faf8; border:1px solid #e8e5dc;">
+                                    <MudText Typo="Typo.overline" Color="Color.Secondary">Reservas</MudText>
+                                    <MudText Typo="Typo.h5" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_dashboard.BookingCount</MudText>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background:#f8faf8; border:1px solid #e8e5dc;">
+                                    <MudText Typo="Typo.overline" Color="Color.Secondary">Leads</MudText>
+                                    <MudText Typo="Typo.h5" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_dashboard.LeadCount</MudText>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background:#f8faf8; border:1px solid #e8e5dc;">
+                                    <MudText Typo="Typo.overline" Color="Color.Secondary">Publicados</MudText>
+                                    <MudText Typo="Typo.h5" Style="font-family:'Manrope',sans-serif; font-weight:800;">@_dashboard.VisiblePartnerCount</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        </MudGrid>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
 
-            <div class="subscription-grid">
-                <div class="panel-card">
-                    <p class="kpi-label">Órdenes</p>
-                    <h2>@_dashboard.OrderCount</h2>
-                </div>
-                <div class="panel-card">
-                    <p class="kpi-label">Reservas</p>
-                    <h2>@_dashboard.BookingCount</h2>
-                </div>
-                <div class="panel-card">
-                    <p class="kpi-label">Leads</p>
-                    <h2>@_dashboard.LeadCount</h2>
-                </div>
-                <div class="panel-card">
-                    <p class="kpi-label">Publicados</p>
-                    <h2>@_dashboard.VisiblePartnerCount</h2>
-                </div>
-            </div>
-        </article>
-
-        <article class="panel-card">
-            <div class="panel-head">
-                <div>
-                    <p class="eyebrow">Partners</p>
-                    <h2>Últimos cambios</h2>
-                </div>
-            </div>
-
-            <div class="space-y-3">
-                @foreach (var item in _dashboard.RecentPartners)
-                {
-                    <div class="row-card">
-                        <div>
-                            <p class="row-title">@item.Name</p>
-                            <p class="row-subtitle">Tipo @item.Type · @(item.IsVisible ? "Publicado" : "No publicado")</p>
-                        </div>
-                        <p class="kpi-footnote">@item.UpdatedAt.ToLocalTime().ToString("dd/MM HH:mm")</p>
-                    </div>
-                }
-            </div>
-        </article>
-    </section>
-}
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="0" Class="pa-5 rounded-xl" Style="border:1px solid #e8e5dc;">
+                    <MudStack Spacing="4">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.overline" Color="Color.Success" Style="font-weight:700;">Partners</MudText>
+                            <MudText Typo="Typo.h6" Style="font-family:'Manrope',sans-serif; font-weight:800;">Últimos cambios</MudText>
+                        </MudStack>
+                        <MudList T="string" Dense="true" Padding="false">
+                            @foreach (var item in _dashboard.RecentPartners)
+                            {
+                                <MudListItem T="string" Style="padding:8px 0; border-bottom:1px solid #f0f0f0;">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.body2" Style="font-weight:600;">@item.Name</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                Tipo @item.Type ·
+                                                <MudChip T="string" Size="Size.Small" Color="@(item.IsVisible ? Color.Success : Color.Default)" Variant="Variant.Text" Class="pa-0 ma-0">
+                                                    @(item.IsVisible ? "Publicado" : "No publicado")
+                                                </MudChip>
+                                            </MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@item.UpdatedAt.ToLocalTime().ToString("dd/MM HH:mm")</MudText>
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
 
 @code {
     private ComunaClick.Admin.Models.AdminDashboardDto? _dashboard;

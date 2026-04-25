@@ -84,7 +84,7 @@
                         "label": ["Inter"],
                         "display": ["Manrope"]
                     },
-                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }
+                    borderRadius: { "DEFAULT": "0.25rem", "sm": "0.375rem", "md": "0.5rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "3xl": "1.5rem", "full": "9999px" }
                 }
             }
         }
@@ -101,11 +101,18 @@
             direction: ltr;
         }
 
+        html {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             min-height: max(884px, 100dvh);
+            max-width: 100%;
             background-color: #fffdf7;
             color: #2c2f30;
+            overflow-x: hidden;
         }
 
         .editorial-shadow {

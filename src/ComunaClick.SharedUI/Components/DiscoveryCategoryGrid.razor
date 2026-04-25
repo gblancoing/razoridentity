@@ -1,0 +1,108 @@
+@using ComunaClick.SharedUI.Data
+@using ComunaClick.SharedUI.Services
+
+<main class="max-w-7xl mx-auto px-4 py-10 space-y-8">
+    <header class="space-y-3">
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081]">@Eyebrow</p>
+        <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@Title</h1>
+        <p class="text-sm text-[#595c5d]">@Description</p>
+    </header>
+
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        @foreach (var item in Items)
+        {
+            <a href="@GetHubHref(item)"
+               class="group rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:translate-y-[-2px] transition-transform">
+                @* img + src: Blazor escapa & en la URL; en style/background-image:url('...&fit=...') el & rompía el atributo y dejaba el recuadro en blanco. *@
+                @if (!string.IsNullOrWhiteSpace(GetHubImage(item)))
+                {
+                    <div class="h-56 w-full overflow-hidden bg-[#e8ebea]">
+                        <img src="@GetHubImage(item)"
+                             alt="@item.Title"
+                             class="h-full w-full object-cover"
+                             loading="lazy"
+                             decoding="async" />
+                    </div>
+                }
+                else
+                {
+                    <div class="h-56 bg-cover bg-center" style="@GetFallbackStyle(item)"></div>
+                }
+                <div class="p-5">
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">@CardLabel</p>
+                    <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@item.Title</h2>
+                </div>
+            </a>
+        }
+    </section>
+</main>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Mode { get; set; } = "services";
+
+    private IReadOnlyList<DiscoveryHubItem> Items =>
+        string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
+            ? DiscoveryHubCatalog.ProfessionalSectors
+            : DiscoveryHubCatalog.ServiceSectors;
+
+    private string Eyebrow => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
+        ? "Profesionales"
+        : "Servicios de negocio";
+
+    private string Title => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
+        ? "Especialidades profesionales"
+        : "Servicios por sector de negocio";
+
+    private string Description => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
+        ? "Explorá por tipo de oficio: ingeniería, salud, derecho, obras, etc. Cada tarjeta abre una búsqueda o categoría vinculada al tema."
+        : "Explorá por rubro: constructores, farmacias, peluquerías, agro, tecnología, etc. Cada tarjeta abre resultados o la categoría equivalente en el mapa de ComunaClic.";
+
+    private string CardLabel => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
+        ? "Especialidad"
+        : "Sector";
+
+    private string? GetHubImage(DiscoveryHubItem item) =>
+        CategoryVisualService.ResolveHubItemImage(
+            item,
+            string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase));
+
+    private string GetFallbackStyle(DiscoveryHubItem item)
+    {
+        var image = GetHubImage(item) ?? "";
+        if (string.IsNullOrWhiteSpace(image))
+        {
+            return "background: linear-gradient(135deg, #065f46 0%, #a7f255 100%);";
+        }
+
+        return $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.08) 100%), url('{image}')";
+    }
+
+    private string GetHubHref(DiscoveryHubItem item)
+    {
+        if (string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase))
+        {
+            var q = new List<string>();
+            if (!string.IsNullOrWhiteSpace(item.CategoryCode))
+            {
+                q.Add($"code={Uri.EscapeDataString(item.CategoryCode)}");
+            }
+            var searchQ = item.SearchQuery ?? item.Title;
+            if (!string.IsNullOrWhiteSpace(searchQ))
+            {
+                q.Add($"q={Uri.EscapeDataString(searchQ)}");
+            }
+            var qs = q.Count > 0 ? "?" + string.Join("&", q) : "";
+            return $"/profesionales/especialidad/{Uri.EscapeDataString(item.Slug)}{qs}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.CategoryCode))
+        {
+            var slug = CategoryVisualService.ToSlug(item.CategoryCode, item.Title);
+            return $"/categorias/{slug}?code={Uri.EscapeDataString(item.CategoryCode)}";
+        }
+
+        var homeQ = item.SearchQuery ?? item.Title;
+        return $"/?q={Uri.EscapeDataString(homeQ)}";
+    }
+}

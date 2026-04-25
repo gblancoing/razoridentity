@@ -1,4 +1,5 @@
 using ComunaClick.Api.Persistence;
+using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -256,7 +257,8 @@ public sealed class PublicCatalogController : ControllerBase
         string categoryCode,
         [FromQuery] double latitude,
         [FromQuery] double longitude,
-        [FromQuery] int limit = 24)
+        [FromQuery] int limit = 24,
+        [FromQuery] string? subcode = null)
     {
         if (string.IsNullOrWhiteSpace(categoryCode))
         {
@@ -282,6 +284,34 @@ public sealed class PublicCatalogController : ControllerBase
         var matchTerms = await ResolveCategoryMatchTermsAsync(category, familyCategoryIds);
         var businessIds = await ResolveBusinessIdsForCategoryAsync(familyCategoryIds, matchTerms);
 
+        ProductSubcategory? subFilter = null;
+        if (!string.IsNullOrWhiteSpace(subcode))
+        {
+            var subTrim = subcode.Trim();
+            subFilter = await _db.ProductSubcategories.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.IsActive
+                    && familyCategoryIds.Contains(x.CategoryId)
+                    && x.Code.ToLower() == subTrim.ToLower());
+            if (subFilter is null)
+            {
+                return Ok(new
+                {
+                    Category = new
+                    {
+                        category.Id,
+                        category.Code,
+                        category.Name
+                    },
+                    UserLocation = new
+                    {
+                        Latitude = latitude,
+                        Longitude = longitude
+                    },
+                    Businesses = Array.Empty<object>()
+                });
+            }
+        }
+
         var nearbyBusinesses = await _db.Partners.AsNoTracking()
             .Include(x => x.Subcategory)
             .ThenInclude(x => x!.Category)
@@ -294,7 +324,9 @@ public sealed class PublicCatalogController : ControllerBase
                     Partner = partner,
                     Comuna = comuna
                 })
-            .Where(x => x.Partner.IsVisible && businessIds.Contains(x.Partner.Id))
+            .Where(x => x.Partner.IsVisible
+                && businessIds.Contains(x.Partner.Id)
+                && (subFilter == null || x.Partner.SubcategoryId == subFilter.Id))
             .ToListAsync();
 
         var items = nearbyBusinesses
@@ -409,6 +441,7 @@ public sealed class PublicCatalogController : ControllerBase
                 partner.Phone,
                 partner.Email,
                 CategoryName = partner.Subcategory?.Category?.Name,
+                CategoryCode = partner.Subcategory?.Category?.Code,
                 SubcategoryName = partner.Subcategory?.Name,
                 OfferLabel = partner.Type switch
                 {

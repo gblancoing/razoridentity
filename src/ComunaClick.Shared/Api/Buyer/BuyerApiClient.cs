@@ -25,7 +25,11 @@ public sealed class BuyerApiClient : ApiClientBase
 
     public Task<IReadOnlyList<SearchResultItem>?> SearchProfessionalsAsync(string? query, bool? verified, int? limit, GeoFilter? geo = null, CancellationToken cancellationToken = default)
     {
-        var path = BuildSearchPath("/v1/search/professionals", query, null, limit, geo) + $"&verified={(verified ?? false)}";
+        var path = BuildSearchPath("/v1/search/professionals", query, null, limit, geo);
+        if (verified.HasValue)
+        {
+            path += $"&verified={verified.Value.ToString().ToLowerInvariant()}";
+        }
         return GetAsync<IReadOnlyList<SearchResultItem>>(path, cancellationToken);
     }
 
@@ -98,6 +102,44 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<Customer>(message, cancellationToken);
     }
 
+    public Task<Customer?> GetBuyerCustomerAsync(Guid? tenantId, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/customer";
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            path += $"?tenantId={tenantId.Value}";
+        }
+
+        var message = new HttpRequestMessage(HttpMethod.Get, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        }
+
+        return SendAsync<Customer>(message, cancellationToken);
+    }
+
+    public Task<Customer?> UpdateBuyerCustomerAsync(CustomerUpdateRequest request, Guid? tenantId, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/customer";
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            path += $"?tenantId={tenantId.Value}";
+        }
+
+        var message = new HttpRequestMessage(HttpMethod.Patch, path)
+        {
+            Content = JsonContent.Create(request)
+        };
+
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        }
+
+        return SendAsync<Customer>(message, cancellationToken);
+    }
+
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
@@ -149,8 +191,21 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<CategoryDiscoveryResponse?> GetCategoryDiscoveryAsync(string categoryCode, CancellationToken cancellationToken = default)
         => GetAsync<CategoryDiscoveryResponse>($"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}", cancellationToken);
 
-    public Task<CategoryNearbyResponse?> GetCategoryNearbyAsync(string categoryCode, double latitude, double longitude, int? limit = null, CancellationToken cancellationToken = default)
-        => GetAsync<CategoryNearbyResponse>($"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}/nearby?latitude={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&longitude={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&limit={(limit ?? 24)}", cancellationToken);
+    public Task<CategoryNearbyResponse?> GetCategoryNearbyAsync(
+        string categoryCode,
+        double latitude,
+        double longitude,
+        int? limit = null,
+        string? subcode = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}/nearby?latitude={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&longitude={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&limit={(limit ?? 24)}";
+        if (!string.IsNullOrWhiteSpace(subcode))
+        {
+            path += $"&subcode={Uri.EscapeDataString(subcode)}";
+        }
+        return GetAsync<CategoryNearbyResponse>(path, cancellationToken);
+    }
 
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Professional>($"/v1/public/professionals/{id}", cancellationToken);
@@ -441,13 +496,15 @@ public sealed record Customer(
     string? Phone,
     string? FullName,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    string? AvatarUrl = null
 );
 
 public sealed record CustomerUpdateRequest(
     string? Email,
     string? Phone,
-    string? FullName
+    string? FullName,
+    string? AvatarUrl = null
 );
 
 public sealed record Product(
@@ -653,7 +710,9 @@ public sealed record PartnerProfileSummary(
     string? Email,
     string? CategoryName,
     string? SubcategoryName,
-    string? OfferLabel
+    string? OfferLabel,
+    /// <summary>Código de categoría (misma clave que en <c>/categorias/{slug}</c>).</summary>
+    string? CategoryCode = null
 );
 
 public sealed record PartnerProfileProduct(

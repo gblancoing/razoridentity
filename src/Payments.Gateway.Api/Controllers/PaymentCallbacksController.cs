@@ -65,6 +65,15 @@ public sealed class PaymentCallbacksController : ControllerBase
             });
         }
 
+        if (string.IsNullOrWhiteSpace(callbackResult.ProviderEventId))
+        {
+            return BadRequest(new
+            {
+                message = "Callback rejected: ProviderEventId is required for idempotent processing.",
+                provider = callbackResult.Provider
+            });
+        }
+
         var eventExists = await _db.ProviderEvents.AnyAsync(
             x => x.ProviderEventId == callbackResult.ProviderEventId,
             cancellationToken);

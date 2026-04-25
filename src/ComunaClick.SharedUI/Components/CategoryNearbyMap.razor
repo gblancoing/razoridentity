@@ -1,5 +1,11 @@
+@using System.Globalization
+@using Microsoft.AspNetCore.Components
+@using System.Text.Json.Serialization
+@using ComunaClick.SharedUI.Services
+@using ComunaClick.Shared.Api.Buyer
 @inject BuyerApiClient BuyerApi
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 @implements IAsyncDisposable
 
 @if (_isLoading)
@@ -47,39 +53,254 @@ else if (!string.IsNullOrWhiteSpace(_statusMessage))
 }
 else if (_nearby is not null)
 {
-    <section class="bg-white rounded-[2rem] p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
-        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-            <div>
-                <p class="text-[11px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Mapa cercano</p>
-                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] mt-2">Partners alrededor de tu ubicación</h2>
-                <p class="text-sm text-[#595c5d] mt-3">Usamos la ubicación real del negocio cuando existe; si no, mostramos una referencia aproximada por comuna para mantener cobertura completa.</p>
-            </div>
-            <div class="bg-[#eff1f2] rounded-2xl px-4 py-3">
-                <p class="text-[11px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Encontrados</p>
-                <p class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@(_nearby.Businesses?.Count ?? 0)</p>
+    <section id="@SectionDomId" class="scroll-mt-20 w-full min-w-0 max-w-full space-y-2 sm:space-y-3">
+        @* Encabezado: jerarquía clara, poco aire, barra de acento (columna título). *@
+        <div class="w-full max-w-none border-b border-[#e0dcd6] pb-2.5 sm:pb-3">
+            <div class="flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between min-[900px]:gap-5 min-[1200px]:gap-6">
+                <div class="flex min-w-0 flex-1 gap-2.5 min-[500px]:gap-3 min-[900px]:max-w-xl min-[1200px]:max-w-2xl">
+                    <div class="mt-1 h-9 w-0.5 shrink-0 self-start rounded-full bg-gradient-to-b from-[#2d5200] via-[#3b6700] to-[#7cb342] min-[500px]:h-11" aria-hidden="true"></div>
+                    <div class="min-w-0 space-y-0.5">
+                        <p class="text-[10px] font-semibold uppercase leading-none tracking-[0.2em] text-[#6b7070]">@(_nearby.Category.Name)</p>
+                        <h2 class="text-xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[#1e2122] min-[1200px]:text-[1.65rem] min-[1200px]:leading-tight">@(MapOnly ? "Mapa" : "Negocios cerca de ti")</h2>
+                        <p class="!mt-1.5 flex flex-wrap items-baseline gap-x-2 text-[12px] leading-snug text-[#5a5d5e] min-[1200px]:text-[13px]">
+                        @if (MapOnly)
+                        {
+                            <span class="font-medium tabular-nums text-[#1e2122]">@(_nearby.Businesses?.Count ?? 0) punto(s)</span>
+                            <span class="text-[#7b8081]"> en el mapa</span>
+                        }
+                        else
+                        {
+                            <span class="font-medium tabular-nums text-[#1e2122]">@FilteredCount de @TotalCount</span>
+                            <span class="text-[#4a4d4e]">@((TotalCount == 1) ? "resultado" : "resultados")</span>
+                            <span class="px-0.5 text-[#a8acad]" aria-hidden="true">|</span>
+                            <span class="text-[#6b7070]">Orden por distancia</span>
+                        }
+                        </p>
+                    @if (!string.IsNullOrWhiteSpace(SubcategoryFilterLabel))
+                    {
+                        <span class="!mt-2 inline-flex w-fit items-center rounded-md border border-[#3b6700]/25 bg-[#f4f8ef] px-2.5 py-1 text-[11px] font-semibold text-[#2d5200]">@SubcategoryFilterLabel</span>
+                    }
+                    </div>
+                </div>
+                @if (!MapOnly)
+                {
+                    <div class="min-w-0 w-full min-[900px]:max-w-none min-[900px]:flex-[1.15] min-[1200px]:min-w-0" role="complementary" aria-label="Ventajas de la búsqueda en ComunaClic">
+                        <div class="relative flex w-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#e0dcd4] bg-gradient-to-b from-white via-[#fbfaf7] to-[#f3f5ef] shadow-[0_4px_28px_-12px_rgba(15,30,0,0.12),0_1px_0_rgba(255,255,255,0.8)_inset]">
+                            <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#2d5200] via-[#3b6700] to-[#7cb342]" aria-hidden="true"></div>
+                            <div class="pointer-events-none absolute -right-8 -top-6 h-20 w-20 rounded-full bg-[#a7f255]/10 blur-2xl" aria-hidden="true"></div>
+                            <div class="pointer-events-none absolute -bottom-6 left-1/3 h-16 w-32 rounded-full bg-[#0d47a1]/5 blur-2xl" aria-hidden="true"></div>
+                            <div class="relative z-[1] flex flex-col gap-1 px-3 py-2.5 min-[900px]:gap-1.5 min-[900px]:px-3.5 min-[1200px]:py-2">
+                                <div class="space-y-0 text-center min-[900px]:text-left">
+                                    <p class="text-[10px] font-bold uppercase leading-tight tracking-[0.16em] text-[#2d5200]">Por qué usar el mapa</p>
+                                    <p class="text-[11px] leading-snug text-[#6b7071] min-[1200px]:text-xs min-[1200px]:leading-snug">Compará ofertas locales, mové el mapa y filtrá sin salir de esta vista.</p>
+                                </div>
+                                <ul class="m-0 grid w-full list-none grid-cols-1 gap-2 p-0 sm:grid-cols-3 sm:gap-2.5 min-[1200px]:gap-2">
+                                    <li class="group flex min-h-0 min-w-0 flex-col gap-1.5 rounded-xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-sm transition duration-200 ease-out sm:flex-row sm:items-stretch sm:gap-2 sm:p-2 min-[1200px]:p-1.5 hover:-translate-y-px hover:border-[#a7f255]/45 hover:shadow-md">
+                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-xl bg-gradient-to-br from-[#e8f3dc] to-[#cfe8b0] text-[#1a3d00] shadow-sm ring-1 ring-[#3b6700]/10" aria-hidden="true">
+                                            <span class="material-symbols-outlined text-[18px]">map</span>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-xs font-extrabold leading-tight text-[#2c2f30] sm:text-[13px]">Mapa en vivo</p>
+                                            <p class="mt-0.5 text-[10px] leading-relaxed text-[#5c5f60] sm:text-[11px] sm:leading-relaxed min-[1200px]:line-clamp-3">Zoom y desplazamiento para explorar cada punto publicado.</p>
+                                        </div>
+                                    </li>
+                                    <li class="group flex min-h-0 min-w-0 flex-col gap-1.5 rounded-xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-sm transition duration-200 ease-out sm:flex-row sm:items-stretch sm:gap-2 sm:p-2 min-[1200px]:p-1.5 hover:-translate-y-px hover:border-[#a7f255]/45 hover:shadow-md">
+                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-xl bg-gradient-to-br from-[#e8f3dc] to-[#cfe8b0] text-[#1a3d00] shadow-sm ring-1 ring-[#3b6700]/10" aria-hidden="true">
+                                            <span class="material-symbols-outlined text-[18px]">tune</span>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-xs font-extrabold leading-tight text-[#2c2f30] sm:text-[13px]">Filtros en la misma pantalla</p>
+                                            <p class="mt-0.5 text-[10px] leading-relaxed text-[#5c5f60] sm:text-[11px] sm:leading-relaxed min-[1200px]:line-clamp-3">Afiná distancia, comuna, nombre y subcategoría al instante.</p>
+                                        </div>
+                                    </li>
+                                    <li class="group flex min-h-0 min-w-0 flex-col gap-1.5 rounded-xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-sm transition duration-200 ease-out sm:flex-row sm:items-stretch sm:gap-2 sm:p-2 min-[1200px]:p-1.5 hover:-translate-y-px hover:border-[#a7f255]/45 hover:shadow-md">
+                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-xl bg-gradient-to-br from-[#e8f3dc] to-[#cfe8b0] text-[#1a3d00] shadow-sm ring-1 ring-[#3b6700]/10" aria-hidden="true">
+                                            <span class="material-symbols-outlined text-[18px]">near_me</span>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-xs font-extrabold leading-tight text-[#2c2f30] sm:text-[13px]">Orden por cercanía</p>
+                                            <p class="mt-0.5 text-[10px] leading-relaxed text-[#5c5f60] sm:text-[11px] sm:leading-relaxed min-[1200px]:line-clamp-3">Qué tan cerca queda según la ubicación que compartas.</p>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
             </div>
         </div>
 
-        <div id="@_mapId" class="h-[20rem] sm:h-[24rem] rounded-[1.5rem] overflow-hidden border border-[#dadddf]"></div>
-
-        @if (_nearby.Businesses?.Count > 0)
+        @if (!string.IsNullOrWhiteSpace(_mapContextHint))
         {
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                @foreach (var business in _nearby.Businesses.Take(6))
-                {
-                    <a href="/buyer/detail/partner/@business.Id"
-                       class="block rounded-3xl border border-[#eff1f2] p-5 transition-all hover:border-[#a7f255] hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                        <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@business.Name</p>
-                        <p class="text-sm text-[#595c5d] mt-2">@(business.UsesExactLocation ? (business.Address ?? business.ComunaName ?? "Ubicación del negocio disponible") : (business.ComunaName ?? business.Address ?? "Ubicación aproximada disponible"))</p>
-                        <p class="text-xs text-[#7b8081] mt-2">@(business.UsesExactLocation ? "Ubicación del negocio" : "Referencia por comuna")</p>
-                        <p class="text-sm font-bold text-[#3b6700] mt-3">@($"{business.DistanceKm:N1} km aprox.")</p>
-                    </a>
-                }
+            <p class="rounded-2xl border border-[#e3e6e8] bg-[#f6f1e8] px-4 py-3 text-sm text-[#2c2f30]">@_mapContextHint</p>
+        }
+
+        @if (MapOnly)
+        {
+            @* Inmuebles: el listado va en la columna de la página; aquí solo el mapa. *@
+            <div class="w-full min-w-0 lg:sticky lg:top-20 lg:self-start">
+                <div class="relative z-0 isolate overflow-hidden rounded-2xl border border-[#d6d1ca] bg-white shadow-md">
+                    <div id="@_mapId" class="@MapHeightClass w-full"></div>
+                </div>
+                <p class="mt-2 text-xs leading-relaxed text-[#7b8081]">Ubicación exacta o referencia por comuna, según lo que haya publicado el negocio.</p>
             </div>
         }
         else
         {
-            <StatusBanner Message="No encontramos partners cercanos para esta categoría con la referencia territorial disponible." Level="warning" />
+        @* 1/3: filtros | listado (horizontal en desktop) · 2/3: mapa. Móvil: col-reverse = mapa arriba. *@
+        <div class="flex w-full min-w-0 max-w-full flex-col-reverse gap-4 min-[1200px]:grid min-[1200px]:grid-cols-3 min-[1200px]:items-start min-[1200px]:gap-1.5 xl:gap-2">
+            @* Móvil: listado arriba, filtros abajo. Desktop: 2 subcolumnas (filtro izq. · listado dcha.), misma altura; scroll por panel. *@
+            <div class="flex w-full min-w-0 max-[1199px]:flex max-[1199px]:flex-col max-[1199px]:gap-4 min-[1200px]:col-span-1 min-[1200px]:h-[min(92vh,60rem)] min-[1200px]:min-h-0 min-[1200px]:min-w-0 min-[1200px]:grid min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] min-[1200px]:gap-2 min-[1200px]:items-stretch min-[1200px]:overflow-hidden min-[1200px]:[scrollbar-gutter:stable] min-[1200px]:pl-0 min-[1200px]:pr-0">
+            <aside class="min-w-0 min-[1200px]:min-h-0 min-[1200px]:overflow-y-auto max-[1199px]:order-2">
+                <div class="rounded-2xl border border-[#e4e0d8] bg-white p-3 shadow-sm min-[1200px]:p-3.5 min-[1200px]:pr-0.5 sm:p-4">
+                    <h3 class="text-base font-black tracking-[-0.02em] text-[#2c2f30]">Filtrar por</h3>
+                    <p class="mt-1 text-xs text-[#7b8081]">Afiná comercios y servicios locales según tu criterio.</p>
+                    <div class="mt-5 space-y-5 border-t border-[#efede8] pt-4">
+                        <div>
+                            <p class="text-sm font-bold text-[#2c2f30]">Disponibilidad de ubicación</p>
+                            <label class="mt-2 flex cursor-pointer items-start gap-2 text-sm text-[#495051]">
+                                <input type="checkbox" class="mt-0.5 h-4 w-4 rounded border-[#c8c3bc] text-[#3b6700] focus:ring-[#3b6700]" checked="@_onlyExactLocation" @onchange="OnExactLocationChanged" />
+                                <span>Mostrar solo con dirección en el mapa</span>
+                            </label>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-[#2c2f30]">Distancia máxima</p>
+                            <p class="mt-1 text-xs text-[#7b8081]">Hasta @(_maxDistanceKm.ToString("N1", CultureInfo.InvariantCulture)) km</p>
+                            <input type="range" class="mt-2 w-full cursor-pointer accent-[#3b6700]" min="0" max="@_distanceSliderMax.ToString(CultureInfo.InvariantCulture)" step="0.5" value="@_maxDistanceKm" @oninput="OnDistanceRangeInput" />
+                            <p class="mt-1 text-xs text-[#7b8081]">0 – @_distanceSliderMax.ToString("N0") km</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-[#2c2f30]">Por nombre o palabras clave</p>
+                            <input type="search" class="mt-2 w-full rounded-xl border border-[#d6d1ca] bg-[#fbfaf8] px-3 py-2 text-sm text-[#2c2f30] placeholder:text-[#a0a3a4] focus:border-[#3b6700] focus:outline-none focus:ring-1 focus:ring-[#3b6700]/30" placeholder="Nombre del negocio" value="@_nameFilter" @oninput="OnNameFilterInput" />
+                            <p class="mt-3 text-xs font-semibold text-[#7b8081]">¿Más criterios?</p>
+                            <textarea class="mt-1 w-full min-h-[4.5rem] resize-y rounded-xl border border-[#d6d1ca] bg-white px-3 py-2 text-sm text-[#2c2f30] placeholder:text-[#a0a3a4] focus:border-[#3b6700] focus:outline-none focus:ring-1 focus:ring-[#3b6700]/30" placeholder="Ej.: panadería delivery Maipú" value="@_keywordFilter" @oninput="OnKeywordFilterInput"></textarea>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-[#2c2f30]">Tipo de oferta</p>
+                            <div class="mt-2 space-y-2">
+                                @foreach (var code in new[] { "A", "B", "C" })
+                                {
+                                    var count = TypeFacetCount(code);
+                                    if (count == 0) { continue; }
+                                    <label class="flex cursor-pointer items-center justify-between gap-2 text-sm text-[#495051]">
+                                        <span class="flex min-w-0 items-center gap-2">
+                                            <input type="checkbox" class="h-4 w-4 rounded border-[#c8c3bc] text-[#3b6700] focus:ring-[#3b6700]" checked="@_selectedTypes.Contains(code)" @onchange="@(e => OnTypeCheckChanged(e, code))" />
+                                            <span class="min-w-0">@PartnerTypeLabel(code)</span>
+                                        </span>
+                                        <span class="shrink-0 text-xs text-[#a0a3a4]">@count</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                        @if (ComunaOptions.Count > 0)
+                        {
+                            <div>
+                                <p class="text-sm font-bold text-[#2c2f30]">Zona (comuna)</p>
+                                <div class="mt-2 max-h-40 space-y-2 overflow-y-auto pr-0.5">
+                                    @foreach (var c in ComunaOptions)
+                                    {
+                                        var n = ComunaFacetCount(c);
+                                        if (n == 0) { continue; }
+                                        <label class="flex cursor-pointer items-center justify-between gap-2 text-sm text-[#495051]">
+                                            <span class="flex min-w-0 items-center gap-2">
+                                                <input type="checkbox" class="h-4 w-4 rounded border-[#c8c3bc] text-[#3b6700] focus:ring-[#3b6700]" checked="@_selectedComunas.Contains(c)" @onchange="@(e => OnComunaCheckChanged(e, c))" />
+                                                <span class="min-w-0 truncate" title="@c">@c</span>
+                                            </span>
+                                            <span class="shrink-0 text-xs text-[#a0a3a4]">@n</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        @if (SubcategoryOptions.Count > 0)
+                        {
+                            <div>
+                                <p class="text-sm font-bold text-[#2c2f30]">Especialidad / subcategoría</p>
+                                <div class="mt-2 max-h-40 space-y-2 overflow-y-auto pr-0.5">
+                                    @foreach (var s in SubcategoryOptions)
+                                    {
+                                        var n = SubcatFacetCount(s);
+                                        if (n == 0) { continue; }
+                                        <label class="flex cursor-pointer items-center justify-between gap-2 text-sm text-[#495051]">
+                                            <span class="flex min-w-0 items-center gap-2">
+                                                <input type="checkbox" class="h-4 w-4 rounded border-[#c8c3bc] text-[#3b6700] focus:ring-[#3b6700]" checked="@_selectedSubcats.Contains(s)" @onchange="@(e => OnSubcatCheckChanged(e, s))" />
+                                                <span class="min-w-0 line-clamp-2" title="@s">@s</span>
+                                            </span>
+                                            <span class="shrink-0 text-xs text-[#a0a3a4]">@n</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <button type="button" class="w-full rounded-xl border border-[#d6d1ca] bg-[#f7f4ee] py-2.5 text-sm font-bold text-[#2c2f30] transition hover:border-[#3b6700]/40" @onclick="ResetFiltersAsync">Restablecer filtros</button>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="flex w-full min-w-0 flex-col min-[1200px]:min-h-0 min-[1200px]:min-w-0 min-[1200px]:overflow-y-auto min-[1200px]:[scrollbar-gutter:stable] max-[1199px]:order-1">
+                <p class="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">Listado</p>
+                @{
+                    var fl = GetFilteredList();
+                }
+                <div class="mt-2 flex w-full min-w-0 min-h-0 flex-1 flex-col gap-2.5 min-[1200px]:gap-3">
+                @if (fl.Count > 0)
+                {
+                    @foreach (var business in fl)
+                    {
+                        var locLine = business.UsesExactLocation
+                            ? (business.Address ?? business.ComunaName ?? "Ubicación publicada")
+                            : (business.ComunaName ?? business.Address ?? "Zona aproximada");
+                        var cardImg = CategoryVisualService.ResolveImage(CategoryCode, business.Name)
+                            ?? "_content/ComunaClick.SharedUI/logo.png";
+                        <a href="@BuildPartnerDetailHref(business.Id)"
+                           class="group flex w-full min-w-0 overflow-hidden rounded-2xl border border-[#e4e0d9] bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#a7f255]/70 hover:shadow-md">
+                            <div class="relative w-[6.5rem] shrink-0 self-stretch min-h-[5.5rem] bg-[#e8e6e1] min-[1200px]:w-[5.5rem]">
+                                <div class="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105" style="@($"background-image:linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.12)), url('{cardImg}')")" aria-hidden="true"></div>
+                            </div>
+                            <div class="flex min-w-0 flex-1 flex-col justify-center gap-1 p-2.5 min-[1200px]:p-2.5">
+                                <div class="flex items-start justify-between gap-1.5">
+                                    <h3 class="min-w-0 text-xs font-bold leading-snug tracking-[-0.02em] text-[#0d47a1] group-hover:underline min-[1200px]:text-[13px]">@business.Name</h3>
+                                    <span class="shrink-0 rounded-lg bg-[#e8f3dc] px-1.5 py-0.5 text-[10px] font-black tabular-nums text-[#2d5200]">@($"{business.DistanceKm:N1} km")</span>
+                                </div>
+                                <p class="line-clamp-2 text-[11px] leading-relaxed text-[#5c5f60] min-[1200px]:line-clamp-2 min-[1200px]:text-xs">@locLine</p>
+                                <div class="flex flex-wrap items-center gap-1 text-[10px] text-[#7b8081] min-[1200px]:text-[11px]">
+                                    <span class="line-clamp-1 inline-flex min-w-0 items-center gap-0.5 font-medium text-[#495051]">
+                                        <span class="material-symbols-outlined shrink-0 text-[14px] text-[#3b6700]">@(business.UsesExactLocation ? "location_on" : "map")</span>
+                                        <span class="min-w-0">@(business.UsesExactLocation ? "Dirección en mapa" : "Ref. por zona")</span>
+                                    </span>
+                                    @if (!string.IsNullOrWhiteSpace(business.SubcategoryName) || !string.IsNullOrWhiteSpace(business.CategoryName))
+                                    {
+                                        <span class="hidden h-2 w-px bg-[#dadddf] sm:block" aria-hidden="true"></span>
+                                        <span class="line-clamp-1">@string.Join(" · ", new[] { business.SubcategoryName, business.CategoryName }.Where(x => !string.IsNullOrWhiteSpace(x)))</span>
+                                    }
+                                </div>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                    <span class="inline-flex items-center rounded border border-[#dadddf] bg-[#faf8f3] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#4a4d4e]">@PartnerTypeLabel(business.Type)</span>
+                                    <span class="text-[10px] font-bold text-[#3b6700]">Ver <span class="material-symbols-outlined align-middle text-[13px]">chevron_right</span></span>
+                                </div>
+                            </div>
+                        </a>
+                    }
+                }
+                else
+                {
+                    <p class="rounded-2xl border border-dashed border-[#dadddf] bg-white px-3 py-5 text-xs leading-relaxed text-[#5c5f60]">
+                        Ningún negocio coincide con los filtros. Probá subir el radio de distancia o restablecer.
+                    </p>
+                }
+                </div>
+            </div>
+            </div>
+
+            <div class="order-2 flex w-full min-w-0 flex-col min-[1200px]:col-span-2 min-[1200px]:h-[min(92vh,60rem)] min-[1200px]:min-h-0 min-[1200px]:self-stretch">
+                <p class="mb-2 shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081] min-[1200px]:sr-only">Mapa</p>
+                <div class="relative z-0 isolate min-h-0 w-full min-w-0 flex-1 overflow-hidden rounded-2xl border border-[#d6d1ca] bg-white shadow-md">
+                    <div id="@_mapId" class="@MapHeightClass w-full min-w-0 max-w-full min-[1200px]:!h-full min-[1200px]:!min-h-0 min-[1200px]:!max-h-none"></div>
+                </div>
+                <p class="mt-2 shrink-0 text-xs leading-relaxed text-[#7b8081] min-[1200px]:text-[11px]">Puntos = negocios que pasan el filtro. Ubicación exacta o referencia por comuna.</p>
+            </div>
+        </div>
+
         }
     </section>
 }
@@ -87,24 +308,94 @@ else if (_nearby is not null)
 @code {
     [Parameter] public string CategoryCode { get; set; } = string.Empty;
 
+    /// <summary>Código de subcategoría (p. ej. inmuebles-casas-venta) para acotar puntos en el mapa; debe coincidir con el filtro de la categoría Inmuebles.</summary>
+    [Parameter] public string? SubcategoryCode { get; set; }
+
+    [Parameter] public string? SubcategoryFilterLabel { get; set; }
+
+    [Parameter] public string SectionDomId { get; set; } = "categoria-mapa-cercano";
+
+    /// <summary>
+    /// Si el listado de negocios ya se muestra fuera (vista inmuebles con lista a un costado), solo se renderiza el mapa
+    /// y no se duplican las tarjetas.
+    /// </summary>
+    [Parameter] public bool MapOnly { get; set; }
+
+    // Mapa: prioridad a altura; columna flexible ancha a la derecha (grid 1fr + min 1200). Inmuebles: un poco más.
+    private string MapHeightClass => string.IsNullOrWhiteSpace(SubcategoryCode)
+        ? "w-full min-h-[24rem] h-[min(55vh,32rem)] sm:min-h-[30rem] sm:h-[min(60vh,38rem)] min-[1200px]:min-h-[36rem] min-[1200px]:h-[min(90vh,58rem)] 2xl:h-[min(92vh,64rem)]"
+        : "w-full min-h-[26rem] h-[min(58vh,34rem)] sm:min-h-[34rem] sm:h-[min(64vh,42rem)] min-[1200px]:min-h-[38rem] min-[1200px]:h-[min(90vh,60rem)] 2xl:h-[min(92vh,66rem)]";
+
     private readonly string _mapId = $"category-nearby-map-{Guid.NewGuid():N}";
     private CategoryNearbyResponse? _nearby;
     private string? _statusMessage;
-    private string? _loadedCategoryCode;
+    /// <summary>Explicación no bloqueante: error de red, mapa vacío, etc. (no confundir con el bloque "activar GPS").</summary>
+    private string? _mapContextHint;
+
+    private string? _loadedStateKey;
     private bool _isLoading = true;
     private bool _mapRendered;
     private bool _loadAttempted;
+    private bool _scrollAfterMap;
+
+    private string _nameFilter = "";
+    private string _keywordFilter = "";
+    private bool _onlyExactLocation;
+    private double _maxDistanceKm = 50;
+    private double _distanceSliderMax = 50;
+    private readonly HashSet<string> _selectedTypes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _selectedComunas = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _selectedSubcats = new(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyList<string> ComunaOptions { get; private set; } = Array.Empty<string>();
+    public IReadOnlyList<string> SubcategoryOptions { get; private set; } = Array.Empty<string>();
+
+    private int TotalCount => _nearby?.Businesses?.Count ?? 0;
+    private int FilteredCount => GetFilteredList().Count;
+
+    private const double DefaultMapLatitude = -33.4489;
+    private const double DefaultMapLongitude = -70.6693;
+
+    /// <summary>Path + query + ancla para <c>return</c> en el detalle del partner (volver a esta categoría con mapa).</summary>
+    private string GetPartnerDetailReturnForQuery()
+    {
+        if (!Uri.TryCreate(Navigation.Uri, UriKind.Absolute, out var u))
+        {
+            return string.Empty;
+        }
+        var path = u.PathAndQuery;
+        var anchor = string.IsNullOrWhiteSpace(SectionDomId) ? "categoria-mapa-cercano" : SectionDomId.Trim();
+        if (path.Contains('#', StringComparison.Ordinal))
+        {
+            return path;
+        }
+        return path + "#" + anchor;
+    }
+
+    private string BuildPartnerDetailHref(Guid businessId)
+    {
+        var ret = GetPartnerDetailReturnForQuery();
+        if (string.IsNullOrEmpty(ret))
+        {
+            return $"/buyer/detail/partner/{businessId}";
+        }
+        return $"/buyer/detail/partner/{businessId}?return={Uri.EscapeDataString(ret)}";
+    }
+
+    private string StateKey
+        => $"{CategoryCode}\u001f{SubcategoryCode ?? ""}";
 
     protected override Task OnParametersSetAsync()
     {
-        if (string.Equals(_loadedCategoryCode, CategoryCode, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(_loadedStateKey, StateKey, StringComparison.Ordinal))
         {
             return Task.CompletedTask;
         }
 
-        _loadedCategoryCode = CategoryCode;
+        _loadedStateKey = StateKey;
         _nearby = null;
         _statusMessage = null;
+        _mapContextHint = null;
         _isLoading = true;
         _mapRendered = false;
         _loadAttempted = false;
@@ -123,20 +414,27 @@ else if (_nearby is not null)
         if (!_loadAttempted && _isLoading && !string.IsNullOrWhiteSpace(CategoryCode))
         {
             _loadAttempted = true;
-            await LoadNearbyAsync();
+            await LoadNearbyAsync(userRequestedGps: false);
             await InvokeAsync(StateHasChanged);
             return;
         }
 
-        if (_mapRendered || _nearby?.Businesses is null || _nearby.Businesses.Count == 0)
+        if (_mapRendered || _nearby is null)
         {
             return;
         }
 
         try
         {
-            await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, _nearby.Businesses);
+            var businesses = GetFilteredList();
+            var returnPath = GetPartnerDetailReturnForQuery();
+            await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, businesses, returnPath);
             _mapRendered = true;
+            if (_scrollAfterMap && !string.IsNullOrWhiteSpace(SectionDomId))
+            {
+                await JSRuntime.InvokeVoidAsync("comunaclic.scrollToElement", SectionDomId);
+                _scrollAfterMap = false;
+            }
         }
         catch (InvalidOperationException)
         {
@@ -144,52 +442,343 @@ else if (_nearby is not null)
         }
     }
 
-    private async Task LoadNearbyAsync()
+    /// <param name="userRequestedGps">En reintento manual: <c>forceFresh</c> en JS para que el navegador pueda volver a pedir permiso de ubicación.</param>
+    private async Task LoadNearbyAsync(bool userRequestedGps = false)
     {
         var completed = false;
+        var lat = DefaultMapLatitude;
+        var lng = DefaultMapLongitude;
+        _mapContextHint = null;
 
         try
         {
-            var position = await JSRuntime.InvokeAsync<BrowserLocation>("comunaclic.getCurrentPosition");
-            _nearby = await BuyerApi.GetCategoryNearbyAsync(CategoryCode, position.Latitude, position.Longitude);
-            completed = true;
-
-            if (_nearby?.Businesses is null || _nearby.Businesses.Count == 0)
+            try
             {
-                _statusMessage = "Todavía no encontramos partners cercanos en esta categoría desde tu zona actual.";
+                var p = userRequestedGps
+                    ? await JSRuntime.InvokeAsync<BrowserLocationDto>("comunaclic.getCurrentPosition", new { forceFresh = true, timeout = 20000 })
+                    : await JSRuntime.InvokeAsync<BrowserLocationDto>("comunaclic.getCurrentPosition");
+                lat = p.Latitude;
+                lng = p.Longitude;
             }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Sin GPS: mapa con centro por defecto (Chile), sin bloque de aviso encima del mapa.
+            }
+
+            try
+            {
+                _nearby = await BuyerApi.GetCategoryNearbyAsync(
+                    CategoryCode,
+                    lat,
+                    lng,
+                    subcode: string.IsNullOrWhiteSpace(SubcategoryCode) ? null : SubcategoryCode.Trim());
+            }
+            catch (HttpRequestException)
+            {
+                if (string.IsNullOrEmpty(_mapContextHint))
+                {
+                    _mapContextHint = "No se pudo cargar el listado. Mostramos el mapa vacío; reintentá en unos minutos o usá el listado de negocios.";
+                }
+                _nearby = BuildEmptyMapView(CategoryCode, lat, lng);
+            }
+
+            if (_nearby is null)
+            {
+                if (string.IsNullOrEmpty(_mapContextHint))
+                {
+                    _mapContextHint = "No se pudo leer el mapa. Mostramos una vista vacía; reintentá o usá el listado de negocios.";
+                }
+                _nearby = BuildEmptyMapView(CategoryCode, lat, lng);
+            }
+
+            InitFilterStateFromData();
+            _scrollAfterMap = !string.IsNullOrWhiteSpace(SubcategoryCode);
+            completed = true;
         }
         catch (InvalidOperationException)
         {
             _loadAttempted = false;
+            _ = InvokeAsync(StateHasChanged);
             return;
-        }
-        catch (JSException)
-        {
-            _statusMessage = "No pudimos acceder a tu ubicación. Puedes permitirla y recargar para ver el mapa cercano.";
-        }
-        catch (HttpRequestException ex)
-        {
-            _statusMessage = $"No se pudo cargar el mapa cercano ({(int?)ex.StatusCode ?? 0}).";
         }
         finally
         {
-            if (completed || !string.IsNullOrWhiteSpace(_statusMessage))
+            if (completed || !string.IsNullOrWhiteSpace(_statusMessage) || _nearby is not null)
             {
                 _isLoading = false;
             }
         }
     }
 
+    private void InitFilterStateFromData()
+    {
+        _nameFilter = string.Empty;
+        _keywordFilter = string.Empty;
+        _onlyExactLocation = false;
+        _selectedTypes.Clear();
+        _selectedComunas.Clear();
+        _selectedSubcats.Clear();
+
+        var list = All().ToList();
+        if (list.Count == 0)
+        {
+            _distanceSliderMax = 50;
+            _maxDistanceKm = 50;
+            ComunaOptions = Array.Empty<string>();
+            SubcategoryOptions = Array.Empty<string>();
+            return;
+        }
+
+        _distanceSliderMax = Math.Max(5, Math.Ceiling(list.Max(b => b.DistanceKm) * 1.1));
+        if (_distanceSliderMax < 0.1)
+        {
+            _distanceSliderMax = 5;
+        }
+        _maxDistanceKm = _distanceSliderMax;
+
+        ComunaOptions = list
+            .Select(b => b.ComunaName)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        SubcategoryOptions = list
+            .Select(b => b.SubcategoryName)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private IEnumerable<CategoryNearbyBusinessItem> All()
+        => _nearby?.Businesses ?? Array.Empty<CategoryNearbyBusinessItem>();
+
+    private IReadOnlyList<CategoryNearbyBusinessItem> GetFilteredList()
+    {
+        if (_nearby?.Businesses is not { } src || src.Count == 0)
+        {
+            return Array.Empty<CategoryNearbyBusinessItem>();
+        }
+
+        return All()
+            .Where(b => ItemMatches(b, useType: true, useComuna: true, useSubcat: true))
+            .OrderBy(b => b.DistanceKm)
+            .ToList();
+    }
+
+    private static string TextSearchBlob(CategoryNearbyBusinessItem b)
+        => $"{b.Name} {b.Address} {b.ComunaName} {b.SubcategoryName} {b.CategoryName}";
+
+    private bool ItemMatches(CategoryNearbyBusinessItem b, bool useType, bool useComuna, bool useSubcat)
+    {
+        if (!string.IsNullOrWhiteSpace(_nameFilter))
+        {
+            var t = _nameFilter.Trim();
+            if (b.Name is null || !b.Name.Contains(t, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(_keywordFilter))
+        {
+            foreach (var w in _keywordFilter.Split(new[] { ' ', ',', ';', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (w.Length < 2)
+                {
+                    continue;
+                }
+                if (!TextSearchBlob(b).Contains(w, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (_onlyExactLocation && !b.UsesExactLocation)
+        {
+            return false;
+        }
+
+        if (b.DistanceKm > _maxDistanceKm)
+        {
+            return false;
+        }
+
+        if (useType && _selectedTypes.Count > 0 && (b.Type is null || !_selectedTypes.Contains(b.Type)))
+        {
+            return false;
+        }
+
+        if (useComuna && _selectedComunas.Count > 0)
+        {
+            if (b.ComunaName is null || !_selectedComunas.Contains(b.ComunaName))
+            {
+                return false;
+            }
+        }
+
+        if (useSubcat && _selectedSubcats.Count > 0)
+        {
+            if (b.SubcategoryName is null || !_selectedSubcats.Contains(b.SubcategoryName))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private int TypeFacetCount(string type)
+        => All().Count(b => string.Equals(b.Type, type, StringComparison.OrdinalIgnoreCase) && ItemMatches(b, useType: false, useComuna: true, useSubcat: true));
+
+    private int ComunaFacetCount(string comuna)
+        => All().Count(b => string.Equals(b.ComunaName, comuna, StringComparison.OrdinalIgnoreCase) && ItemMatches(b, useType: true, useComuna: false, useSubcat: true));
+
+    private int SubcatFacetCount(string sub)
+        => All().Count(b => string.Equals(b.SubcategoryName, sub, StringComparison.OrdinalIgnoreCase) && ItemMatches(b, useType: true, useComuna: true, useSubcat: false));
+
+    private async Task OnFiltersChangedAsync()
+    {
+        if (_mapRendered)
+        {
+            await RefreshMapMarkersAsync();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshMapMarkersAsync()
+    {
+        if (_nearby is null)
+        {
+            return;
+        }
+        try
+        {
+            var list = GetFilteredList();
+            var returnPath = GetPartnerDetailReturnForQuery();
+            await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, list, returnPath);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static bool CoerceBool(object? o)
+        => o switch
+        {
+            bool b => b,
+            string s => bool.TryParse(s, out var x) && x,
+            _ => false
+        };
+
+    private async Task OnExactLocationChanged(ChangeEventArgs e)
+    {
+        _onlyExactLocation = CoerceBool(e.Value);
+        await OnFiltersChangedAsync();
+    }
+
+    private async Task OnDistanceRangeInput(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v))
+        {
+            _maxDistanceKm = Math.Min(Math.Max(0, v), _distanceSliderMax);
+        }
+        await OnFiltersChangedAsync();
+    }
+
+    private async Task OnNameFilterInput(ChangeEventArgs e)
+    {
+        _nameFilter = e.Value?.ToString() ?? string.Empty;
+        await OnFiltersChangedAsync();
+    }
+
+    private async Task OnKeywordFilterInput(ChangeEventArgs e)
+    {
+        _keywordFilter = e.Value?.ToString() ?? string.Empty;
+        await OnFiltersChangedAsync();
+    }
+
+    private async Task OnTypeCheckChanged(ChangeEventArgs e, string code)
+    {
+        if (CoerceBool(e.Value))
+        {
+            _selectedTypes.Add(code);
+        }
+        else
+        {
+            _selectedTypes.Remove(code);
+        }
+        await OnFiltersChangedAsync();
+    }
+
+    private async Task OnComunaCheckChanged(ChangeEventArgs e, string comuna)
+    {
+        if (CoerceBool(e.Value))
+        {
+            _selectedComunas.Add(comuna);
+        }
+        else
+        {
+            _selectedComunas.Remove(comuna);
+        }
+        await OnFiltersChangedAsync();
+    }
+
+    private async Task OnSubcatCheckChanged(ChangeEventArgs e, string sub)
+    {
+        if (CoerceBool(e.Value))
+        {
+            _selectedSubcats.Add(sub);
+        }
+        else
+        {
+            _selectedSubcats.Remove(sub);
+        }
+        await OnFiltersChangedAsync();
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        InitFilterStateFromData();
+        if (_mapRendered)
+        {
+            await RefreshMapMarkersAsync();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static CategoryNearbyResponse BuildEmptyMapView(string categoryCode, double lat, double lng)
+        => new(
+            new PublicCategoryItem(Guid.Empty, categoryCode, categoryCode),
+            new NearbyPoint(lat, lng),
+            Array.Empty<CategoryNearbyBusinessItem>());
+
+    private static string PartnerTypeLabel(string? type)
+        => type switch
+        {
+            "A" => "Comercio",
+            "B" => "Servicios",
+            "C" => "Profesionales / consulta",
+            _ => "Negocio"
+        };
+
     private async Task RetryAsync()
     {
         _nearby = null;
         _statusMessage = null;
+        _mapContextHint = null;
         _isLoading = true;
         _mapRendered = false;
         _loadAttempted = true;
 
-        await LoadNearbyAsync();
+        await LoadNearbyAsync(userRequestedGps: true);
         await InvokeAsync(StateHasChanged);
     }
 
@@ -205,9 +794,14 @@ else if (_nearby is not null)
         }
     }
 
-    private sealed record BrowserLocation(
-        double Latitude,
-        double Longitude,
-        double Accuracy
-    );
+    /// <summary>Debe mapear el JSON de <c>getCurrentPosition</c> (claves <c>latitude</c> / <c>longitude</c>).</summary>
+    private sealed class BrowserLocationDto
+    {
+        [JsonPropertyName("latitude")]
+        public double Latitude { get; set; }
+        [JsonPropertyName("longitude")]
+        public double Longitude { get; set; }
+        [JsonPropertyName("accuracy")]
+        public double Accuracy { get; set; }
+    }
 }
