@@ -27,9 +27,9 @@
                             <a class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]"
                                href="/services-near"
                                @onclick="CloseMenu"
-                               title="@L.T("nav.location")">
-                                <span class="material-symbols-outlined text-[18px] leading-none text-primary xl:text-[20px]">location_on</span>
-                                <span class="hidden xl:inline">@L.T("nav.location")</span>
+                               title="@L.T("nav.favorites")">
+                                <span class="material-symbols-outlined text-[18px] leading-none text-primary xl:text-[20px]">bookmark</span>
+                                <span class="hidden xl:inline">@L.T("nav.favorites")</span>
                             </a>
                             <a class="shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]" href="/categorias" @onclick="CloseMenu">@L.T("nav.categories")</a>
                             <a class="shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]" href="/services" @onclick="CloseMenu">@L.T("nav.services")</a>
@@ -40,7 +40,10 @@
 
                 <div class="ml-auto flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 lg:ml-0 lg:gap-2.5">
                     <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/buyer/orders" @onclick="CloseMenu">@L.T("nav.myPurchases")</a>
-                    <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/top-rated" @onclick="CloseMenu">@L.T("nav.offers")</a>
+                    <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
+                    <div class="hidden items-center border-l border-gray-200 pl-2 lg:flex">
+                        <LanguageToggle />
+                    </div>
                     @if (AuthState.IsAuthenticated)
                     {
                         <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/buyer/profile" @onclick="CloseMenu">@L.T("nav.myAccount")</a>
@@ -56,9 +59,12 @@
                     }
                     else
                     {
-                        <a class="hidden shrink-0 whitespace-nowrap rounded-full border-2 border-primary bg-white px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/5 lg:inline sm:px-2.5 sm:text-xs xl:px-3 xl:text-sm"
-                           href="/register?intent=partner"
-                           @onclick="CloseMenu">@L.T("nav.register")</a>
+                        @if (!_hideRegisterCta)
+                        {
+                            <a class="hidden shrink-0 whitespace-nowrap rounded-full border-2 border-primary bg-white px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/5 lg:inline sm:px-2.5 sm:text-xs xl:px-3 xl:text-sm"
+                               href="/register?role=commerce"
+                               @onclick="CloseMenu">@L.T("nav.register")</a>
+                        }
                         <a class="shrink-0 whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-white shadow-sm hover:brightness-105 sm:px-3 sm:text-xs xl:px-4 xl:text-sm"
                            href="/login"
                            @onclick="CloseMenu">@L.T("nav.login")</a>
@@ -81,7 +87,7 @@
         <div class="max-h-[min(70vh,calc(100dvh-4.75rem-env(safe-area-inset-top,0px)))] overflow-y-auto border-t border-gray-100 bg-white px-4 py-3 shadow-inner lg:hidden">
             <div class="space-y-1 border-b border-gray-100 pb-3">
                 <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">@L.T("nav.secondaryNav")</p>
-                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/services-near" @onclick="CloseMenu">@L.T("nav.location")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/services-near" @onclick="CloseMenu">@L.T("nav.favorites")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/categorias" @onclick="CloseMenu">@L.T("nav.categories")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/services" @onclick="CloseMenu">@L.T("nav.services")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/professionals" @onclick="CloseMenu">@L.T("nav.professionals")</a>
@@ -92,7 +98,11 @@
                    @onclick="GoHome"
                    @onclick:preventDefault="true">@L.T("nav.home")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/buyer/orders" @onclick="CloseMenu">@L.T("nav.myPurchases")</a>
-                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/top-rated" @onclick="CloseMenu">@L.T("nav.offers")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
+                <div class="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">@L.T("nav.language")</span>
+                    <LanguageToggle />
+                </div>
                 @if (AuthState.IsAuthenticated)
                 {
                     <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/buyer/profile" @onclick="CloseMenu">@L.T("nav.myAccount")</a>
@@ -104,7 +114,10 @@
                 }
                 else
                 {
-                    <a class="block rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary" href="/register?intent=partner" @onclick="CloseMenu">@L.T("nav.register")</a>
+                    @if (!_hideRegisterCta)
+                    {
+                        <a class="block rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary" href="/register?role=commerce" @onclick="CloseMenu">@L.T("nav.register")</a>
+                    }
                 }
             </div>
         </div>
@@ -116,10 +129,32 @@
 @code {
     private bool _mobileMenuOpen;
     private bool _authInitialized;
+    private bool _hideRegisterCta;
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        Navigation.LocationChanged += OnLocationChanged;
+        RefreshRegisterVisibility();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        RefreshRegisterVisibility();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshRegisterVisibility()
+    {
+        try
+        {
+            var path = new Uri(Navigation.Uri).AbsolutePath;
+            _hideRegisterCta = path.StartsWith("/register", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            _hideRegisterCta = false;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -172,5 +207,6 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 }

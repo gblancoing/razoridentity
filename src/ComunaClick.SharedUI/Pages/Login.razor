@@ -23,21 +23,8 @@
         </div>
     </div>
     <!-- Right Side: Login Form -->
-    <div class="flex-1 flex flex-col">
-        <!-- Top App Bar -->
-        <div class="flex items-center bg-transparent p-4 pb-2 justify-between lg:px-8 gap-4">
-            <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
-            <LanguageToggle />
-            <div class="hidden sm:flex items-center gap-2">
-                <a class="bg-primary/10 hover:bg-primary/20 text-[#111816] dark:text-primary px-4 py-2 rounded-lg text-sm font-bold leading-normal transition-colors" href="/register?intent=buyer">
-                    Cuenta personal
-                </a>
-                <a class="bg-[#111816] hover:bg-[#1d2d29] text-white px-4 py-2 rounded-lg text-sm font-bold leading-normal transition-colors" href="/register?intent=partner">
-                    Registrar negocio
-                </a>
-            </div>
-        </div>
-        <div class="flex-1 flex items-center justify-center p-6 lg:p-12">
+    <div class="flex min-h-0 flex-1 flex-col">
+        <div class="flex flex-1 items-center justify-center p-6 lg:p-12">
             <div class="w-full max-w-[480px]">
                 <div class="mb-8">
                     <h2 class="text-[#111816] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">@L.T("login.form.title")</h2>
@@ -52,11 +39,20 @@
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="text-[#111816] dark:text-white text-base font-medium leading-normal pb-1">@L.T("login.password.label")
-                            <div class="flex w-full items-stretch rounded-lg group">
-                                <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl rounded-r-none border-r-0 text-[#111816] dark:bg-background-dark dark:text-white focus:outline-0 focus:ring-0 border border-[#dbe6e2] dark:border-[#2d4a41] bg-[#F0FDF4] h-14 placeholder:text-[#61897c] p-[15px] text-base font-normal leading-normal" placeholder="@L.T("login.password.placeholder")" type="password" @bind="Password" />
-                                <div class="text-[#61897c] flex border border-[#dbe6e2] dark:border-[#2d4a41] bg-[#F0FDF4] dark:bg-background-dark items-center justify-center pr-[15px] rounded-r-2xl border-l-0">
-                                    <span class="material-symbols-outlined cursor-pointer">visibility</span>
-                                </div>
+                            <div class="mt-1 flex w-full min-h-14 overflow-hidden rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] focus-within:ring-2 focus-within:ring-primary/40 dark:border-[#2d4a41] dark:bg-background-dark">
+                                <input class="form-input min-w-0 flex-1 border-0 bg-transparent py-[15px] pl-[15px] pr-2 text-[#111816] placeholder:text-[#61897c] focus:outline-none focus:ring-0 dark:text-white"
+                                       placeholder="@L.T("login.password.placeholder")"
+                                       type="@(_showPassword ? "text" : "password")"
+                                       autocomplete="current-password"
+                                       @bind="Password"
+                                       @bind:event="oninput" />
+                                <button type="button"
+                                        class="flex shrink-0 items-center justify-center border-l border-[#dbe6e2] bg-[#e6f4ea] px-3 text-[#4a5c52] transition hover:bg-[#d4eadc] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 dark:border-[#2d4a41] dark:bg-[#1a2e24] dark:text-[#9cb8a6] dark:hover:bg-[#243d32]"
+                                        @onclick="TogglePasswordVisibility"
+                                        aria-pressed="@_showPassword"
+                                        aria-label="@(_showPassword ? L.T("login.password.hide") : L.T("login.password.show"))">
+                                    <span class="material-symbols-outlined text-[22px]">@(_showPassword ? "visibility_off" : "visibility")</span>
+                                </button>
                             </div>
                         </label>
                     </div>
@@ -80,13 +76,20 @@
                         <div class="flex-grow border-t border-[#dbe6e2] dark:border-[#2d4a41]"></div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <button class="flex items-center justify-center gap-2 h-14 border border-[#dbe6e2] dark:border-[#2d4a41] rounded-xl bg-white dark:bg-background-dark hover:bg-gray-50 transition-colors" type="button">
-                            <span class="material-symbols-outlined text-red-500">google</span>
-                            <span class="text-[#111816] dark:text-white font-medium">Google</span>
+                        <button class="flex h-14 items-center justify-center gap-2.5 rounded-xl border border-[#dbe6e2] bg-white transition-colors hover:bg-gray-50 dark:border-[#2d4a41] dark:bg-background-dark dark:hover:bg-white/5" type="button" aria-label="Google">
+                            <svg class="h-6 w-6 shrink-0" viewBox="0 0 48 48" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.48 32.905 28.075 36 22 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                                <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
+                                <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.86 11.86 0 0 1 24 36c-5.222 0-9.652-3.342-11.303-8l-6.571 4.819C9.656 39.663 16.318 44 24 44z" />
+                                <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+                            </svg>
+                            <span class="font-medium text-[#111816] dark:text-white">Google</span>
                         </button>
-                        <button class="flex items-center justify-center gap-2 h-14 border border-[#dbe6e2] dark:border-[#2d4a41] rounded-xl bg-white dark:bg-background-dark hover:bg-gray-50 transition-colors" type="button">
-                            <span class="material-symbols-outlined text-blue-600">social_leaderboard</span>
-                            <span class="text-[#111816] dark:text-white font-medium">Facebook</span>
+                        <button class="flex h-14 items-center justify-center gap-2.5 rounded-xl border border-[#dbe6e2] bg-white transition-colors hover:bg-gray-50 dark:border-[#2d4a41] dark:bg-background-dark dark:hover:bg-white/5" type="button" aria-label="Facebook">
+                            <svg class="h-6 w-6 shrink-0" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                            </svg>
+                            <span class="font-medium text-[#111816] dark:text-white">Facebook</span>
                         </button>
                     </div>
                 </form>
@@ -94,9 +97,10 @@
                     <p>
                         @L.T("login.signup.text")
                     </p>
-                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                        <a class="text-primary font-bold hover:underline" href="/register?intent=buyer">Crear cuenta personal</a>
-                        <a class="text-primary font-bold hover:underline" href="/register?intent=partner">Registrar mi negocio</a>
+                    <div class="flex flex-col flex-wrap items-center justify-center gap-2 sm:flex-row sm:gap-4">
+                        <a class="text-primary font-bold hover:underline" href="/register?role=natural">@L.T("login.signup.personal")</a>
+                        <a class="text-primary font-bold hover:underline" href="/register?role=commerce">@L.T("login.signup.commercial")</a>
+                        <a class="text-primary font-bold hover:underline" href="/register?role=professional">@L.T("login.signup.professional")</a>
                     </div>
                 </div>
             </div>
@@ -111,6 +115,7 @@
 @code {
     private string Email = string.Empty;
     private string Password = string.Empty;
+    private bool _showPassword;
     private bool _isSubmitting;
     private string? _errorMessage;
     private bool _checkedAuth;
@@ -157,6 +162,8 @@
     {
         L.OnChange -= HandleChange;
     }
+
+    private void TogglePasswordVisibility() => _showPassword = !_showPassword;
 
     private static string BuildLoginHeroImageUrl()
     {

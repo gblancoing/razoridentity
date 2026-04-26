@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @using ComunaClick.SharedUI.Services
@@ -114,7 +114,7 @@
                    class="rounded-full bg-white text-primary px-8 sm:px-10 py-3 sm:py-3.5 text-sm font-extrabold shadow-lg hover:shadow-2xl hover:scale-105 active:scale-[0.99] transition-all duration-200">
                     @L.T("home.hero.ctaPrimary")
                 </a>
-                <a href="/register?intent=partner"
+                <a href="/register?role=commerce"
                    class="rounded-full border-2 border-white/50 bg-transparent px-8 sm:px-10 py-3 sm:py-3.5 text-sm font-bold text-white hover:bg-white/15 active:scale-[0.99] transition-all duration-200">
                     @L.T("nav.register")
                 </a>
@@ -336,7 +336,7 @@
                             <h3 class="text-xl sm:text-2xl font-black text-white leading-tight">¿Tienes un negocio local?</h3>
                             <p class="text-white/75 text-sm mt-1.5 max-w-sm">Llega a más clientes en tu comunidad. Gratis para empezar.</p>
                         </div>
-                        <a href="/register?intent=partner"
+                        <a href="/register?role=commerce"
                            class="shrink-0 rounded-2xl bg-white text-emerald-700 px-7 py-3.5 text-sm font-extrabold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200 whitespace-nowrap">
                             Publicar Gratis →
                         </a>

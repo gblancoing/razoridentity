@@ -57,6 +57,48 @@ window.comunaclic.setCustomerId = function (customerId) {
   }
 };
 
+/** JSON string: { "orderId": "…", "bookingId": "…" } (optional keys) for buyer "Mis compras" quick recall. */
+/** JSON global de favoritos: { "version":1, "users": { "correo@x.com": { "places":[], "businesses":[] } } } } */
+window.comunaclic.getFavoritesData = function () {
+  try {
+    return localStorage.getItem("comunaclic.favoritesData") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setFavoritesData = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.favoritesData");
+    } else {
+      localStorage.setItem("comunaclic.favoritesData", json);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+window.comunaclic.getLastTracking = function () {
+  try {
+    return localStorage.getItem("comunaclic.lastTracking") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setLastTracking = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.lastTracking");
+    } else {
+      localStorage.setItem("comunaclic.lastTracking", json);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 window.comunaclic.getDeviceType = function () {
   try {
     const width = window.innerWidth || 0;

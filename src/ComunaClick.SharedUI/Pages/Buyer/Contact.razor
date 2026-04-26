@@ -108,7 +108,7 @@ else
     private ComunaClick.Shared.Api.Buyer.Lead? _createdLead;
     private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
     private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
-    private string RegisterHref => $"/register?intent=buyer&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
+    private string RegisterHref => $"/register?role=natural&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

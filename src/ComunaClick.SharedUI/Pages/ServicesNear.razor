@@ -1,5 +1,266 @@
 @page "/services-near"
+@using ComunaClick.SharedUI.Services
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.SharedUI.Services.FavoritesLocalStore FavoritesStore
+@implements IDisposable
 
-<PageTitle>@L.T("page.services.title")</PageTitle>
-<PublicPage KeyPrefix="page.services" CtaKey="page.common.cta.explore" CtaHref="/categorias" />
+<PageTitle>@L.T("page.favorites.pageTitle")</PageTitle>
+
+<div class="min-h-screen bg-gradient-to-b from-[#e8f2ec] via-[#f3f5f4] to-white pb-16 pt-4 dark:from-[#0f1a16] dark:via-background-dark dark:to-background-dark sm:pt-6">
+    <div class="mx-auto max-w-5xl px-4 sm:px-6">
+        <div class="relative overflow-hidden rounded-[1.75rem] border border-[#dbe6e2]/80 bg-white/90 shadow-[0_24px_60px_-20px_rgba(59,103,0,0.18)] dark:border-white/10 dark:bg-[#152822]/95">
+            <div class="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/20 blur-3xl dark:bg-primary/10" aria-hidden="true"></div>
+            <div class="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl dark:bg-sky-500/5" aria-hidden="true"></div>
+
+            <div class="relative p-6 sm:p-10 lg:p-12">
+                <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-primary">@L.T("page.favorites.hero.eyebrow")</p>
+                <h1 class="mt-2 max-w-3xl text-3xl font-black leading-tight tracking-[-0.04em] text-[#111816] dark:text-white sm:text-4xl">
+                    @L.T("page.favorites.hero.title")
+                </h1>
+                <p class="mt-3 max-w-2xl text-base leading-relaxed text-[#61897c] sm:text-lg">
+                    @L.T("page.favorites.hero.subtitle")
+                </p>
+
+                @if (!_authReady)
+                {
+                    <div class="mt-10 flex items-center justify-center py-20">
+                        <div class="flex flex-col items-center gap-3 text-[#61897c]">
+                            <span class="inline-block h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true"></span>
+                            <p class="text-sm">@L.T("page.favorites.loading")</p>
+                        </div>
+                    </div>
+                }
+                else if (!AuthState.IsAuthenticated)
+                {
+                    <div class="mt-10 space-y-8">
+                        <div class="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#2d4a2c] dark:border-primary/20 dark:text-[#b8e6a5]">
+                            <span class="material-symbols-outlined text-base text-primary">lock</span>
+                            @L.T("page.favorites.guest.badge")
+                        </div>
+                        <h2 class="text-xl font-bold text-[#111816] dark:text-white sm:text-2xl">@L.T("page.favorites.guest.title")</h2>
+                        <p class="max-w-3xl text-[#4a5c52] dark:text-gray-300">@L.T("page.favorites.guest.lead")</p>
+
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <div class="group rounded-2xl border border-[#dbe6e2] bg-gradient-to-br from-white to-[#f4faf0] p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-white/10 dark:from-[#1a2e28] dark:to-[#10221c]">
+                                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                                    <span class="material-symbols-outlined">bookmark_added</span>
+                                </div>
+                                <h3 class="mt-4 font-bold text-[#111816] dark:text-white">@L.T("page.favorites.guest.card1.title")</h3>
+                                <p class="mt-2 text-sm leading-relaxed text-[#61897c]">@L.T("page.favorites.guest.card1.body")</p>
+                            </div>
+                            <div class="group rounded-2xl border border-[#dbe6e2] bg-gradient-to-br from-white to-[#f0f7ff] p-5 shadow-sm transition hover:border-sky-300/50 hover:shadow-md dark:border-white/10 dark:from-[#1a2e28] dark:to-[#10221c]">
+                                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                                    <span class="material-symbols-outlined">bolt</span>
+                                </div>
+                                <h3 class="mt-4 font-bold text-[#111816] dark:text-white">@L.T("page.favorites.guest.card2.title")</h3>
+                                <p class="mt-2 text-sm leading-relaxed text-[#61897c]">@L.T("page.favorites.guest.card2.body")</p>
+                            </div>
+                            <div class="group rounded-2xl border border-[#dbe6e2] bg-gradient-to-br from-white to-[#f8f4ff] p-5 shadow-sm transition hover:border-violet-300/50 hover:shadow-md dark:border-white/10 dark:from-[#1a2e28] dark:to-[#10221c] sm:col-span-1">
+                                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/15 text-violet-800 dark:text-violet-200">
+                                    <span class="material-symbols-outlined">groups</span>
+                                </div>
+                                <h3 class="mt-4 font-bold text-[#111816] dark:text-white">@L.T("page.favorites.guest.card3.title")</h3>
+                                <p class="mt-2 text-sm leading-relaxed text-[#61897c]">@L.T("page.favorites.guest.card3.body")</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap sm:items-center">
+                            <a class="inline-flex min-h-12 min-w-[200px] items-center justify-center rounded-2xl bg-primary px-6 py-3 text-center text-sm font-bold text-[#10221c] shadow-lg shadow-primary/25 transition hover:brightness-105"
+                               href="/login?returnUrl=/services-near">@L.T("page.favorites.cta.login")</a>
+                            <a class="inline-flex min-h-12 min-w-[200px] items-center justify-center rounded-2xl border-2 border-primary bg-white px-6 py-3 text-center text-sm font-bold text-primary transition hover:bg-primary/5 dark:bg-transparent"
+                               href="/register?role=natural">@L.T("page.favorites.cta.register")</a>
+                            <a class="inline-flex min-h-12 items-center justify-center rounded-2xl px-4 text-sm font-semibold text-[#61897c] underline-offset-2 hover:text-primary hover:underline"
+                               href="/categorias">@L.T("page.favorites.cta.explore")</a>
+                        </div>
+                    </div>
+                }
+                else if (_favoritesLoading)
+                {
+                    <div class="mt-10 flex items-center justify-center py-20">
+                        <div class="flex flex-col items-center gap-3 text-[#61897c]">
+                            <span class="inline-block h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true"></span>
+                            <p class="text-sm">@L.T("page.favorites.loading")</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <p class="mt-6 max-w-2xl text-sm leading-relaxed text-[#61897c]">@L.T("page.favorites.auth.subtitle")</p>
+
+                    <div class="mt-6 flex flex-wrap gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-[#dbe6e2] bg-[#f4faf0] px-3 py-1.5 text-xs font-semibold text-[#2d4a2c] dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+                            <span class="material-symbols-outlined text-[16px] text-primary">map</span>
+                            @L.T("page.favorites.badge.places"): @_bundle.Places.Count
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-[#dbe6e2] bg-[#f0f7ff] px-3 py-1.5 text-xs font-semibold text-sky-900 dark:border-white/10 dark:bg-sky-950/50 dark:text-sky-100">
+                            <span class="material-symbols-outlined text-[16px]">storefront</span>
+                            @L.T("page.favorites.badge.businesses"): @_bundle.Businesses.Count
+                        </span>
+                    </div>
+
+                    @if (_bundle.Places.Count == 0 && _bundle.Businesses.Count == 0)
+                    {
+                        <div class="mt-10 rounded-2xl border border-dashed border-primary/30 bg-primary/[0.04] p-8 text-center dark:bg-primary/5 sm:p-12">
+                            <span class="material-symbols-outlined text-4xl text-primary/70">favorite</span>
+                            <h2 class="mt-4 text-lg font-bold text-[#111816] dark:text-white sm:text-xl">@L.T("page.favorites.auth.emptyHeadline")</h2>
+                            <p class="mx-auto mt-2 max-w-md text-sm text-[#61897c]">@L.T("page.favorites.auth.emptyText")</p>
+                            <a class="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-[#10221c] shadow-md hover:brightness-105"
+                               href="/categorias">@L.T("page.favorites.cta.explore")</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+                            <section class="rounded-2xl border border-[#dbe6e2] bg-[#fafcfb] p-5 dark:border-white/10 dark:bg-[#1a2e28]/80">
+                                <h2 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#3b6700] dark:text-primary">
+                                    <span class="material-symbols-outlined">pin_drop</span>
+                                    @L.T("page.favorites.section.places")
+                                </h2>
+                                @if (_bundle.Places.Count == 0)
+                                {
+                                    <p class="mt-4 text-sm text-[#61897c]">@L.T("page.favorites.empty.places")</p>
+                                }
+                                else
+                                {
+                                    <ul class="mt-4 space-y-2">
+                                        @foreach (var p in _bundle.Places)
+                                        {
+                                            <li class="flex items-start gap-3 rounded-xl border border-[#dbe6e2]/80 bg-white p-3 dark:border-white/10 dark:bg-[#10221c]">
+                                                <span class="material-symbols-outlined mt-0.5 shrink-0 text-primary">location_on</span>
+                                                <div class="min-w-0">
+                                                    <p class="font-semibold text-[#111816] dark:text-white">@p.Label</p>
+                                                    @if (!string.IsNullOrWhiteSpace(p.Detail))
+                                                    {
+                                                        <p class="text-xs text-[#61897c]">@p.Detail</p>
+                                                    }
+                                                </div>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </section>
+                            <section class="rounded-2xl border border-[#dbe6e2] bg-[#fafcfb] p-5 dark:border-white/10 dark:bg-[#1a2e28]/80">
+                                <h2 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#3b6700] dark:text-primary">
+                                    <span class="material-symbols-outlined">store</span>
+                                    @L.T("page.favorites.section.businesses")
+                                </h2>
+                                @if (_bundle.Businesses.Count == 0)
+                                {
+                                    <p class="mt-4 text-sm text-[#61897c]">@L.T("page.favorites.empty.businesses")</p>
+                                }
+                                else
+                                {
+                                    <ul class="mt-4 space-y-2">
+                                        @foreach (var b in _bundle.Businesses)
+                                        {
+                                            <li>
+                                                <a class="flex items-start gap-3 rounded-xl border border-[#dbe6e2]/80 bg-white p-3 transition hover:border-primary/50 hover:shadow-sm dark:border-white/10 dark:bg-[#10221c] dark:hover:border-primary/40"
+                                                   href="@ResolveBusinessHref(b)">
+                                                    <span class="material-symbols-outlined mt-0.5 shrink-0 text-primary">storefront</span>
+                                                    <div class="min-w-0">
+                                                        <p class="font-semibold text-[#111816] dark:text-white">@b.Name</p>
+                                                        @if (!string.IsNullOrWhiteSpace(b.Comuna))
+                                                        {
+                                                            <p class="text-xs text-[#61897c]">@b.Comuna</p>
+                                                        }
+                                                    </div>
+                                                    <span class="material-symbols-outlined ml-auto shrink-0 text-[#7b8081] text-[20px]">chevron_right</span>
+                                                </a>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </section>
+                        </div>
+                    }
+
+                    <div class="mt-10 flex flex-wrap gap-3">
+                        <a class="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-[#10221c] shadow-md hover:brightness-105"
+                           href="/categorias">@L.T("page.favorites.cta.explore")</a>
+                        <a class="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#dbe6e2] px-5 py-2.5 text-sm font-semibold text-[#111816] hover:bg-gray-50 dark:border-white/15 dark:text-white dark:hover:bg-white/5"
+                           href="/">@L.T("page.favorites.backHome")</a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _authReady;
+    private bool _favoritesLoading;
+    private UserFavoritesBundle _bundle = new();
+    private bool _checkedAuth;
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleLocale;
+        AuthState.OnChange += HandleAuth;
+    }
+
+    private void HandleLocale() => _ = InvokeAsync(StateHasChanged);
+
+    private void HandleAuth() => _ = LoadFavoritesIfNeededAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _checkedAuth)
+        {
+            return;
+        }
+
+        _checkedAuth = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            _checkedAuth = false;
+            return;
+        }
+
+        _authReady = true;
+        await LoadFavoritesIfNeededAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadFavoritesIfNeededAsync()
+    {
+        if (!AuthState.IsAuthenticated || string.IsNullOrWhiteSpace(AuthState.Email))
+        {
+            _favoritesLoading = false;
+            _bundle = new UserFavoritesBundle();
+            return;
+        }
+
+        _favoritesLoading = true;
+        await InvokeAsync(StateHasChanged);
+
+        _bundle = await FavoritesStore.GetForUserAsync(AuthState.Email);
+        _favoritesLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string ResolveBusinessHref(FavoriteBusinessItem b)
+    {
+        if (!string.IsNullOrWhiteSpace(b.Href))
+        {
+            return b.Href;
+        }
+
+        if (!string.IsNullOrWhiteSpace(b.Id))
+        {
+            return $"/buyer/detail/partner/{b.Id}";
+        }
+
+        return "/categorias";
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleLocale;
+        AuthState.OnChange -= HandleAuth;
+    }
+}

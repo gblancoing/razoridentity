@@ -12,75 +12,132 @@
 <PageTitle>@L.T("buyer.orders.title")</PageTitle>
 
 <div class="space-y-8">
-    <section class="rounded-[2rem] bg-gradient-to-br from-[#f5f6f7] via-white to-[#eff1f2] border border-[#dadddf] px-8 py-10">
+    <section class="rounded-[2rem] bg-gradient-to-br from-[#f5f6f7] via-white to-[#eff1f2] border border-[#dadddf] px-6 py-8 sm:px-8 sm:py-10">
         <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div class="space-y-3">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Seguimiento buyer</p>
-                <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.orders.heading")</h1>
-                <p class="max-w-3xl text-sm text-[#595c5d]">Consulta el estado real de una orden o una reserva usando su identificador. La vista ahora muestra negocio, detalle, montos y fechas reales.</p>
+            <div class="max-w-3xl space-y-3">
+                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">@L.T("buyer.orders.eyebrow")</p>
+                <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30] sm:text-4xl">@L.T("buyer.orders.heading")</h1>
+                <p class="text-sm leading-relaxed text-[#595c5d]">@L.T("buyer.orders.subtitle")</p>
+                <a href="/categorias" class="mt-1 inline-flex text-sm font-semibold text-[#3b6700] hover:underline">@L.T("buyer.orders.tipCta")</a>
             </div>
-            <div class="w-full max-w-sm rounded-[1.75rem] bg-white p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)]">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Consejo rápido</p>
-                <p class="mt-3 text-sm text-[#595c5d]">Si llegas desde checkout o booking con `orderId` o `bookingId`, el seguimiento se cargará automáticamente.</p>
+            <div class="w-full max-w-sm rounded-[1.75rem] border border-white/60 bg-white/90 p-5 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)] sm:p-6">
+                <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7b8081]">@L.T("buyer.orders.tipTitle")</p>
+                <p class="mt-2 text-sm leading-relaxed text-[#595c5d]">@L.T("buyer.orders.tipBody")</p>
             </div>
         </div>
     </section>
 
-    <section class="bg-white border border-[#dadddf] rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <input class="rounded-2xl border border-[#dadddf] px-4 h-12" placeholder="OrderId" @bind="OrderId" />
-            <input class="rounded-2xl border border-[#dadddf] px-4 h-12" placeholder="BookingId" @bind="BookingId" />
+    <section class="rounded-[2rem] border border-[#dadddf] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] md:p-8">
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+            <div>
+                <label for="cc-order-id" class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#7b8081]">@L.T("buyer.orders.labelOrder")</label>
+                <input id="cc-order-id"
+                       class="mt-1.5 h-12 w-full rounded-2xl border border-[#dadddf] px-4 text-sm text-[#2c2f30] placeholder:text-[#9aa0a1]"
+                       placeholder="@L.T("buyer.orders.placeholderOrder")"
+                       autocomplete="off"
+                       @bind="OrderId" />
+            </div>
+            <div>
+                <label for="cc-booking-id" class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#7b8081]">@L.T("buyer.orders.labelBooking")</label>
+                <input id="cc-booking-id"
+                       class="mt-1.5 h-12 w-full rounded-2xl border border-[#dadddf] px-4 text-sm text-[#2c2f30] placeholder:text-[#9aa0a1]"
+                       placeholder="@L.T("buyer.orders.placeholderBooking")"
+                       autocomplete="off"
+                       @bind="BookingId" />
+            </div>
         </div>
-        <div class="mt-4 flex flex-wrap gap-3">
-            <button class="inline-flex items-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]" @onclick="HandleLookup">
-                Consultar seguimiento
+        <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <button type="button"
+                    class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-6 py-3 text-sm font-bold text-[#d9ffad] sm:min-w-[200px]"
+                    @onclick="HandleLookup">
+                @L.T("buyer.orders.consultCta")
             </button>
-            <a href="/buyer/profile" class="inline-flex items-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">
-                Ver mi perfil buyer
-            </a>
+            <a href="/buyer/profile" class="text-center text-sm font-semibold text-[#3b6700] hover:underline sm:ml-2 sm:text-left">@L.T("buyer.orders.profileLink")</a>
         </div>
+
+        @if (_hasRecentIds)
+        {
+            <div class="mt-6 border-t border-[#e8ebed] pt-5">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("buyer.orders.recentLabel")</p>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    @if (HasRecentOrder)
+                    {
+                        <div class="inline-flex items-center gap-1 rounded-2xl border border-[#dadddf] bg-[#f8faf8] pl-3 pr-1 py-1 text-sm text-[#2c2f30]">
+                            <span class="text-xs text-[#595c5d]">@L.T("buyer.orders.recentOrder")</span>
+                            <span class="font-mono text-xs">@ShortIdDisplay(_recentOrderId!)</span>
+                            <button type="button" class="rounded-xl px-2 py-1 text-xs font-bold text-[#3b6700] hover:bg-[#e8f5d9]" @onclick="UseRecentOrderAsync">@L.T("buyer.orders.recentUse")</button>
+                        </div>
+                    }
+                    @if (HasRecentBooking)
+                    {
+                        <div class="inline-flex items-center gap-1 rounded-2xl border border-[#dadddf] bg-[#f8faf8] pl-3 pr-1 py-1 text-sm text-[#2c2f30]">
+                            <span class="text-xs text-[#595c5d]">@L.T("buyer.orders.recentBooking")</span>
+                            <span class="font-mono text-xs">@ShortIdDisplay(_recentBookingId!)</span>
+                            <button type="button" class="rounded-xl px-2 py-1 text-xs font-bold text-[#3b6700] hover:bg-[#e8f5d9]" @onclick="UseRecentBookingAsync">@L.T("buyer.orders.recentUse")</button>
+                        </div>
+                    }
+                    <button type="button" class="ml-0 text-xs font-semibold text-[#8a8f90] hover:text-[#2c2f30] sm:ml-2" @onclick="ClearRecentAsync">@L.T("buyer.orders.clearRecent")</button>
+                </div>
+            </div>
+        }
+
         @if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
-            <div class="mt-4">
+            <div class="mt-5">
                 <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
             </div>
         }
     </section>
 
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ORDEN</p>
-            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_order is null ? "--" : ShortId(_order.Id))</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Estado actual: @(_order?.Status ?? "Sin consulta")</p>
-        </article>
-        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">RESERVA</p>
-            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_booking is null ? "--" : ShortId(_booking.Id))</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Estado actual: @(_booking?.Status ?? "Sin consulta")</p>
-        </article>
-        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">MOVIMIENTO</p>
-            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusHeadline</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">@StatusBody</p>
-        </article>
-    </section>
+    @if (!_browserCustomerReady || _isLoading)
+    {
+        <section class="rounded-[1.5rem] border border-[#dadddf] bg-white p-6">
+            <BrandedLoading Title="@L.T("buyer.orders.loadingTitle")" Message="@L.T("buyer.orders.loadingMessage")" Compact="true" />
+        </section>
+    }
+    else if (_order is null && _booking is null)
+    {
+        <section class="rounded-[1.5rem] border border-dashed border-[#c9ced1] bg-[#fafbfb] p-6 text-center sm:p-8">
+            <p class="text-lg font-black tracking-[-0.02em] text-[#2c2f30]">@L.T("buyer.orders.emptyStripTitle")</p>
+            <p class="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-[#595c5d]">@L.T("buyer.orders.emptyStripBody")</p>
+            <a href="/categorias" class="mt-4 inline-flex items-center justify-center rounded-2xl border border-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#3b6700] hover:bg-[#f4f9ef]">@L.T("buyer.orders.emptyBrowse")</a>
+        </section>
+    }
+    else
+    {
+        <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <article class="rounded-2xl border border-[#e8ebed] bg-white p-5 shadow-sm">
+                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081]">@L.T("buyer.orders.cardOrder")</p>
+                <h2 class="mt-1 text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@(_order is null ? "—" : ShortId(_order.Id))</h2>
+                <p class="mt-1 text-xs text-[#595c5d]">@L.T("buyer.orders.stateLabel"): @(_order is null ? L.T("buyer.orders.stateNoQuery") : LocalizedOrderStatus(_order.Status))</p>
+            </article>
+            <article class="rounded-2xl border border-[#e8ebed] bg-white p-5 shadow-sm">
+                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081]">@L.T("buyer.orders.cardBooking")</p>
+                <h2 class="mt-1 text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@(_booking is null ? "—" : ShortId(_booking.Id))</h2>
+                <p class="mt-1 text-xs text-[#595c5d]">@L.T("buyer.orders.stateLabel"): @(_booking is null ? L.T("buyer.orders.stateNoQuery") : LocalizedBookingStatus(_booking.Status))</p>
+            </article>
+            <article class="rounded-2xl border border-[#e8ebed] bg-white p-5 shadow-sm md:col-span-1">
+                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081]">@L.T("buyer.orders.cardMovement")</p>
+                <h2 class="mt-1 text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("buyer.orders.stateUpdated")</h2>
+                <p class="mt-1 text-xs text-[#595c5d]">@L.T("buyer.orders.stateUpdatedBody")</p>
+            </article>
+        </section>
+    }
 
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <section class="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <div class="flex items-center justify-between gap-4 mb-6">
-                <div>
-                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-2">Pedido</p>
-                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Tus órdenes</h2>
-                </div>
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <section class="rounded-[2rem] border border-[#dadddf] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] md:p-8">
+            <div class="mb-5">
+                <p class="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#7b8081]">@L.T("buyer.orders.sectionOrderLabel")</p>
+                <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30] sm:text-2xl">@L.T("buyer.orders.sectionOrderTitle")</h2>
             </div>
 
-            @if (_isLoading)
+            @if (!_browserCustomerReady || _isLoading)
             {
-                <BrandedLoading Title="Cargando seguimiento" Message="Estamos consultando el estado real de tu orden o reserva." Compact="true" />
+                <BrandedLoading Title="@L.T("buyer.orders.loadingTitle")" Message="@L.T("buyer.orders.loadingMessage")" Compact="true" />
             }
             else if (_order is null)
             {
-                <StatusBanner Message="Ingresa un `OrderId` válido para ver el seguimiento detallado del pedido." Level="warning" />
+                <StatusBanner Message="@L.T("buyer.orders.emptyOrderDetail")" Level="info" />
             }
             else
             {
@@ -89,36 +146,36 @@
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@(_order.Partner?.Name ?? "Negocio asociado")</p>
-                                <p class="text-sm text-[#595c5d] mt-2">@FormatOrderStatus(_order.Status)</p>
+                                <p class="mt-2 text-sm text-[#595c5d]">@FormatOrderStatus(_order.Status)</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Total</p>
+                                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">Total</p>
                                 <p class="text-2xl font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(_order.TotalAmount, _order.Currency)</p>
                             </div>
                         </div>
-                        <div class="mt-4 grid grid-cols-2 gap-4 text-sm text-[#595c5d]">
+                        <div class="mt-4 grid grid-cols-1 gap-3 text-sm text-[#595c5d] sm:grid-cols-2 sm:gap-4">
                             <p><span class="font-bold text-[#2c2f30]">Creada:</span> @_order.CreatedAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
                             <p><span class="font-bold text-[#2c2f30]">Actualizada:</span> @_order.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
                             @if (!string.IsNullOrWhiteSpace(_order.Partner?.Address))
                             {
-                                <p><span class="font-bold text-[#2c2f30]">Dirección:</span> @_order.Partner.Address</p>
+                                <p class="sm:col-span-2"><span class="font-bold text-[#2c2f30]">Dirección:</span> @_order.Partner.Address</p>
                             }
                             @if (!string.IsNullOrWhiteSpace(_order.Partner?.Phone))
                             {
-                                <p><span class="font-bold text-[#2c2f30]">Contacto:</span> @_order.Partner.Phone</p>
+                                <p class="sm:col-span-2"><span class="font-bold text-[#2c2f30]">Contacto:</span> @_order.Partner.Phone</p>
                             }
                         </div>
                     </article>
 
                     <div class="space-y-3">
-                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Productos</p>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">Productos</p>
                         @foreach (var item in _order.Items ?? Array.Empty<ComunaClick.Shared.Api.Buyer.OrderTrackingItem>())
                         {
                             <article class="rounded-3xl border border-[#dadddf] p-5">
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
                                         <p class="text-base font-black tracking-[-0.02em] text-[#2c2f30]">@item.ProductName</p>
-                                        <p class="text-sm text-[#595c5d] mt-1">Cantidad: @item.Quantity · Unitario: @FormatMoney(item.UnitPrice, _order.Currency)</p>
+                                        <p class="mt-1 text-sm text-[#595c5d]">Cantidad: @item.Quantity · Unitario: @FormatMoney(item.UnitPrice, _order.Currency)</p>
                                     </div>
                                     <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(item.TotalPrice, _order.Currency)</p>
                                 </div>
@@ -129,21 +186,19 @@
             }
         </section>
 
-        <section class="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <div class="flex items-center justify-between gap-4 mb-6">
-                <div>
-                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-2">Reserva</p>
-                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Tus reservas</h2>
-                </div>
+        <section class="rounded-[2rem] border border-[#dadddf] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] md:p-8">
+            <div class="mb-5">
+                <p class="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#7b8081]">@L.T("buyer.orders.sectionBookingLabel")</p>
+                <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30] sm:text-2xl">@L.T("buyer.orders.sectionBookingTitle")</h2>
             </div>
 
-            @if (_isLoading)
+            @if (!_browserCustomerReady || _isLoading)
             {
-                <BrandedLoading Title="Cargando seguimiento" Message="Estamos consultando el estado real de tu orden o reserva." Compact="true" />
+                <BrandedLoading Title="@L.T("buyer.orders.loadingTitle")" Message="@L.T("buyer.orders.loadingMessage")" Compact="true" />
             }
             else if (_booking is null)
             {
-                <StatusBanner Message="Ingresa un `BookingId` válido para ver el seguimiento detallado de la reserva." Level="warning" />
+                <StatusBanner Message="@L.T("buyer.orders.emptyBookingDetail")" Level="info" />
             }
             else
             {
@@ -152,10 +207,10 @@
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@(_booking.Service?.Name ?? "Servicio reservado")</p>
-                                <p class="text-sm text-[#595c5d] mt-2">@FormatBookingStatus(_booking.Status)</p>
+                                <p class="mt-2 text-sm text-[#595c5d]">@FormatBookingStatus(_booking.Status)</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Monto</p>
+                                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">Monto</p>
                                 <p class="text-2xl font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(_booking.Amount, _booking.Currency)</p>
                             </div>
                         </div>
@@ -193,7 +248,7 @@
                     @if (!string.IsNullOrWhiteSpace(_booking.Service?.Description))
                     {
                         <article class="rounded-3xl border border-[#dadddf] p-5">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Detalle del servicio</p>
+                            <p class="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">Detalle del servicio</p>
                             <p class="text-sm leading-7 text-[#595c5d]">@_booking.Service.Description</p>
                         </article>
                     }
@@ -213,11 +268,12 @@
     private bool _isLoading;
     private Guid? _customerId;
     private bool _browserCustomerReady;
+    private string? _recentOrderId;
+    private string? _recentBookingId;
 
-    private string StatusHeadline => _order is null && _booking is null ? "Sin consulta" : "Seguimiento actualizado";
-    private string StatusBody => _order is null && _booking is null
-        ? "Carga una orden o una reserva para ver el seguimiento real."
-        : "La información se muestra con datos reales del pedido o la reserva consultada.";
+    private bool HasRecentOrder => !string.IsNullOrWhiteSpace(_recentOrderId) && Guid.TryParse(_recentOrderId, out _);
+    private bool HasRecentBooking => !string.IsNullOrWhiteSpace(_recentBookingId) && Guid.TryParse(_recentBookingId, out _);
+    private bool _hasRecentIds;
 
     protected override void OnInitialized()
     {
@@ -247,6 +303,8 @@
                 _customerId = customerId;
             }
 
+            await LoadRecentTrackingFromStorageAsync();
+
             _browserCustomerReady = true;
 
             if (!string.IsNullOrWhiteSpace(OrderId) || !string.IsNullOrWhiteSpace(BookingId))
@@ -262,6 +320,78 @@
         }
     }
 
+    private async Task LoadRecentTrackingFromStorageAsync()
+    {
+        try
+        {
+            var raw = await JSRuntime.InvokeAsync<string>("comunaclic.getLastTracking");
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.TryGetProperty("orderId", out var o) && o.ValueKind == JsonValueKind.String)
+            {
+                var s = o.GetString();
+                if (!string.IsNullOrWhiteSpace(s) && Guid.TryParse(s, out _))
+                {
+                    _recentOrderId = s;
+                }
+            }
+            if (doc.RootElement.TryGetProperty("bookingId", out var b) && b.ValueKind == JsonValueKind.String)
+            {
+                var s = b.GetString();
+                if (!string.IsNullOrWhiteSpace(s) && Guid.TryParse(s, out _))
+                {
+                    _recentBookingId = s;
+                }
+            }
+
+            _hasRecentIds = HasRecentOrder || HasRecentBooking;
+        }
+        catch (JsonException)
+        {
+        }
+    }
+
+    private async Task UseRecentOrderAsync()
+    {
+        if (!HasRecentOrder)
+        {
+            return;
+        }
+        OrderId = _recentOrderId!;
+        BookingId = string.Empty;
+        await HandleLookup();
+    }
+
+    private async Task UseRecentBookingAsync()
+    {
+        if (!HasRecentBooking)
+        {
+            return;
+        }
+        OrderId = string.Empty;
+        BookingId = _recentBookingId!;
+        await HandleLookup();
+    }
+
+    private async Task ClearRecentAsync()
+    {
+        _recentOrderId = null;
+        _recentBookingId = null;
+        _hasRecentIds = false;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.setLastTracking");
+        }
+        catch
+        {
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
     private async Task HandleLookup()
     {
         _statusMessage = string.Empty;
@@ -274,7 +404,7 @@
         {
             if (_customerId is null || _customerId == Guid.Empty)
             {
-                _statusMessage = "No encontramos tu CustomerId local. Ingresa a tu perfil buyer o vuelve a iniciar sesión antes de consultar seguimiento.";
+                _statusMessage = L.T("buyer.orders.customerMissing");
                 _statusLevel = "warning";
                 return;
             }
@@ -296,13 +426,14 @@
             }
             else
             {
-                _statusMessage = "Seguimiento cargado correctamente.";
+                _statusMessage = L.T("buyer.status.lookupOk");
                 _statusLevel = "success";
+                await PersistLastTrackingFromInputsAsync();
             }
         }
-        catch (HttpRequestException ex)
+        catch (HttpRequestException)
         {
-            _statusMessage = $"No se pudo consultar el seguimiento ({(int?)ex.StatusCode ?? 0}).";
+            _statusMessage = L.T("buyer.orders.trackingError");
             _statusLevel = "error";
         }
         finally
@@ -311,13 +442,80 @@
         }
     }
 
+    private async Task PersistLastTrackingFromInputsAsync()
+    {
+        try
+        {
+            string? o = _recentOrderId;
+            string? b = _recentBookingId;
+            var raw = await JSRuntime.InvokeAsync<string>("comunaclic.getLastTracking");
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                using var prior = JsonDocument.Parse(raw);
+                if (prior.RootElement.TryGetProperty("orderId", out var po) && po.ValueKind == JsonValueKind.String)
+                {
+                    var t = po.GetString();
+                    if (!string.IsNullOrWhiteSpace(t) && Guid.TryParse(t, out _)) o = t;
+                }
+                if (prior.RootElement.TryGetProperty("bookingId", out var pb) && pb.ValueKind == JsonValueKind.String)
+                {
+                    var t = pb.GetString();
+                    if (!string.IsNullOrWhiteSpace(t) && Guid.TryParse(t, out _)) b = t;
+                }
+            }
+
+            if (Guid.TryParse(OrderId, out _)) o = OrderId;
+            if (Guid.TryParse(BookingId, out _)) b = BookingId;
+
+            var map = new Dictionary<string, string>();
+            if (!string.IsNullOrWhiteSpace(o) && Guid.TryParse(o, out _)) map["orderId"] = o;
+            if (!string.IsNullOrWhiteSpace(b) && Guid.TryParse(b, out _)) map["bookingId"] = b;
+
+            if (map.Count == 0)
+            {
+                return;
+            }
+
+            await JSRuntime.InvokeVoidAsync("comunaclic.setLastTracking", JsonSerializer.Serialize(map));
+            _recentOrderId = map.GetValueOrDefault("orderId");
+            _recentBookingId = map.GetValueOrDefault("bookingId");
+            _hasRecentIds = HasRecentOrder || HasRecentBooking;
+        }
+        catch
+        {
+        }
+    }
+
     private void HandleChange()
     {
-        InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private static string ShortId(Guid id)
         => id.ToString()[..8];
+
+    private static string? ShortIdDisplay(string id)
+    {
+        if (Guid.TryParse(id, out var g)) return g.ToString()[..8] + "…";
+        if (id.Length > 8) return id[..8] + "…";
+        return id;
+    }
+
+    private string LocalizedOrderStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return "—";
+        var key = "buyer.track.order." + status;
+        var t = L.T(key);
+        return t == key ? status : t;
+    }
+
+    private string LocalizedBookingStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return "—";
+        var key = "buyer.track.booking." + status;
+        var t = L.T(key);
+        return t == key ? status : t;
+    }
 
     private static string FormatMoney(double amount, string? currency)
         => string.IsNullOrWhiteSpace(currency) ? $"${amount:N0}" : $"{currency} {amount:N0}";

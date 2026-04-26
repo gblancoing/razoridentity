@@ -14,18 +14,13 @@
 
 <PageTitle>Registro de Negocio - ComunaClic</PageTitle>
 
-<div class="min-h-screen bg-[#f7fbf9] dark:bg-background-dark">
-    <header class="sticky top-0 z-50 w-full bg-white dark:bg-background-dark border-b border-[#dbe6e2] dark:border-white/10">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <a class="material-symbols-outlined text-[#111816] dark:text-white cursor-pointer" href="/register">arrow_back</a>
-                <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
-            </div>
-            <LanguageToggle />
-        </div>
-    </header>
-
-    <main class="max-w-5xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-[#f3f5f4] dark:bg-background-dark">
+    <main class="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <a href="/register"
+           class="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[#3b6700] hover:underline dark:text-primary">
+            <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+            Volver a elegir tipo de registro
+        </a>
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <aside class="lg:col-span-2 bg-white dark:bg-[#1a2e28] rounded-2xl border border-[#dbe6e2] dark:border-white/10 p-6 space-y-4">
                 <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">Activación</p>
@@ -50,7 +45,7 @@
 
             @if (_loadingAuth)
             {
-                <BrandedLoading Title="Cargando sesion" Message="Estamos validando tu acceso antes de crear el negocio." />
+                <BrandedLoading Title="Cargando sesión" Message="Estamos validando tu acceso antes de crear el negocio." />
             }
             else if (!_ready)
             {
@@ -196,6 +191,33 @@
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        ApplyDefaultTypeFromQuery();
+    }
+
+    private void ApplyDefaultTypeFromQuery()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var q = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return;
+        }
+
+        foreach (var pair in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "defaultType", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var v = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            if (v is "A" or "B" or "C")
+            {
+                _model.Type = v;
+            }
+            return;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

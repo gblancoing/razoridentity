@@ -80,7 +80,7 @@ public sealed class SiteContentService
             "Explorar categorías",
             "/categorias",
             "Registrar negocio",
-            "/register?intent=partner");
+            "/register?role=commerce");
 
         public static readonly FooterContentDto Footer = new(
             "© 2026 ComunaClic. Impulsando el comercio local.",
