@@ -10,14 +10,15 @@
                 <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
             </a>
             <div class="hidden md:flex items-center gap-4">
-                <a class="text-sm font-medium hover:text-primary transition-colors" href="/" @onclick="CloseMenu">Inicio</a>
+                <a class="text-sm font-medium hover:text-primary transition-colors" href="/" @onclick="CloseMenu">@L.T("nav.home")</a>
+                <a class="text-sm font-medium hover:text-primary transition-colors" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
                 <LanguageToggle />
                 <a class="text-sm font-medium hover:text-primary transition-colors" href="/help">@L.T("nav.help")</a>
                 @if (AuthState.IsAuthenticated)
                 {
                     <button type="button"
                             class="rounded-full border-2 border-primary px-4 py-2 text-sm font-bold text-primary bg-white hover:bg-primary/10 transition-colors"
-                            @onclick="HandleLogout">
+                            @onclick="HandleLogout"> <span class="material-symbols-outlined text-[18px]">logout</span>
                         @L.T("nav.logout")
                     </button>
                 }
@@ -42,13 +43,14 @@
         @if (_mobileMenuOpen)
         {
             <div class="md:hidden border-t border-gray-200 dark:border-gray-800 py-3 space-y-2">
-                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/" @onclick="CloseMenu">Inicio</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/" @onclick="CloseMenu">@L.T("nav.home")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/help" @onclick="CloseMenu">@L.T("nav.help")</a>
                 @if (AuthState.IsAuthenticated)
                 {
                     <button type="button"
                             class="block w-full text-left rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary bg-white hover:bg-primary/10"
-                            @onclick="HandleLogout">
+                            @onclick="HandleLogout"> <span class="material-symbols-outlined text-[18px]">logout</span>
                         @L.T("nav.logout")
                     </button>
                 }
