@@ -8,12 +8,12 @@
 <PageTitle>@L.T("home.title")</PageTitle>
 
 <PublicNav />
-<div class="relative overflow-hidden bg-[linear-gradient(180deg,#f6fbf8_0%,#eef6f1_46%,#ffffff_100%)]">
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(circle_at_top_left,rgba(167,242,85,0.24),transparent_46%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.18),transparent_34%)]"></div>
+<div class="relative overflow-hidden bg-[linear-gradient(180deg,#ffe36b_0%,#fff4bc_16%,#f5f5f5_28%,#ffffff_100%)]">
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.55),transparent_34%),radial-gradient(circle_at_top_right,rgba(255,214,10,0.24),transparent_36%)]"></div>
 
     <section class="max-w-7xl mx-auto px-4 pt-6 pb-8 relative">
-        <div class="grid grid-cols-1 xl:grid-cols-[1.35fr_0.8fr] gap-6 items-stretch">
-            <div class="rounded-[2rem] overflow-hidden bg-cover bg-center bg-no-repeat shadow-[0_30px_90px_-42px_rgba(0,0,0,0.38)] ring-1 ring-black/5"
+        <div class="grid grid-cols-1 xl:grid-cols-[1.55fr_0.75fr] gap-6 items-stretch">
+            <div class="rounded-[2rem] overflow-hidden bg-cover bg-center bg-no-repeat shadow-[0_30px_90px_-42px_rgba(0,0,0,0.32)] ring-1 ring-black/5"
                  data-alt="Fotografía de feria y vida de barrio con negocios locales"
                  style="@HeroStyle">
                 <div class="min-h-[38rem] bg-[linear-gradient(135deg,rgba(7,14,12,0.76)_0%,rgba(12,31,25,0.52)_45%,rgba(14,49,34,0.28)_100%)] p-7 sm:p-10 lg:p-12 flex flex-col justify-between gap-10">
@@ -55,7 +55,7 @@
 
                         <div class="flex flex-wrap items-center gap-3">
                             <a href="@(_siteContent?.Home.PrimaryCtaHref ?? "/buyer")"
-                               class="rounded-full bg-[#a7f255] px-6 py-3 text-sm font-black uppercase tracking-[0.12em] text-[#111816] shadow-[0_18px_28px_-20px_rgba(167,242,85,0.9)]">
+                               class="rounded-full bg-[#ffe000] px-6 py-3 text-sm font-black uppercase tracking-[0.12em] text-[#111816] shadow-[0_18px_28px_-20px_rgba(255,224,0,0.9)]">
                                 @(_siteContent?.Home.PrimaryCtaLabel ?? "Comprar y reservar")
                             </a>
                             <a href="@(_siteContent?.Home.SecondaryCtaHref ?? "/register?intent=partner")"
@@ -63,60 +63,71 @@
                                 @(_siteContent?.Home.SecondaryCtaLabel ?? "Publicar para vender")
                             </a>
                         </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-[760px]">
+                            <div class="rounded-[1.35rem] border border-white/18 bg-white/10 px-4 py-4 backdrop-blur-sm">
+                                <p class="text-[11px] font-black uppercase tracking-[0.16em] text-white/70">Compra</p>
+                                <p class="mt-2 text-sm font-semibold leading-6 text-white">Encuentra productos y vitrinas activas cerca de ti.</p>
+                            </div>
+                            <div class="rounded-[1.35rem] border border-white/18 bg-white/10 px-4 py-4 backdrop-blur-sm">
+                                <p class="text-[11px] font-black uppercase tracking-[0.16em] text-white/70">Reserva</p>
+                                <p class="mt-2 text-sm font-semibold leading-6 text-white">Agenda servicios desde fichas simples y claras.</p>
+                            </div>
+                            <div class="rounded-[1.35rem] border border-white/18 bg-white/10 px-4 py-4 backdrop-blur-sm">
+                                <p class="text-[11px] font-black uppercase tracking-[0.16em] text-white/70">Vende</p>
+                                <p class="mt-2 text-sm font-semibold leading-6 text-white">Publica tu negocio y empieza a captar pedidos.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 gap-6">
-                <article class="rounded-[2rem] border border-[#d8e6de] bg-white/95 p-6 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.28)] backdrop-blur">
-                    <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081]">Tu comuna hoy</p>
-                    <h2 class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#111816]">Todo lo que necesitas para comprar, reservar o captar clientes desde una sola portada.</h2>
-                    <p class="mt-3 text-sm leading-7 text-[#595c5d]">
-                        Entra directo a categorías con oferta disponible, servicios reservables y vitrinas listas para convertir visitas en ventas.
-                    </p>
+                <article class="rounded-[2rem] border border-[#ead686] bg-white/96 p-6 shadow-[0_20px_46px_-34px_rgba(0,0,0,0.24)] backdrop-blur">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#8a6b00]">Marketplace local</p>
+                            <h2 class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#111816]">Compra por categoría, entra a la vitrina y avanza rápido al siguiente paso.</h2>
+                            <p class="mt-3 text-sm leading-7 text-[#595c5d]">
+                                La portada prioriza búsqueda, categorías y oferta activa para que encontrar algo útil tome menos tiempo.
+                            </p>
+                        </div>
+                        <span class="material-symbols-outlined text-[#ffb300] text-4xl">local_mall</span>
+                    </div>
 
                     <div class="mt-6 grid grid-cols-3 gap-3">
-                        <div class="rounded-[1.35rem] bg-[#f5f8f6] p-4">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#7b8081]">Categorías</p>
+                        <div class="rounded-[1.35rem] bg-[#fff8dc] p-4">
+                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#8a6b00]">Categorías</p>
                             <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_allCategories.Count == 0 ? "--" : _allCategories.Count.ToString())</p>
-                            <p class="mt-2 text-xs text-[#595c5d]">familias activas</p>
+                            <p class="mt-2 text-xs text-[#6b6350]">para explorar</p>
                         </div>
-                        <div class="rounded-[1.35rem] bg-[#f5f8f6] p-4">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#7b8081]">Partners</p>
+                        <div class="rounded-[1.35rem] bg-[#fff8dc] p-4">
+                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#8a6b00]">Tiendas</p>
                             <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_featuredBusinesses.Count == 0 ? "--" : _featuredBusinesses.Count.ToString())</p>
-                            <p class="mt-2 text-xs text-[#595c5d]">en portada hoy</p>
+                            <p class="mt-2 text-xs text-[#6b6350]">en portada</p>
                         </div>
-                        <div class="rounded-[1.35rem] bg-[#f5f8f6] p-4">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#7b8081]">Servicios</p>
+                        <div class="rounded-[1.35rem] bg-[#fff8dc] p-4">
+                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#8a6b00]">Reservas</p>
                             <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_featuredServices.Count == 0 ? "--" : _featuredServices.Count.ToString())</p>
-                            <p class="mt-2 text-xs text-[#595c5d]">listos para reservar</p>
+                            <p class="mt-2 text-xs text-[#6b6350]">disponibles</p>
                         </div>
                     </div>
                 </article>
 
-                <article class="rounded-[2rem] bg-[#111816] p-6 text-white shadow-[0_24px_50px_-36px_rgba(0,0,0,0.65)]">
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-white/55">Cómo funciona</p>
-                            <h3 class="mt-3 text-xl font-black tracking-[-0.03em]">Empieza buscando y termina comprando o reservando sin fricción.</h3>
-                        </div>
-                        <span class="material-symbols-outlined text-[#a7f255] text-4xl">sell</span>
-                    </div>
-                    <div class="mt-6 space-y-3 text-sm text-white/80">
-                        <div class="flex items-start gap-3">
-                            <span class="material-symbols-outlined text-[#a7f255]">category</span>
-                            <p>Entra por categoría y ve primero la oferta con más probabilidad de compra.</p>
-                        </div>
-                        <div class="flex items-start gap-3">
-                            <span class="material-symbols-outlined text-[#a7f255]">storefront</span>
-                            <p>Abre vitrinas con llamados a la acción listos para vender más rápido.</p>
-                        </div>
-                        <div class="flex items-start gap-3">
-                            <span class="material-symbols-outlined text-[#a7f255]">event_available</span>
-                            <p>Reserva servicios o sigue tu compra desde la misma experiencia.</p>
-                        </div>
-                    </div>
-                </article>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <article class="rounded-[1.75rem] bg-white/92 px-5 py-5 border border-[#e7e7e7] shadow-[0_16px_36px_-30px_rgba(0,0,0,0.24)]">
+                        <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#3483fa]">Para comprar</p>
+                        <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#111816]">Explora vitrinas locales con acceso directo a contacto y detalle.</h3>
+                    </article>
+                    <article class="rounded-[1.75rem] bg-[#3483fa] px-5 py-5 text-white shadow-[0_20px_40px_-30px_rgba(52,131,250,0.65)]">
+                        <p class="text-[10px] uppercase tracking-[0.18em] font-black text-white/70">Para vender</p>
+                        <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-white">Activa tu negocio y muéstrate donde la gente ya está buscando.</h3>
+                        <a href="/register?intent=partner" class="inline-flex items-center gap-2 mt-4 text-sm font-bold text-white">
+                            <span>Quiero vender aquí</span>
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        </a>
+                    </article>
+                </div>
 
                 @if (_searchLoading)
                 {
@@ -206,37 +217,30 @@
     </section>
 
     <section class="max-w-7xl mx-auto px-4 pb-6 relative">
-        <div class="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr_0.95fr] gap-4">
-            <article class="rounded-[1.75rem] border border-[#dae6de] bg-white px-6 py-5 shadow-[0_16px_44px_-32px_rgba(0,0,0,0.22)]">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#7b8081]">Compra local</p>
-                <h3 class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#111816]">ComunaClic junta descubrimiento, intención y conversión en una sola portada.</h3>
-                <p class="mt-3 text-sm leading-7 text-[#595c5d]">La home está pensada para llevar al usuario desde la exploración hasta la compra o reserva con menos pasos y más claridad.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <article class="rounded-[1.75rem] border border-[#ece1a4] bg-white px-6 py-5 shadow-[0_16px_44px_-32px_rgba(0,0,0,0.2)]">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#8a6b00]">Envío y coordinación</p>
+                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#111816]">Conecta rápido con negocios locales para concretar tu compra.</h3>
             </article>
-            <article class="rounded-[1.75rem] bg-[#eff7eb] px-6 py-5 border border-[#d4e7c9]">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#5b6a4b]">Para ti</p>
-                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#24401d]">Compara mejor y decide más rápido.</h3>
-                <p class="mt-3 text-sm leading-7 text-[#46613d]">Menos ruido, más oferta visible, más rutas directas a compra y reserva.</p>
+            <article class="rounded-[1.75rem] border border-[#dbe8ff] bg-[#f3f8ff] px-6 py-5">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#3483fa]">Reserva simple</p>
+                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#103a7c]">Servicios visibles, horarios claros y menos vueltas para agendar.</h3>
             </article>
-            <article class="rounded-[1.75rem] bg-[#111816] px-6 py-5 text-white shadow-[0_20px_40px_-30px_rgba(0,0,0,0.75)]">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-white/55">Para negocios</p>
-                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-white">Más visibilidad, más clics útiles y más oportunidades de venta.</h3>
-                <a href="/register?intent=partner" class="inline-flex items-center gap-2 mt-4 text-sm font-bold text-[#a7f255]">
-                    <span>Quiero vender aquí</span>
-                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                </a>
+            <article class="rounded-[1.75rem] border border-[#d8e6de] bg-white px-6 py-5">
+                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#5a6b63]">Negocios activos</p>
+                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#111816]">Más categorías, más vitrinas y mejores rutas para comprar cerca de ti.</h3>
             </article>
         </div>
     </section>
 
     <main class="max-w-7xl mx-auto px-4 pb-14">
-        <div class="grid grid-cols-1 xl:grid-cols-[1fr_22rem] gap-8 items-start">
-            <div class="space-y-12">
+        <div class="space-y-12">
                 <section class="rounded-[2rem] border border-[#dae6de] bg-white p-6 md:p-8 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.18)]">
                     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
                         <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Entradas de compra</p>
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Categorías destacadas</p>
                             <h2 class="text-[#111816] text-3xl font-black tracking-[-0.04em]">@L.T("home.categories.title")</h2>
-                            <p class="mt-2 text-sm text-[#595c5d]">Estas son las categorías con oferta activa para comprar, reservar o descubrir negocios ahora mismo.</p>
+                            <p class="mt-2 text-sm text-[#595c5d]">Estas son las categorías con oferta activa para comprar, reservar o entrar directo a negocios de tu zona.</p>
                         </div>
                         <a class="text-primary font-bold text-sm" href="/categorias">@L.T("home.categories.viewAll")</a>
                     </div>
@@ -276,9 +280,9 @@
                 <section class="space-y-6">
                     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 px-1">
                         <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Negocios para comprar</p>
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Tiendas destacadas</p>
                             <h2 class="text-[#111816] text-3xl font-black tracking-[-0.04em]">@L.T("home.featured.title")</h2>
-                            <p class="mt-2 text-sm text-[#595c5d]">Vitrinas destacadas para empujar descubrimiento, confianza y acción comercial.</p>
+                            <p class="mt-2 text-sm text-[#595c5d]">Vitrinas locales listas para que descubras productos, contacto y siguientes pasos de compra.</p>
                         </div>
                         <a class="text-primary font-bold text-sm" href="/buyer/home">Explorar más</a>
                     </div>
@@ -335,7 +339,7 @@
                         <div>
                             <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Servicios para reservar</p>
                             <h2 class="text-[#111816] text-3xl font-black tracking-[-0.04em]">Servicios destacados</h2>
-                            <p class="mt-2 text-sm text-[#595c5d]">Servicios priorizados para que la reserva ocurra rápido y con buena información.</p>
+                            <p class="mt-2 text-sm text-[#595c5d]">Servicios activos para que reserves rápido desde una experiencia más directa.</p>
                         </div>
                         <a class="text-primary font-bold text-sm" href="/buyer/home">Ver servicios</a>
                     </div>
@@ -386,71 +390,6 @@
                         </div>
                     }
                 </section>
-            </div>
-
-            <aside class="space-y-6 xl:sticky xl:top-24">
-                <div class="rounded-[2rem] border border-[#dae6de] bg-white p-6 shadow-[0_18px_44px_-32px_rgba(0,0,0,0.18)]">
-                    <div class="flex items-center justify-between gap-4 mb-5">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081]">Confianza</p>
-                            <h3 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#111816]">@L.T("home.news.title")</h3>
-                        </div>
-                        <span class="material-symbols-outlined text-primary text-3xl">newspaper</span>
-                    </div>
-                    @if (_newsCards.Count == 0)
-                    {
-                        <p class="text-sm text-gray-500">No hay noticias para mostrar ahora.</p>
-                    }
-                    else
-                    {
-                        <div class="space-y-4">
-                            @foreach (var news in _newsCards)
-                            {
-                                <a href="@news.Href" target="_blank" rel="noopener noreferrer" class="group block rounded-[1.35rem] border border-[#e6eee9] p-4 hover:bg-[#f7fbf8] transition-colors">
-                                    <span class="@news.TagCss">@news.Tag</span>
-                                    <h4 class="mt-2 text-sm font-bold leading-7 text-[#2c2f30] group-hover:text-primary">@news.Title</h4>
-                                    <p class="text-xs text-gray-500 mt-2">@news.TimeLabel</p>
-                                </a>
-                            }
-                        </div>
-                        <a href="@NewsMoreHref" target="_blank" rel="noopener noreferrer" class="block w-full mt-5 py-3 border border-[#dbe6e2] rounded-2xl text-sm font-bold text-center">
-                            @L.T("home.news.button")
-                        </a>
-                    }
-                </div>
-
-                <div class="rounded-[2rem] bg-[#111816] p-6 text-white shadow-[0_22px_50px_-34px_rgba(0,0,0,0.62)]">
-                    <div class="flex items-center justify-between gap-4 mb-5">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-white/55">Urgencia local</p>
-                            <h3 class="mt-2 text-2xl font-black tracking-[-0.03em] text-white">@L.T("home.events.title")</h3>
-                        </div>
-                        <span class="material-symbols-outlined text-[#a7f255] text-3xl">event</span>
-                    </div>
-                    @if (_eventCards.Count == 0)
-                    {
-                        <p class="text-sm text-white/70">No hay eventos próximos por ahora.</p>
-                    }
-                    else
-                    {
-                        <div class="space-y-4">
-                            @foreach (var eventCard in _eventCards)
-                            {
-                                <div class="flex gap-4 items-center rounded-[1.35rem] border border-white/10 bg-white/5 p-4">
-                                    <div class="flex flex-col items-center justify-center bg-[#a7f255] text-[#10221c] rounded-[1rem] w-14 h-14 shrink-0">
-                                        <span class="text-[10px] uppercase font-black">@eventCard.MonthLabel</span>
-                                        <span class="text-lg font-black leading-none">@eventCard.DayLabel</span>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-bold leading-6">@eventCard.Title</h4>
-                                        <p class="text-xs text-white/70 mt-1">@eventCard.TimeLabel</p>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            </aside>
         </div>
     </main>
 </div>
