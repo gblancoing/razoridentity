@@ -161,7 +161,7 @@
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         @foreach (var category in _categories)
                         {
-                            var image = CategoryVisualService.ResolveImage(category.Code, category.Name);
+                            var image = GetCategoryImage(category);
                             <a href="@GetCategoryHref(category)"
                                class="group cursor-pointer bg-cover bg-center flex flex-col gap-3 rounded-xl justify-end p-4 aspect-square transition-transform hover:scale-[1.02]"
                                style="@BuildCategoryStyle(image)">
@@ -388,7 +388,7 @@
                     .Where(x => !string.IsNullOrWhiteSpace(x.Name))
                     .GroupBy(x => NormalizeCategoryName(x.Name))
                     .Select(g => g
-                        .OrderByDescending(x => !string.IsNullOrWhiteSpace(CategoryVisualService.ResolveImage(x.Code, x.Name)))
+                        .OrderByDescending(HasCategoryImage)
                         .ThenBy(x => x.Name)
                         .First())
                     .ToList();
@@ -456,6 +456,14 @@
             ? $"/categorias/{slug}"
             : $"/categorias/{slug}?code={Uri.EscapeDataString(code)}";
     }
+
+    private static string? GetCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => !string.IsNullOrWhiteSpace(category.ImageUrl)
+            ? category.ImageUrl
+            : CategoryVisualService.ResolveImage(category.Code, category.Name);
+
+    private static bool HasCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => !string.IsNullOrWhiteSpace(GetCategoryImage(category));
 
     private async Task ExecuteSearchAsync()
     {

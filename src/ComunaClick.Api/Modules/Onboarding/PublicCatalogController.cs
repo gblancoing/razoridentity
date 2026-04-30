@@ -36,7 +36,8 @@ public sealed class PublicCatalogController : ControllerBase
             {
                 x.Id,
                 x.Code,
-                x.Name
+                x.Name,
+                x.ImageUrl
             })
             .ToList();
 
@@ -237,7 +238,8 @@ public sealed class PublicCatalogController : ControllerBase
             {
                 category.Id,
                 category.Code,
-                category.Name
+                category.Name,
+                category.ImageUrl
             },
             Subcategories = subcategories.Select(x => new
             {

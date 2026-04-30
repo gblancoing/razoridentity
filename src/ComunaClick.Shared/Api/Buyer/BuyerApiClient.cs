@@ -538,7 +538,8 @@ public sealed record TenantResolution(
 public sealed record PublicCategoryItem(
     Guid Id,
     string Code,
-    string Name
+    string Name,
+    string? ImageUrl
 );
 
 public sealed record PublicSiteContentResponse(

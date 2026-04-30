@@ -183,6 +183,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             entity.Property(x => x.Code).HasColumnName("code").IsRequired();
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.ImageUrl).HasColumnName("image_url");
             entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
             entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity.HasIndex(x => x.Code).IsUnique();

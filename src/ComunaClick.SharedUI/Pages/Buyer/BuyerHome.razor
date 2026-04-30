@@ -35,7 +35,7 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 @foreach (var category in _categories)
                 {
-                    var image = CategoryVisualService.ResolveImage(category.Code, category.Name);
+                    var image = GetCategoryImage(category);
                     <a href="@GetCategoryHref(category)"
                        class="group min-h-[180px] rounded-xl overflow-hidden bg-cover bg-center flex items-end p-4 transition-transform hover:scale-[1.02]"
                         style="@BuildCategoryStyle(image)">
@@ -88,7 +88,7 @@
                     .Where(x => !string.IsNullOrWhiteSpace(x.Name))
                     .GroupBy(x => NormalizeCategoryName(x.Name))
                     .Select(g => g
-                        .OrderByDescending(x => !string.IsNullOrWhiteSpace(CategoryVisualService.ResolveImage(x.Code, x.Name)))
+                        .OrderByDescending(HasCategoryImage)
                         .ThenBy(x => x.Name)
                         .First()));
             }
@@ -110,6 +110,14 @@
 
     private string GetCategoryHref(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
         => $"/categorias/{CategoryVisualService.ToSlug(category.Code, category.Name)}?code={Uri.EscapeDataString(category.Code)}";
+
+    private static string? GetCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => !string.IsNullOrWhiteSpace(category.ImageUrl)
+            ? category.ImageUrl
+            : CategoryVisualService.ResolveImage(category.Code, category.Name);
+
+    private static bool HasCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => !string.IsNullOrWhiteSpace(GetCategoryImage(category));
 
     private static string BuildCategoryStyle(string? image)
     {

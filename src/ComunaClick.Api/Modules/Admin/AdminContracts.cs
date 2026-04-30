@@ -64,6 +64,7 @@ public sealed record AdminCategoryListItemDto(
     Guid Id,
     string Code,
     string Name,
+    string? ImageUrl,
     int SortOrder,
     bool IsActive,
     int SubcategoryCount);
