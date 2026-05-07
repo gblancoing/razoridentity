@@ -1,0 +1,869 @@
+@page "/EventoPdf"
+@model RazorIdentity.Pages.EventoPdfModel
+@{
+    ViewData["Title"] = Model.Evento != null ? $"Evento #{Model.Evento.Id}" : "Evento";
+    Layout = "_Layout";
+}
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+@* ========== INICIO: Código que afecta al PDF generado (Imprimir / Guardar como PDF) ========== *@
+@* El PDF se dispara con window.print() en los botones (líneas ~49 y ~85). El navegador imprime la página aplicando solo @media print. *@
+<style>
+    /* ========== Estilos del informe: pantalla + PDF (misma apariencia) ========== */
+    .print-report-area,
+    .print-report-area *:not(.material-icons) {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    }
+    .print-report-area .informe-evento-rit { padding: 1rem 1.25rem !important; }
+    .print-report-area .informe-evento-rit section { padding-bottom: 0.5rem !important; }
+    .print-report-area .informe-evento-rit .space-y-6 > * + * { margin-top: 0.25rem !important; }
+    .print-report-area .informe-evento-rit section > div > .grid { gap: 0.35rem 0.75rem !important; }
+    .print-report-area .informe-evento-rit dl.grid { gap: 0.2rem 0.5rem !important; }
+    .print-report-area .informe-evento-rit hr { margin: 0.75rem 0 !important; }
+    .print-report-area .report-aside { padding: 1rem !important; }
+    .print-report-area .informe-evento-rit .border-b-2.pb-6 { padding-bottom: 0.5rem !important; }
+    .print-report-area .informe-evento-rit .border-b-2.mb-8 { margin-bottom: 0.5rem !important; }
+    /* Título principal: mayúscula, negro, negrita */
+    .print-report-area .informe-evento-rit h2 {
+        font-size: 1.5rem !important;
+        font-weight: 900 !important;
+        color: #0f172a !important;
+        letter-spacing: -0.025em !important;
+        font-style: italic !important;
+        text-transform: uppercase !important;
+    }
+    /* Resto de secciones: títulos de celda unificados (negro y negrita, mismo tamaño) */
+    .print-report-area .informe-evento-rit h3:not(.informe-h3-identificacion),
+    .print-report-area .informe-evento-rit h4.section-title:not(.informe-h4-documentacion) {
+        font-size: 11px !important;
+        font-weight: 900 !important;
+        color: #0f172a !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.35rem !important;
+    }
+    .print-report-area .informe-evento-rit h4:not(.section-title) {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.1rem !important;
+    }
+    /* Contenido (valores) en el resto del informe */
+    .print-report-area .informe-evento-rit p.font-medium:not(.informe-card-identificacion p),
+    .print-report-area .informe-evento-rit dd:not(.informe-dl-documentacion dd),
+    .print-report-area .informe-evento-rit .space-y-6 p.text-slate-800:not(.informe-card-identificacion p),
+    .print-report-area .informe-evento-rit .space-y-6 .text-slate-800:not(.informe-card-identificacion .text-slate-800),
+    .print-report-area .informe-evento-rit div p.text-slate-800:not(.informe-card-identificacion p) {
+        font-size: 10px !important;
+        font-weight: 400 !important;
+        color: #64748b !important;
+    }
+    .print-report-area .informe-evento-rit p.text-slate-500,
+    .print-report-area .informe-evento-rit .text-slate-500 { font-weight: 400 !important; color: #64748b !important; }
+    .print-report-area .informe-evento-rit .text-slate-500 { color: #64748b !important; }
+    .print-report-area .informe-evento-rit .text-slate-400 { color: #94a3b8 !important; }
+    /* Aside: títulos (etiquetas) negro, contenido gris */
+    .print-report-area .report-aside .flex-col.gap-1 > span {
+        font-size: 9px !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        letter-spacing: 0.2em !important;
+        text-transform: uppercase !important;
+    }
+    .print-report-area .report-aside .flex-col.gap-1 > p,
+    .print-report-area .report-aside p {
+        font-size: 12px !important;
+        font-weight: 400 !important;
+        color: #64748b !important;
+    }
+    .print-report-area .report-aside .flex-col.gap-1 > p.font-mono {
+        font-size: 11px !important;
+        padding: 0.4rem 0.5rem !important;
+        border-radius: 0.25rem !important;
+    }
+    .print-report-area .report-aside .flex.items-center.gap-2 {
+        font-size: 12px !important;
+        font-weight: 400 !important;
+        color: #64748b !important;
+    }
+    .print-report-area .report-aside .font-black { font-weight: 400 !important; color: #64748b !important; }
+
+    /* Descripción e imagen: 50% texto | 50% imagen (apertura y cierre) */
+    .print-report-area .informe-evento-rit .informe-apertura-mitades,
+    .print-report-area .informe-evento-rit .informe-cierre-mitades {
+        grid-template-columns: 1fr 1fr !important;
+    }
+    @@media (max-width: 767px) {
+        .print-report-area .informe-evento-rit .informe-apertura-mitades,
+        .print-report-area .informe-evento-rit .informe-cierre-mitades {
+            grid-template-columns: 1fr !important;
+        }
+    }
+    /* Imágenes del informe: centradas y tamaño máximo (pantalla: 8cm x 12cm; PDF: más pequeño para 1 hoja por sección) */
+    .print-report-area .informe-evento-rit .informe-adjuntos-grid {
+        justify-items: center !important;
+    }
+    .print-report-area .informe-evento-rit .informe-adjuntos-grid img {
+        display: block !important;
+        max-width: 8cm !important;
+        max-height: 12cm !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    .print-report-area .informe-evento-rit .informe-adjuntos-grid > div {
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+    .print-report-area .informe-evento-rit .informe-adjuntos-grid a[href] {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+
+    /* ========== IMAGEN 1: Identificación del evento (sobrescribe arriba) ========== */
+    .print-report-area .informe-h3-identificacion {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+        font-size: 11px !important;
+        font-weight: 400 !important;
+        color: #475569 !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.5rem !important;
+    }
+    .print-report-area .informe-h3-identificacion::before,
+    .print-report-area .informe-h3-identificacion::after {
+        content: '' !important;
+        flex: 1 !important;
+        height: 1px !important;
+        background: #e2e8f0 !important;
+    }
+    .print-report-area .informe-card-identificacion {
+        background: #fff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 0.5rem !important;
+        padding: 0.6rem 0.75rem !important;
+    }
+    .print-report-area .informe-card-identificacion h4 {
+        font-size: 9px !important;
+        font-weight: 400 !important;
+        color: #64748b !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.2rem !important;
+    }
+    .print-report-area .informe-card-identificacion p.font-medium,
+    .print-report-area .informe-card-identificacion p.text-slate-500 {
+        font-weight: 400 !important;
+    }
+    .print-report-area .informe-card-identificacion p.font-medium {
+        font-size: 12px !important;
+        color: #0f172a !important;
+    }
+    .print-report-area .informe-card-identificacion p.text-slate-500 {
+        font-size: 10px !important;
+        color: #475569 !important;
+    }
+    /* ========== IMAGEN 2: Documentación de respaldo (sobrescribe arriba) ========== */
+    .print-report-area .informe-h4-documentacion {
+        font-size: 11px !important;
+        font-weight: 900 !important;
+        color: #0f172a !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+        border-left: 2px dashed #cbd5e1 !important;
+        padding-left: 0.5rem !important;
+        margin-bottom: 0.4rem !important;
+    }
+    .print-report-area .informe-block-documentacion {
+        background: #fff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 0.5rem !important;
+        padding: 0.6rem 0.75rem !important;
+    }
+    .print-report-area .informe-dl-documentacion dt {
+        font-size: 9px !important;
+        font-weight: 400 !important;
+        color: #0f172a !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.1rem !important;
+    }
+    .print-report-area .informe-dl-documentacion dd {
+        font-size: 11px !important;
+        font-weight: 400 !important;
+        color: #64748b !important;
+    }
+
+    @@media print {
+        /* PDF: tamaño carta, ocultar header/footer. El resto de estilos se heredan del bloque anterior. */
+        @@page { size: letter; margin: 10mm; }
+        html, body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: 0 !important;
+            height: auto !important;
+            background: #fff !important;
+        }
+        body > header,
+        body > footer { display: none !important; }
+        .no-print { display: none !important; }
+        body > main {
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: 0 !important;
+            flex: none !important;
+        }
+        #evento-pdf-container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        /* Solo el grid del layout de la página (hijo directo), no los grid del informe */
+        #evento-pdf-container > .grid {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            gap: 0 !important;
+        }
+        #evento-pdf-container > .grid > .print-report-parent {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+        }
+        .print-report-area {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
+            min-height: 0 !important;
+        }
+        .print-report-area .report-aside {
+            display: flex !important;
+            flex-direction: column !important;
+            flex-shrink: 0 !important;
+            width: 14rem !important;
+            min-width: 14rem !important;
+            padding: 1.5rem !important;
+            background: #f8fafc !important;
+            border-right: 1px solid #e2e8f0 !important;
+        }
+        .print-report-area .informe-evento-rit {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        .print-report-area .report-aside { padding: 1rem !important; }
+        .print-report-area .informe-evento-rit section > div > .grid {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+        }
+        .print-report-area .informe-evento-rit dl.grid {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+        }
+        .print-report-area .report-aside .border-t { border-color: #e2e8f0 !important; }
+        .print-report-area .informe-evento-rit hr { border-color: #cbd5e1 !important; }
+        .print-report-area .informe-evento-rit .border-b-2 { border-bottom-color: rgba(13, 148, 136, 0.3) !important; }
+        .print-report-area .informe-evento-rit .rounded-full { background-color: #f1f5f9 !important; color: #475569 !important; border-color: #e2e8f0 !important; }
+        .rounded-xl { border-radius: 0.5rem; }
+        /* Imágenes de apertura y cierre: tamaño reducido en PDF para que cada sección quepa en 1 hoja */
+        .print-report-area .informe-evento-rit .informe-adjuntos-grid img {
+            max-width: 6.5cm !important;
+            max-height: 5.5cm !important;
+        }
+        /* Anexo Imagen 3 (mapa): usar todo el ancho del informe en PDF */
+        .print-report-area .informe-evento-rit .informe-anexo-mapa,
+        .print-report-area .informe-evento-rit .informe-anexo-mapa > div {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        /* Contenedor mapa: altura ≈ 60% del ancho (reducción ~40% respecto a cuadrado) */
+        .print-report-area .informe-evento-rit .informe-mapa-wrap {
+            aspect-ratio: 5/3 !important;
+        }
+        .print-report-area .informe-evento-rit .informe-img-mapa {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            display: block !important;
+        }
+        /* Forzar layout mitad y mitad en PDF: descripción | imagen (igual que en pantalla) */
+        .print-report-area .informe-evento-rit .informe-apertura-mitades,
+        .print-report-area .informe-evento-rit .informe-cierre-mitades {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 0.75rem 1rem !important;
+            align-items: start !important;
+        }
+        /* Evitar que la sección descripción+imagen se parta entre páginas */
+        .print-report-area .informe-apertura-mitades,
+        .print-report-area .informe-cierre-mitades {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+        }
+    }
+    .print-only { display: none; }
+    .forum-thread-line { position: relative; margin-left: 1rem; padding-left: 1.5rem; border-left: 2px solid rgb(226 232 240); }
+    .dark .forum-thread-line { border-left-color: rgb(30 41 59); }
+    .report-aside { min-width: 14rem; }
+    #modalCierreEvento::backdrop { background: rgba(0,0,0,0.5); }
+    #modalReasignarEvento::backdrop { background: rgba(0,0,0,0.5); }
+</style>
+@* Contenedor de la página. En impresión solo se muestra lo que está dentro de .print-report-area (línea ~99). *@
+<div id="evento-pdf-container" class="max-w-[1400px] mx-auto px-4 py-6 lg:py-8">
+    <div class="no-print flex items-center justify-between mb-6 flex-wrap gap-3">
+        <a asp-page="/RitWeb" asp-route-tab="eventos" class="text-sm font-medium text-ritweb-teal hover:underline">← Volver a Ver Eventos</a>
+        <div class="flex items-center gap-2 flex-wrap">
+            @if (Model.Evento != null && !Model.Evento.FechaCierre.HasValue && Model.EventoRequiereCierre)
+            {
+                <button type="button" onclick="document.getElementById('modalCierreEvento').showModal();" class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold transition-colors">
+                    <span class="material-icons text-lg">lock</span> Cerrar evento
+                </button>
+            }
+            @if (Model.Evento != null && Model.PuedeReasignar)
+            {
+                <button type="button" onclick="document.getElementById('modalReasignarEvento').showModal();" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-sm font-bold transition-colors" title="Reasignar evento a otra disciplina y usuario">
+                    <span class="material-icons text-lg">person_add</span> Reasignar
+                </button>
+            }
+            <button type="button" onclick="window.print();" class="inline-flex items-center gap-2 px-4 py-2 bg-ritweb-teal text-white rounded-lg text-sm font-bold hover:bg-ritweb-teal/90" title="Abre el cuadro de impresión del navegador para guardar como PDF">
+                <span class="material-icons text-lg">picture_as_pdf</span> Imprimir / Guardar como PDF
+            </button>
+        </div>
+    </div>
+    @if (Model.Evento != null && !string.IsNullOrWhiteSpace(Model.MensajeCierre))
+    {
+        <div class="no-print mb-4 px-4 py-3 rounded-xl text-sm @(Model.MensajeCierre.Contains("correctamente") ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800" : "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800")">@Model.MensajeCierre</div>
+    }
+    @if (Model.Evento != null && !string.IsNullOrWhiteSpace(Model.MensajeReasignar))
+    {
+        <div class="no-print mb-4 px-4 py-3 rounded-xl text-sm @(Model.MensajeReasignar.Contains("correctamente") ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800" : "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800")">@Model.MensajeReasignar</div>
+    }
+    @if (Model.Error != null)
+    {
+        <p class="text-red-600 dark:text-red-400 p-4">@Model.Error</p>
+    }
+    else if (Model.Evento != null)
+    {
+        var e = Model.Evento;
+        var estadoAbierto = Model.EventoRequiereCierre && !e.FechaCierre.HasValue;
+        <div class="no-print flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <a asp-page="/RitWeb" asp-route-tab="eventos" class="hover:text-ritweb-teal">Ver Eventos</a>
+            <span class="material-icons text-xs">chevron_right</span>
+            <span class="text-slate-900 dark:text-slate-100 font-medium">Evento #@e.Id</span>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div class="print-report-parent lg:col-span-8 space-y-6">
+                <div class="no-print flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <div class="@(estadoAbierto ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20") p-2 rounded-lg border">
+                            <span class="material-icons">@(estadoAbierto ? "warning" : "check_circle")</span>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100">@Model.TipoEventoNombre</h1>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">@(estadoAbierto ? "Abierto" : "Cerrado") · @Model.CriticidadNombre</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="window.print();" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        <span class="material-icons text-slate-600 dark:text-slate-400">picture_as_pdf</span>
+                    </button>
+                </div>
+                @{
+                    var criticidadPct = Model.CriticidadNombre != null && Model.CriticidadNombre.ToUpperInvariant().Contains("ALTA") ? 85
+                        : Model.CriticidadNombre != null && Model.CriticidadNombre.ToUpperInvariant().Contains("BAJA") ? 20 : 50;
+                    var criticidadColor = Model.CriticidadNombre != null && Model.CriticidadNombre.ToUpperInvariant().Contains("ALTA") ? "bg-red-500"
+                        : Model.CriticidadNombre != null && Model.CriticidadNombre.ToUpperInvariant().Contains("BAJA") ? "bg-emerald-500" : "bg-amber-500";
+                }
+                @* INICIO del bloque que SÍ se imprime en el PDF (barra lateral + informe). Todo lo demás se oculta con @media print. *@
+                <div class="print-report-area bg-white dark:bg-slate-900 shadow-xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 transition-all flex flex-col md:flex-row print:flex-row min-h-0">
+                    <aside class="report-aside w-full md:w-56 bg-slate-50 dark:bg-slate-950/50 border-r border-slate-100 dark:border-slate-800 p-6 flex flex-col gap-5 print:border print:bg-slate-50/80">
+                        <div class="text-center flex flex-col items-center mb-1">
+                            <img src="~/images/logo-codelco.png" alt="Codelco" class="max-w-full h-auto object-contain print:max-h-16" style="max-height: 3.5rem;" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-400 dark:text-slate-500">Tipo</span>
+                            <p class="font-bold text-slate-900 dark:text-slate-100 text-sm">@(Model.TipoEventoNombre ?? "—")</p>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-400 dark:text-slate-500">Tipo alerta</span>
+                            <p class="font-bold text-slate-900 dark:text-slate-100 text-sm">@(string.IsNullOrWhiteSpace(Model.TipoAlertaNombre) || Model.TipoAlertaNombre == "—" ? "—" : Model.TipoAlertaNombre)</p>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-400 dark:text-slate-500">Sector</span>
+                            <p class="font-bold text-slate-900 dark:text-slate-100 text-sm">@(string.IsNullOrWhiteSpace(Model.SectorNombre) ? "—" : Model.SectorNombre)</p>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-400 dark:text-slate-500">Registrado por</span>
+                            <p class="font-mono font-bold text-[11px] bg-white dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-800 rounded text-slate-800 dark:text-slate-200 truncate" title="@Model.UsuarioRegistroNombre">@(Model.UsuarioRegistroNombre ?? "—")</p>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-400 dark:text-slate-500">Disciplina</span>
+                            <p class="font-bold text-slate-900 dark:text-slate-100 text-sm">@(Model.UsuarioRegistroDisciplinaNombre ?? "—")</p>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-400 dark:text-slate-500">Turno</span>
+                            <div class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                                <span class="material-icons text-ritweb-teal text-lg">schedule</span>
+                                @(string.IsNullOrWhiteSpace(Model.TurnoDisplay) ? "—" : Model.TurnoDisplay)
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-400 dark:text-slate-500">Criticidad</span>
+                            <div class="flex items-center gap-2">
+                                <div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div class="h-full @criticidadColor rounded-full transition-all" style="width: @(criticidadPct)%"></div>
+                                </div>
+                                <span class="font-black text-[10px] italic @(criticidadPct >= 70 ? "text-red-500" : criticidadPct >= 40 ? "text-amber-500" : "text-emerald-500")">@(Model.CriticidadNombre ?? "—")</span>
+                            </div>
+                        </div>
+                        <div class="mt-auto pt-6 text-center border-t border-slate-200 dark:border-slate-800">
+                            <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono uppercase tracking-wider">@e.FechaCreacion.ToString("dd/MM/yyyy")</span>
+                            <div class="mt-2 w-full flex items-center justify-center gap-2">
+                                <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-sm shadow-sm text-white font-bold text-xs tracking-tighter leading-none" style="background-color: #FF671B;">GPR</div>
+                                <div class="text-center">
+                                    <div class="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider leading-none">Gerencia</div>
+                                    <div class="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider leading-none">Proyecto Relaves (Codelco)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                    <section class="informe-evento-rit flex-1 p-6 md:p-8 lg:p-10 flex flex-col min-w-0">
+                        <div class="flex justify-between items-start border-b-2 border-ritweb-teal/30 pb-6 mb-8">
+                            <div>
+                                <h2 class="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tighter italic">Informe del evento (Rit)</h2>
+                                <div class="flex items-center gap-4 text-slate-500 dark:text-slate-400 text-xs mt-1 flex-wrap">
+                                    @if (!string.IsNullOrWhiteSpace(Model.ProyectoNombre)) { <span class="font-semibold text-slate-700 dark:text-slate-300">@Model.ProyectoNombre</span> }
+                                    <span class="flex items-center gap-1"><span class="material-icons text-sm">calendar_today</span> @e.FechaCreacion.ToString("dd MMM yyyy", System.Globalization.CultureInfo.CreateSpecificCulture("es-CL"))</span>
+                                    <span class="flex items-center gap-1"><span class="material-icons text-sm">schedule</span> @e.FechaCreacion.ToString("HH:mm")</span>
+                                    <span class="flex items-center gap-1 font-mono font-bold text-slate-700 dark:text-slate-300">· #@e.Id</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1">
+                                <span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-widest border border-slate-200 dark:border-slate-700">@(estadoAbierto ? "Abierto" : "Cerrado")</span>
+                                <p class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Estado</p>
+                            </div>
+                        </div>
+                        @{ var adjuntosEvento = e.Adjuntos?.Where(a => !string.Equals(a.TipoAdjunto, "FotoCierre", StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<RazorIdentity.Models.ApiRitweb.EventoAdjuntoDto>(); var adjuntosCierre = e.Adjuntos?.Where(a => string.Equals(a.TipoAdjunto, "FotoCierre", StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<RazorIdentity.Models.ApiRitweb.EventoAdjuntoDto>(); }
+                        <div class="space-y-0">
+                            @* Sección 1: Identificación del evento (estilo imagen 1) + Documentación de respaldo (estilo imagen 2) *@
+                            <section class="relative pl-2 pb-8 informe-seccion-1">
+                                <h3 class="informe-h3-identificacion text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">Identificación del evento</h3>
+                                <div class="space-y-6">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 informe-cards-identificacion">
+                                        <div class="informe-card-identificacion">
+                                            <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Empresa Observada</h4>
+                                            <p class="text-sm font-medium text-slate-800 dark:text-slate-200">@(Model.EmpresaNombre ?? "—")</p>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(e.ProfesionalNotificadoNombre))
+                                        {
+                                            <div class="informe-card-identificacion">
+                                                <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Profesional notificado</h4>
+                                                <p class="text-sm font-medium text-slate-800 dark:text-slate-200">@e.ProfesionalNotificadoNombre</p>
+                                                @if (!string.IsNullOrWhiteSpace(e.ProfesionalNotificadoCargo)) { <p class="text-sm text-slate-500 dark:text-slate-400">@e.ProfesionalNotificadoCargo</p> }
+                                            </div>
+                                        }
+                                    </div>
+                                    @if (e.TipoDocumentoRespaldoId.HasValue || !string.IsNullOrWhiteSpace(e.ReferenciaDocumentoRespaldo) || !string.IsNullOrWhiteSpace(e.NumeroDocumentoProtocolo) || !string.IsNullOrWhiteSpace(e.CodigoVp) || Model.EventoRequiereCierre)
+                                    {
+                                        <div class="informe-block-documentacion">
+                                            <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Documentación de respaldo</h4>
+                                            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm informe-dl-documentacion">
+                                                @if (e.TipoDocumentoRespaldoId.HasValue) { <div><dt class="text-[9px] font-bold uppercase tracking-wider mb-0.5">Tipo</dt><dd class="font-medium">@Model.TipoDocumentoNombre</dd></div> }
+                                                @if (!string.IsNullOrWhiteSpace(e.ReferenciaDocumentoRespaldo)) { <div><dt class="text-[9px] font-bold uppercase tracking-wider mb-0.5">Referencia</dt><dd class="font-medium">@e.ReferenciaDocumentoRespaldo</dd></div> }
+                                                @if (!string.IsNullOrWhiteSpace(e.NumeroDocumentoProtocolo)) { <div><dt class="text-[9px] font-bold uppercase tracking-wider mb-0.5">N° Protocolo</dt><dd class="font-medium">@e.NumeroDocumentoProtocolo</dd></div> }
+                                                @if (!string.IsNullOrWhiteSpace(e.CodigoVp)) { <div><dt class="text-[9px] font-bold uppercase tracking-wider mb-0.5">N° Código VP</dt><dd class="font-medium">@e.CodigoVp</dd></div> }
+                                                @if (Model.EventoRequiereCierre)
+                                                {
+                                                    <div class="sm:col-span-2">
+                                                        <dt class="text-[9px] font-bold uppercase tracking-wider mb-0.5">Causa Raíz</dt>
+                                                        <dd class="font-medium">@(Model.CausaNombre ?? "—")</dd>
+                                                    </div>
+                                                }
+                                            </dl>
+                                        </div>
+                                    }
+                                </div>
+                            </section>
+
+                            <hr class="border-0 border-t-2 border-slate-200 dark:border-slate-700 my-8" aria-hidden="true" />
+
+                            @* Sección 2: Descripción e imagen de apertura (50% texto | 50% imagen) *@
+                            <section class="relative pl-2 pb-8 min-w-0">
+                                @if (!string.IsNullOrWhiteSpace(e.Descripcion) || adjuntosEvento.Count > 0)
+                                {
+                                    <div class="informe-apertura-mitades grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 min-w-0">
+                                        <div class="min-w-0 flex flex-col">
+                                            <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Descripción de apertura del suceso</h4>
+                                            @if (!string.IsNullOrWhiteSpace(e.Descripcion))
+                                            {
+                                                <p class="text-sm font-medium text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words overflow-hidden flex-1">@e.Descripcion</p>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-sm text-slate-400 dark:text-slate-500 italic flex-1">Sin descripción.</p>
+                                            }
+                                        </div>
+                                        <div class="min-w-0 flex flex-col">
+                                            <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Anexo – Imagen de apertura</h4>
+                                            @if (adjuntosEvento.Count > 0)
+                                            {
+                                                <div class="informe-adjuntos-grid grid grid-cols-1 gap-3 flex-1 min-w-0">
+                                                    @foreach (var a in adjuntosEvento)
+                                                    {
+                                                        var esImagen = a.ContentType != null && a.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+                                                        var urlAdjunto = Url.Page("/EventoPdf", "Adjunto", new { id = e.Id, adjuntoId = a.Id });
+                                                        var nombre = a.NombreArchivo ?? "Archivo";
+                                                        <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950/30 p-3 rounded-lg border border-slate-100 dark:border-slate-800 md:flex-col md:items-stretch">
+                                                            @if (esImagen)
+                                                            {
+                                                                <a href="@urlAdjunto" target="_blank" rel="noopener noreferrer" class="block rounded overflow-hidden border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-ritweb-teal min-h-0 md:flex-1 md:flex md:items-center md:justify-center">
+                                                                    <img src="@urlAdjunto" alt="@nombre" class="w-full h-full object-contain max-h-48 md:max-h-none" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\'material-icons text-slate-400\'>broken_image</span>';" />
+                                                                </a>
+                                                            }
+                                                            else
+                                                            {
+                                                                <a href="@urlAdjunto" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center py-8 rounded bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-ritweb-teal/20 hover:text-ritweb-teal transition-colors">
+                                                                    <span class="material-icons text-xl">picture_as_pdf</span>
+                                                                </a>
+                                                            }
+                                                            <div class="min-w-0 flex-shrink-0">
+                                                                <a href="@urlAdjunto" target="_blank" rel="noopener noreferrer" class="text-xs font-bold truncate block text-ritweb-teal hover:underline">@nombre</a>
+                                                                <p class="text-[9px] text-slate-400 dark:text-slate-500 uppercase">Abrir en nueva pestaña</p>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-sm text-slate-400 dark:text-slate-500 italic flex-1">Sin imagen.</p>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-sm text-slate-400 dark:text-slate-500 italic">Sin descripción ni imagen de apertura.</p>
+                                }
+                            </section>
+
+                            @if (e.FechaCierre.HasValue)
+                            {
+                                <hr class="border-0 border-t-2 border-slate-200 dark:border-slate-700 my-8" aria-hidden="true" />
+
+                                @* Sección 3: Descripción e imagen de cierre (50% texto | 50% imagen) *@
+                                <section class="relative pl-2 pt-0 min-w-0">
+                                    <div class="informe-cierre-mitades grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 min-w-0">
+                                        <div class="min-w-0 flex flex-col">
+                                            <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Descripción cierre del suceso</h4>
+                                            @if (!string.IsNullOrWhiteSpace(e.DescripcionCierre))
+                                            {
+                                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-1">Cierre registrado el @e.FechaCierre.Value.ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.CreateSpecificCulture("es-CL"))</p>
+                                                <p class="text-sm font-medium text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed break-words overflow-hidden flex-1">@e.DescripcionCierre</p>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-1">Cierre registrado el @e.FechaCierre.Value.ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.CreateSpecificCulture("es-CL"))</p>
+                                                <p class="text-sm text-slate-400 dark:text-slate-500 italic flex-1">Sin descripción de cierre.</p>
+                                            }
+                                        </div>
+                                        <div class="min-w-0 flex flex-col">
+                                            <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Anexo – Imagen de cierre</h4>
+                                            @if (adjuntosCierre.Count > 0)
+                                            {
+                                                <div class="informe-adjuntos-grid grid grid-cols-1 gap-3 flex-1 min-w-0">
+                                                    @foreach (var a in adjuntosCierre)
+                                                    {
+                                                        var esImagenCierre = a.ContentType != null && a.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+                                                        var urlAdjuntoCierre = Url.Page("/EventoPdf", "Adjunto", new { id = e.Id, adjuntoId = a.Id });
+                                                        var nombreCierre = a.NombreArchivo ?? "Evidencia cierre";
+                                                        <div class="bg-slate-50 dark:bg-slate-950/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800 print:break-inside-avoid flex flex-col md:items-center">
+                                                            @if (esImagenCierre)
+                                                            {
+                                                                <a href="@urlAdjuntoCierre" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500 print:no-underline min-h-0 md:flex-1 md:flex md:items-center md:justify-center">
+                                                                    <img src="@urlAdjuntoCierre" alt="@nombreCierre" class="w-full max-h-64 object-contain print:max-h-none" loading="lazy" onerror="this.style.display='none'; var f=this.nextElementSibling; if(f) f.classList.remove('hidden');" />
+                                                                    <div class="hidden flex items-center justify-center p-6 text-slate-400 text-sm"><span class="material-icons text-4xl mr-2">broken_image</span> Imagen no disponible</div>
+                                                                </a>
+                                                            }
+                                                            else
+                                                            {
+                                                                <a href="@urlAdjuntoCierre" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center justify-center py-8 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-emerald-500/10 transition-colors">
+                                                                    <span class="material-icons text-4xl mb-2">picture_as_pdf</span>
+                                                                    <span class="text-xs font-medium">Documento adjunto</span>
+                                                                </a>
+                                                            }
+                                                            <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mt-2 truncate" title="@nombreCierre">@nombreCierre</p>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-sm text-slate-400 dark:text-slate-500 italic flex-1">Sin imagen de cierre.</p>
+                                            }
+                                        </div>
+                                    </div>
+                                </section>
+                            }
+                            @if (Model.MapaEstaticoUrl != null)
+                            {
+                                <hr class="border-0 border-t-2 border-slate-200 dark:border-slate-700 my-8" aria-hidden="true" />
+                                <section class="relative pl-2 pt-0 min-w-0 w-full informe-anexo-mapa">
+                                    <h4 class="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Anexo – Imagen 3: Ubicación del evento</h4>
+                                    <div class="w-full bg-slate-50 dark:bg-slate-950/30 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                                        <div class="w-full overflow-hidden rounded border border-slate-200 dark:border-slate-700 informe-mapa-wrap" style="aspect-ratio: 5/3;">
+                                            <img src="@Model.MapaEstaticoUrl" alt="Mapa de ubicación del evento" class="w-full h-full object-cover object-center block informe-img-mapa" />
+                                        </div>
+                                        <p class="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 mt-2">Latitud @(e.Latitude.HasValue ? ((decimal)e.Latitude).ToString("G", System.Globalization.CultureInfo.InvariantCulture) : "—") · Longitud @(e.Longitude.HasValue ? ((decimal)e.Longitude).ToString("G", System.Globalization.CultureInfo.InvariantCulture) : "—")</p>
+                                        <p class="text-[9px] text-slate-400 dark:text-slate-500 uppercase">Vista satelital (Esri)</p>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </section>
+                </div>
+                @* FIN del bloque que se imprime en el PDF (.print-report-area) *@
+            </div>
+            <aside class="lg:col-span-4 no-print space-y-6">
+                <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
+                    <div class="bg-slate-50 dark:bg-slate-800/80 px-5 py-3 border-b border-slate-200 dark:border-slate-700">
+                        <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Resumen</h3>
+                    </div>
+                    <div class="p-5 space-y-5">
+                        <div class="flex items-start gap-3">
+                            <div class="size-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                <span class="material-icons text-slate-500 dark:text-slate-400 text-lg">priority_high</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 block mb-0.5">Criticidad</span>
+                                <p class="font-bold text-slate-900 dark:text-slate-100 text-sm">@Model.CriticidadNombre</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="size-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                <span class="material-icons text-slate-500 dark:text-slate-400 text-lg">schedule</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 block mb-0.5">Turno</span>
+                                <p class="text-sm font-medium text-slate-800 dark:text-slate-200">@(string.IsNullOrWhiteSpace(Model.TurnoDisplay) ? "—" : Model.TurnoDisplay)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="size-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                <span class="material-icons text-slate-500 dark:text-slate-400 text-lg">business</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 block mb-0.5">Empresa</span>
+                                <p class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate" title="@Model.EmpresaNombre">@Model.EmpresaNombre</p>
+                            </div>
+                        </div>
+                        @if (Model.EventoRequiereCierre && Model.EventoDiasAbierto.HasValue)
+                        {
+                            <div class="flex items-start gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <div class="size-9 rounded-lg @(estadoAbierto ? "bg-amber-500/15 dark:bg-amber-500/20" : "bg-slate-100 dark:bg-slate-800") flex items-center justify-center flex-shrink-0">
+                                    <span class="material-icons text-lg @(estadoAbierto ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-slate-400")">event_available</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 block mb-0.5">@(estadoAbierto ? "Días abierto" : "Estuvo abierto")</span>
+                                    <p class="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                                        <span class="tabular-nums">@Model.EventoDiasAbierto.Value</span> día@(Model.EventoDiasAbierto.Value != 1 ? "s" : "")
+                                        @if (!estadoAbierto) { <span class="font-normal text-slate-500 dark:text-slate-400 text-xs">(hasta cierre)</span> }
+                                    </p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.MensajeCierre) && (!estadoAbierto || !Model.EventoRequiereCierre))
+                {
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 @(Model.MensajeCierre.Contains("correctamente") ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200" : "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200") text-xs">@Model.MensajeCierre</div>
+                }
+                <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col max-h-[420px]">
+                    <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Foro de seguimiento</h3>
+                        <p class="text-[10px] text-slate-400 mt-1">Participan usuarios de la misma disciplina y empresa que quien registró el evento.</p>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.MensajeForo))
+                    {
+                        <div class="mx-4 mt-3 px-3 py-2 rounded-lg text-xs flex-shrink-0 @(Model.MensajeForo.Contains("No se pudo") ? "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200" : "bg-ritweb-teal/10 text-ritweb-teal dark:text-ritweb-teal")">@Model.MensajeForo</div>
+                    }
+                    <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 max-h-[240px]">
+                        @if (Model.ForoPosts == null || !Model.ForoPosts.Any())
+                        {
+                            <p class="text-sm text-slate-500 dark:text-slate-400 italic">Aún no hay mensajes. Use el cuadro de abajo para registrar gestiones o actualizaciones.</p>
+                        }
+                        else
+                        {
+                            @foreach (var post in Model.ForoPosts.Where(p => !p.ParentId.HasValue).OrderByDescending(p => p.FechaCreacion))
+                            {
+                                <div class="flex gap-3">
+                                    <div class="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                        <span class="material-icons text-sm text-slate-500">person</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-xs font-bold">@(post.UsuarioNombre ?? "Usuario") @(post.EsPrioridad ? "· Prioritaria" : "")</span>
+                                            <span class="text-[10px] text-slate-400">@post.FechaCreacion.ToString("HH:mm")</span>
+                                        </div>
+                                        <div class="bg-slate-50 dark:bg-slate-950/50 p-3 rounded-lg text-xs leading-relaxed @(post.EsPrioridad ? "border-l-2 border-amber-500" : "")">@post.Contenido</div>
+                                    </div>
+                                </div>
+                                @if (post.Respuestas != null && post.Respuestas.Any())
+                                {
+                                    foreach (var resp in post.Respuestas.OrderBy(r => r.FechaCreacion))
+                                    {
+                                        <div class="forum-thread-line flex gap-3 ml-4 pl-6">
+                                            <div class="size-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                                <span class="material-icons text-xs text-slate-500">subdirectory_arrow_right</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex items-center justify-between mb-0.5">
+                                                    <span class="text-xs font-bold">@(resp.UsuarioNombre ?? "Usuario")</span>
+                                                    <span class="text-[10px] text-slate-400">@resp.FechaCreacion.ToString("HH:mm")</span>
+                                                </div>
+                                                <p class="text-xs">@resp.Contenido</p>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                            }
+                        }
+                    </div>
+                    <div class="p-4 bg-slate-50/50 dark:bg-slate-950/30 border-t border-slate-200 dark:border-slate-800">
+                        <form method="post" asp-page-handler="NuevoSeguimiento" class="space-y-3">
+                            <input type="hidden" name="id" value="@e.Id" />
+                            <div class="relative">
+                                <textarea name="contenido" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-ritweb-teal focus:border-ritweb-teal min-h-[80px] resize-none" placeholder="Registre una gestión o actualización..." required></textarea>
+                                <div class="flex items-center justify-between mt-2 gap-2 flex-wrap">
+                                    <label class="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 cursor-pointer">
+                                        <input type="checkbox" name="esPrioridad" value="true" class="rounded text-ritweb-teal focus:ring-ritweb-teal" />
+                                        Actualización prioritaria
+                                    </label>
+                                    <button type="submit" class="bg-ritweb-teal text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-ritweb-teal/90 transition-colors">
+                                        Enviar
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </aside>
+        </div>
+        @if (estadoAbierto && Model.EventoRequiereCierre)
+        {
+            <dialog id="modalCierreEvento" class="no-print w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl bg-white dark:bg-slate-900 p-0 backdrop:bg-black/50" aria-labelledby="tituloModalCierre">
+                <div class="p-6 border-b border-slate-200 dark:border-slate-700">
+                    <h2 id="tituloModalCierre" class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <span class="material-icons text-amber-500">lock</span> Cerrar evento
+                    </h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Indique el motivo del cierre (obligatorio) y opcionalmente adjunte una foto de respaldo.</p>
+                </div>
+                <form method="post" asp-page-handler="CerrarEvento" enctype="multipart/form-data" class="p-6 space-y-4">
+                    <input type="hidden" name="id" value="@e.Id" />
+                    <div>
+                        <label for="descripcionCierreModal" class="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Comentario de cierre <span class="text-amber-500">*</span></label>
+                        <textarea id="descripcionCierreModal" name="descripcionCierre" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-ritweb-teal focus:border-ritweb-teal min-h-[120px] resize-y" placeholder="Describa las acciones realizadas y el motivo del cierre..." required></textarea>
+                    </div>
+                    <div>
+                        <label for="fotoCierreModal" class="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Foto de respaldo (opcional)</label>
+                        <input type="file" id="fotoCierreModal" name="fotoCierre" accept="image/*" class="w-full text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-ritweb-teal/10 file:text-ritweb-teal file:font-medium file:cursor-pointer hover:file:bg-ritweb-teal/20" />
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" onclick="document.getElementById('modalCierreEvento').close();" class="flex-1 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Cancelar</button>
+                        <button type="submit" class="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                            <span class="material-icons text-lg">check_circle</span> Cerrar evento
+                        </button>
+                    </div>
+                </form>
+            </dialog>
+        }
+        @if (Model.Evento != null && Model.PuedeReasignar)
+        {
+            <dialog id="modalReasignarEvento" class="no-print w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl bg-white dark:bg-slate-900 p-0 backdrop:bg-black/50" aria-labelledby="tituloModalReasignar">
+                <div class="p-6 border-b border-slate-200 dark:border-slate-700">
+                    <h2 id="tituloModalReasignar" class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <span class="material-icons text-slate-600 dark:text-slate-400">person_add</span> Reasignar evento
+                    </h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">El evento pasará a la disciplina y usuario seleccionados. Se conserva el historial de quien lo creó.</p>
+                </div>
+                <form method="post" asp-page-handler="ReasignarEvento" class="p-6 space-y-4" id="formReasignar">
+                    <input type="hidden" name="id" value="@Model.Evento!.Id" />
+                    <div>
+                        <label for="disciplinaReasignar" class="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Disciplina <span class="text-amber-500">*</span></label>
+                        <select id="disciplinaReasignar" name="disciplinaId" required class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-ritweb-teal focus:border-ritweb-teal">
+                            <option value="">— Seleccione disciplina —</option>
+                            @foreach (var d in Model.DisciplinasReasignar)
+                            {
+                                <option value="@d.Id">@d.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label for="usuarioReasignar" class="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Usuario <span class="text-amber-500">*</span></label>
+                        <select id="usuarioReasignar" name="userId" required class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-ritweb-teal focus:border-ritweb-teal" disabled>
+                            <option value="">— Primero elija una disciplina —</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" onclick="document.getElementById('modalReasignarEvento').close();" class="flex-1 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Cancelar</button>
+                        <button type="submit" class="flex-1 py-2.5 rounded-lg bg-slate-600 hover:bg-slate-700 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                            <span class="material-icons text-lg">check_circle</span> Reasignar
+                        </button>
+                    </div>
+                </form>
+            </dialog>
+            <script>
+                (function() {
+                    var selDisc = document.getElementById('disciplinaReasignar');
+                    var selUser = document.getElementById('usuarioReasignar');
+                    var urlBase = '@Url.Page("EventoPdf", "UsuariosPorDisciplina")';
+                    if (!selDisc || !selUser) return;
+                    selDisc.addEventListener('change', function() {
+                        var id = parseInt(this.value, 10);
+                        selUser.innerHTML = '<option value="">— Cargando… —</option>';
+                        selUser.disabled = true;
+                        if (!id) {
+                            selUser.innerHTML = '<option value="">— Primero elija una disciplina —</option>';
+                            return;
+                        }
+                        fetch(urlBase + '&disciplinaId=' + id)
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                selUser.innerHTML = '<option value="">— Seleccione usuario —</option>';
+                                (data || []).forEach(function(u) {
+                                    var opt = document.createElement('option');
+                                    opt.value = u.userId || u.UserId || '';
+                                    opt.textContent = u.nombre || u.Nombre || u.userId || '—';
+                                    selUser.appendChild(opt);
+                                });
+                                selUser.disabled = false;
+                            })
+                            .catch(function() {
+                                selUser.innerHTML = '<option value="">— Error al cargar —</option>';
+                                selUser.disabled = false;
+                            });
+                    });
+                })();
+            </script>
+        }
+    }
+</div>

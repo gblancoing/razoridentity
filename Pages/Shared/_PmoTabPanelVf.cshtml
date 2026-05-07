@@ -1,0 +1,124 @@
+@* Panel Vectores Financiero (KPI, Curva S/EVM, rejilla) — reutilizable en Resumen y en pestaña Vectores. *@
+@{
+    var vfToolbarModo = ViewData["PmoVfToolbarModo"] as string;
+    var vfResumenSinTablaCascada = string.Equals(vfToolbarModo, "ResumenCurvaS", StringComparison.OrdinalIgnoreCase);
+}
+<div id="pmo-tab-panel-vf" class="space-y-6">
+    <div id="vf-kpi" class="min-h-[4rem] text-sm text-slate-500">Cargando KPI y tabla para el proyecto activo…</div>
+    <input type="hidden" id="vf-import-clave" />
+    <input type="file" id="vf-file" accept=".xlsx,.xls" class="hidden" />
+
+    <div id="vf-panel-analisis" class="hidden rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 p-4">
+        <p class="text-sm text-amber-900 dark:text-amber-200 font-medium">Vista análisis — columnas según SAP / 9C devueltos por la API.</p>
+    </div>
+    <div id="vf-curvas-wrap" class="hidden space-y-4">
+        <div class="rounded-xl border border-slate-200/90 dark:border-slate-600 bg-white dark:bg-slate-900/80 px-4 py-3 sm:px-5 sm:py-4 shadow-sm">
+            <h2 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">Análisis EVM (Earned Value Management)</h2>
+            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 leading-relaxed max-w-4xl">
+                Conjunto de mediciones que relacionan el <strong class="font-semibold text-slate-700 dark:text-slate-300">trabajo ejecutado</strong> (valor ganado), el <strong class="font-semibold text-slate-700 dark:text-slate-300">plan</strong> y el <strong class="font-semibold text-slate-700 dark:text-slate-300">presupuesto</strong> a la fecha de seguimiento. El gráfico muestra la evolución de curvas acumuladas (Real, líneas de plan y reproyectado); más abajo se desglosan los valores base, las variaciones y los índices CPI/SPI para lectura gerencial.
+            </p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+            <div>
+                <label for="vf-r1-fecha-seg" class="block text-[10px] font-semibold text-sky-800 dark:text-sky-300 mb-0.5">Fecha seguimiento EVM (mes)</label>
+                <input type="month" id="vf-r1-fecha-seg" class="rounded-md border border-sky-300 dark:border-sky-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs w-[9.5rem]" />
+            </div>
+            <div class="flex flex-wrap gap-2 items-center pb-0.5">
+                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Vista gráfico</span>
+                <label class="inline-flex items-center gap-1 text-xs text-slate-700 dark:text-slate-200"><input type="radio" name="vf-r1-modo-graf" value="normal" checked class="rounded border-slate-300" /> Curva S</label>
+                <label class="inline-flex items-center gap-1 text-xs text-slate-700 dark:text-slate-200"><input type="radio" name="vf-r1-modo-graf" value="evm" class="rounded border-slate-300" /> EVM</label>
+            </div>
+            <button type="button" id="vf-r1-refresh" class="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium">Actualizar análisis</button>
+            <div class="flex flex-wrap gap-1.5 items-center w-full sm:w-auto sm:ml-auto pt-1 sm:pt-0 border-t border-slate-200/80 dark:border-slate-600 sm:border-0">
+                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mr-1 hidden sm:inline">Exportar EVM</span>
+                <button type="button" id="vf-evm-pdf-tecnico" title="PDF con captura de las tarjetas EVM (alto detalle)" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#123B6D] hover:bg-[#0f325c] text-white text-[11px] font-semibold shadow-sm">
+                    <span class="material-icons text-[16px]">picture_as_pdf</span>PDF técnico
+                </button>
+                <button type="button" id="vf-evm-pdf-ejecutivo" title="PDF con captura + página resumen ejecutivo" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold shadow-sm">
+                    <span class="material-icons text-[16px]">description</span>PDF ejecutivo
+                </button>
+            </div>
+        </div>
+        <p id="vf-r1-msg" class="hidden text-sm text-amber-800 dark:text-amber-200"></p>
+        <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-sm">
+            <h3 id="vf-r1-chart-title" class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">Curva S — evolución (parciales acumulados)</h3>
+            <div class="relative h-[min(32rem,62vh)] w-full min-h-[20rem]">
+                <canvas id="vf-r1-chart"></canvas>
+            </div>
+        </div>
+        <div id="vf-r1-evm-panel" class="hidden rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-950/40 p-3 shadow-sm space-y-3 overflow-visible">
+            <div class="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200 dark:border-slate-600 pb-2">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 shrink-0">Análisis EVM (Earned Value Management)</h3>
+                <p id="vf-r1-evm-sub" class="text-[11px] text-slate-500 dark:text-slate-400 text-right leading-snug max-w-[28rem] min-w-[12rem]"></p>
+            </div>
+            <div id="vf-r1-evm-export-root" class="space-y-3 bg-transparent overflow-visible">
+                <div id="vf-r1-evm-kpi" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs overflow-visible"></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    <div id="vf-r1-ieac-wrap" class="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-visible relative z-0 hover:z-[70] focus-within:z-[70]">
+                        <div class="h-0.5 bg-amber-800/90"></div>
+                        <div class="p-2.5">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="material-icons text-amber-800 dark:text-amber-400 text-[18px]">track_changes</span>
+                                <h4 class="text-[11px] font-bold uppercase tracking-wide text-slate-800 dark:text-slate-100">Metodologías IEAC</h4>
+                            </div>
+                            <p class="text-[9px] text-slate-500 dark:text-slate-400 mb-2">Estimaciones independientes</p>
+                            <div id="vf-r1-ieac" class="space-y-0 text-xs text-slate-700 dark:text-slate-300"></div>
+                        </div>
+                    </div>
+                    <div id="vf-r1-ecd-wrap" class="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-visible relative z-0 hover:z-[70] focus-within:z-[70]">
+                        <div class="h-0.5 bg-violet-700"></div>
+                        <div class="p-2.5">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="material-icons text-violet-700 dark:text-violet-400 text-[18px]">event</span>
+                                <h4 class="text-[11px] font-bold uppercase tracking-wide text-slate-800 dark:text-slate-100">Metodologías ECD</h4>
+                            </div>
+                            <p class="text-[9px] text-slate-500 dark:text-slate-400 mb-2">Fechas estimadas</p>
+                            <div id="vf-r1-ecd" class="space-y-0 text-xs text-slate-700 dark:text-slate-300"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @if (!vfResumenSinTablaCascada)
+        {
+        <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 px-3 pt-3">Tabla por categoría VP (parciales en rango)</h3>
+            <div class="overflow-x-auto p-2">
+                <table class="min-w-full text-xs border-collapse" id="vf-r1-tabla-cat">
+                    <thead id="vf-r1-tabla-head"></thead>
+                    <tbody id="vf-r1-tabla-body"></tbody>
+                </table>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">Gráficos de cascada — parciales (M$USD)</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3">
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Cascada V0 (A−B)</p>
+                    <div class="relative h-[min(24rem,56vh)] min-h-[20rem]"><canvas id="vf-r1-cascade-v0"></canvas></div>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3">
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Cascada API (A−D)</p>
+                    <div class="relative h-[min(24rem,56vh)] min-h-[20rem]"><canvas id="vf-r1-cascade-api"></canvas></div>
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+    <div id="vf-imported-grid-wrap" class="space-y-2">
+        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+            <p class="text-xs font-semibold text-slate-500 px-3 pt-3">Datos importados en la base de datos</p>
+            <table class="min-w-full text-sm">
+                <thead id="vf-thead"></thead>
+                <tbody id="vf-tbody" class="text-slate-800 dark:text-slate-200"></tbody>
+            </table>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+            <span id="vf-pag" class="text-slate-500"></span>
+            <div class="flex gap-2">
+                <button type="button" id="vf-prev" class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">Anterior</button>
+                <button type="button" id="vf-next" class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">Siguiente</button>
+            </div>
+        </div>
+    </div>
+</div>

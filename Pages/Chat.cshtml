@@ -1,104 +1,221 @@
 @page
 @model RazorIdentity.Pages.ChatModel
 @{
-    ViewData["Title"] = "Chat con IA";
+    ViewData["Title"] = "ASISTENTE GPR";
 }
 <style>
     .message-content { line-height: 1.6; word-wrap: break-word; }
     .message-content strong { font-weight: 700; }
     .message-content em { font-style: italic; }
+    .message-content h2 { font-size: 1rem; font-weight: 700; margin: 0.75rem 0 0.25rem; }
+    .message-content h3 { font-size: 0.9rem; font-weight: 600; margin: 0.5rem 0 0.2rem; }
     .message-content .list-bullet { color: inherit; margin-right: 0.25rem; }
+    .message-content table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.82rem; }
+    .message-content th { background: #e2e8f0; padding: 4px 8px; text-align: left; font-weight: 600; border: 1px solid #cbd5e1; }
+    .message-content td { padding: 4px 8px; border: 1px solid #cbd5e1; }
+    .dark .message-content th { background: #334155; border-color: #475569; }
+    .dark .message-content td { border-color: #475569; }
+    @@keyframes typing-dot { 0%,80%,100%{transform:scale(0.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+    .typing-dot { width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;animation:typing-dot 1.4s infinite ease-in-out; }
+    .typing-dot:nth-child(2){animation-delay:.2s} .typing-dot:nth-child(3){animation-delay:.4s}
 </style>
+
 <section class="bg-off-white dark:bg-slate-800/30 min-h-screen py-6 sm:py-8 px-4">
     <div class="max-w-4xl mx-auto">
+
         <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
             <div class="w-12 h-12 bg-ritweb-teal/10 border border-ritweb-teal/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <span class="material-icons text-ritweb-teal text-2xl">smart_toy</span>
+                <span class="material-icons text-ritweb-teal text-2xl">psychology</span>
             </div>
             <div class="min-w-0">
-                <h1 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Chat con IA (Ollama)</h1>
-                <p class="text-sm text-slate-600 dark:text-slate-400">Pregunta general o elige un especialista: base de datos, frontend, backend o seguridad.</p>
+                <h1 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">ASISTENTE GPR</h1>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Especialista en simulación Monte Carlo, Taller de Costos CODELCO (EAT/CAPEX/Semáforo), CRA, SRA, análisis de riesgos probabilísticos y estimación de proyectos.</p>
             </div>
         </div>
 
-        <div id="chat-container" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[320px] sm:min-h-[420px]">
-            <div id="messages" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 min-h-[240px] sm:min-h-[320px]">
-                <div class="text-center text-slate-400 text-sm py-8">
-                    Escribe un mensaje y pulsa Enviar. Asegúrate de tener la API Ollama en ejecución (https://localhost:7006).
+        <div id="chat-container" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-sm overflow-hidden flex flex-col">
+            <div id="messages" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 min-h-[260px] sm:min-h-[360px] max-h-[60vh]">
+                <div id="chat-placeholder" class="text-center text-slate-400 dark:text-slate-500 text-sm py-6">
+                    <span class="material-icons text-3xl mb-2 block text-ritweb-teal/40">psychology</span>
+                    Haz una consulta sobre Monte Carlo, EAT, CRA, SRA, riesgos CODELCO o estimación de proyectos.
                 </div>
+                @if (Model.SuggestedPrompts.Any())
+                {
+                    <div id="suggested-prompts" class="flex flex-wrap gap-2 justify-center px-2 py-1">
+                        <span class="text-slate-400 dark:text-slate-500 text-xs w-full text-center mb-1">Preguntas frecuentes:</span>
+                        @foreach (var item in Model.SuggestedPrompts)
+                        {
+                            <button type="button" class="suggested-prompt-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ritweb-teal/30 bg-ritweb-teal/5 hover:bg-ritweb-teal/15 text-slate-700 dark:text-slate-200 text-xs transition-colors" data-prompt="@Html.Raw(System.Net.WebUtility.HtmlEncode(item.Prompt))" title="Usar esta pregunta">
+                                <span class="material-icons text-ritweb-teal text-[16px]">@item.Icon</span>
+                                @item.Prompt
+                            </button>
+                        }
+                    </div>
+                }
             </div>
+
             <div class="border-t border-slate-200 dark:border-slate-600 p-3 sm:p-4 bg-slate-50 dark:bg-slate-700/30">
                 <form id="chat-form" method="post" class="flex flex-col sm:flex-row gap-3">
                     @Html.AntiForgeryToken()
-                    <div class="flex flex-col sm:flex-row gap-2 flex-1 min-w-0">
-                        <select id="specialist" name="specialist" class="rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 focus:border-ritweb-teal focus:ring-1 focus:ring-ritweb-teal w-full sm:min-w-[140px] sm:w-auto">
-                            <option value="general">General</option>
-                            @foreach (var s in Model.Specialists)
-                            {
-                                var label = s.Length > 0 ? char.ToUpperInvariant(s[0]) + s[1..] : s;
-                                <option value="@s">@label</option>
-                            }
-                        </select>
-                        <textarea id="prompt" name="prompt" rows="1" placeholder="Escribe tu pregunta…" class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-ritweb-teal focus:ring-1 focus:ring-ritweb-teal resize-none min-h-[42px] max-h-32" required></textarea>
+                    <input type="hidden" id="history-input" name="historyJson" value="[]" />
+                    <textarea id="prompt" name="prompt" rows="1"
+                        placeholder="Consulta sobre Monte Carlo, EAT, distribuciones, riesgos, CRA/SRA…"
+                        class="flex-1 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-ritweb-teal focus:ring-1 focus:ring-ritweb-teal resize-none min-h-[42px] max-h-36"
+                        required></textarea>
+                    <div class="flex gap-2 sm:flex-col sm:justify-end">
+                        <button type="submit" id="btn-send"
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-ritweb-teal hover:bg-teal-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+                            <span class="material-icons text-lg">send</span>
+                            <span>Enviar</span>
+                        </button>
+                        <button type="button" id="btn-clear" title="Nueva conversación"
+                            class="inline-flex items-center justify-center gap-1 px-3 py-2.5 border border-slate-300 dark:border-slate-500 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-sm">
+                            <span class="material-icons text-base">restart_alt</span>
+                        </button>
                     </div>
-                    <button type="submit" id="btn-send" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-ritweb-teal hover:bg-teal-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span class="material-icons text-lg">send</span>
-                        <span>Enviar</span>
-                    </button>
                 </form>
-                <p id="chat-error" class="mt-2 text-sm text-red-600 hidden"></p>
+                <p id="chat-error" class="mt-2 text-sm text-red-600 dark:text-red-400 hidden"></p>
             </div>
         </div>
+
     </div>
 </section>
 
 @section Scripts {
 <script>
 (function () {
-    var form = document.getElementById('chat-form');
-    var messagesEl = document.getElementById('messages');
-    var promptEl = document.getElementById('prompt');
-    var btnSend = document.getElementById('btn-send');
-    var errorEl = document.getElementById('chat-error');
+    var form        = document.getElementById('chat-form');
+    var messagesEl  = document.getElementById('messages');
+    var promptEl    = document.getElementById('prompt');
+    var btnSend     = document.getElementById('btn-send');
+    var btnClear    = document.getElementById('btn-clear');
+    var errorEl     = document.getElementById('chat-error');
+    var historyEl   = document.getElementById('history-input');
+    var history     = []; // [{role:'user',content:'...'},{role:'assistant',content:'...'}]
+    var MAX_PAIRS   = 6; // últimos 6 intercambios = 12 mensajes
 
-    function hidePlaceholder() {
-        var placeholder = messagesEl.querySelector('.text-slate-400.text-sm.py-8');
-        if (placeholder) placeholder.remove();
-    }
+    // ── Prompts sugeridos ──────────────────────────────────────────────────────
+    document.querySelectorAll('.suggested-prompt-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            promptEl.value = this.getAttribute('data-prompt') || '';
+            autoResize();
+            promptEl.focus();
+        });
+    });
 
+    // ── Botón nueva conversación ───────────────────────────────────────────────
+    btnClear.addEventListener('click', function () {
+        history = [];
+        historyEl.value = '[]';
+        messagesEl.innerHTML =
+            '<div class="text-center text-slate-400 dark:text-slate-500 text-sm py-6">' +
+            '<span class="material-icons text-3xl mb-2 block text-ritweb-teal/40">psychology</span>' +
+            'Conversación reiniciada. Haz una nueva consulta.' +
+            '</div>';
+        promptEl.value = '';
+        promptEl.style.height = 'auto';
+        setError('');
+    });
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
     function escapeHtml(text) {
-        var div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
     }
 
     function formatMessageContent(text) {
         if (!text) return '';
         var s = escapeHtml(text);
-        s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+        // Tablas markdown (procesar antes de reemplazar \n)
+        s = s.replace(/(\|[^\n]+\|\n?)+/g, function (match) {
+            var rows = match.trim().split('\n').filter(function (r) { return r.trim().startsWith('|'); });
+            var html = '<div class="overflow-x-auto"><table>';
+            var isFirst = true;
+            rows.forEach(function (row) {
+                var cells = row.split('|').filter(function (c) { return c.trim() !== ''; });
+                if (cells.every(function (c) { return /^[-:\s]+$/.test(c); })) return; // separador
+                var tag = isFirst ? 'th' : 'td';
+                html += '<tr>' + cells.map(function (c) {
+                    return '<' + tag + '>' + c.trim() + '</' + tag + '>';
+                }).join('') + '</tr>';
+                isFirst = false;
+            });
+            html += '</table></div>';
+            return html;
+        });
+
+        // Encabezados
+        s = s.replace(/^## ([^\n]+)/gm, '<h2>$1</h2>');
+        s = s.replace(/^### ([^\n]+)/gm, '<h3>$1</h3>');
+
+        // Negrita e itálica
+        s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
         s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+
+        // Saltos de línea
         s = s.replace(/\n\n/g, '<br><br>');
         s = s.replace(/\n/g, '<br>');
-        s = s.replace(/(<br>|^)([\*\-])\s+/g, '$1<span class="list-bullet">• </span>');
+
+        // Listas con viñeta
+        s = s.replace(/(<br>|^)([•\*\-])\s+/g, '$1<span class="list-bullet">• </span>');
+
         return s;
+    }
+
+    function hidePlaceholder() {
+        var ph = document.getElementById('chat-placeholder');
+        if (ph) ph.remove();
+        var sp = document.getElementById('suggested-prompts');
+        if (sp) sp.remove();
     }
 
     function addMessage(role, content) {
         hidePlaceholder();
         var isUser = role === 'user';
-        var div = document.createElement('div');
-        div.className = 'flex gap-3 ' + (isUser ? 'justify-end' : '');
-        var bubble = document.createElement('div');
-        bubble.className = 'max-w-[85%] rounded-lg px-4 py-2.5 ' + (isUser ? 'bg-ritweb-teal text-white' : 'bg-slate-100 text-slate-800');
-        if (role === 'assistant') {
-            bubble.className += ' message-content';
-            bubble.innerHTML = formatMessageContent(content);
-        } else {
-            bubble.textContent = content;
+        var wrap = document.createElement('div');
+        wrap.className = 'flex gap-2 ' + (isUser ? 'justify-end' : 'items-start');
+
+        if (!isUser) {
+            var avatar = document.createElement('div');
+            avatar.className = 'w-7 h-7 rounded-full bg-ritweb-teal/10 border border-ritweb-teal/30 flex items-center justify-center flex-shrink-0 mt-0.5';
+            avatar.innerHTML = '<span class="material-icons text-ritweb-teal text-[16px]">psychology</span>';
+            wrap.appendChild(avatar);
         }
-        div.appendChild(bubble);
+
+        var bubble = document.createElement('div');
+        bubble.className = 'max-w-[88%] rounded-xl px-4 py-2.5 text-sm ' +
+            (isUser
+                ? 'bg-ritweb-teal text-white'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 message-content');
+        if (!isUser)
+            bubble.innerHTML = formatMessageContent(content);
+        else
+            bubble.textContent = content;
+
+        wrap.appendChild(bubble);
+        messagesEl.appendChild(wrap);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function addTypingIndicator() {
+        hidePlaceholder();
+        var div = document.createElement('div');
+        div.id = 'typing-indicator';
+        div.className = 'flex gap-2 items-start';
+        div.innerHTML =
+            '<div class="w-7 h-7 rounded-full bg-ritweb-teal/10 border border-ritweb-teal/30 flex items-center justify-center flex-shrink-0 mt-0.5">' +
+            '<span class="material-icons text-ritweb-teal text-[16px]">psychology</span></div>' +
+            '<div class="bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 flex gap-1.5 items-center">' +
+            '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        var el = document.getElementById('typing-indicator');
+        if (el) el.remove();
     }
 
     function setError(msg) {
@@ -106,35 +223,69 @@
         errorEl.classList.toggle('hidden', !msg);
     }
 
+    function autoResize() {
+        promptEl.style.height = 'auto';
+        promptEl.style.height = Math.min(promptEl.scrollHeight, 144) + 'px';
+    }
+
+    // ── Auto-resize del textarea ───────────────────────────────────────────────
+    promptEl.addEventListener('input', autoResize);
+
+    // ── Enter para enviar (Shift+Enter = nueva línea) ─────────────────────────
+    promptEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            form.requestSubmit();
+        }
+    });
+
+    // ── Submit del formulario ─────────────────────────────────────────────────
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
         var prompt = (promptEl.value || '').trim();
         if (!prompt) return;
-        var specialist = document.getElementById('specialist').value;
+
         btnSend.disabled = true;
         setError('');
         addMessage('user', prompt);
         promptEl.value = '';
+        promptEl.style.height = 'auto';
+        addTypingIndicator();
+
+        // Enviar historial previo como contexto (antes del mensaje actual)
+        var contextHistory = history.slice(-(MAX_PAIRS * 2));
+        historyEl.value = JSON.stringify(contextHistory);
 
         var formData = new FormData(form);
         formData.set('prompt', prompt);
-        formData.set('specialist', specialist);
+        formData.set('historyJson', historyEl.value);
 
         try {
             var resp = await fetch('?handler=SendMessage', {
                 method: 'POST',
                 body: formData,
-                headers: { 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' }
+                headers: {
+                    'RequestVerificationToken':
+                        document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                }
             });
             var data = await resp.json();
-            if (data.success)
-                addMessage('assistant', data.response || '(Sin respuesta)');
-            else
+            removeTypingIndicator();
+            if (data.success) {
+                var reply = data.response || '(Sin respuesta)';
+                addMessage('assistant', reply);
+                history.push({ role: 'user', content: prompt });
+                history.push({ role: 'assistant', content: reply });
+            } else {
                 setError(data.error || 'Error al obtener respuesta.');
+            }
         } catch (err) {
+            removeTypingIndicator();
             setError('Error de red: ' + err.message);
         }
+
         btnSend.disabled = false;
+        promptEl.focus();
     });
 })();
 </script>

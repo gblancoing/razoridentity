@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_RazorIdentityPermisos"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_RazorIdentityPermisos" name="RazorIdentity - Flujo de permisos y proyecto" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_1" name="Solicitud a modulo (PMO o RitWeb)">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:exclusiveGateway id="Gateway_Auth" name="Usuario autenticado?">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2_yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_2_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="End_NotAuth" name="Challenge / Login requerido">
+      <bpmn:incoming>Flow_2_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:task id="Task_LoadContext" name="Cargar contexto de usuario (Identity + perfil)">
+      <bpmn:incoming>Flow_2_yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_LoadApps" name="Consultar Apps y UsuariosApp (RIT API)">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gateway_AppExists" name="App objetivo existe?">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5_yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_5_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="End_AppMissing" name="Bloquear acceso: app no existe">
+      <bpmn:incoming>Flow_5_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="Gateway_UserHasApp" name="Usuario tiene app asignada?">
+      <bpmn:incoming>Flow_5_yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_6_yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_6_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="End_NoAppAccess" name="Redirigir: sin acceso a la app">
+      <bpmn:incoming>Flow_6_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="Gateway_Rol" name="Rol del usuario">
+      <bpmn:incoming>Flow_6_yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_7_super</bpmn:outgoing>
+      <bpmn:outgoing>Flow_7_admin_user</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:task id="Task_SuperAdminScope" name="Super_admin: habilitar alcance global">
+      <bpmn:incoming>Flow_7_super</bpmn:incoming>
+      <bpmn:outgoing>Flow_8_super</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_ResolveProject" name="Resolver ProyectoId (UsuariosApp -> UsuariosCentro -> CentrosCosto)">
+      <bpmn:incoming>Flow_7_admin_user</bpmn:incoming>
+      <bpmn:outgoing>Flow_8_admin_user</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gateway_ProjectResolved" name="ProyectoId resuelto?">
+      <bpmn:incoming>Flow_8_admin_user</bpmn:incoming>
+      <bpmn:outgoing>Flow_9_yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_9_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="End_NoProject" name="Restringir flujo dependiente de proyecto">
+      <bpmn:incoming>Flow_9_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="Gateway_ProjectQuery" name="Llega proyectoId por query?">
+      <bpmn:incoming>Flow_9_yes</bpmn:incoming>
+      <bpmn:incoming>Flow_8_super</bpmn:incoming>
+      <bpmn:outgoing>Flow_10_yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_10_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:exclusiveGateway id="Gateway_ProjectAuthorized" name="proyectoId autorizado para el usuario?">
+      <bpmn:incoming>Flow_10_yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_11_yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_11_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="End_ProjectDenied" name="Error: proyecto no autorizado">
+      <bpmn:incoming>Flow_11_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="Gateway_TabPolicy" name="Tab/accion permitida por rol?">
+      <bpmn:incoming>Flow_10_no</bpmn:incoming>
+      <bpmn:incoming>Flow_11_yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_12_yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_12_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="End_TabDenied" name="Redirigir: accion no permitida por rol">
+      <bpmn:incoming>Flow_12_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:task id="Task_LoadData" name="Cargar datos filtrados (proyecto/empresa/rol)">
+      <bpmn:incoming>Flow_12_yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:endEvent id="End_OK" name="Acceso concedido y respuesta entregada">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Gateway_Auth" />
+    <bpmn:sequenceFlow id="Flow_2_yes" name="Si" sourceRef="Gateway_Auth" targetRef="Task_LoadContext" />
+    <bpmn:sequenceFlow id="Flow_2_no" name="No" sourceRef="Gateway_Auth" targetRef="End_NotAuth" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_LoadContext" targetRef="Task_LoadApps" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_LoadApps" targetRef="Gateway_AppExists" />
+    <bpmn:sequenceFlow id="Flow_5_yes" name="Si" sourceRef="Gateway_AppExists" targetRef="Gateway_UserHasApp" />
+    <bpmn:sequenceFlow id="Flow_5_no" name="No" sourceRef="Gateway_AppExists" targetRef="End_AppMissing" />
+    <bpmn:sequenceFlow id="Flow_6_yes" name="Si" sourceRef="Gateway_UserHasApp" targetRef="Gateway_Rol" />
+    <bpmn:sequenceFlow id="Flow_6_no" name="No" sourceRef="Gateway_UserHasApp" targetRef="End_NoAppAccess" />
+    <bpmn:sequenceFlow id="Flow_7_super" name="Super_admin" sourceRef="Gateway_Rol" targetRef="Task_SuperAdminScope" />
+    <bpmn:sequenceFlow id="Flow_7_admin_user" name="Admin o usuario" sourceRef="Gateway_Rol" targetRef="Task_ResolveProject" />
+    <bpmn:sequenceFlow id="Flow_8_super" sourceRef="Task_SuperAdminScope" targetRef="Gateway_ProjectQuery" />
+    <bpmn:sequenceFlow id="Flow_8_admin_user" sourceRef="Task_ResolveProject" targetRef="Gateway_ProjectResolved" />
+    <bpmn:sequenceFlow id="Flow_9_yes" name="Si" sourceRef="Gateway_ProjectResolved" targetRef="Gateway_ProjectQuery" />
+    <bpmn:sequenceFlow id="Flow_9_no" name="No" sourceRef="Gateway_ProjectResolved" targetRef="End_NoProject" />
+    <bpmn:sequenceFlow id="Flow_10_yes" name="Si" sourceRef="Gateway_ProjectQuery" targetRef="Gateway_ProjectAuthorized" />
+    <bpmn:sequenceFlow id="Flow_10_no" name="No" sourceRef="Gateway_ProjectQuery" targetRef="Gateway_TabPolicy" />
+    <bpmn:sequenceFlow id="Flow_11_yes" name="Si" sourceRef="Gateway_ProjectAuthorized" targetRef="Gateway_TabPolicy" />
+    <bpmn:sequenceFlow id="Flow_11_no" name="No" sourceRef="Gateway_ProjectAuthorized" targetRef="End_ProjectDenied" />
+    <bpmn:sequenceFlow id="Flow_12_yes" name="Si" sourceRef="Gateway_TabPolicy" targetRef="Task_LoadData" />
+    <bpmn:sequenceFlow id="Flow_12_no" name="No" sourceRef="Gateway_TabPolicy" targetRef="End_TabDenied" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="Task_LoadData" targetRef="End_OK" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_RazorIdentityPermisos">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="120" y="220" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Auth_di" bpmnElement="Gateway_Auth" isMarkerVisible="true">
+        <dc:Bounds x="205" y="213" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_NotAuth_di" bpmnElement="End_NotAuth">
+        <dc:Bounds x="320" y="320" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_LoadContext_di" bpmnElement="Task_LoadContext">
+        <dc:Bounds x="300" y="198" width="170" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_LoadApps_di" bpmnElement="Task_LoadApps">
+        <dc:Bounds x="520" y="198" width="190" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_AppExists_di" bpmnElement="Gateway_AppExists" isMarkerVisible="true">
+        <dc:Bounds x="760" y="213" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AppMissing_di" bpmnElement="End_AppMissing">
+        <dc:Bounds x="880" y="320" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_UserHasApp_di" bpmnElement="Gateway_UserHasApp" isMarkerVisible="true">
+        <dc:Bounds x="880" y="213" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_NoAppAccess_di" bpmnElement="End_NoAppAccess">
+        <dc:Bounds x="1000" y="320" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Rol_di" bpmnElement="Gateway_Rol" isMarkerVisible="true">
+        <dc:Bounds x="1000" y="213" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SuperAdminScope_di" bpmnElement="Task_SuperAdminScope">
+        <dc:Bounds x="1120" y="70" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ResolveProject_di" bpmnElement="Task_ResolveProject">
+        <dc:Bounds x="1120" y="240" width="230" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_ProjectResolved_di" bpmnElement="Gateway_ProjectResolved" isMarkerVisible="true">
+        <dc:Bounds x="1400" y="255" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_NoProject_di" bpmnElement="End_NoProject">
+        <dc:Bounds x="1515" y="365" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_ProjectQuery_di" bpmnElement="Gateway_ProjectQuery" isMarkerVisible="true">
+        <dc:Bounds x="1515" y="165" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_ProjectAuthorized_di" bpmnElement="Gateway_ProjectAuthorized" isMarkerVisible="true">
+        <dc:Bounds x="1640" y="95" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_ProjectDenied_di" bpmnElement="End_ProjectDenied">
+        <dc:Bounds x="1765" y="95" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_TabPolicy_di" bpmnElement="Gateway_TabPolicy" isMarkerVisible="true">
+        <dc:Bounds x="1640" y="235" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_TabDenied_di" bpmnElement="End_TabDenied">
+        <dc:Bounds x="1765" y="305" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_LoadData_di" bpmnElement="Task_LoadData">
+        <dc:Bounds x="1760" y="220" width="220" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_OK_di" bpmnElement="End_OK">
+        <dc:Bounds x="2030" y="242" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="156" y="238" /><di:waypoint x="205" y="238" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_yes_di" bpmnElement="Flow_2_yes"><di:waypoint x="255" y="238" /><di:waypoint x="300" y="238" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_no_di" bpmnElement="Flow_2_no"><di:waypoint x="230" y="263" /><di:waypoint x="230" y="338" /><di:waypoint x="320" y="338" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="470" y="238" /><di:waypoint x="520" y="238" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="710" y="238" /><di:waypoint x="760" y="238" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_yes_di" bpmnElement="Flow_5_yes"><di:waypoint x="810" y="238" /><di:waypoint x="880" y="238" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_no_di" bpmnElement="Flow_5_no"><di:waypoint x="785" y="263" /><di:waypoint x="785" y="338" /><di:waypoint x="880" y="338" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_yes_di" bpmnElement="Flow_6_yes"><di:waypoint x="930" y="238" /><di:waypoint x="1000" y="238" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_no_di" bpmnElement="Flow_6_no"><di:waypoint x="905" y="263" /><di:waypoint x="905" y="338" /><di:waypoint x="1000" y="338" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_super_di" bpmnElement="Flow_7_super"><di:waypoint x="1025" y="213" /><di:waypoint x="1025" y="110" /><di:waypoint x="1120" y="110" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_admin_user_di" bpmnElement="Flow_7_admin_user"><di:waypoint x="1050" y="238" /><di:waypoint x="1120" y="280" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_8_super_di" bpmnElement="Flow_8_super"><di:waypoint x="1320" y="110" /><di:waypoint x="1450" y="110" /><di:waypoint x="1450" y="190" /><di:waypoint x="1515" y="190" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_8_admin_user_di" bpmnElement="Flow_8_admin_user"><di:waypoint x="1350" y="280" /><di:waypoint x="1400" y="280" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_9_yes_di" bpmnElement="Flow_9_yes"><di:waypoint x="1450" y="280" /><di:waypoint x="1540" y="280" /><di:waypoint x="1540" y="215" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_9_no_di" bpmnElement="Flow_9_no"><di:waypoint x="1425" y="305" /><di:waypoint x="1425" y="383" /><di:waypoint x="1515" y="383" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_yes_di" bpmnElement="Flow_10_yes"><di:waypoint x="1565" y="190" /><di:waypoint x="1665" y="190" /><di:waypoint x="1665" y="145" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_no_di" bpmnElement="Flow_10_no"><di:waypoint x="1565" y="190" /><di:waypoint x="1665" y="190" /><di:waypoint x="1665" y="235" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11_yes_di" bpmnElement="Flow_11_yes"><di:waypoint x="1665" y="145" /><di:waypoint x="1665" y="235" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11_no_di" bpmnElement="Flow_11_no"><di:waypoint x="1690" y="120" /><di:waypoint x="1765" y="113" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12_yes_di" bpmnElement="Flow_12_yes"><di:waypoint x="1690" y="260" /><di:waypoint x="1760" y="260" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12_no_di" bpmnElement="Flow_12_no"><di:waypoint x="1665" y="285" /><di:waypoint x="1665" y="323" /><di:waypoint x="1765" y="323" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13"><di:waypoint x="1980" y="260" /><di:waypoint x="2030" y="260" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

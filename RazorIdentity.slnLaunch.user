@@ -1,0 +1,27 @@
+[
+  {
+    "Name": "Nuevo perfil",
+    "Projects": [
+      {
+        "Path": "RazorIdentity.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\montecarlo\\montecarlo.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\PYC\\PYC.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\Rit_Api\\Rit_Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\Api_Ritweb\\Api_Ritweb.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

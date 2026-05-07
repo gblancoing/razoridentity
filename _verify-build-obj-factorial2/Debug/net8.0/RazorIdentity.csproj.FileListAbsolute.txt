@@ -1,0 +1,11 @@
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.csproj.AssemblyReference.cache
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\rpswa.dswa.cache.json
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.AssemblyInfoInputs.cache
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.AssemblyInfo.cs
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.csproj.CoreCompileInputs.cache
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.RazorAssemblyInfo.cache
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.RazorAssemblyInfo.cs
+C:\Users\gblanco\source\repos\RazorIdentity\_verify-build-obj-factorial2\Debug\net8.0\RazorIdentity.sourcelink.json

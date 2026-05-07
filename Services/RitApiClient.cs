@@ -52,6 +52,18 @@ public class RitApiClient : IRitApiClient
         return JsonSerializer.Deserialize<T>(json, JsonOptions);
     }
 
+    public async Task<T?> PatchAsync<TRequest, T>(string ruta, TRequest body, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PatchAsJsonAsync(ruta, body, JsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var bodyError = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"{(int)response.StatusCode} ({response.StatusCode}): {bodyError}");
+        }
+        var json = await response.Content.ReadAsStringAsync(ct);
+        return JsonSerializer.Deserialize<T>(json, JsonOptions);
+    }
+
     public async Task DeleteAsync(string ruta, CancellationToken ct = default)
     {
         var response = await _httpClient.DeleteAsync(ruta, ct);

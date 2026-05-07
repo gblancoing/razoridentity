@@ -4,7 +4,7 @@
     Layout = "_ManageLayout";
     ViewData["Title"] = "Mi perfil";
     ViewData["ActivePage"] = ManageNavPages.Index;
-    var displayName = Model.Username ?? Model.Email ?? "Usuario";
+    var displayName = !string.IsNullOrWhiteSpace(Model.FullName) ? Model.FullName : (Model.Username ?? Model.Email ?? "Usuario");
 }
 
 <div class="max-w-7xl mx-auto">
@@ -29,9 +29,36 @@
                     </div>
                 </div>
                 <div class="px-6 py-4 space-y-0">
+                    @if (!string.IsNullOrWhiteSpace(Model.Turno))
+                    {
+                        <div class="flex items-center justify-between py-4 border-b border-slate-100">
+                            <span class="text-sm text-slate-500 flex items-center gap-2">
+                                <span class="material-icons text-slate-400 text-lg">schedule</span>
+                                Turno
+                            </span>
+                            <span class="text-sm font-medium text-slate-800">@Model.Turno</span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Cargo))
+                    {
+                        <div class="flex items-center justify-between py-4 border-b border-slate-100">
+                            <span class="text-sm text-slate-500 flex items-center gap-2">
+                                <span class="material-icons text-slate-400 text-lg">work_outline</span>
+                                Cargo
+                            </span>
+                            <span class="text-sm font-medium text-slate-800">@Model.Cargo</span>
+                        </div>
+                    }
                     <div class="flex items-center justify-between py-4 border-b border-slate-100">
                         <span class="text-sm text-slate-500 flex items-center gap-2">
                             <span class="material-icons text-slate-400 text-lg">mail</span>
+                            Correo
+                        </span>
+                        <span class="text-sm font-medium text-slate-800 truncate max-w-[180px]" title="@Model.Email">@Model.Email</span>
+                    </div>
+                    <div class="flex items-center justify-between py-4 border-b border-slate-100">
+                        <span class="text-sm text-slate-500 flex items-center gap-2">
+                            <span class="material-icons text-slate-400 text-lg">verified</span>
                             Correo confirmado
                         </span>
                         @if (Model.EmailConfirmed)

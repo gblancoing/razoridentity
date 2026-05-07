@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>razoridentity-dev-2025</UserSecretsId>
+    <DefaultItemExcludes>$(DefaultItemExcludes);_verify-build-obj*/**;_verify-build-out*/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

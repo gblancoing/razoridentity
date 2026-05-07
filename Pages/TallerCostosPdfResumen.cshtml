@@ -1,0 +1,1143 @@
+@page "{proyectoId:guid}"
+@model RazorIdentity.Pages.TallerCostosPdfResumenModel
+@{
+    Layout = null;
+    var hayContratos  = Model.Contratos.Any();
+    var hayRiesgos    = Model.Riesgos.Any();
+    var hayCombinado  = Model.EatCombinado != null;
+    var amenazas      = Model.Riesgos.Where(r =>  r.EsAmenaza).ToList();
+    var oportunidades = Model.Riesgos.Where(r => !r.EsAmenaza).ToList();
+    var topRiesgos    = Model.Riesgos.OrderByDescending(r => Math.Abs(r.VE)).Take(10).ToList();
+
+    // Barras exposición
+    var capex    = Model.TotCapex > 0 ? Model.TotCapex : 1;
+    var pctComp  = Model.TotComp  / capex * 100;
+    var pctPorc  = Model.TotItems / capex * 100;
+    var pctEAT   = pctComp + pctPorc;
+    var maxScale = Math.Max(Math.Ceiling(pctEAT / 20) * 20 + 15, 115);
+    var compW    = (pctComp / maxScale * 100);
+    var porcW    = (pctPorc / maxScale * 100);
+    var capexLeft= (100.0 / maxScale * 100);
+    var ragColor = Model.RagColor(Model.TotPctEAT);
+    var ragLabel = Model.RagLabel(Model.TotPctEAT);
+
+    // Helper RAG para clases KPI
+    string KpiEAT(double pct)  => pct > 115 ? "kpi-red"    : pct > 100 ? "kpi-amber"  : "kpi-green";
+    string KpiComp(double pct) => pct > 115 ? "kpi-red"    : pct > 100 ? "kpi-orange" : "kpi-blue";
+    string SignClr(double v)   => v >= 0    ? "#b91c1c"    : "#15803d";
+    string SignPfx(double v)   => v >= 0    ? "+"          : "";
+}
+@if (Model.EsVistaEjecutiva)
+{
+@await Html.PartialAsync("_TallerCostosPdfEjecutivoDoc", Model)
+}
+else
+{
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Resumen Global — @Model.Proyecto.Codigo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; background: #fff; }
+
+    /* ── Portada ── */
+    .cover { padding: 36px 48px 22px; border-bottom: 3px solid #0f9488; }
+    .cover h1 { font-size: 21px; font-weight: 700; color: #0f172a; }
+    .cover .sub { font-size: 13px; color: #475569; margin-top: 4px; }
+    .cover-meta { display: flex; gap: 28px; margin-top: 14px; flex-wrap: wrap; }
+    .cover-meta .item { display: flex; flex-direction: column; }
+    .cover-meta .item label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+    .cover-meta .item span  { font-size: 12px; font-weight: 600; color: #334155; }
+
+    /* ── Secciones ── */
+    .section { padding: 18px 48px; }
+    .section + .section { border-top: 1px solid #e2e8f0; }
+    .sec-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px;
+        display: flex; align-items: center; gap: 6px; }
+    .sec-title .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink:0; }
+    .sec-sub { font-size: 11px; font-weight: 600; color: #334155; margin: 12px 0 6px; display:flex; align-items:center; gap:6px; }
+
+    /* ── KPI grid ── */
+    .kpi-grid   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+    .kpi-grid-5 { grid-template-columns: repeat(5, 1fr); }
+    .kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .kpi-grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .kpi-card { border-radius: 8px; padding: 10px 12px; border: 1px solid; }
+    .kpi-card label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 3px; opacity: .7; }
+    .kpi-card .val  { font-size: 14px; font-weight: 700; }
+    .kpi-card .sub  { font-size: 9px; margin-top: 3px; opacity: .65; }
+    .kpi-teal   { background: linear-gradient(135deg,#0f9488,#0d7a70); color: #fff; border-color: transparent; }
+    .kpi-purple { background: linear-gradient(135deg,#7c3aed,#5b21b6); color: #fff; border-color: transparent; }
+    .kpi-blue   { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+    .kpi-green  { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .kpi-amber  { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+    .kpi-red    { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .kpi-slate  { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+    .kpi-orange { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+
+    /* ── Barra de exposición ── */
+    .exp-bar-wrap { position:relative; width:100%; height:20px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+    .exp-bar-comp { position:absolute; top:0; left:0; height:100%; background:linear-gradient(90deg,#3b82f6,#60a5fa); border-radius:99px 0 0 99px; }
+    .exp-bar-porc { position:absolute; top:0; height:100%; background:linear-gradient(90deg,#10b981,#34d399); }
+    .exp-bar-line { position:absolute; top:0; bottom:0; width:2px; background:#6b7280; }
+
+    /* ── Barras de percentiles ── */
+    .pct-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+    .pct-bar-label { font-size:11px; font-weight:700; width:32px; }
+    .pct-bar-outer { flex:1; height:16px; background:#f1f5f9; border-radius:99px; position:relative; overflow:hidden; }
+    .pct-bar-inner { height:100%; border-radius:99px; opacity:.85; }
+    .pct-bar-capex { position:absolute; top:0; bottom:0; width:2px; background:#6366f1; }
+    .pct-bar-val   { font-size:10px; font-weight:600; width:120px; text-align:right; white-space:nowrap; }
+    .pct-bar-pct   { font-size:10px; width:50px; text-align:right; }
+
+    /* ── Risk distribution bars (más delgadas) ── */
+    .risk-bar-outer { flex:1; height:12px; background:#f1f5f9; border-radius:99px; position:relative; overflow:hidden; }
+    .risk-bar-inner { height:100%; border-radius:99px; opacity:.85; }
+    .risk-bar-val   { font-size:9px; font-weight:600; width:100px; text-align:right; white-space:nowrap; }
+
+    /* ── Composición ── */
+    .comp-bar-wrap { height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden; margin:3px 0 6px; }
+    .comp-bar-fill { height:100%; border-radius:99px; }
+
+    /* ── Tablas ── */
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    thead th { background: #f8fafc; font-weight: 600; color: #475569; padding: 5px 6px;
+        text-align: left; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+    tbody td { padding: 4px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tfoot td { padding: 5px 6px; font-weight: 700; background: #f8fafc; border-top: 2px solid #e2e8f0; }
+    .text-right  { text-align: right; }
+    .text-center { text-align: center; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 9px;
+             font-weight: 700; white-space: nowrap; color: #fff; }
+    .dot-ok  { display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;vertical-align:middle; }
+    .dot-off { display:inline-block;width:7px;height:7px;border-radius:50%;background:#e2e8f0;vertical-align:middle; }
+    .nivel-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px;
+        font-size:9px; font-weight:700; margin-right:4px; margin-bottom:4px; }
+
+    /* ── Familia grupo ── */
+    .fam-header td { vertical-align: middle; }
+    .fam-subtotal td { font-size: 9px; }
+
+    /* ── Alerta ── */
+    .alerta { display:flex; align-items:flex-start; gap:10px; padding:8px 12px; border-radius:8px; border:1px solid; margin-bottom:6px; }
+    .alerta-icon { font-size:14px; font-weight:700; flex-shrink:0; margin-top:1px; }
+    .alerta-msg { font-size:10px; font-weight:600; }
+    .alerta-rec { font-size:9px; opacity:.7; margin-top:2px; }
+    .alerta-red    { background:#fef2f2; border-color:#fecaca; color:#b91c1c; }
+    .alerta-amber  { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+    .alerta-green  { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+
+    /* ── Grid 2/3 ── */
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
+    .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:12px; }
+    .card { border:1px solid #e2e8f0; border-radius:8px; padding:12px; }
+    .card-title { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:8px; }
+
+    /* ── Histograma ── */
+    .chart-box { border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-top:12px; }
+    .chart-box p { font-size:10px; font-weight:600; color:#475569; margin-bottom:6px; }
+    canvas { max-width:100%; height:160px !important; }
+
+    /* ── Tabla de desglose EAT ── */
+    .desglose-tbl tbody tr:last-child td { border-bottom: none; }
+    .desglose-tbl tfoot { background:#f5f3ff; }
+    .desglose-tbl tfoot td { color:#6d28d9; border-top:2px solid #c4b5fd; }
+
+    /* ── Print ── */
+    @@media print {
+        body { font-size: 10px; }
+        .no-print { display: none !important; }
+        .page-break { page-break-before: always; }
+        .avoid-break { page-break-inside: avoid; }
+        canvas { max-height: 130px !important; }
+    }
+    .print-btn { position: fixed; bottom: 20px; right: 20px; padding: 10px 20px;
+        background: #0f9488; color: #fff; border: none; border-radius: 8px;
+        font-size: 13px; font-weight: 600; cursor: pointer; z-index: 999; }
+    .print-btn:hover { background: #0d7a70; }
+    .footer-bar { padding: 10px 48px; background: #f8fafc; border-top: 1px solid #e2e8f0;
+        font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">⬇ Guardar / Imprimir PDF</button>
+
+@* ── PORTADA ─────────────────────────────────────────────────────────────── *@
+<div class="cover">
+    <h1>Reporte Resumen Global del Proyecto</h1>
+    <div class="sub">CODELCO — Vicepresidencia Proyectos — Taller de Rango de Costos</div>
+    <div class="cover-meta">
+        <div class="item"><label>Proyecto</label><span>@Model.Proyecto.Nombre</span></div>
+        <div class="item"><label>Código</label><span>@Model.Proyecto.Codigo</span></div>
+        @if (!string.IsNullOrEmpty(Model.Proyecto.Organizacion))
+        {<div class="item"><label>Organización</label><span>@Model.Proyecto.Organizacion</span></div>}
+        <div class="item"><label>Fecha ejercicio</label><span>@Model.Proyecto.FechaEjercicio.ToString("MM/yyyy")</span></div>
+        <div class="item"><label>Contratos</label><span>@Model.TotContratos (@Model.WithMc con MC)</span></div>
+        <div class="item"><label>Riesgos</label><span>@Model.Riesgos.Count total (@amenazas.Count amenazas · @oportunidades.Count oportunidades) — @(Model.FuenteRiesgos == "montecarlo" ? "Montecarlo" : Model.FuenteRiesgos == "taller" ? "Taller" : "Sin datos")</span></div>
+        <div class="item"><label>EAT/CAPEX</label>
+            <span style="color:@ragColor">@Model.FmtPct(Model.TotPctEAT) — @ragLabel</span>
+        </div>
+        <div class="item"><label>Generado</label><span>@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span></div>
+    </div>
+</div>
+
+@* ── SEC 1 — RESUMEN FINANCIERO ──────────────────────────────────────────── *@
+@if (hayContratos)
+{
+<div class="section avoid-break">
+    <div class="sec-title">
+        <span class="dot" style="background:#0f9488"></span> Resumen Financiero del Proyecto
+    </div>
+
+    @* 5 tarjetas en fila — igual que el Resumen Global online *@
+    @{
+        var kpiEatCls  = KpiEAT(Model.TotPctEAT);
+        var kpiCompCls = KpiComp(Model.TotPctComp);
+        var kpiSlackCls = Model.TotSlack >= 0 ? "kpi-green" : "kpi-red";
+        var pctPorComp = Model.TotItems / capex * 100;
+    }
+    <div class="kpi-grid kpi-grid-5" style="margin-bottom:10px">
+        <div class="kpi-card kpi-slate">
+            <label>CAPEX Total</label>
+            <div class="val">@Model.FmtKusd(Model.TotCapex)</div>
+            <div class="sub">Presupuesto base</div>
+        </div>
+        <div class="kpi-card @kpiCompCls">
+            <label>Comprometido</label>
+            <div class="val">@Model.FmtKusd(Model.TotComp)</div>
+            <div class="sub">@Model.FmtPct(Model.TotPctComp) del CAPEX</div>
+        </div>
+        <div class="kpi-card kpi-blue">
+            <label>Por Comprometer</label>
+            <div class="val">@Model.FmtKusd(Model.TotItems)</div>
+            <div class="sub">@Model.FmtPct(pctPorComp) del CAPEX</div>
+        </div>
+        <div class="kpi-card @kpiEatCls">
+            <label>EAT Determinístico</label>
+            <div class="val">@Model.FmtKusd(Model.TotEAT)</div>
+            <div class="sub">@Model.FmtPct(Model.TotPctEAT) del CAPEX</div>
+        </div>
+        <div class="kpi-card @kpiSlackCls">
+            <label>@(Model.TotSlack >= 0 ? "Slack" : "Déficit")</label>
+            <div class="val">@Model.FmtKusd(Math.Abs(Model.TotSlack))</div>
+            <div class="sub">@(Model.TotSlack >= 0 ? "Margen disponible" : "Déficit proyectado")</div>
+        </div>
+    </div>
+
+    @* Fila Certeza / Incertidumbre *@
+    <div class="kpi-grid kpi-grid-2" style="margin-bottom:10px">
+        <div class="kpi-card kpi-slate">
+            <label>Certeza — Costo Fijo</label>
+            <div class="val" style="font-size:12px">@Model.FmtKusd(Model.TotCerteza)</div>
+            <div class="sub">@Model.FmtPct(Model.TotPctCerteza) de los ítems · sin variabilidad MC</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+            <label>Incertidumbre — Rango Mín/Probable/Máx</label>
+            <div class="val" style="font-size:12px">@Model.FmtKusd(Model.TotIncert)</div>
+            <div class="sub">@Model.FmtPct(100 - Model.TotPctCerteza) de los ítems · alimenta el MC</div>
+        </div>
+    </div>
+
+    @* Barra de exposición financiera *@
+    <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:10px;font-weight:600;color:#475569">Exposición financiera vs CAPEX</span>
+            <span style="font-size:10px;font-weight:700;color:@ragColor">● @ragLabel</span>
+        </div>
+        <div class="exp-bar-wrap">
+            <div class="exp-bar-comp" style="width:@compW.ToString("F1")%"></div>
+            <div class="exp-bar-porc" style="left:@compW.ToString("F1")%;width:@porcW.ToString("F1")%"></div>
+            <div class="exp-bar-line" style="left:@capexLeft.ToString("F1")%"></div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:4px;font-size:9px;color:#64748b;flex-wrap:wrap">
+            <span><span style="display:inline-block;width:10px;height:8px;border-radius:2px;background:#60a5fa;vertical-align:middle;margin-right:3px"></span>Comprometido @Model.FmtPct(pctComp)</span>
+            <span><span style="display:inline-block;width:10px;height:8px;border-radius:2px;background:#34d399;vertical-align:middle;margin-right:3px"></span>Por Comprometer @Model.FmtPct(pctPorc)</span>
+            @if (pctEAT > 100)
+            {<span style="color:#b91c1c;font-weight:600">Exceso @Model.FmtPct(pctEAT - 100)</span>}
+            <span style="margin-left:auto">┆ = CAPEX 100%</span>
+        </div>
+    </div>
+
+    @* MC-only percentiles (incertidumbre sin riesgos) *@
+    @if (Model.McP50Agg.HasValue)
+    {
+        var mcCapex = Model.TotCapex > 0 ? Model.TotCapex : 1;
+        var cobert  = Model.TotContratos > 0 ? (double)Model.WithMc / Model.TotContratos * 100 : 0;
+        var mcRows  = new[] {
+            ("P10", Model.EatMcP10!.Value, "#3b82f6", "linear-gradient(90deg,#93c5fd,#3b82f6)"),
+            ("P50", Model.EatMcP50!.Value, "#10b981", "linear-gradient(90deg,#6ee7b7,#10b981)"),
+            ("P80", Model.EatMcP80!.Value, "#f59e0b", "linear-gradient(90deg,#fcd34d,#f59e0b)"),
+            ("P90", Model.EatMcP90!.Value, "#ef4444", "linear-gradient(90deg,#fca5a5,#ef4444)")
+        };
+        <div class="card" style="margin-bottom:8px">
+            <div class="card-title">
+                Monte Carlo Agregado — Sólo Incertidumbre
+                <span style="font-weight:400;color:#94a3b8;margin-left:6px">@Model.WithMc/@Model.TotContratos contratos · @Model.FmtPct(cobert) cobertura</span>
+            </div>
+            <p style="font-size:9px;color:#64748b;margin-bottom:8px">EAT = Comprometido + Certeza + Incertidumbre MC. Sin riesgos. La línea ┆ = CAPEX.</p>
+            @foreach (var (lbl, val, clr, grad) in mcRows)
+            {
+                var pct2 = Math.Min(val / mcCapex * 100, 130);
+                var capL = Math.Min(100.0 / 130.0 * 100, 100);
+                var growPct = Model.TotEAT > 0 ? (val - Model.TotEAT) / Model.TotEAT * 100 : 0;
+                var gClr = growPct >= 0 ? "#ef4444" : "#15803d";
+                <div class="pct-bar-row">
+                    <span class="pct-bar-label" style="color:@clr">@lbl</span>
+                    <div class="pct-bar-outer">
+                        <div class="pct-bar-inner" style="width:@pct2.ToString("F1")%;background:@grad"></div>
+                        <div class="pct-bar-capex" style="left:@capL.ToString("F1")%"></div>
+                    </div>
+                    <span class="pct-bar-val" style="color:@clr">@Model.FmtKusd(val)</span>
+                    <span class="pct-bar-pct" style="color:@gClr">@(growPct >= 0 ? "+" : "")@growPct.ToString("F1")%</span>
+                </div>
+            }
+            @if (Model.WithoutMc > 0)
+            {
+            <div style="margin-top:6px;padding:5px 8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:9px;color:#92400e">
+                ⚠ @Model.WithoutMc contrato(s) sin MC — EAT probabilístico subestimado
+            </div>
+            }
+        </div>
+    }
+</div>
+}
+
+@* ── Paleta de colores para familias ── *@
+@{
+    var famPalette = new[] { "#14b8a6","#6366f1","#f59e0b","#10b981","#3b82f6","#ec4899","#8b5cf6","#f97316" };
+    var famColorMap = new Dictionary<Guid, string>();
+    for (int fi = 0; fi < Model.Familias.Count; fi++)
+        famColorMap[Model.Familias[fi].Id] = famPalette[fi % famPalette.Length];
+
+    string RagC(double pct)   => pct > 115 ? "#b91c1c" : pct > 105 ? "#d97706" : pct > 95 ? "#0f766e" : "#15803d";
+    string RowBg(double pct)  => pct > 115 ? "background:#fef2f2" : pct > 105 ? "background:#fffbeb" : "";
+}
+
+@* ── SEC 2 — CONTRATOS Y ANÁLISIS DE INCERTIDUMBRE ───────────────────────── *@
+@if (hayContratos)
+{
+<div class="section avoid-break">
+    <div class="sec-title">
+        <span class="dot" style="background:#0ea5e9"></span> Análisis de Incertidumbre por Contrato
+        <span style="margin-left:auto;font-size:9px;background:#f1f5f9;padding:2px 8px;border-radius:999px;color:#64748b">
+            @Model.TotContratos contratos · @Model.Contratos.Sum(c => c.TotalItems) ítems · @Model.WithMc con MC
+        </span>
+    </div>
+
+    @* Tabla contratos agrupada por familia *@
+    <table style="margin-bottom:14px">
+        <thead>
+            <tr>
+                <th style="padding-left:18px">Código</th>
+                <th>Nombre del Paquete</th>
+                <th class="text-right">CAPEX</th>
+                <th class="text-right">Comprometido</th>
+                <th class="text-right">Por Comp.</th>
+                <th class="text-right">EAT</th>
+                <th class="text-center">EAT/CAPEX</th>
+                <th class="text-right" title="Δ Incertidumbre = MC P50 − Probable ítems inciertos. Positivo = MC sesgado al alza.">Δ Incert.</th>
+                <th class="text-right">MC P50 EAT</th>
+            </tr>
+        </thead>
+        <tbody>
+        @{
+            var gruposFam = Model.Familias.Select((f, i) => new {
+                Familia = f,
+                Color   = famPalette[i % famPalette.Length],
+                Conts   = Model.Contratos.Where(c => c.FamiliaId == f.Id).ToList()
+            }).ToList();
+            var sinFamConts = Model.Contratos.Where(c => c.FamiliaId == null).ToList();
+
+            void RenderContRow(TallerCostosPdfResumenModel.ContratoRow c, string accentColor)
+            {
+                var delta      = c.HasMc && c.McP50.HasValue ? (double?)(c.McP50.Value - c.IncertTotal) : null;
+                var dClr       = delta == null ? "#94a3b8" : delta > 0 ? "#b91c1c" : "#15803d";
+                <tr style="@RowBg(c.PctEAT)">
+                    <td style="font-weight:600;font-family:monospace;padding-left:18px;border-left:3px solid @(accentColor)40">@c.Codigo</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@c.Nombre</td>
+                    <td class="text-right">@Model.FmtKusd(c.Capex)</td>
+                    <td class="text-right">@Model.FmtKusd(c.Comprometido)</td>
+                    <td class="text-right">@Model.FmtKusd(c.PorComprometer)</td>
+                    <td class="text-right" style="font-weight:600;color:@RagC(c.PctEAT)">@Model.FmtKusd(c.EAT)</td>
+                    <td class="text-center" style="color:@RagC(c.PctEAT);font-weight:700">● @Model.FmtPct(c.PctEAT)</td>
+                    <td class="text-right" style="font-weight:600;font-size:9px;color:@dClr">
+                        @if (delta.HasValue)
+                        {<text>@(delta.Value >= 0 ? "+" : "")@Model.FmtKusd(delta.Value)</text>}
+                        else
+                        {<span style="color:#cbd5e1">—</span>}
+                    </td>
+                    <td class="text-right">
+                        @if (c.HasMc)
+                        {<span style="font-size:9px;background:#f3e8ff;color:#6d28d9;padding:1px 5px;border-radius:4px">@Model.FmtKusd((c.McP50 ?? 0) + c.CertTotal)</span>}
+                        else
+                        {<span style="color:#cbd5e1;font-size:9px">Sin MC</span>}
+                    </td>
+                </tr>
+            }
+
+            void RenderGrupo(string nombre, List<TallerCostosPdfResumenModel.ContratoRow> conts, string color, bool esVacia = false)
+            {
+                var tC   = conts.Sum(c => c.Capex);
+                var tK   = conts.Sum(c => c.Comprometido);
+                var tP   = conts.Sum(c => c.PorComprometer);
+                var tE   = conts.Sum(c => c.EAT);
+                var pp   = tC > 0 ? tE / tC * 100 : 0;
+                var rc   = RagC(pp);
+                var mcN  = conts.Count(c => c.HasMc);
+                var tDelta       = conts.Any(c => c.HasMc && c.McP50.HasValue)
+                    ? (double?)conts.Where(c => c.HasMc && c.McP50.HasValue).Sum(c => c.McP50!.Value - c.IncertTotal)
+                    : null;
+                var tDeltaClr    = tDelta == null ? "#94a3b8" : tDelta > 0 ? "#b91c1c" : "#15803d";
+
+                // Encabezado de familia
+                <tr style="background:@(color)12;border-top:1px solid @(color)40;border-bottom:1px solid @(color)30">
+                    <td colspan="9" style="padding:5px 8px 5px 10px;border-left:4px solid @color">
+                        <div style="display:flex;align-items:center;justify-content:space-between">
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="font-size:11px;font-weight:700;color:@color">📁 @nombre</span>
+                                <span style="font-size:9px;background:@(color)25;color:@color;padding:1px 7px;border-radius:999px;font-weight:600">
+                                    @conts.Count contrato@(conts.Count != 1 ? "s" : "")
+                                </span>
+                                @if (esVacia)
+                                {<span style="font-size:9px;color:#94a3b8;font-style:italic">Sin contratos asignados</span>}
+                            </div>
+                            @if (!esVacia)
+                            {
+                            <div style="display:flex;gap:14px;font-size:9px;color:#64748b">
+                                <span>CAPEX <strong>@Model.FmtKusd(tC)</strong></span>
+                                <span>EAT <strong style="color:@rc">@Model.FmtKusd(tE)</strong></span>
+                                <span style="font-weight:700;color:@rc">@Model.FmtPct(pp)</span>
+                                @if (mcN > 0){<span style="color:#7c3aed">@mcN con MC</span>}
+                            </div>
+                            }
+                        </div>
+                    </td>
+                </tr>
+
+                @if (!esVacia)
+                {
+                    foreach (var c in conts) { RenderContRow(c, color); }
+
+                    // Fila subtotal
+                    <tr style="background:#f8fafc;border-top:1px solid @(color)30;border-bottom:2px solid @(color)50">
+                        <td colspan="2" style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;padding:4px 6px 4px 18px;border-left:4px solid @(color)40">
+                            Subtotal @nombre
+                        </td>
+                        <td class="text-right" style="font-weight:700;font-size:9px">@Model.FmtKusd(tC)</td>
+                        <td class="text-right" style="font-size:9px">@Model.FmtKusd(tK)</td>
+                        <td class="text-right" style="font-size:9px">@Model.FmtKusd(tP)</td>
+                        <td class="text-right" style="font-weight:700;color:@rc;font-size:9px">@Model.FmtKusd(tE)</td>
+                        <td class="text-center" style="font-weight:700;color:@rc;font-size:9px">@Model.FmtPct(pp)</td>
+                        <td class="text-right" style="font-size:9px;font-weight:600;color:@tDeltaClr">
+                            @if (tDelta.HasValue)
+                            {<text>@(tDelta.Value >= 0 ? "+" : "")@Model.FmtKusd(tDelta.Value)</text>}
+                            else
+                            {<span style="color:#cbd5e1">—</span>}
+                        </td>
+                        <td style="font-size:9px;color:#94a3b8;text-align:center">@mcN MC</td>
+                    </tr>
+                }
+            }
+
+            foreach (var g in gruposFam)
+            {
+                RenderGrupo(g.Familia.Nombre, g.Conts, g.Color, g.Conts.Count == 0);
+            }
+            if (sinFamConts.Any())
+            {
+                RenderGrupo("Sin Familia", sinFamConts, "#94a3b8");
+            }
+
+            // Totales para footer
+            var totDelta    = Model.Contratos.Any(c => c.HasMc && c.McP50.HasValue)
+                ? (double?)Model.Contratos.Where(c => c.HasMc && c.McP50.HasValue).Sum(c => c.McP50!.Value - c.IncertTotal)
+                : null;
+            var totDeltaClr = totDelta == null ? "#94a3b8" : totDelta > 0 ? "#b91c1c" : "#15803d";
+        }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2" style="font-weight:700;font-size:10px">TOTAL PROYECTO (@Model.TotContratos contratos)</td>
+                <td class="text-right">@Model.FmtKusd(Model.TotCapex)</td>
+                <td class="text-right">@Model.FmtKusd(Model.TotComp)</td>
+                <td class="text-right">@Model.FmtKusd(Model.TotItems)</td>
+                <td class="text-right" style="color:@ragColor">@Model.FmtKusd(Model.TotEAT)</td>
+                <td class="text-center" style="color:@ragColor;font-weight:700">@Model.FmtPct(Model.TotPctEAT)</td>
+                <td class="text-right" style="font-weight:700;color:@totDeltaClr">
+                    @if (totDelta.HasValue)
+                    {<text>@(totDelta.Value >= 0 ? "+" : "")@Model.FmtKusd(totDelta.Value)</text>}
+                    else
+                    {<span style="color:#cbd5e1">—</span>}
+                </td>
+                <td style="color:#64748b;font-size:9px;text-align:center">@Model.WithMc con MC</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    @* Composición + Clases + Top exposición *@
+    <div class="grid-3">
+        @* Composición ítems *@
+        <div class="card">
+            <div class="card-title">Composición de Ítems</div>
+            <div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+                    <span style="color:#475569">Certeza</span>
+                    <span style="font-weight:600">@Model.FmtPct(Model.TotPctCerteza)</span>
+                </div>
+                <div class="comp-bar-wrap">
+                    <div class="comp-bar-fill" style="width:@Model.TotPctCerteza.ToString("F1")%;background:#94a3b8"></div>
+                </div>
+            </div>
+            <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+                    <span style="color:#475569">Incertidumbre</span>
+                    <span style="font-weight:600;color:#d97706">@Model.FmtPct(100 - Model.TotPctCerteza)</span>
+                </div>
+                <div class="comp-bar-wrap">
+                    <div class="comp-bar-fill" style="width:@((100 - Model.TotPctCerteza).ToString("F1"))%;background:linear-gradient(90deg,#f59e0b,#fcd34d)"></div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;border-top:1px solid #f1f5f9;padding-top:8px">
+                <div><div style="font-size:9px;color:#94a3b8">Ítems totales</div><div style="font-weight:700;font-size:12px">@Model.Contratos.Sum(c => c.TotalItems)</div></div>
+                <div><div style="font-size:9px;color:#94a3b8">Exposición inc.</div><div style="font-weight:700;font-size:12px;color:#d97706">@Model.FmtPct(100 - Model.TotPctCerteza)</div></div>
+                <div><div style="font-size:9px;color:#94a3b8">Costo certeza</div><div style="font-weight:600;font-size:10px">@Model.FmtKusd(Model.TotCerteza)</div></div>
+                <div><div style="font-size:9px;color:#94a3b8">Costo incert.</div><div style="font-weight:600;font-size:10px;color:#d97706">@Model.FmtKusd(Model.TotIncert)</div></div>
+            </div>
+        </div>
+
+        @* Distribución por clase *@
+        <div class="card">
+            <div class="card-title">Distribución por Clase de Estimación</div>
+            @if (Model.ClasesGlobal.Any())
+            {
+                foreach (var cl in Model.ClasesGlobal)
+                {
+                <div style="margin-bottom:7px">
+                    <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+                        <span style="color:#475569">@cl.Clase <span style="color:#94a3b8;font-size:9px">@cl.Count ítem(s)</span></span>
+                        <span style="font-weight:600">@Model.FmtPct(cl.Pct)</span>
+                    </div>
+                    <div class="comp-bar-wrap" style="height:7px">
+                        <div class="comp-bar-fill" style="width:@Math.Min(cl.Pct,100).ToString("F1")%;background:#2dd4bf"></div>
+                    </div>
+                </div>
+                }
+                <div style="font-size:9px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:6px;margin-top:4px">
+                    Clase 1 = alta precisión · Clase 5 = orden de magnitud
+                </div>
+            }
+            else
+            {
+            <p style="font-size:10px;color:#94a3b8">Sin datos de clase de estimación</p>
+            }
+        </div>
+
+        @* Top 3 mayor exposición *@
+        <div class="card" style="border-color:#fde68a;background:#fffbeb">
+            <div class="card-title" style="color:#92400e">⚠ Top 3 — Mayor Exposición</div>
+            @if (Model.TopExposicion.Any())
+            {
+                foreach (var ex in Model.TopExposicion)
+                {
+                <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #fde68a">
+                    <div style="font-size:10px;font-weight:600;color:#475569">@ex.Contrato · @ex.CodigoItem</div>
+                    <div style="font-size:9px;color:#64748b;margin:1px 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ex.Descripcion</div>
+                    <div style="display:flex;justify-content:space-between;font-size:9px">
+                        <span style="color:#3b82f6">Mín @Model.FmtKusd(ex.MinUsd)</span>
+                        <span style="font-weight:600;color:#d97706">Spread @Model.FmtKusd(ex.Spread)</span>
+                    </div>
+                </div>
+                }
+            }
+            else
+            {
+            <p style="font-size:10px;color:#94a3b8">Sin ítems de incertidumbre con rango definido</p>
+            }
+        </div>
+    </div>
+</div>
+}
+
+@* ── SEC 3 — RIESGOS (detalle, sin cabecera KPI) ─────────────────────────── *@
+<div class="section page-break avoid-break">
+    @if (hayRiesgos)
+    {
+    @* Distribución por nivel *@
+    @if (Model.DistribucionNiveles.Any())
+    {
+    <div style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+        <span style="font-size:9px;color:#94a3b8;margin-right:4px">Distribución por nivel CODELCO:</span>
+        @foreach (var n in Model.DistribucionNiveles)
+        {
+            <span class="nivel-badge" style="background:@n.Color;color:#fff">@n.Label: @n.Count</span>
+        }
+    </div>
+    }
+
+    @* Tabla de riesgos *@
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Plan de Respuesta / Notas</th>
+                <th class="text-center">Tipo</th>
+                <th class="text-center">Nivel</th>
+                <th class="text-right">Prob %</th>
+                <th class="text-right">Moda USD$</th>
+                <th class="text-right">VE USD$</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in topRiesgos)
+            {
+                <tr>
+                    <td style="font-family:monospace">@r.Codigo</td>
+                    <td>@r.Descripcion</td>
+                    <td style="font-size:9px;color:#64748b">@(string.IsNullOrEmpty(r.PlanRespuesta) ? "—" : r.PlanRespuesta)</td>
+                    <td class="text-center" style="color:@(r.EsAmenaza ? "#ef4444" : "#16a34a");font-weight:700">
+                        @(r.EsAmenaza ? "▲ Amenaza" : "▼ Oport.")
+                    </td>
+                    <td class="text-center">
+                        <span class="badge" style="background:@r.NivelColor">@r.NivelLabel</span>
+                    </td>
+                    <td class="text-right">@Model.FmtPct(r.ProbPct)</td>
+                    <td class="text-right">@Model.FmtKusd(Math.Abs(r.Moda))</td>
+                    <td class="text-right" style="font-weight:700;color:@(r.EsAmenaza ? "#b91c1c" : "#15803d")">@Model.FmtKusd(Math.Abs(r.VE))</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="7" class="text-right">VE Neto (amenazas − oportunidades):</td>
+                <td class="text-right" style="color:@(Model.VeNeto >= 0 ? "#b91c1c" : "#15803d")">@Model.FmtKusd(Model.VeNeto)</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    @* Distribución Probabilística de Riesgos — solo si hay simulación combinada *@
+    @if (hayCombinado && Model.EatCombinado != null)
+    {
+        var ecR   = Model.EatCombinado;
+        var aP50  = Model.AmenazasP50Informe ?? ecR.ContingenciaAmenazasP50;
+        var aP80  = Model.AmenazasP80Informe ?? ecR.ContingenciaAmenazasP80;
+        var aP90  = Model.AmenazasP90Informe ?? ecR.ContingenciaAmenazasP90;
+        var aMed  = ecR.ContingenciaAmenazasMedia;
+        var oP50  = Model.OportunidadesAhorroP50Informe ?? Math.Abs(ecR.ImpactoOportunidadesP50);
+        var oP80  = Model.OportunidadesAhorroP80Informe ?? Math.Abs(ecR.ImpactoOportunidadesP80);
+        var amenBarMax = Math.Max(1.0, Math.Max(Math.Max(Math.Max(aP50, aP80), aP90), aMed));
+        var opBarMax   = Math.Max(1.0, Math.Max(oP50, oP80));
+        string RBWAmen(double v) => v > 0 ? Math.Min(v / amenBarMax * 100, 100).ToString("F1") : "0";
+        string RBWOp(double v)   => v > 0 ? Math.Min(v / opBarMax * 100, 100).ToString("F1") : "0";
+
+    <div class="card" style="margin-top:12px;border-color:#fecaca;border-left:3px solid #ef4444">
+        <div class="card-title" style="color:#b91c1c;margin-bottom:10px">
+            Distribución Probabilística de Riesgos (Simulación Bernoulli × Triangular)
+        </div>
+        <p style="font-size:8px;color:#64748b;margin:0 0 10px;line-height:1.35">
+            <strong>Escala de barras:</strong> cada columna se normaliza al mayor valor de esa columna (amenazas: P50/P80/P90 y media; oportunidades: P50/P80). Los montos en USD son la referencia absoluta; las barras no representan fracción del CAPEX.
+        </p>
+        <div class="grid-2" style="gap:16px;margin-bottom:0">
+            @if (amenazas.Any())
+            {
+            <div>
+                <div style="font-size:10px;font-weight:700;color:#b91c1c;margin-bottom:6px">
+                    ▲ Amenazas — Impacto Acumulado <span style="font-size:9px;font-weight:400;color:#94a3b8">(@amenazas.Count riesgo(s))</span>
+                </div>
+                @foreach (var (lbl, val, clr, grad) in new[] {
+                    ("P50", aP50, "#ef4444", "linear-gradient(90deg,#fca5a5,#ef4444)"),
+                    ("P80", aP80, "#b91c1c", "linear-gradient(90deg,#fca5a5,#b91c1c)"),
+                    ("P90", aP90, "#7f1d1d", "linear-gradient(90deg,#fca5a5,#7f1d1d)")
+                })
+                {
+                    <div class="pct-bar-row" style="margin-bottom:5px">
+                        <span class="pct-bar-label" style="color:@clr">@lbl</span>
+                        <div class="risk-bar-outer">
+                            <div class="risk-bar-inner" style="width:@RBWAmen(val)%;background:@grad"></div>
+                        </div>
+                        <span class="risk-bar-val" style="color:@clr">@(val > 0 ? Model.FmtKusd(val) : "— (p<50%)")</span>
+                    </div>
+                }
+                <div style="font-size:9px;color:#94a3b8;margin-top:4px">Media: @Model.FmtKusd(ecR.ContingenciaAmenazasMedia)</div>
+            </div>
+            }
+            else
+            {
+            <div style="display:flex;align-items:center;justify-content:center;background:#f8fafc;border-radius:6px;padding:16px">
+                <span style="font-size:10px;color:#94a3b8;text-align:center">Sin amenazas registradas</span>
+            </div>
+            }
+
+            @if (oportunidades.Any())
+            {
+            <div>
+                <div style="font-size:10px;font-weight:700;color:#15803d;margin-bottom:6px">
+                    ▼ Oportunidades — Ahorro Potencial <span style="font-size:9px;font-weight:400;color:#94a3b8">(@oportunidades.Count)</span>
+                </div>
+                @foreach (var (lbl, val, clr, grad) in new[] {
+                    ("P50", oP50, "#10b981", "linear-gradient(90deg,#6ee7b7,#10b981)"),
+                    ("P80", oP80, "#15803d", "linear-gradient(90deg,#6ee7b7,#15803d)")
+                })
+                {
+                    <div class="pct-bar-row" style="margin-bottom:5px">
+                        <span class="pct-bar-label" style="color:@clr">@lbl</span>
+                        <div class="risk-bar-outer">
+                            <div class="risk-bar-inner" style="width:@RBWOp(val)%;background:@grad"></div>
+                        </div>
+                        <span class="risk-bar-val" style="color:@clr">@(val > 0 ? Model.FmtKusd(val) : "— (p<50%)")</span>
+                    </div>
+                }
+                <div style="font-size:9px;color:#94a3b8;margin-top:4px">Ahorro neto en escenarios donde se materializan</div>
+            </div>
+            }
+            else if (amenazas.Any())
+            {
+            <div style="display:flex;align-items:center;justify-content:center;background:#f8fafc;border-radius:6px;padding:16px">
+                <span style="font-size:10px;color:#94a3b8;text-align:center">Sin oportunidades registradas</span>
+            </div>
+            }
+        </div>
+    </div>
+    }
+    }
+    else
+    {
+    <div style="text-align:center;padding:28px;color:#94a3b8">
+        <div style="font-size:32px;margin-bottom:8px">🛡</div>
+        <p style="font-size:12px;font-weight:600">Sin riesgos registrados para este proyecto</p>
+        <p style="font-size:10px;margin-top:4px">Registra amenazas y oportunidades en la pestaña "Riesgos".</p>
+    </div>
+    }
+</div>
+
+@* ── SEC 4 — EAT PROBABILÍSTICO ──────────────────────────────────────────── *@
+@if (hayCombinado && Model.EatCombinado != null)
+{
+    var ec         = Model.EatCombinado;
+    var eatDet     = Model.TotEAT;
+    var capexRef   = Model.TotCapex > 0 ? Model.TotCapex : 1.0;
+    var p80OverCap = Model.EatCombP80.HasValue && Model.EatCombP80.Value > Model.TotCapex;
+    var p50OverCap = Model.EatCombP50.HasValue && Model.EatCombP50.Value > Model.TotCapex;
+    var p50VsDet   = eatDet > 0 ? (Model.EatCombP50!.Value - eatDet) / eatDet * 100 : 0;
+
+    // Contribution table deltas
+    var hasIncMc     = Model.McP50Agg.HasValue;
+    var deltaIncP50v = hasIncMc ? Model.EatMcP50!.Value - eatDet        : (double?)null;
+    var deltaIncP80v = hasIncMc ? Model.EatMcP80!.Value - eatDet        : (double?)null;
+    var deltaRskP50v = hasIncMc ? Model.EatCombP50!.Value - Model.EatMcP50!.Value
+                                : Model.EatCombP50!.Value - eatDet;
+    var deltaRskP80v = hasIncMc ? Model.EatCombP80!.Value - Model.EatMcP80!.Value
+                                : Model.EatCombP80!.Value - eatDet;
+
+    var combRows = new[] {
+        ("P10", Model.EatCombP10!.Value, "#3b82f6", "linear-gradient(90deg,#93c5fd,#3b82f6)"),
+        ("P50", Model.EatCombP50!.Value, "#10b981", "linear-gradient(90deg,#6ee7b7,#10b981)"),
+        ("P80", Model.EatCombP80!.Value, "#f59e0b", "linear-gradient(90deg,#fcd34d,#f59e0b)"),
+        ("P90", Model.EatCombP90!.Value, "#ef4444", "linear-gradient(90deg,#fca5a5,#ef4444)")
+    };
+
+<div class="section page-break avoid-break">
+    <div class="sec-title">
+        <span class="dot" style="background:#8b5cf6"></span>
+        EAT Probabilístico — Incertidumbre + Riesgos
+        <span style="font-size:9px;margin-left:6px;color:#7c3aed;background:#f5f3ff;padding:2px 8px;border-radius:999px">
+            @ec.NSimulaciones.ToString("N0") iteraciones · @ec.NItems ítem(s) · @ec.NRiesgos riesgo(s) MC
+        </span>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:14px">
+        @* Barras P10-P90 + histograma *@
+        <div class="card">
+            <div class="card-title">EAT Total (Comprometido + Certeza + Incertidumbre + Riesgos)</div>
+            <p style="font-size:9px;color:#64748b;margin-bottom:8px">┆ = CAPEX &nbsp;·&nbsp; % vs EAT Det.</p>
+            @foreach (var (lbl, val, clr, grad) in combRows)
+            {
+                var pctBar   = Math.Min(val / capexRef * 100, 130);
+                var capL2    = Math.Min(100.0 / 130.0 * 100, 100);
+                var growthPct = eatDet > 0 ? (val - eatDet) / eatDet * 100 : 0;
+                var gClr     = growthPct >= 0 ? "#ef4444" : "#15803d";
+                var gSign    = growthPct >= 0 ? "+" : "";
+                <div class="pct-bar-row">
+                    <span class="pct-bar-label" style="color:@clr">@lbl</span>
+                    <div class="pct-bar-outer">
+                        <div class="pct-bar-inner" style="width:@pctBar.ToString("F1")%;background:@grad"></div>
+                        <div class="pct-bar-capex" style="left:@capL2.ToString("F1")%"></div>
+                    </div>
+                    <span class="pct-bar-val" style="color:@clr">@Model.FmtKusd(val)</span>
+                    <span class="pct-bar-pct" style="color:@gClr">@gSign@(growthPct.ToString("F1"))%</span>
+                </div>
+            }
+
+            @if (ec.Histograma.Any())
+            {
+            <div class="chart-box" style="margin-top:10px">
+                <p>Histograma — Distribución del EAT Combinado</p>
+                <canvas id="pdf-hist-combinado"></canvas>
+            </div>
+            }
+        </div>
+
+        @* Métricas y cards *@
+        <div>
+            <div class="card-title" style="margin-bottom:8px">Métricas del análisis combinado</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                @* Amenazas *@
+                @if (amenazas.Any())
+                {
+                <div class="card" style="border-color:#fecaca;background:#fef2f2">
+                    <div style="font-size:9px;font-weight:700;color:#b91c1c;margin-bottom:5px">▲ Amenazas (@amenazas.Count)</div>
+                    <div style="font-size:9px;display:flex;justify-content:space-between;margin-bottom:2px">
+                        <span style="color:#64748b">P80 (ref.)</span>
+                        <span style="font-weight:600;color:#b91c1c">@(Model.AmenazasP80Informe is double ap80c && ap80c > 0 ? Model.FmtKusd(ap80c) : "—")</span>
+                    </div>
+                    <div style="font-size:9px;display:flex;justify-content:space-between">
+                        <span style="color:#64748b">P50</span>
+                        @if (Model.AmenazasP50Informe is double ap50c && ap50c > 0)
+                        {<span style="font-weight:600;color:#b91c1c">@Model.FmtKusd(ap50c)</span>}
+                        else
+                        {<span style="color:#94a3b8">— (p&lt;50%)</span>}
+                    </div>
+                </div>
+                }
+                else
+                {
+                <div class="card" style="display:flex;align-items:center;justify-content:center;min-height:60px">
+                    <span style="font-size:9px;color:#94a3b8;text-align:center">Sin amenazas</span>
+                </div>
+                }
+
+                @* Oportunidades *@
+                @if (oportunidades.Any())
+                {
+                <div class="card" style="border-color:#bbf7d0;background:#f0fdf4">
+                    <div style="font-size:9px;font-weight:700;color:#15803d;margin-bottom:5px">▼ Oportunidades (@oportunidades.Count)</div>
+                    <div style="font-size:9px;display:flex;justify-content:space-between">
+                        <span style="color:#64748b">Ahorro P50</span>
+                        @if (Model.OportunidadesAhorroP50Informe is double op50c && op50c > 0)
+                        {<span style="font-weight:600;color:#15803d">@Model.FmtKusd(op50c)</span>}
+                        else
+                        {<span style="color:#94a3b8">— (p&lt;50%)</span>}
+                    </div>
+                </div>
+                }
+                else
+                {
+                <div class="card" style="display:flex;align-items:center;justify-content:center;min-height:60px">
+                    <span style="font-size:9px;color:#94a3b8;text-align:center">Sin oportunidades</span>
+                </div>
+                }
+
+                @* EAT P50 *@
+                <div class="card" style="border-color:#c4b5fd;background:#f5f3ff">
+                    <div style="font-size:9px;font-weight:700;color:#6d28d9;margin-bottom:5px">EAT P50</div>
+                    <div style="font-size:11px;font-weight:700;color:#6d28d9">@Model.FmtKusd(Model.EatCombP50!.Value)</div>
+                    <div style="font-size:9px;color:@(p50VsDet >= 0 ? "#d97706" : "#15803d");margin-top:3px">
+                        vs Det. @(p50VsDet >= 0 ? "+" : "")@p50VsDet.ToString("F1")%
+                    </div>
+                </div>
+
+                @* EAT P80 *@
+                <div class="card" style="border-color:@(p80OverCap ? "#fecaca" : "#fde68a");background:@(p80OverCap ? "#fef2f2" : "#fffbeb")">
+                    <div style="font-size:9px;font-weight:700;color:@(p80OverCap ? "#b91c1c" : "#92400e");margin-bottom:5px">EAT P80</div>
+                    <div style="font-size:11px;font-weight:700;color:@(p80OverCap ? "#b91c1c" : "#92400e")">@Model.FmtKusd(Model.EatCombP80!.Value)</div>
+                    @if (p80OverCap)
+                    {<div style="font-size:9px;color:#b91c1c;margin-top:3px">⚠ Supera CAPEX</div>}
+                </div>
+            </div>
+
+            @* Métricas clave *@
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid #f1f5f9">
+                    <span style="color:#64748b">EAT Determinístico</span>
+                    <span style="font-weight:600">@Model.FmtKusd(eatDet)</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid #f1f5f9">
+                    <span style="color:#64748b">Spread P10→P90</span>
+                    <span style="font-weight:600;color:#7c3aed">@Model.FmtKusd(ec.SpreadP10P90)</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid #f1f5f9">
+                    <span style="color:#64748b">Contingencia P50→P80</span>
+                    <span style="font-weight:600;color:#d97706">@Model.FmtKusd(Model.EatCombP80!.Value - Model.EatCombP50!.Value)</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:3px 0">
+                    <span style="color:#64748b">P50 vs CAPEX</span>
+                    <span style="font-weight:600;color:@(p50OverCap ? "#b91c1c" : "#15803d")">
+                        @(p50OverCap ? "+" : "")@Model.FmtPct((Model.EatCombP50!.Value - Model.TotCapex) / capexRef * 100)
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Estadísticos distribución EAT (referencia interpretación tipo @RISK) *@
+    @{
+        var ecS = Model.EatCombinadoSoloIncertidumbre;
+        var cmp = ecS != null && Model.Riesgos.Any();
+    }
+    <div class="card page-break avoid-break" style="margin-top:12px;border-left:3px solid #b45309">
+        <div class="card-title" style="color:#92400e">Distribución simulada del EAT — estadísticos y percentiles</div>
+        <p style="font-size:8px;color:#64748b;margin:0 0 8px;line-height:1.35">
+            Misma simulación que el histograma. <strong>IC 90%</strong> = semiancho (P95−P5)/2 sobre el EAT total simulado (no intervalo de confianza de la media).
+            <strong>Moda</strong> = centro del bin de mayor frecuencia. @(cmp ? "Columna azul: solo variación triangular de ítems; roja: + riesgos MC." : "")
+        </p>
+        <table style="font-size:8px;width:100%;border-collapse:collapse;margin-bottom:10px">
+            <thead>
+                <tr style="border-bottom:1px solid #e2e8f0;background:#fffbeb">
+                    <th style="text-align:left;padding:4px 6px">Métrica</th>
+                    @if (cmp)
+                    {
+                    <th style="text-align:right;padding:4px 6px;color:#1d4ed8">Solo incert.</th>
+                    }
+                    <th style="text-align:right;padding:4px 6px;color:#b91c1c">+ Riesgos MC</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Mínimo</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ecS!.Min)</td> }<td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ec.Min)</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Máximo</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ecS!.Max)</td> }<td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ec.Max)</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Media</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ecS!.Media)</td> }<td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ec.Media)</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">IC 90% (±)</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">±@Model.FmtKusd(ecS!.Ic90Semirango)</td> }<td style="text-align:right;padding:3px 6px">±@Model.FmtKusd(ec.Ic90Semirango)</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Moda (estim.)</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ecS!.ModaEstimada)</td> }<td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ec.ModaEstimada)</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Mediana (P50)</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ecS!.P50)</td> }<td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ec.P50)</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Desv. est.</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ecS!.DesviacionEstandar)</td> }<td style="text-align:right;padding:3px 6px">@Model.FmtKusd(ec.DesviacionEstandar)</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Asimetría</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@ecS!.Skewness.ToString("F4")</td> }<td style="text-align:right;padding:3px 6px">@ec.Skewness.ToString("F4")</td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9"><td style="padding:3px 6px;background:#fffbeb">Curtosis (exceso)</td>@if (cmp) { <td style="text-align:right;padding:3px 6px">@ecS!.KurtosisExceso.ToString("F4")</td> }<td style="text-align:right;padding:3px 6px">@ec.KurtosisExceso.ToString("F4")</td></tr>
+            </tbody>
+        </table>
+        <div style="font-size:9px;font-weight:700;color:#475569;margin-bottom:4px">Percentiles (distribución acumulada)</div>
+        <table style="font-size:8px;width:100%;border-collapse:collapse">
+            <thead>
+                <tr style="background:#fffbeb;border-bottom:1px solid #e2e8f0">
+                    <th style="text-align:left;padding:3px 6px">%</th>
+                    @if (cmp)
+                    {
+                    <th style="text-align:right;padding:3px 6px;color:#1d4ed8">Solo incert.</th>
+                    }
+                    <th style="text-align:right;padding:3px 6px;color:#b91c1c">+ Riesgos</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in ec.PercentilesTabla)
+                {
+                    var vs = ecS?.PercentilesTabla.FirstOrDefault(x => Math.Abs(x.P - row.P) < 0.001);
+                    <tr style="border-bottom:1px solid #f8fafc">
+                        <td style="padding:2px 6px;background:#fffbeb">@row.P.ToString("F0")%</td>
+                        @if (cmp)
+                        {
+                        <td style="text-align:right;padding:2px 6px">@(vs != null ? Model.FmtKusd(vs.V) : "—")</td>
+                        }
+                        <td style="text-align:right;padding:2px 6px">@Model.FmtKusd(row.V)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @* Tabla de contribución al EAT Combinado *@
+    <div class="card desglose-tbl" style="border-left:3px solid #8b5cf6">
+        <div class="card-title" style="color:#7c3aed">Contribución al EAT Combinado (Incertidumbre + Riesgos)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Componente</th>
+                    <th class="text-right">P50</th>
+                    <th class="text-right">P80</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="color:#475569">EAT Determinístico (Comprometido + Probable)</td>
+                    <td class="text-right" style="font-weight:600">@Model.FmtKusd(eatDet)</td>
+                    <td class="text-right" style="font-weight:600">@Model.FmtKusd(eatDet)</td>
+                </tr>
+                @if (deltaIncP50v.HasValue)
+                {
+                <tr>
+                    <td style="color:#64748b">Δ Incertidumbre de ítems (MC Agregado por contrato)</td>
+                    <td class="text-right" style="font-weight:600;color:@SignClr(deltaIncP50v.Value)">
+                        @SignPfx(deltaIncP50v.Value)@Model.FmtKusd(deltaIncP50v.Value)
+                    </td>
+                    <td class="text-right" style="font-weight:600;color:@SignClr(deltaIncP80v!.Value)">
+                        @SignPfx(deltaIncP80v!.Value)@Model.FmtKusd(deltaIncP80v!.Value)
+                    </td>
+                </tr>
+                }
+                <tr>
+                    <td style="color:#64748b">Δ Riesgos MC (neto amenazas − oportunidades)</td>
+                    <td class="text-right" style="font-weight:600;color:@SignClr(deltaRskP50v)">
+                        @SignPfx(deltaRskP50v)@Model.FmtKusd(deltaRskP50v)
+                    </td>
+                    <td class="text-right" style="font-weight:600;color:@SignClr(deltaRskP80v)">
+                        @SignPfx(deltaRskP80v)@Model.FmtKusd(deltaRskP80v)
+                    </td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>EAT Combinado Total (ver percentiles arriba)</td>
+                    <td class="text-right">@Model.FmtKusd(Model.EatCombP50!.Value)</td>
+                    <td class="text-right" style="color:@(p80OverCap ? "#b91c1c" : "#92400e")">@Model.FmtKusd(Model.EatCombP80!.Value)</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+}
+
+@* ── SEC 5 — ALERTAS Y RECOMENDACIONES ───────────────────────────────────── *@
+@if (hayContratos)
+{
+    var alertas = new List<(string level, string msg, string? rec)>();
+
+    if (Model.TotPctEAT > 115)
+        alertas.Add(("red", $"EAT total ({Model.FmtPct(Model.TotPctEAT)}) supera el 115% del CAPEX. Revisión urgente.", "Solicitar sobregasto o reducir alcance del proyecto."));
+    else if (Model.TotPctEAT > 100)
+        alertas.Add(("amber", $"EAT total ({Model.FmtPct(Model.TotPctEAT)}) supera el CAPEX.", "Evalúa contingencias o ajuste de alcance."));
+
+    if (Model.EatCombP80.HasValue && Model.EatCombP80.Value > Model.TotCapex)
+        alertas.Add(("red", $"EAT combinado P80 ({Model.FmtKusd(Model.EatCombP80.Value)}) supera CAPEX. Riesgo confirmado de sobrecosto.", "El análisis conjunto indica necesidad de contingencia presupuestaria."));
+    else if (Model.EatCombP50.HasValue && Model.EatCombP50.Value > Model.TotCapex && Model.Riesgos.Any(r => r.EsAmenaza))
+        alertas.Add(("amber", $"EAT combinado P50 ({Model.FmtKusd(Model.EatCombP50.Value)}) supera CAPEX al incluir riesgos MC.", "Revisar plan de respuesta a riesgos de mayor impacto."));
+
+    if (Model.WithoutMc > 0)
+        alertas.Add(("amber", $"{Model.WithoutMc} contrato(s) sin análisis Monte Carlo. EAT probabilístico incompleto.", "Ejecuta MC en la pestaña F — Clasificación de cada contrato pendiente."));
+
+    var pctIncCosto = (Model.TotCerteza + Model.TotIncert) > 0 ? Model.TotIncert / (Model.TotCerteza + Model.TotIncert) * 100 : 0;
+    if (pctIncCosto > 60)
+        alertas.Add(("amber", $"El {Model.FmtPct(pctIncCosto)} del costo total está en ítems de incertidumbre.", "Considere aumentar la precisión de los estimados clave."));
+
+    if (Model.Riesgos.Any(r => r.NivelInt >= 4 && string.IsNullOrEmpty(r.PlanRespuesta)))
+        alertas.Add(("amber", "Hay riesgos Nivel 4–5 (Muy Probable / Casi Seguro) sin plan de respuesta.", "Definir acciones de mitigación para riesgos de mayor probabilidad."));
+
+    foreach (var c in Model.Contratos.Where(c => c.PctEAT > 115))
+        alertas.Add(("red", $"Contrato {c.Codigo}: EAT supera CAPEX en {Model.FmtPct(c.PctEAT - 100)}.", null));
+
+    foreach (var c in Model.Contratos.Where(c => c.McCV.HasValue && c.McCV.Value > 20))
+        alertas.Add(("amber", $"Contrato {c.Codigo}: CV MC {Model.FmtPct(c.McCV!.Value)} — alta dispersión probabilística.", null));
+
+    if (!alertas.Any())
+        alertas.Add(("green", "Sin alertas activas. El proyecto se encuentra en parámetros normales.", null));
+
+<div class="section avoid-break">
+    <div class="sec-title">
+        <span class="dot" style="background:#eab308"></span> Alertas y Recomendaciones
+        @{
+            var critCount = alertas.Count(a => a.level == "red");
+            var warnCount = alertas.Count(a => a.level == "amber");
+        }
+        @if (critCount > 0)
+        {<span style="font-size:9px;background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:999px;border:1px solid #fecaca;margin-left:4px">● @critCount crítica(s)</span>}
+        @if (warnCount > 0)
+        {<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;border:1px solid #fde68a;margin-left:4px">⚠ @warnCount advertencia(s)</span>}
+    </div>
+    @foreach (var (level, msg, rec) in alertas)
+    {
+        var cls = level == "red" ? "alerta-red" : level == "amber" ? "alerta-amber" : "alerta-green";
+        var icon = level == "red" ? "✗" : level == "amber" ? "⚠" : "✓";
+        <div class="alerta @cls">
+            <span class="alerta-icon">@icon</span>
+            <div>
+                <div class="alerta-msg">@msg</div>
+                @if (!string.IsNullOrEmpty(rec))
+                {<div class="alerta-rec">→ @rec</div>}
+            </div>
+        </div>
+    }
+</div>
+}
+
+@* ── PIE DE PÁGINA ─────────────────────────────────────────────────────────── *@
+<div class="footer-bar no-print">
+    <span>Reporte generado por Sistema Taller de Rango de Costos — CODELCO</span>
+    <span>@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
+</div>
+
+@* ── GRÁFICO CHART.JS ─────────────────────────────────────────────────────── *@
+@if (hayCombinado && Model.EatCombinado?.Histograma.Any() == true)
+{
+<script>
+(function () {
+    var cd = @Html.Raw(Model.ChartDataJson);
+    if (!cd || !cd.histBins || !cd.histBins.length) return;
+
+    var hb = cd.histBins;
+    var minV = hb[0].desde, maxV = hb[hb.length - 1].hasta;
+    var spanM = (maxV - minV) / 1e6;
+    var decM = spanM > 0 && spanM < 50 ? 2 : 1;
+    function fmtM(v) { return '$' + (v / 1e6).toFixed(decM) + 'M'; }
+    var labels = hb.map(function(b){ return fmtM((b.desde + b.hasta) / 2); });
+    var freqs  = hb.map(function(b){ return +(b.freq * 100).toFixed(2); });
+    var p50a = cd.p50, p80a = cd.p80;
+
+    var barColors = hb.map(function(b){
+        var mid = (b.desde + b.hasta) / 2;
+        return mid <= p50a ? 'rgba(59,130,246,0.82)' :
+               mid >= p80a ? 'rgba(239,68,68,0.82)'  : 'rgba(245,158,11,0.82)';
+    });
+
+    var vLines = {
+        id: 'vLines',
+        afterDraw: function(chart) {
+            var ctx = chart.ctx, ca = chart.chartArea;
+            if (maxV <= minV) return;
+            function xAt(val) {
+                if (val < minV || val > maxV) return null;
+                return ca.left + (val - minV) / (maxV - minV) * (ca.right - ca.left);
+            }
+            var lines = [
+                { v: cd.p10, c: '#3b82f6', l: 'P10', dash: [4,3] },
+                { v: cd.p50, c: '#10b981', l: 'P50', dash: [4,3] },
+                { v: cd.p80, c: '#d97706', l: 'P80', dash: [4,3] },
+                { v: cd.p90, c: '#ef4444', l: 'P90', dash: [4,3] }
+            ];
+            if (cd.eatDet) lines.push({ v: cd.eatDet, c: '#6366f1', l: 'Det', dash: [6,4] });
+            if (cd.capex > 0) lines.push({ v: cd.capex, c: '#4338ca', l: 'CAPEX', dash: [2,2] });
+            lines.forEach(function(ln){
+                var px = xAt(ln.v);
+                if (px == null) return;
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(px, ca.top); ctx.lineTo(px, ca.bottom);
+                ctx.strokeStyle = ln.c; ctx.lineWidth = 1.5;
+                ctx.setLineDash(ln.dash || [5,3]); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = ln.c; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(ln.l, px, ca.top - 1);
+                ctx.restore();
+            });
+        }
+    };
+
+    var maxF = Math.max.apply(null, freqs);
+    var yCap = Math.min(100, Math.max(5, Math.ceil(maxF * 1.2 * 10) / 10));
+
+    new Chart(document.getElementById('pdf-hist-combinado'), {
+        type: 'bar', plugins: [vLines],
+        data: { labels: labels, datasets: [{ data: freqs, backgroundColor: barColors, borderWidth: 0, barPercentage: 1, categoryPercentage: 1 }] },
+        options: {
+            animation: false, responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: {
+                    title: function(items){
+                        var i = items[0].dataIndex;
+                        return fmtM(hb[i].desde) + ' – ' + fmtM(hb[i].hasta);
+                    },
+                    label: function(i){ return 'Frecuencia: ' + i.parsed.y.toFixed(2) + '%'; }
+                }}},
+            scales: {
+                x: { title: { display: true, text: 'EAT total (M USD)' }, ticks: { maxTicksLimit: 12, maxRotation: 0, font: { size: 8 } } },
+                y: { beginAtZero: true, suggestedMax: yCap, title: { display: true, text: '% iter.' }, ticks: { callback: function(v){ return v + '%'; } } }
+            }
+        }
+    });
+})();
+</script>
+}
+
+</body>
+</html>
+}

@@ -1,5 +1,8 @@
 <Solution>
   <Project Path="../Api_Ollama/Api_Ollama.csproj" />
+  <Project Path="../Api_Ritweb/Api_Ritweb.csproj" />
+  <Project Path="../montecarlo/montecarlo.csproj" />
+  <Project Path="../PYC/PYC.csproj" Id="dc61c941-4512-42b8-b1fe-3efd6b9c24bb" />
   <Project Path="../Rit_Api/Rit_Api.csproj" />
   <Project Path="RazorIdentity.csproj" />
 </Solution>

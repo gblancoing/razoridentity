@@ -1,0 +1,575 @@
+@model RazorIdentity.Pages.TallerCostosPdfResumenModel
+@{
+    var M = Model;
+    var hayRiesgos = M.Riesgos.Any();
+    var amenazas = M.Riesgos.Where(r => r.EsAmenaza).ToList();
+    var oportunidades = M.Riesgos.Where(r => !r.EsAmenaza).ToList();
+    var topRiesgo1 = M.Riesgos.OrderByDescending(r => Math.Abs(r.VE)).FirstOrDefault();
+    var nRiesgosAmenazas = amenazas.Count;
+    var nRiesgosOportunidades = oportunidades.Count;
+    string SignClr(double v) => v >= 0 ? "#b91c1c" : "#15803d";
+    string SignPfx(double v) => v >= 0 ? "+" : "";
+    var capex = M.TotCapex > 0 ? M.TotCapex : 1d;
+    var pctComp = M.TotComp / capex * 100;
+    var pctPorc = M.TotItems / capex * 100;
+    var pctEAT = pctComp + pctPorc;
+    var pctSlack = M.TotSlack >= 0
+        ? (M.TotSlack / capex * 100)
+        : (Math.Abs(M.TotSlack) / capex * 100);
+    var rag = M.RagLabel(M.TotPctEAT);
+    var ragHex = M.RagColor(M.TotPctEAT);
+    var hayComb = M.EatCombinado != null;
+    var topClase = M.ClasesGlobal.OrderByDescending(c => c.Count).FirstOrDefault();
+    var pctIncCosto = (M.TotCerteza + M.TotIncert) > 0
+        ? M.TotIncert / (M.TotCerteza + M.TotIncert) * 100
+        : 0d;
+    // Δ incertidumbre MC vs EAT determinístico (misma lógica que columna Δ Incert. / fila contribución Resumen Global)
+    double? deltaIncP50Mc = M.EatMcP50.HasValue ? M.EatMcP50.Value - M.TotEAT : null;
+    double? deltaIncP80Mc = M.EatMcP80.HasValue ? M.EatMcP80.Value - M.TotEAT : null;
+    string FmtDeltaUsd(double d) => (d >= 0 ? "+" : "−") + M.FmtKusd(Math.Abs(d));
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Informe ejecutivo — @M.Proyecto.Codigo</title>
+<style>
+    :root {
+        --cd-orange: #e87722;
+        --cd-black: #0d0d0d;
+        --cd-muted: #5c5c5c;
+        --cd-line: #e5e5e5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 10.5px;
+        color: var(--cd-black);
+        background: #fff;
+        line-height: 1.35;
+    }
+    .sheet { max-width: 720px; margin: 0 auto; padding: 14px 20px 24px; }
+    header.doc-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 10px;
+        border-bottom: 4px solid var(--cd-orange);
+    }
+    .doc-head img { height: 38px; width: auto; display: block; }
+    .doc-head .titles { text-align: right; flex: 1; }
+    .doc-head h1 {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: var(--cd-black);
+    }
+    .doc-head .sub {
+        font-size: 9px;
+        color: var(--cd-muted);
+        margin-top: 2px;
+    }
+    .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        margin: 10px 0 12px;
+        font-size: 9px;
+        color: var(--cd-muted);
+    }
+    .meta b { color: #222; font-weight: 600; }
+    .rag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        margin-bottom: 10px;
+    }
+    .rag-dot { width: 8px; height: 8px; border-radius: 50%; }
+    section.block { margin-bottom: 12px; }
+    h2.sec {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: .1em;
+        color: var(--cd-orange);
+        font-weight: 700;
+        margin-bottom: 6px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid var(--cd-line);
+    }
+    p.lead {
+        font-size: 10px;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    table.grid {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9.5px;
+    }
+    table.grid th {
+        text-align: left;
+        font-weight: 600;
+        color: #444;
+        padding: 4px 6px;
+        background: #fafafa;
+        border-bottom: 1px solid var(--cd-line);
+    }
+    table.grid td {
+        padding: 4px 6px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: top;
+    }
+    table.grid td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .conclusion-inner {
+        border: 1px solid var(--cd-line);
+        border-left: 4px solid var(--cd-orange);
+        padding: 10px 12px;
+        background: #fafafa;
+        font-size: 10px;
+        line-height: 1.55;
+        color: #333;
+    }
+    .conclusion-inner p { margin-bottom: 8px; }
+    .conclusion-inner p:last-child { margin-bottom: 0; }
+    footer.foot {
+        margin-top: 14px;
+        padding-top: 8px;
+        border-top: 1px solid var(--cd-line);
+        font-size: 8px;
+        color: #888;
+    }
+    .ej-kpi4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        margin-bottom: 8px;
+        font-size: 9px;
+    }
+    .ej-kpi4 .cell {
+        border: 1px solid var(--cd-line);
+        border-radius: 4px;
+        padding: 5px 6px;
+        background: #fafafa;
+    }
+    .ej-kpi4 .cell label { display: block; font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+    .ej-kpi4 .cell .v { font-weight: 700; font-size: 10px; }
+    .ej-kpi4 .cell .s { font-size: 8px; color: #64748b; margin-top: 2px; }
+    .ej-nivel { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 8px; font-size: 8px; color: #64748b; }
+    .ej-nivel .nb { padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: 700; color: #fff; }
+    .ej-tbl-riesgos { font-size: 8px; }
+    .ej-tbl-riesgos th, .ej-tbl-riesgos td { padding: 3px 4px; }
+    .ej-risk-card {
+        border: 1px solid #fecaca;
+        border-left: 3px solid #ef4444;
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 8px;
+        background: #fff;
+    }
+    .ej-risk-card .ttl { font-weight: 700; color: #b91c1c; font-size: 9px; margin-bottom: 6px; }
+    .ej-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ej-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 8px; }
+    .ej-bar .track { flex: 1; height: 8px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+    .ej-bar .fill { height: 100%; border-radius: 99px; }
+    .ej-mc2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+    .ej-mc2 .bx { border-radius: 4px; padding: 6px; font-size: 8px; border: 1px solid #e5e5e5; }
+    .ej-mc2 .bx h4 { font-size: 8px; font-weight: 700; margin-bottom: 4px; }
+    .contrib-grid th, .contrib-grid td { font-size: 8.5px; }
+    @@media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .sheet { max-width: none; padding: 8mm 10mm; }
+    }
+</style>
+</head>
+<body>
+<div class="sheet">
+    <header class="doc-head">
+        <img src="@Url.Content("~/images/logo-codelco.png")" alt="CODELCO" />
+        <div class="titles">
+            <h1>Informe ejecutivo — Control presupuestario y análisis probabilístico</h1>
+            <div class="sub">Valoración EAT · Incertidumbre · Riesgos Monte Carlo · Clase de estimación</div>
+        </div>
+    </header>
+
+    <div class="meta">
+        <span><b>Proyecto</b> @M.Proyecto.Codigo — @M.Proyecto.Nombre</span>
+        <span><b>Ejercicio</b> @M.Proyecto.FechaEjercicio.ToString("MM/yyyy")</span>
+        <span><b>Emitido</b> @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
+        @if (!string.IsNullOrEmpty(M.RevisionLabel))
+        {
+            <span><b>Riesgos</b> @M.RevisionLabel</span>
+        }
+    </div>
+
+    <div class="rag">
+        <span class="rag-dot" style="background:@ragHex"></span>
+        <span style="color:@ragHex">@rag · EAT determinístico @M.FmtPct(M.TotPctEAT) del CAPEX</span>
+    </div>
+
+    <p class="lead">
+        Documento breve de síntesis para comités de control: consolida el estado financiero del portafolio de contratos del proyecto,
+        la madurez de la estimación (certeza vs incertidumbre y clases AACE), la cobertura de simulaciones Monte Carlo y el resultado
+        de la integración probabilística con riesgos (cuando existe modelo guardado).
+    </p>
+
+    <section class="block">
+        <h2 class="sec">1. Estado financiero (determinístico)</h2>
+        <table class="grid">
+            <thead><tr><th>Indicador</th><th class="num">Valor</th><th>Referencia</th></tr></thead>
+            <tbody>
+                <tr><td>CAPEX total aprobado</td><td class="num">@M.FmtKusd(M.TotCapex)</td><td>Techo presupuestario del proyecto</td></tr>
+                <tr><td>Comprometido</td><td class="num">@M.FmtKusd(M.TotComp)</td><td>@M.FmtPct(pctComp) del CAPEX</td></tr>
+                <tr><td>Por comprometer (ítems)</td><td class="num">@M.FmtKusd(M.TotItems)</td><td>@M.FmtPct(pctPorc) del CAPEX</td></tr>
+                <tr><td>EAT determinístico</td><td class="num">@M.FmtKusd(M.TotEAT)</td><td>@M.FmtPct(pctEAT) del CAPEX</td></tr>
+                <tr>
+                    <td>@(M.TotSlack >= 0 ? "Slack" : "Déficit")</td>
+                    <td class="num">@M.FmtKusd(Math.Abs(M.TotSlack))</td>
+                    <td>@(M.TotSlack >= 0 ? "Margen" : "Sobrecosto base") · @M.FmtPct(pctSlack) del CAPEX</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="block">
+        <h2 class="sec">2. Estimación a términos y Monte Carlo (agregado)</h2>
+        <table class="grid">
+            <thead><tr><th>Indicador</th><th class="num">Valor</th><th>Notas</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>Costo en certeza vs incertidumbre</td>
+                    <td class="num">—</td>
+                    <td>Certeza @M.FmtKusd(M.TotCerteza) · Incertidumbre @M.FmtKusd(M.TotIncert) (@M.FmtPct(pctIncCosto) del costo ítems)</td>
+                </tr>
+                <tr>
+                    <td>Clase AACE predominante</td>
+                    <td class="num">@(topClase?.Count ?? 0) ítems</td>
+                    <td>@(topClase != null ? $"{topClase.Clase} ({M.FmtPct(topClase.Pct)} del universo clasificado)" : "Sin clasificación")</td>
+                </tr>
+                <tr>
+                    <td>Cobertura MC por contrato</td>
+                    <td class="num">@M.WithMc / @M.TotContratos</td>
+                    <td>@(M.WithoutMc > 0 ? $"{M.WithoutMc} paquete(s) pendientes de MC guardado" : "Cobertura completa")</td>
+                </tr>
+                @if (deltaIncP50Mc.HasValue)
+                {
+                    <tr>
+                        <td>Δ Incertidumbre P50 (MC agregado)</td>
+                        <td class="num" style="color:#b91c1c;font-weight:600">@FmtDeltaUsd(deltaIncP50Mc.Value)</td>
+                        <td>Solo variación probabilística vs EAT determinístico (mismo concepto que «Δ Incert.» en análisis por contrato). No incluye el monto base del EAT.</td>
+                    </tr>
+                    <tr>
+                        <td>Δ Incertidumbre P80 (MC agregado)</td>
+                        <td class="num" style="color:#b91c1c;font-weight:600">@FmtDeltaUsd(deltaIncP80Mc!.Value)</td>
+                        <td>Cola conservadora del MC por ítems vs base determinística. @(M.EatMcP80 > M.TotCapex ? "El EAT total con MC P80 supera el CAPEX." : "Referencia de buffer de incertidumbre.")</td>
+                    </tr>
+                }
+                else
+                {
+                    <tr><td>MC agregado proyecto</td><td class="num">—</td><td>Sin P50/P80 agregados (falta MC en contratos)</td></tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="block">
+        <h2 class="sec">3. Riesgos</h2>
+        <p class="lead" style="margin-bottom:6px">
+            Síntesis de riesgos en valor esperado (VE determinístico). El detalle por fila y la distribución por nivel se consultan en el taller; los percentiles de amenazas/oportunidades del punto 4 usan la misma regla que «Resumen Global» (resultado guardado en pestaña Riesgos si existe, si no la simulación combinada del backend).
+        </p>
+        @if (M.FuenteRiesgos == "montecarlo")
+        {
+            <p style="font-size:9px;margin-bottom:8px">
+                <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:700;border:1px solid #c4b5fd">
+                    Montecarlo · @M.Riesgos.Count registro(s) (@nRiesgosAmenazas am. · @nRiesgosOportunidades op.)@if (M.McActualizado.HasValue) { <text> · @M.McActualizado.Value.ToString("dd/MM/yyyy HH:mm")</text> }
+                </span>
+            </p>
+        }
+        else if (M.FuenteRiesgos == "taller" && !string.IsNullOrEmpty(M.RevisionLabel))
+        {
+            <p style="font-size:9px;margin-bottom:8px">
+                <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f0fdfa;color:#0f766e;font-weight:700;border:1px solid #99f6e4">@M.RevisionLabel</span>
+            </p>
+        }
+
+        @if (hayRiesgos)
+        {
+        <div class="ej-kpi4">
+            <div class="cell" style="background:@(M.VeNeto >= 0 ? "#fffbeb" : "#f0fdf4")">
+                <label>VE neto (am. − op.)</label>
+                <div class="v">@M.FmtKusd(M.VeNeto)</div>
+                <div class="s">Impacto esperado neto</div>
+            </div>
+            <div class="cell" style="background:#fef2f2;border-color:#fecaca">
+                <label>VE amenazas</label>
+                <div class="v" style="color:#b91c1c">@M.FmtKusd(M.VeAmenazas)</div>
+                <div class="s">@nRiesgosAmenazas amenaza(s)</div>
+            </div>
+            <div class="cell" style="background:#f0fdf4;border-color:#bbf7d0">
+                <label>VE oportunidades</label>
+                <div class="v" style="color:#15803d">@M.FmtKusd(M.VeOportunidades)</div>
+                <div class="s">@nRiesgosOportunidades oportunidad(es)</div>
+            </div>
+            <div class="cell">
+                <label>Mayor riesgo (|VE|)</label>
+                @if (topRiesgo1 != null)
+                {
+                    <div class="v" style="font-size:9px;word-break:break-all">@topRiesgo1.Codigo</div>
+                    <div class="s">VE @M.FmtKusd(Math.Abs(topRiesgo1.VE))</div>
+                }
+                else
+                {
+                    <div class="v">—</div>
+                }
+            </div>
+        </div>
+        }
+        else
+        {
+        <p style="text-align:center;padding:16px;color:#94a3b8;font-size:10px">Sin riesgos registrados para este proyecto. Cárguelos en la pestaña Riesgos / Monte Carlo.</p>
+        }
+    </section>
+
+    <section class="block">
+        <h2 class="sec">4. Riesgos y EAT combinado (incertidumbre + Bernoulli)</h2>
+        <p class="lead" style="margin-bottom:6px">
+            Unión del estado base, la variabilidad de ítems (MC agregado) y el efecto de riesgos en la simulación conjunta — misma estructura que «EAT probabilístico» y «Contribución al EAT combinado» en Resumen Global.
+        </p>
+        <p style="font-size:8.5px;color:#444;line-height:1.45;border-left:3px solid #e87722;padding-left:8px;margin-bottom:8px">
+            <strong>Lectura de percentiles:</strong> el P50/P80 de <em>amenazas</em> y el de <em>oportunidades</em> miden cada uno su propia distribución (impacto acumulado simulado por tipo). No son comparables como «una sola resta»: el Δ de riesgos en la tabla inferior proviene del <strong>mismo sorteo conjunto</strong> que el EAT total, y en general <strong>P50(Δ neto riesgos) ≠ P50(amenazas) − P50(ahorro oportunidades)</strong> (igual que en estadística P50(A−B) ≠ P50(A)−P50(B)).
+            @if (M.SavedRisksSimulation != null)
+            {<text> Las tarjetas usan el <strong>resultado guardado en la pestaña Riesgos</strong> cuando existe (espejo de Resumen Global).</text>}
+            else
+            {<text> Tras guardar la simulación en la pestaña Riesgos, PDF y panel mostrarán los mismos percentiles marginales.</text>}
+        </p>
+        @if (hayComb && M.EatCombinado != null)
+        {
+            var ec = M.EatCombinado;
+            var eatDet = M.TotEAT;
+            var hasIncMc = M.McP50Agg.HasValue;
+            var deltaIncP50v = hasIncMc ? M.EatMcP50!.Value - eatDet : (double?)null;
+            var deltaIncP80v = hasIncMc ? M.EatMcP80!.Value - eatDet : (double?)null;
+            var deltaRskP50v = hasIncMc ? M.EatCombP50!.Value - M.EatMcP50!.Value : M.EatCombP50!.Value - eatDet;
+            var deltaRskP80v = hasIncMc ? M.EatCombP80!.Value - M.EatMcP80!.Value : M.EatCombP80!.Value - eatDet;
+            var p80OverCap = M.EatCombP80!.Value > M.TotCapex;
+            var capBar = M.TotCapex > 0 ? M.TotCapex : 1.0;
+            var aP50 = M.AmenazasP50Informe ?? ec.ContingenciaAmenazasP50;
+            var aP80 = M.AmenazasP80Informe ?? ec.ContingenciaAmenazasP80;
+            var aP90 = M.AmenazasP90Informe ?? ec.ContingenciaAmenazasP90;
+            var oP50 = M.OportunidadesAhorroP50Informe ?? Math.Abs(ec.ImpactoOportunidadesP50);
+            var oP80 = M.OportunidadesAhorroP80Informe ?? Math.Abs(ec.ImpactoOportunidadesP80);
+            string RBW(double v) => Math.Min(v / capBar * 100, 95).ToString("F1");
+
+        <p style="font-size:9px;color:#64748b;margin-bottom:6px">
+            @ec.NSimulaciones.ToString("N0") iteraciones · @ec.NItems ítem(s) incierto(s) · @ec.NRiesgos riesgo(s) MC
+        </p>
+
+        <div class="ej-risk-card" style="margin-bottom:10px">
+            <div class="ttl" style="font-size:10px;color:#b91c1c;margin-bottom:8px">Σ Distribución probabilística de riesgos (Bernoulli × triangular)</div>
+            <p style="font-size:8.5px;color:#555;margin-bottom:8px;font-style:italic">Cada riesgo se activa con su probabilidad (Bernoulli) y el impacto sigue una triangular (Mín, Probable, Máx). Los percentiles reflejan el acumulado simulado por tipo (misma fuente que Resumen Global cuando hay resultado guardado en Riesgos).</p>
+            <div class="ej-2col">
+                @if (amenazas.Any())
+                {
+                <div>
+                    <div style="font-size:9px;font-weight:700;color:#b91c1c;margin-bottom:4px">▲ Amenazas — impacto acumulado <span style="font-weight:400;color:#94a3b8">(@amenazas.Count riesgo(s))</span></div>
+                    @foreach (var x in new[] { ("P50", aP50, "#ef4444", "linear-gradient(90deg,#fca5a5,#ef4444)"), ("P80", aP80, "#b91c1c", "linear-gradient(90deg,#fca5a5,#b91c1c)"), ("P90", aP90, "#7f1d1d", "linear-gradient(90deg,#fca5a5,#7f1d1d)") })
+                    {
+                        <div class="ej-bar">
+                            <span style="width:22px;color:@x.Item3;font-weight:600">@x.Item1</span>
+                            <div class="track"><div class="fill" style="width:@RBW(x.Item2)%;background:@x.Item4"></div></div>
+                            <span style="min-width:72px;text-align:right;color:@x.Item3;font-weight:600">@(x.Item2 > 0 ? M.FmtKusd(x.Item2) : "— (p&lt;50%)")</span>
+                        </div>
+                    }
+                    <div style="font-size:8px;color:#94a3b8;margin-top:4px">Media: @M.FmtKusd(ec.ContingenciaAmenazasMedia) · P50 = 0 cuando prob. &lt; 50% en todos los riesgos</div>
+                </div>
+                }
+                else
+                {
+                <div style="display:flex;align-items:center;justify-content:center;background:#f8fafc;border-radius:4px;padding:10px;font-size:9px;color:#94a3b8">Sin amenazas registradas</div>
+                }
+
+                @if (oportunidades.Any())
+                {
+                <div>
+                    <div style="font-size:9px;font-weight:700;color:#15803d;margin-bottom:4px">▼ Oportunidades — ahorro potencial <span style="font-weight:400;color:#94a3b8">(@oportunidades.Count)</span></div>
+                    @foreach (var x in new[] { ("P50", oP50, "#10b981", "linear-gradient(90deg,#6ee7b7,#10b981)"), ("P80", oP80, "#15803d", "linear-gradient(90deg,#6ee7b7,#15803d)") })
+                    {
+                        <div class="ej-bar">
+                            <span style="width:22px;color:@x.Item3;font-weight:600">@x.Item1</span>
+                            <div class="track"><div class="fill" style="width:@RBW(x.Item2)%;background:@x.Item4"></div></div>
+                            <span style="min-width:72px;text-align:right;color:@x.Item3;font-weight:600">@(x.Item2 > 0 ? M.FmtKusd(x.Item2) : "—")</span>
+                        </div>
+                    }
+                    <div style="font-size:8px;color:#94a3b8;margin-top:4px">Ahorro neto en escenarios donde se materializan</div>
+                </div>
+                }
+                else if (amenazas.Any())
+                {
+                <div style="display:flex;align-items:center;justify-content:center;background:#f8fafc;border-radius:4px;padding:10px;font-size:9px;color:#94a3b8">Sin oportunidades registradas</div>
+                }
+            </div>
+        </div>
+
+        <h3 style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--cd-orange);margin:10px 0 6px">Contribución al EAT combinado (incertidumbre + riesgos)</h3>
+        <table class="grid contrib-grid">
+            <thead>
+                <tr><th>Componente</th><th class="num">P50</th><th class="num">P80</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="color:#475569">EAT determinístico (comprometido + probable)</td>
+                    <td class="num" style="font-weight:600">@M.FmtKusd(eatDet)</td>
+                    <td class="num" style="font-weight:600">@M.FmtKusd(eatDet)</td>
+                </tr>
+                @if (deltaIncP50v.HasValue)
+                {
+                <tr>
+                    <td style="color:#64748b">Δ Incertidumbre de ítems (MC agregado por contrato)</td>
+                    <td class="num" style="font-weight:600;color:@SignClr(deltaIncP50v.Value)">@SignPfx(deltaIncP50v.Value)@M.FmtKusd(deltaIncP50v.Value)</td>
+                    <td class="num" style="font-weight:600;color:@SignClr(deltaIncP80v!.Value)">@SignPfx(deltaIncP80v!.Value)@M.FmtKusd(deltaIncP80v!.Value)</td>
+                </tr>
+                }
+                <tr>
+                    <td style="color:#64748b">Δ Riesgos MC (neto amenazas − oport.)</td>
+                    <td class="num" style="font-weight:600;color:@SignClr(deltaRskP50v)">@SignPfx(deltaRskP50v)@M.FmtKusd(deltaRskP50v)</td>
+                    <td class="num" style="font-weight:600;color:@SignClr(deltaRskP80v)">@SignPfx(deltaRskP80v)@M.FmtKusd(deltaRskP80v)</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr style="background:#faf5ff">
+                    <td style="font-weight:700;color:#5b21b6">Σ EAT combinado (total)</td>
+                    <td class="num" style="font-weight:700;color:#5b21b6">@M.FmtKusd(M.EatCombP50!.Value)</td>
+                    <td class="num" style="font-weight:700;color:@(p80OverCap ? "#b91c1c" : "#7c3aed")">@M.FmtKusd(M.EatCombP80!.Value)</td>
+                </tr>
+            </tfoot>
+        </table>
+        @if (M.TopExposicion.Any())
+        {
+            <p style="font-size:9px;margin-top:8px;color:#555"><b>Mayor exposición por spread en ítems (Mín–Máx):</b>
+                @string.Join(" · ", M.TopExposicion.Take(3).Select(t => $"{t.Contrato} {t.CodigoItem} ({M.FmtKusd(t.Spread)})"))
+            </p>
+        }
+        }
+        else
+        {
+        <table class="grid">
+            <tbody>
+                <tr><td>Simulación combinada</td><td class="num">—</td><td>No disponible (sin ítems inciertos y/o riesgos, o error de cómputo).</td></tr>
+            </tbody>
+        </table>
+        @if (M.TopExposicion.Any())
+        {
+            <p style="font-size:9px;margin-top:6px;color:#555"><b>Mayor exposición por spread (Mín–Máx):</b>
+                @string.Join(" · ", M.TopExposicion.Take(3).Select(t => $"{t.Contrato} {t.CodigoItem} ({M.FmtKusd(t.Spread)})"))
+            </p>
+        }
+        }
+    </section>
+
+    @if (M.CorrelacionEscenarios.Any())
+    {
+    <section class="block">
+        <h2 class="sec">5. Correlación — Cópula Gaussiana (escenarios uniformes)</h2>
+        <p class="lead" style="margin-bottom:6px">
+            Misma lectura que en el taller: <strong>EAT total simulado</strong> (comprometido + certeza + ítems inciertos + riesgos MC).
+            Variables correlacionadas: <strong>ítems y riesgos a la vez</strong> (@M.CorrelacionNItemsIncert ítems inciertos + @M.CorrelacionNRiesgosMc riesgos MC = @(M.CorrelacionNItemsIncert + M.CorrelacionNRiesgosMc) variables), matriz equicorrelada ρ en el bloque elegido; 10.000 iteraciones por escenario.
+            Los Δ% comparan percentiles contra una simulación <em>independiente</em> de referencia (misma base presupuestaria, sin correlación entre variables).
+        </p>
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Escenario</th>
+                    <th>ρ uniforme</th>
+                    <th class="num">EAT P50</th>
+                    <th class="num">EAT P80</th>
+                    <th class="num">EAT P90</th>
+                    <th class="num">Δ P50 vs indep.</th>
+                    <th class="num">Δ P90 vs indep.</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var e in M.CorrelacionEscenarios)
+            {
+                <tr>
+                    <td>@e.Etiqueta</td>
+                    <td>@e.RhoTexto</td>
+                    <td class="num">@M.FmtKusd(e.EatP50)</td>
+                    <td class="num">@M.FmtKusd(e.EatP80)</td>
+                    <td class="num">@M.FmtKusd(e.EatP90)</td>
+                    <td class="num">@M.FmtPct(e.DeltaP50Pct)</td>
+                    <td class="num">@M.FmtPct(e.DeltaP90Pct)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </section>
+    }
+
+    <section class="block conclusion-block">
+        <h2 class="sec">Conclusión</h2>
+        <div class="conclusion-inner">
+            @if (!M.Contratos.Any())
+            {
+                <p>
+                    A la fecha de emisión no hay estructura de contratos e ítems suficiente para emitir un juicio presupuestario consolidado.
+                    Se recomienda completar la carga en el taller antes de presentar este informe a comités de inversión o control.
+                </p>
+            }
+            else
+            {
+                var p80Tension = hayComb && M.TotCapex > 0 && M.EatCombP80.HasValue && M.EatCombP80.Value > M.TotCapex;
+                var p50SobreCapex = hayComb && M.TotCapex > 0 && M.EatCombP50.HasValue && M.EatCombP50.Value > M.TotCapex;
+                <p>
+                    El proyecto <strong>@M.Proyecto.Codigo</strong> — @M.Proyecto.Nombre, ejercicio @M.Proyecto.FechaEjercicio.ToString("MM/yyyy"),
+                    muestra un <strong>EAT determinístico</strong> de @M.FmtKusd(M.TotEAT) (@M.FmtPct(M.TotPctEAT) del CAPEX aprobado de @M.FmtKusd(M.TotCapex)),
+                    con señal de control <strong style="color:@ragHex">@rag</strong>.
+                    Esta síntesis permite a la alta dirección y a los comités de gobierno alinear la conversación sobre alcance, techo GPR y prioridades de mitigación.
+                </p>
+                @if (hayComb && M.EatCombP50.HasValue && M.EatCombP80.HasValue)
+                {
+                    <p>
+                        Bajo el modelo probabilístico conjunto (incertidumbre de ítems y riesgos Monte Carlo), el EAT alcanza
+                        @M.FmtKusd(M.EatCombP50.Value) en escenario mediano (P50) y @M.FmtKusd(M.EatCombP80.Value) en cola conservadora (P80).
+                        @if (p80Tension)
+                        {<text>El P80 combinado <strong>supera el CAPEX</strong>, lo que exige revisión explícita de contingencia, alcance o mecanismos formales de sobregasto.</text>}
+                        else if (p50SobreCapex)
+                        {<text>La mediana P50 ya excede el CAPEX: el riesgo de desviación no es solo de cola, sino central en el modelo.</text>}
+                        else
+                        {<text>En esta lectura, la cola conservadora permanece alineada o por debajo del techo aprobado, sujeta a la calidad de supuestos y datos cargados.</text>}
+                    </p>
+                }
+                else
+                {
+                    <p>
+                        La simulación conjunta completa no está disponible con los datos actuales (ítems inciertos y/o riesgos modelados).
+                        Las decisiones deben apoyarse en el cuadro determinístico y en completar cobertura MC y registro de riesgos en la plataforma.
+                    </p>
+                }
+                @if (M.WithoutMc > 0)
+                {
+                    <p>
+                        La cobertura Monte Carlo por paquete contratado está incompleta (@M.WithMc de @M.TotContratos con MC guardado).
+                        Hasta cerrar ese gap, el análisis probabilístico debe interpretarse como <em>parcial</em> frente a inversiones o contingencias de gran magnitud.
+                    </p>
+                }
+                <p>
+                    En conjunto, este documento entrega una fotografía ejecutiva para el diálogo con la alta dirección y las partes interesadas del proyecto: no sustituye dictámenes de ingeniería de detalle ni cierres contables,
+                    pero sí orienta dónde concentrar seguimiento (presupuesto base, variabilidad, riesgos y correlaciones) en el ciclo de control.
+                </p>
+            }
+        </div>
+    </section>
+
+    <footer class="foot">
+        Informe generado automáticamente desde la plataforma de valoración · CODELCO.
+        Documento de apoyo al control de gestión; no reemplaza dictámenes oficiales de finanzas ni ingeniería de detalle.
+        Para impresión o PDF: use la función «Imprimir» del navegador (Ctrl+P) sobre esta página.
+    </footer>
+</div>
+</body>
+</html>

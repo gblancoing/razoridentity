@@ -53,3 +53,25 @@ img, video {
     min-width: 44px;
   }
 }
+
+/* Taller Costos — resumen: bloques <details> colapsados por defecto (sin atributo open) */
+.tc-minimized-disclosure > summary {
+  list-style: none;
+}
+.tc-minimized-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.tc-minimized-disclosure .tc-minimized-section-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  color: rgb(100 116 139);
+}
+.dark .tc-minimized-disclosure .tc-minimized-section-chevron {
+  color: rgb(148 163 184);
+}
+.tc-minimized-disclosure:not([open]) .tc-minimized-section-chevron {
+  transform: rotate(-90deg);
+}
+.tc-minimized-disclosure[open] .tc-minimized-section-chevron {
+  transform: rotate(0deg);
+}

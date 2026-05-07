@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libro de Fundamentos Técnicos — Sistema Monte Carlo CODELCO</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --navy: #1B3A5C;
+    --red: #C8102E;
+    --steel: #2E86AB;
+    --light: #EEF3F8;
+    --mid: #D5E3EF;
+    --text: #1A1A2E;
+    --gold: #9A7B0A;
+    --green: #1A5C35;
+    --white: #FFFFFF;
+    --code-bg: #0F1729;
+    --code-text: #A8D8FF;
+    --border: #BBCCDD;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { height: 100%; }
+
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text);
+    background: #F4F7FB;
+    min-height: 100%;
+  }
+
+  /* SIDEBAR NAV */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 260px;
+    background: var(--navy);
+    overflow-y: auto;
+    z-index: 100;
+    padding-bottom: 40px;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .sidebar-logo .company {
+    font-family: 'EB Garamond', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+
+  .sidebar-logo .subtitle {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .sidebar-logo .red-bar {
+    height: 3px;
+    background: var(--red);
+    margin-top: 12px;
+    border-radius: 2px;
+  }
+
+  .nav-section {
+    padding: 12px 0 4px 20px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.35);
+    font-weight: 600;
+  }
+
+  .nav-item {
+    display: block;
+    padding: 8px 20px;
+    color: rgba(255,255,255,0.72);
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+
+  .nav-item:hover, .nav-item.active {
+    color: #fff;
+    background: rgba(255,255,255,0.06);
+    border-left-color: var(--red);
+  }
+
+  .nav-item .num {
+    color: rgba(255,255,255,0.35);
+    font-size: 11px;
+    margin-right: 6px;
+  }
+
+  /* MAIN — columna flexible: el bloque claro crece hasta el pie de la ventana */
+  .main {
+    margin-left: 260px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TOP BANNER */
+  .top-banner {
+    background: var(--navy);
+    color: white;
+    padding: 10px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    border-bottom: 3px solid var(--red);
+    flex: 0 0 auto;
+  }
+
+  .top-banner .left { opacity: 0.75; }
+  .top-banner .right { opacity: 0.6; font-size: 11px; }
+
+  /* HERO — más compacto; esquinas inferiores redondeadas para unir suave con el contenido */
+  .hero {
+    background: linear-gradient(135deg, var(--navy) 0%, #243B55 60%, #1B6CA8 100%);
+    padding: 36px 48px 40px;
+    position: relative;
+    overflow: hidden;
+    flex: 0 0 auto;
+    border-radius: 0 0 24px 24px;
+    box-shadow: 0 12px 40px rgba(27, 58, 92, 0.22);
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    right: -80px; top: -80px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(200,16,46,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero::after {
+    content: 'MC';
+    position: absolute;
+    right: 40px; bottom: -28px;
+    font-family: 'EB Garamond', serif;
+    font-size: clamp(100px, 18vw, 160px);
+    font-weight: 700;
+    color: rgba(255,255,255,0.045);
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(200,16,46,0.2);
+    border: 1px solid rgba(200,16,46,0.4);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11px;
+    color: #FF8FA0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 {
+    font-family: 'EB Garamond', serif;
+    font-size: clamp(32px, 4.2vw, 42px);
+    font-weight: 700;
+    color: white;
+    line-height: 1.15;
+    margin-bottom: 6px;
+  }
+
+  .hero h2 {
+    font-family: 'EB Garamond', serif;
+    font-size: clamp(18px, 2.2vw, 22px);
+    font-weight: 400;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 14px;
+  }
+
+  .hero-desc {
+    color: rgba(255,255,255,0.55);
+    font-size: 13.5px;
+    max-width: 560px;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .standards-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .std-pill {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .hero-meta {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .hero-meta span strong { color: rgba(255,255,255,0.8); }
+
+  /* CONTENT — ocupa el resto del viewport; transición suave desde el hero */
+  .content {
+    flex: 1 1 auto;
+    padding: 28px 48px 56px;
+    max-width: 960px;
+    width: 100%;
+    background: linear-gradient(180deg, #e8eef6 0%, #f0f4fa 24px, #F4F7FB 64px);
+    border-radius: 0;
+    min-height: 0;
+  }
+
+  /* SECTIONS */
+  .section {
+    margin-bottom: 64px;
+    scroll-margin-top: 20px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--mid);
+  }
+
+  .section-num {
+    background: var(--navy);
+    color: white;
+    font-family: 'EB Garamond', serif;
+    font-size: 20px;
+    font-weight: 700;
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .section h2 {
+    font-family: 'EB Garamond', serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+
+  .subsection {
+    margin: 32px 0;
+  }
+
+  .subsection h3 {
+    font-family: 'EB Garamond', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--steel);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .subsection h3::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: var(--red);
+    border-radius: 2px;
+  }
+
+  .subsection h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 20px 0 8px;
+  }
+
+  p { margin-bottom: 12px; text-align: justify; }
+
+  /* CODE */
+  pre {
+    background: var(--code-bg);
+    border-radius: 10px;
+    padding: 24px 28px;
+    overflow-x: auto;
+    margin: 16px 0;
+    border: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+  }
+
+  pre::before {
+    content: attr(data-label);
+    position: absolute;
+    top: 8px; right: 14px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--code-text);
+  }
+
+  code .comment { color: #5C6F85; }
+  code .keyword { color: #FF9E64; }
+  code .func    { color: #7DCFFF; }
+  code .string  { color: #9ECE6A; }
+  code .num     { color: #FF9E64; }
+
+  /* FORMULA */
+  .formula-box {
+    background: var(--light);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--navy);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    color: var(--navy);
+    line-height: 2;
+  }
+
+  /* TABLES */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  }
+
+  .data-table thead tr {
+    background: var(--navy);
+    color: white;
+  }
+
+  .data-table thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  .data-table tbody tr:nth-child(odd) { background: white; }
+  .data-table tbody tr:nth-child(even) { background: var(--light); }
+
+  .data-table tbody tr:hover { background: var(--mid); }
+
+  .data-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .data-table td:first-child { font-weight: 600; color: var(--navy); }
+
+  /* Tabla comparativa GPR vs @Risk */
+  .data-table.compare-vs-risk thead th:nth-child(2) {
+    background: linear-gradient(180deg, #1A5C35 0%, #156b3d 100%);
+    border-bottom: 3px solid #0d4024;
+  }
+  .data-table.compare-vs-risk thead th:nth-child(3) {
+    background: linear-gradient(180deg, #5c1a1f 0%, #8b2940 100%);
+    border-bottom: 3px solid #3d1215;
+  }
+  .data-table.compare-vs-risk .th-sub {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0.04em;
+    opacity: 0.88;
+    margin-top: 4px;
+  }
+  .data-table.compare-vs-risk tbody td:nth-child(2) {
+    background: linear-gradient(90deg, rgba(26, 92, 53, 0.09) 0%, rgba(255,255,255,0) 100%);
+    border-left: 3px solid #1A5C35;
+  }
+  .data-table.compare-vs-risk tbody td:nth-child(3) {
+    background: linear-gradient(90deg, rgba(200, 16, 46, 0.07) 0%, rgba(255,255,255,0) 100%);
+    border-left: 3px solid rgba(200, 16, 46, 0.45);
+  }
+  .data-table.compare-vs-risk tbody tr:nth-child(even) td:nth-child(2) {
+    background: linear-gradient(90deg, rgba(26, 92, 53, 0.12) 0%, var(--light) 100%);
+  }
+  .data-table.compare-vs-risk tbody tr:nth-child(even) td:nth-child(3) {
+    background: linear-gradient(90deg, rgba(200, 16, 46, 0.09) 0%, var(--light) 100%);
+  }
+  .cmp-cell-inner {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .cmp-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 1px;
+  }
+  .cmp-icon-yes {
+    background: #1A5C35;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(26, 92, 53, 0.35);
+  }
+  .cmp-icon-no {
+    background: #fff;
+    color: #C8102E;
+    border: 2px solid #C8102E;
+    font-size: 14px;
+  }
+  .cmp-text { flex: 1; min-width: 0; text-align: left; }
+
+  /* CALLOUT BOXES */
+  .callout {
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .callout-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .callout-body h4 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+  }
+
+  .callout-body p { text-align: left; margin: 0; }
+
+  .callout.info { background: #E8F4FD; border: 1px solid #B3D4F0; }
+  .callout.info h4 { color: var(--steel); }
+
+  .callout.warning { background: #FFF8E1; border: 1px solid #FFD54F; }
+  .callout.warning h4 { color: var(--gold); }
+
+  .callout.success { background: #E8F5E9; border: 1px solid #A5D6A7; }
+  .callout.success h4 { color: var(--green); }
+
+  .callout.critical { background: #FDECEA; border: 1px solid #FFAB91; }
+  .callout.critical h4 { color: var(--red); }
+
+  /* STATUS BADGES */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-green  { background: #C8E6C9; color: #1B5E20; }
+  .badge-amber  { background: #FFF9C4; color: #7B5A00; }
+  .badge-red    { background: #FFCDD2; color: #8B0000; }
+
+  /* BULLET LIST */
+  ul.styled {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 16px;
+  }
+
+  ul.styled li {
+    padding: 6px 0 6px 22px;
+    position: relative;
+    border-bottom: 1px solid var(--light);
+  }
+
+  ul.styled li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--red);
+    font-size: 12px;
+    top: 8px;
+  }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin: 20px auto;
+    max-width: 600px;
+  }
+
+  .flow-box {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 24px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .flow-box.primary { background: var(--navy); color: white; border-color: var(--navy); }
+  .flow-box.accent  { background: var(--steel); color: white; border-color: var(--steel); }
+  .flow-box.output  { background: var(--light); border-color: var(--border); }
+
+  .flow-box .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.6;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .flow-box .text {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .flow-arrow {
+    font-size: 22px;
+    color: var(--border);
+    line-height: 1.2;
+  }
+
+  /* REFERENCES */
+  .ref-group { margin: 20px 0; }
+
+  .ref-group h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--navy);
+    font-weight: 700;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--mid);
+  }
+
+  .ref-item {
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    background: white;
+    border-radius: 8px;
+    border-left: 3px solid var(--border);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  /* TOC */
+  .toc {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 8px 0 28px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .toc h3 {
+    font-family: 'EB Garamond', serif;
+    font-size: 18px;
+    color: var(--navy);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--mid);
+  }
+
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px dotted var(--border);
+    font-size: 14px;
+  }
+
+  .toc-item a {
+    color: var(--navy);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .toc-item a:hover { color: var(--red); }
+
+  .toc-item .toc-num {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 12px;
+    min-width: 24px;
+  }
+
+  /* FOOTER */
+  .page-footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.6);
+    padding: 32px 60px;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-left: 0;
+    flex: 0 0 auto;
+  }
+
+  .page-footer strong { color: white; }
+
+  /* SCROLLBAR */
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+  @media print {
+    /* Conservar fondos y degradados al exportar a PDF (Chrome / Edge “Guardar como PDF”) */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      background: #fff !important;
+      font-size: 11pt;
+    }
+    .sidebar { display: none !important; }
+    .main {
+      margin-left: 0 !important;
+      min-height: 0 !important;
+      display: block !important;
+    }
+    .top-banner { display: none !important; }
+    .hero {
+      break-inside: avoid;
+      page-break-inside: avoid;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    .content {
+      flex: none !important;
+      background: #fff !important;
+      padding: 12pt 36pt 28pt !important;
+      max-width: none !important;
+    }
+    .section { break-inside: auto; page-break-inside: auto; }
+    .data-table {
+      box-shadow: none !important;
+      font-size: 10pt;
+    }
+    /* Tabla comparativa: mantener cabeceras verde/rojo e iconos ✓/✗ en el PDF */
+    .data-table.compare-vs-risk {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .data-table.compare-vs-risk thead {
+      display: table-header-group;
+    }
+    .cmp-icon {
+      width: 22px;
+      height: 22px;
+      font-size: 12px;
+    }
+    .page-footer {
+      break-inside: avoid;
+      margin-left: 0 !important;
+    }
+    a[href^="#"] { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="company">CODELCO</div>
+    <div class="subtitle">Sistema Monte Carlo</div>
+    <div class="red-bar"></div>
+  </div>
+
+  <div class="nav-section">Contenidos</div>
+  <a href="#intro" class="nav-item"><span class="num">1.</span>Introducción y Arquitectura</a>
+  <a href="#distribuciones" class="nav-item"><span class="num">2.</span>Distribuciones de Probabilidad</a>
+  <a href="#simulacion" class="nav-item"><span class="num">3.</span>Ciclo de Simulación</a>
+  <a href="#eat" class="nav-item"><span class="num">4.</span>EAT y Métricas de Riesgo</a>
+  <a href="#copula" class="nav-item"><span class="num">5.</span>Cópula Gaussiana + Cholesky</a>
+  <a href="#sra" class="nav-item"><span class="num">6.</span>Integración Ruta Crítica (SRA)</a>
+  <a href="#validacion" class="nav-item"><span class="num">7.</span>Validación Matemática</a>
+  <a href="#ventajas" class="nav-item"><span class="num">8.</span>Ventajas sobre @Risk</a>
+  <a href="#referencias" class="nav-item"><span class="num">9.</span>Referencias y Bibliografía</a>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TOP BANNER -->
+  <div class="top-banner">
+    <div class="left">Sistema Monte Carlo CODELCO &nbsp;|&nbsp; Libro de Fundamentos Técnicos &nbsp;|&nbsp; Validación Matemática Caja Blanca</div>
+    <div class="right">Generado el 23 de abril de 2026</div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">
+      <span>●</span> Documento Técnico Oficial
+    </div>
+    <h1>Libro de Fundamentos<br>Técnicos</h1>
+    <h2>Sistema de Análisis Monte Carlo</h2>
+    <p class="hero-desc">Validación Matemática y Técnica completa (Caja Blanca) que permite a auditores verificar los resultados del sistema caso por caso, siguiendo los estándares AACE International, ISO y PMI.</p>
+
+    <div class="standards-bar">
+      <span class="std-pill">AACE RP-44R-08</span>
+      <span class="std-pill">AACE RP-57R-09</span>
+      <span class="std-pill">ISO 31000:2018</span>
+      <span class="std-pill">PMI-RMP</span>
+      <span class="std-pill">Basilea III</span>
+    </div>
+
+    <div class="hero-meta">
+      <span><strong>Desarrollado por:</strong> Guido Blanco E. — Ing. Civil Industrial</span>
+      <span><strong>División:</strong> Vicepresidencia de Proyectos</span>
+      <span><strong>Taller:</strong> Rango de Costos — Módulo Monte Carlo</span>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- TOC -->
+    <div class="toc">
+      <h3>Tabla de Contenidos</h3>
+      <div class="toc-item"><a href="#intro"><span class="toc-num">1.</span>Introducción y Arquitectura del Sistema</a></div>
+      <div class="toc-item"><a href="#distribuciones"><span class="toc-num">2.</span>Distribuciones de Probabilidad</a></div>
+      <div class="toc-item"><a href="#simulacion"><span class="toc-num">3.</span>Ciclo de Simulación — Caja Blanca (Seudocódigo)</a></div>
+      <div class="toc-item"><a href="#eat"><span class="toc-num">4.</span>EAT Combinado y Métricas de Riesgo</a></div>
+      <div class="toc-item"><a href="#copula"><span class="toc-num">5.</span>Correlación — Cópula Gaussiana + Cholesky</a></div>
+      <div class="toc-item"><a href="#sra"><span class="toc-num">6.</span>Integración en Ruta Crítica (SRA — CPM Estocástico)</a></div>
+      <div class="toc-item"><a href="#validacion"><span class="toc-num">7.</span>Validación Matemática (Casos de Prueba)</a></div>
+      <div class="toc-item"><a href="#ventajas"><span class="toc-num">8.</span>Ventajas sobre @Risk — Arquitectura API + Base de Datos</a></div>
+      <div class="toc-item"><a href="#referencias"><span class="toc-num">9.</span>Referencias Normativas y Bibliografía</a></div>
+    </div>
+
+    <!-- ===== SECCIÓN 1 ===== -->
+    <div class="section" id="intro">
+      <div class="section-header">
+        <div class="section-num">1</div>
+        <h2>Introducción y Arquitectura del Sistema</h2>
+      </div>
+
+      <p>Este documento constituye el <strong>Libro de Fundamentos Técnicos</strong> del Sistema de Análisis Monte Carlo para el Taller de Rango de Costos de CODELCO. Proporciona transparencia matemática completa (Caja Blanca) que permite a auditores del proyecto validar los resultados del sistema caso por caso, siguiendo los estándares AACE International y PMI.</p>
+
+      <p>La arquitectura de tres capas del sistema garantiza trazabilidad completa:</p>
+      <ul class="styled">
+        <li><strong>Interfaz web</strong> con formulario de ingreso y validación de datos</li>
+        <li><strong>API REST de cálculo</strong> que ejecuta el motor Monte Carlo con N iteraciones</li>
+        <li><strong>Base de datos relacional</strong> que persiste inputs, resultados y metadatos de auditoría por usuario</li>
+      </ul>
+
+      <div class="subsection">
+        <h3>1.1 Flujo de Datos del Sistema</h3>
+        <div class="flow">
+          <div class="flow-box primary">
+            <span class="label">Entrada</span>
+            <span class="text">Ítems certeza + Inciertos (a,c,b) + Riesgos (p,a,c,b)</span>
+          </div>
+          <div class="flow-arrow">↕</div>
+          <div class="flow-box accent">
+            <span class="label">API REST</span>
+            <span class="text">POST /api/montecarlo/{risks|costs|schedule|cra}</span>
+          </div>
+          <div class="flow-arrow">↕</div>
+          <div class="flow-box" style="background:#1E2D3D;color:white;border-color:#1E2D3D;">
+            <span class="label" style="opacity:0.5;">Motor Monte Carlo</span>
+            <span class="text">N = 10.000 iteraciones</span>
+            <div style="font-size:12px;opacity:0.6;margin-top:4px;">Certeza + Σ T(a,c,b) + Σ B(p)×T(a,c,b)</div>
+          </div>
+          <div class="flow-arrow">↕</div>
+          <div class="flow-box output">
+            <span class="label">Salidas</span>
+            <span class="text">P50, P80, P90, CVaR90, Tornado, Skewness, CV</span>
+          </div>
+          <div class="flow-arrow">↕</div>
+          <div class="flow-box output">
+            <span class="label">Base de Datos</span>
+            <span class="text">Persistencia en MontecarloProjects (JSON) por usuario</span>
+          </div>
+          <div class="flow-arrow">↕</div>
+          <div class="flow-box" style="background:#E8F5E9;border-color:#A5D6A7;">
+            <span class="label">Frontend</span>
+            <span class="text">Gráficos, métricas y análisis IA MC</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>1.2 Estándares Aplicados</h3>
+        <table class="data-table">
+          <thead><tr><th>Estándar</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td>AACE RP-44R-08</td><td>Cost Risk Analysis (CRA) — análisis probabilístico de costos de proyectos de capital</td></tr>
+            <tr><td>AACE RP-57R-09</td><td>Schedule Risk Analysis (SRA) — integración de riesgos en cronograma CPM</td></tr>
+            <tr><td>ISO 31000:2018</td><td>Gestión de riesgos — principios, marco de referencia y proceso</td></tr>
+            <tr><td>Basilea III / IFRS 7</td><td>CVaR / Expected Shortfall para cuantificación de riesgo financiero extremo</td></tr>
+            <tr><td>PMI-RMP</td><td>Risk Management Professional — prácticas de gestión probabilística de riesgos</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 2 ===== -->
+    <div class="section" id="distribuciones">
+      <div class="section-header">
+        <div class="section-num">2</div>
+        <h2>Distribuciones de Probabilidad</h2>
+      </div>
+
+      <div class="subsection">
+        <h3>2.1 Distribución Triangular T(a, c, b)</h3>
+        <p>La distribución triangular T(a, c, b) se define por tres parámetros: <strong>a = mínimo</strong>, <strong>c = moda</strong> (más probable), <strong>b = máximo</strong>. Es la distribución de referencia para modelar incertidumbre de ítems de costo cuando no se dispone de datos históricos suficientes. La requieren los estándares AACE para CRA y SRA.</p>
+
+        <h4>Función de Densidad de Probabilidad (PDF)</h4>
+        <div class="formula-box">
+          f(x) = 2(x − a) / [(b − a)(c − a)]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;para a ≤ x ≤ c<br>
+          f(x) = 2(b − x) / [(b − a)(b − c)]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;para c &lt; x ≤ b
+        </div>
+
+        <h4>Estadísticos Analíticos</h4>
+        <table class="data-table">
+          <thead><tr><th>Estadístico</th><th>Fórmula</th></tr></thead>
+          <tbody>
+            <tr><td>Media (valor esperado)</td><td>E[X] = (a + c + b) / 3</td></tr>
+            <tr><td>Varianza</td><td>Var[X] = (a² + c² + b² − ac − ab − cb) / 18</td></tr>
+            <tr><td>Moda</td><td>Mo = c  (parámetro de entrada directo)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>2.2 Muestreo por Inversión de CDF — Método Exacto O(1)</h3>
+        <p>El sistema genera muestras usando el método de inversión de la CDF. Dada u ~ U(0,1), la muestra se obtiene en O(1) sin iteraciones ni rechazo:</p>
+        <div class="formula-box">
+          Sea u ~ U(0,1) — número pseudo-aleatorio uniforme<br>
+          Umbral de la moda: F_c = (c − a) / (b − a)<br><br>
+          Si u &lt; F_c :&nbsp;&nbsp;&nbsp;&nbsp;x = a + √[ u · (b−a) · (c−a) ]<br>
+          Si u ≥ F_c :&nbsp;&nbsp;&nbsp;&nbsp;x = b − √[ (1−u) · (b−a) · (b−c) ]
+        </div>
+        <div class="callout info">
+          <div class="callout-icon">⚡</div>
+          <div class="callout-body">
+            <h4>Propiedad Clave</h4>
+            <p>Complejidad O(1) por muestra — sin rechazo, sin iteraciones. Es el mismo algoritmo que usa @Risk internamente.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>2.3 Distribución de Bernoulli B(p)</h3>
+        <p>Modela la ocurrencia binaria de un riesgo: ocurre con probabilidad p, o no ocurre con probabilidad 1−p.</p>
+        <table class="data-table">
+          <thead><tr><th>Condición</th><th>Resultado</th><th>Interpretación</th></tr></thead>
+          <tbody>
+            <tr><td>u &lt; p</td><td>X = 1</td><td>El riesgo se materializa</td></tr>
+            <tr><td>u ≥ p</td><td>X = 0</td><td>El riesgo no ocurre</td></tr>
+          </tbody>
+        </table>
+        <table class="data-table" style="margin-top:10px;">
+          <thead><tr><th>Estadístico</th><th>Fórmula</th></tr></thead>
+          <tbody>
+            <tr><td>Media</td><td>E[X] = p</td></tr>
+            <tr><td>Varianza</td><td>Var[X] = p · (1 − p)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>2.4 Modelo Combinado: Bernoulli × Triangular</h3>
+        <p>El impacto de un riesgo en la iteración i se modela como el producto de su ocurrencia Bernoulli y su impacto triangular. Si el riesgo no ocurre, su contribución es exactamente cero:</p>
+        <div class="formula-box">
+          R_k(i) = B_k(i) · T(a_k, c_k, b_k)<br><br>
+          Valor Esperado: VE_k = p_k · E[T_k] = p_k · (a_k + c_k + b_k) / 3<br>
+          Varianza: Var_k = p_k(1−p_k)·E[T_k]² + p_k·Var[T_k]
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 3 ===== -->
+    <div class="section" id="simulacion">
+      <div class="section-header">
+        <div class="section-num">3</div>
+        <h2>Ciclo de Simulación — Caja Blanca (Seudocódigo)</h2>
+      </div>
+      <p>El siguiente seudocódigo describe exactamente el algoritmo ejecutado por el motor de simulación. El código es auditable: cada operación matemática corresponde a las fórmulas de la Sección 2. <strong>No existen cajas negras.</strong></p>
+
+      <div class="subsection">
+        <h3>3.1 Motor Principal — RunSimulation()</h3>
+        <pre data-label="pseudocódigo"><code>FUNCION RunSimulation(items[], risks[], N = 10.000):
+    resultados = new double[N]
+
+    PARA i = 0 HASTA N-1:
+        eat = certeza_base              <span class="comment">// componente fijo comprometido</span>
+
+        PARA CADA ítem j en items[]:
+            eat += InvCDF_Triang(Rand(), j.min, j.probable, j.max)
+
+        PARA CADA riesgo k en risks[]:
+            Si Rand() &lt; k.probabilidad:  <span class="comment">// Bernoulli: ¿ocurre?</span>
+                impacto = InvCDF_Triang(Rand(), k.min, k.probable, k.max)
+                Si k.esAmenaza: eat += impacto  <span class="comment">// amenaza suma</span>
+                Sino:           eat -= impacto  <span class="comment">// oportunidad resta</span>
+
+        resultados[i] = eat
+
+    ORDENAR(resultados)                 <span class="comment">// ascendente para percentiles</span>
+    RETORNAR calcularEstadisticas(resultados)</code></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>3.2 Función InvCDF_Triangular — Muestreo Exacto</h3>
+        <pre data-label="pseudocódigo"><code>FUNCION InvCDF_Triang(u, a, c, b):
+    F_c = (c − a) / (b − a)    <span class="comment">// umbral de la moda</span>
+
+    Si u &lt; F_c:
+        RETORNAR  a + √[ u · (b−a) · (c−a) ]
+    Sino:
+        RETORNAR  b − √[ (1−u) · (b−a) · (b−c) ]
+
+<span class="comment">// Complejidad: O(1) — sin rechazo — u genera exactamente 1 muestra</span></code></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>3.3 Cálculo de Estadísticas de Salida</h3>
+        <div class="formula-box">
+          <strong>Percentil q</strong> (array resultados[] ordenado, N = 10.000):<br>
+          &nbsp;&nbsp;i = (q / 100) · (N − 1)<br>
+          &nbsp;&nbsp;P_q = res[⌊i⌋] + frac(i) · (res[⌊i⌋+1] − res[⌊i⌋])&nbsp;&nbsp;&nbsp;← interpolación lineal AACE<br><br>
+          <strong>CVaR_α</strong> = promedio de todos los res[k] donde res[k] &gt; P_α<br><br>
+          <strong>Tornado (Swing_j)</strong> = EAT(x_j = max_j) − EAT(x_j = min_j)
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 4 ===== -->
+    <div class="section" id="eat">
+      <div class="section-header">
+        <div class="section-num">4</div>
+        <h2>EAT Combinado y Métricas de Riesgo</h2>
+      </div>
+
+      <div class="subsection">
+        <h3>4.1 EAT por Iteración — Estimado al Término</h3>
+        <div class="formula-box">
+          EAT(i) = Certeza + Σⱼ T(aⱼ, cⱼ, bⱼ) + Σₖ Bₖ · T(aₖ, cₖ, bₖ)<br><br>
+          E[EAT] = Certeza + Σⱼ (aⱼ+cⱼ+bⱼ)/3 + Σₖ pₖ·(aₖ+cₖ+bₖ)/3
+        </div>
+
+        <h4>Semáforo CODELCO (EAT P80 vs CAPEX)</h4>
+        <table class="data-table">
+          <thead><tr><th>Estado</th><th>Condición</th><th>Interpretación</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-green">🟢 Verde</span></td><td>EAT_P80 / CAPEX ≤ 1.00</td><td>Dentro de presupuesto</td></tr>
+            <tr><td><span class="badge badge-amber">🟡 Ámbar</span></td><td>EAT_P80 / CAPEX ≤ 1.15</td><td>Riesgo moderado</td></tr>
+            <tr><td><span class="badge badge-red">🔴 Rojo</span></td><td>EAT_P80 / CAPEX &gt; 1.15</td><td>Déficit proyectado</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3>4.2 CVaR — Conditional Value at Risk (Expected Shortfall)</h3>
+        <p>El CVaR al nivel α responde: <em>«si el proyecto cae en el peor (1−α)% de escenarios, ¿cuál es el costo promedio esperado?»</em>. Es una medida de riesgo coherente en el sentido de Artzner (1999), superior al simple percentil porque cuantifica la severidad de la cola:</p>
+        <div class="formula-box">
+          CVaR_α = E[ EAT | EAT &gt; P_α ]<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= (1 / N·(1−α)) · Σ{ EAT(i) : EAT(i) &gt; P_α }<br><br>
+          Exceso de cola:&nbsp;&nbsp;Excess_P90 = CVaR_90 − P90<br>
+          Alerta AACE:&nbsp;&nbsp;&nbsp;&nbsp;Excess_P90 &gt; 5% del CAPEX → cola gorda; mitigar top-Tornado
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>4.3 Métricas de Dispersión</h3>
+        <table class="data-table">
+          <thead><tr><th>Métrica</th><th>Fórmula</th><th>Interpretación</th></tr></thead>
+          <tbody>
+            <tr><td>Spread P10–P90</td><td>P90 − P10</td><td>Rango del 80% central de escenarios</td></tr>
+            <tr><td>CV (Coef. de Variación)</td><td>σ / μ</td><td>CV &lt;20%: confiable | 20–50%: usar P80 | &gt;50%: usar P90</td></tr>
+            <tr><td>Skewness (Sesgo)</td><td>E[(X−μ)³] / σ³</td><td>Skewness &gt; 1: cola derecha larga; media subestima el peor caso</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 5 ===== -->
+    <div class="section" id="copula">
+      <div class="section-header">
+        <div class="section-num">5</div>
+        <h2>Correlación entre Variables — Cópula Gaussiana + Cholesky</h2>
+      </div>
+
+      <p>Cuando los ítems o riesgos de un proyecto están correlacionados (por ejemplo, la inflación de materiales afecta simultáneamente a múltiples contratos), asumir independencia subestima el riesgo del portafolio. La <strong>Cópula Gaussiana</strong> con descomposición de <strong>Cholesky</strong> resuelve esto generando variables con las distribuciones marginales correctas y la estructura de dependencia especificada.</p>
+
+      <div class="callout critical">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <h4>Impacto Cuantitativo</h4>
+          <p>En proyectos con correlación media ρ = 0.5 entre contratos, el P90 correlacionado puede superar al P90 independiente entre un <strong>15% y un 25%</strong>. Este efecto «tormenta perfecta» es completamente invisible sin la Cópula Gaussiana y es crítico para el dimensionamiento correcto de contingencias.</p>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>5.1 Algoritmo Cópula Gaussiana — 3 Pasos</h3>
+        <pre data-label="algoritmo"><code><span class="keyword">PASO 1:</span> Generar vectores correlacionados en espacio normal
+    W ~ N(0, I)        → n vectores normales estándar INDEPENDIENTES
+    L = <span class="func">Cholesky</span>(Σ)   → factorización de la matriz de correlación Σ
+    Z = L · W          → Z ~ N(0, Σ) normal multivariada correlacionada
+
+<span class="keyword">PASO 2:</span> Transformar a uniformes correlacionadas
+    U_j = Φ(Z_j)       → Φ = CDF de la normal estándar
+                           U_j ~ U(0,1) con estructura de dependencia Σ
+
+<span class="keyword">PASO 3:</span> Transformar a la distribución marginal de cada variable
+    X_j = <span class="func">InvCDF_j</span>(U_j)
+    X_j tiene distribución T(aⱼ, cⱼ, bⱼ) con correlación ρᵢⱼ</code></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>5.2 Factorización de Cholesky</h3>
+        <p>Objetivo: descomponer Σ = L · Lᵀ, donde Σ es la matriz de correlación n×n (simétrica, definida positiva) y L es la matriz triangular inferior.</p>
+        <div class="formula-box">
+          L[i,i] = √( Σ[i,i] − Σ_{k&lt;i} L[i,k]² )<br>
+          L[i,j] = (Σ[i,j] − Σ_{k&lt;j} L[i,k]·L[j,k]) / L[j,j]&nbsp;&nbsp;&nbsp;&nbsp;para i &gt; j<br><br>
+          Requisito: todos los autovalores de Σ deben ser &gt; 0<br>
+          Complejidad: O(n³) — eficiente para matrices de hasta ~100 variables
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 6 ===== -->
+    <div class="section" id="sra">
+      <div class="section-header">
+        <div class="section-num">6</div>
+        <h2>Integración en Ruta Crítica (SRA — CPM Estocástico)</h2>
+      </div>
+
+      <p>El Análisis de Riesgo de Cronograma (SRA — AACE RP-57R-09) integra las variables de riesgo directamente en el modelo de red CPM. En cada iteración Monte Carlo, cada tarea recibe una duración muestreada de su distribución triangular y se recalcula el camino crítico completo. La distribución del plazo total emerge de 10.000 ejecuciones del algoritmo CPM.</p>
+
+      <div class="subsection">
+        <h3>6.1 CPM Estocástico por Iteración</h3>
+        <pre data-label="algoritmo"><code>PARA CADA iteración i = 1..N:
+
+    <span class="comment">// Paso 1: Muestrear duración de cada tarea</span>
+    d_j(i) = <span class="func">InvCDF_Triang</span>(Rand(), min_j, probable_j, max_j)
+
+    <span class="comment">// Paso 2: Forward Pass — calcular inicio/fin más temprano</span>
+    ES_j(i) = max{ EF_pred(i) para todos los predecesores de j }
+    EF_j(i) = ES_j(i) + d_j(i)
+
+    <span class="comment">// Paso 3: Duración total del proyecto</span>
+    D_total(i) = max_j{ EF_j(i) }        ← nodo final de la red
+
+Distribución de D_total sobre N iteraciones → P50, P80, P90</code></pre>
+      </div>
+
+      <div class="subsection">
+        <h3>6.2 Índice de Criticidad Estocástica</h3>
+        <div class="formula-box">
+          IC_j = (# iteraciones en que j es tarea crítica) / N &nbsp;&nbsp;&nbsp;&nbsp;∈ [0, 1]<br><br>
+          IC_j = 1.0 (100%) → crítica en TODOS los escenarios<br>
+          IC_j = 0.5 ( 50%) → crítica en la mitad de los escenarios<br>
+          IC_j &lt; 0.2 ( 20%) → raramente crítica; bajo riesgo de impacto
+        </div>
+        <div class="callout warning">
+          <div class="callout-icon">🔍</div>
+          <div class="callout-body">
+            <h4>Clave para Auditores</h4>
+            <p>La ruta crítica <strong>CAMBIA entre iteraciones</strong>. Una tarea no crítica en el escenario base puede volverse crítica en el escenario P90 si su duración muestreada aumenta lo suficiente. Este fenómeno —criticidad estocástica— es invisible en el CPM determinístico tradicional y es precisamente lo que el SRA cuantifica.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 7 ===== -->
+    <div class="section" id="validacion">
+      <div class="section-header">
+        <div class="section-num">7</div>
+        <h2>Validación Matemática (Caja Blanca)</h2>
+      </div>
+
+      <p>Los siguientes casos de prueba tienen <strong>solución analítica cerrada</strong>. El motor Monte Carlo debe converger a estos valores dentro de las tolerancias indicadas para N = 10.000 iteraciones. Esto permite a los auditores verificar la corrección del sistema de forma completamente independiente.</p>
+
+      <div class="subsection">
+        <h3>7.1 Test 1 — Distribución Triangular Simple</h3>
+        <p><strong>Entrada:</strong> T(a=1, c=2, b=3)</p>
+        <div class="formula-box">
+          E[T] = (1 + 2 + 3) / 3 = 2.0000<br>
+          Var[T] = (1+4+9 − 2−3−6) / 18 = 3/18 = 0.1667<br>
+          σ = √0.1667 = 0.4082<br><br>
+          Criterio MC (N=10.000): |media_MC − 2.000| / 2.000 &lt; 1.0%<br>
+          Error estándar teórico: 0.4082 / √10.000 = 0.00408 (0.2%)
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>7.2 Test 2 — Bernoulli × Triangular</h3>
+        <p><strong>Entrada:</strong> riesgo con p=0.5, impacto T(a=0, c=1, b=2)</p>
+        <div class="formula-box">
+          E[T] = (0 + 1 + 2) / 3 = 1.0<br>
+          VE = p · E[T] = 0.5 · 1.0 = 0.5000<br>
+          Var[T] = (0+1+4−0−0−2)/18 = 3/18 = 0.1667<br>
+          Var[B·T] = 0.5·0.5·1.0 + 0.5·0.1667 = 0.3333<br><br>
+          Criterio: |media_MC − 0.500| / 0.500 &lt; 2.0%
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>7.3 Test 3 — Suma de n Triangulares (Teorema Central del Límite)</h3>
+        <p><strong>Entrada:</strong> n=5 ítems idénticos, cada uno T(a=1, c=2, b=3)</p>
+        <div class="formula-box">
+          E[Σ] = 5 · 2.0 = 10.000<br>
+          Var[Σ] = 5 · 0.1667 = 0.8333&nbsp;&nbsp;&nbsp;&nbsp;σ = 0.9129<br><br>
+          Por TCL, la suma se aproxima a N(10, 0.913)<br>
+          Criterio: |media_MC − 10.000| &lt; 0.100 (1% relativo)
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>7.4 Criterio General de Convergencia (Ley de Grandes Números)</h3>
+        <div class="formula-box">
+          Error_rel = |media_MC − media_teórica| / |media_teórica| &lt; 1%<br><br>
+          Para CV = 15% y N = 10.000:<br>
+          &nbsp;&nbsp;Error_estándar_rel = 0.15 / √10.000 = 0.15% ≪ 1%<br><br>
+          N = 50.000 reduce el error a ≈ 0.067% sin cambio de método.
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 8 ===== -->
+    <div class="section" id="ventajas">
+      <div class="section-header">
+        <div class="section-num">8</div>
+        <h2>Ventajas sobre @Risk — Arquitectura API + Base de Datos</h2>
+      </div>
+
+      <p>Este sistema implementa los mismos modelos matemáticos que @Risk pero supera al complemento Excel en los siguientes aspectos críticos para auditoría y uso corporativo:</p>
+
+      <table class="data-table compare-vs-risk">
+        <thead>
+          <tr>
+            <th>Dimensión</th>
+            <th>Este sistema (API + BD)<span class="th-sub">✓ Ventajas corporativas y auditoría</span></th>
+            <th>@Risk / Excel (plugin)<span class="th-sub">✗ Limitaciones típicas del complemento</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Trazabilidad</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">Resultados guardados en BD con timestamp, usuario y versión de inputs.</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">Resultado volátil en RAM; se pierde al cerrar Excel.</span></div></td>
+          </tr>
+          <tr>
+            <td>Multi-usuario</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">N usuarios en paralelo — API sin estado.</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">1 licencia = 1 usuario; conflictos de archivo compartido.</span></div></td>
+          </tr>
+          <tr>
+            <td>Integridad datos</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">Restricciones relacionales + validación en capa de servicio.</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">Fórmulas editables en celda; sin control de versiones robusto.</span></div></td>
+          </tr>
+          <tr>
+            <td>Reproducibilidad</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">Mismo input → mismo output (semilla determinística).</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">Depende del estado de Excel y de la semilla aleatoria.</span></div></td>
+          </tr>
+          <tr>
+            <td>Escalabilidad</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">100.000+ iteraciones en &lt;2 s (servidor dedicado).</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">Limitado por RAM del PC; lento con &gt;50K iteraciones.</span></div></td>
+          </tr>
+          <tr>
+            <td>Integración TC</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">Riesgos y contratos leídos directamente de la base de datos.</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">Importación manual desde otro archivo Excel.</span></div></td>
+          </tr>
+          <tr>
+            <td>Cópula Gaussiana</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">Incluida + sugerencia automática por IA MC.</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">Solo en @Risk Professional (costo adicional).</span></div></td>
+          </tr>
+          <tr>
+            <td>Asistente IA</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">IA MC integrado — análisis narrativo automático en español.</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">No incluido en ninguna edición.</span></div></td>
+          </tr>
+          <tr>
+            <td>Auditoría</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">Libro de Fundamentos Técnicos exportable (este documento).</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">Solo documentación genérica del proveedor.</span></div></td>
+          </tr>
+          <tr>
+            <td>Licencia</td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-yes" title="Cumple / ventaja">✓</span><span class="cmp-text">Incluido en la plataforma corporativa CODELCO.</span></div></td>
+            <td><div class="cmp-cell-inner"><span class="cmp-icon cmp-icon-no" title="Limitación">✗</span><span class="cmp-text">USD 2.000–5.000 por usuario por año (referencia de mercado).</span></div></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout success">
+        <div class="callout-icon">✅</div>
+        <div class="callout-body">
+          <h4>Conclusión para Auditores</h4>
+          <p>Este sistema es <strong>matemáticamente equivalente</strong> a @Risk en sus modelos de simulación core: usa los mismos algoritmos de muestreo triangular por inversión de CDF, el mismo modelo Bernoulli × Triangular para riesgos, y la misma Cópula Gaussiana con Cholesky para correlación. La diferencia es <strong>arquitectural</strong>: la persistencia en base de datos, la auditabilidad por usuario, la integración nativa con el Taller de Costos CODELCO y este Libro de Fundamentos hacen al sistema superior en contextos corporativos con requerimientos de auditoría y trazabilidad.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECCIÓN 9 ===== -->
+    <div class="section" id="referencias">
+      <div class="section-header">
+        <div class="section-num">9</div>
+        <h2>Referencias Normativas y Bibliografía</h2>
+      </div>
+
+      <div class="ref-group">
+        <h3>Estándares AACE International</h3>
+        <div class="ref-item">AACE RP-44R-08 (2008): <em>Risk Analysis and Contingency Determination Using Expected Value.</em> AACE International, Morgantown, WV.</div>
+        <div class="ref-item">AACE RP-57R-09 (2009): <em>Integrated Cost and Schedule Risk Analysis Using Monte Carlo Simulation of a CPM Schedule.</em> AACE International.</div>
+        <div class="ref-item">AACE RP-18R-97 (2011): <em>Cost Estimate Classification System.</em> AACE International.</div>
+      </div>
+
+      <div class="ref-group">
+        <h3>ISO y PMI</h3>
+        <div class="ref-item">ISO 31000:2018: <em>Risk Management — Guidelines.</em> International Organization for Standardization.</div>
+        <div class="ref-item">PMI (2009): <em>Practice Standard for Project Risk Management.</em> Project Management Institute, Newtown Square, PA.</div>
+      </div>
+
+      <div class="ref-group">
+        <h3>Métodos Matemáticos y Estadísticos</h3>
+        <div class="ref-item">Iman, R.L. & Conover, W.J. (1982): A Distribution-Free Approach to Inducing Rank Correlation Among Input Variables. <em>Communications in Statistics: Simulation and Computation,</em> 11(3).</div>
+        <div class="ref-item">Nelsen, R.B. (2006): <em>An Introduction to Copulas</em> (2nd ed.). Springer Series in Statistics, New York.</div>
+        <div class="ref-item">Rubinstein, R.Y. & Kroese, D.P. (2016): <em>Simulation and the Monte Carlo Method</em> (3rd ed.). Wiley Series in Probability and Statistics.</div>
+      </div>
+
+      <div class="ref-group">
+        <h3>Finanzas Cuantitativas y Riesgo</h3>
+        <div class="ref-item">Basel Committee on Banking Supervision (2019): <em>Minimum Capital Requirements for Market Risk.</em> Bank for International Settlements.</div>
+        <div class="ref-item">Rockafellar, R.T. & Uryasev, S. (2000): Optimization of Conditional Value-at-Risk. <em>Journal of Risk,</em> 2(3), 21–42.</div>
+        <div class="ref-item">Artzner, P. et al. (1999): Coherent Measures of Risk. <em>Mathematical Finance,</em> 9(3), 203–228.</div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- FOOTER -->
+  <div class="page-footer">
+    <div>
+      <strong>CODELCO</strong> — Vicepresidencia de Proyectos — Taller de Rango de Costos<br>
+      <span style="font-size:12px;">Este Libro de Fundamentos Técnicos fue generado automáticamente por el Sistema Monte Carlo CODELCO. Los modelos matemáticos descritos implementan fielmente los algoritmos del motor de simulación.</span>
+    </div>
+    <div style="text-align:right;">
+      Sistema Monte Carlo CODELCO<br>
+      Validación Matemática Caja Blanca
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+  // Active nav highlight
+  const sections = document.querySelectorAll('.section');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navItems.forEach(item => item.classList.remove('active'));
+        const id = entry.target.id;
+        const active = document.querySelector(`.nav-item[href="#${id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

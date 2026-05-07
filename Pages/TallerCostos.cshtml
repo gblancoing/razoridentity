@@ -1,0 +1,1744 @@
+@page
+@model RazorIdentity.Pages.TallerCostosModel
+@{
+    ViewData["Title"] = "Taller Rango de Costos";
+}
+
+@section Head {
+<style>
+    /* ── Layout ── */
+    #tc-sidebar { transition: width 0.22s ease; will-change: width; overflow: hidden; }
+    #tc-sidebar.tc-collapsed { width: 3.5rem !important; }
+    #tc-sidebar.tc-collapsed .tc-sb-label,
+    #tc-sidebar.tc-collapsed .tc-sb-group { display: none; }
+
+    /* ── Step buttons ── */
+    .step-btn { display:flex; align-items:center; gap:0.5rem; width:100%; padding:0.5rem 0.625rem;
+        border-radius:0.5rem; font-size:0.8125rem; color:#475569; transition:background 0.15s,color 0.15s;
+        cursor:pointer; border:none; background:none; text-align:left; }
+    .step-btn:hover { background:#f1f5f9; color:#1e293b; }
+    .dark .step-btn:hover { background:#1e293b; color:#f1f5f9; }
+    .step-btn.tc-active { background:rgba(15,148,136,0.1); color:#0f9488; font-weight:600; }
+    .dark .step-btn.tc-active { background:rgba(15,148,136,0.18); color:#2dd4bf; }
+    .step-btn .step-icon { font-size:18px; flex-shrink:0; }
+    .step-btn .step-badge { margin-left:auto; font-size:0.7rem; background:#e2e8f0; border-radius:9999px;
+        padding:0 0.4rem; color:#64748b; font-weight:600; }
+    .dark .step-btn .step-badge { background:#334155; color:#94a3b8; }
+
+    /* ── Sections ── */
+    .tc-section { display:none; }
+    .tc-section.tc-visible { display:block; }
+
+    /* ── Tables ── */
+    .tc-table { width:100%; border-collapse:collapse; font-size:0.8125rem; }
+    .tc-table th { background:#f8fafc; font-weight:600; color:#475569; padding:0.5rem 0.625rem;
+        text-align:left; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+    .dark .tc-table th { background:#1e293b; color:#94a3b8; border-color:#334155; }
+    .tc-table td { padding:0.375rem 0.5rem; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+    .dark .tc-table td { border-color:#1e293b; }
+    .tc-table tr:hover td { background:#fafbfc; }
+    .dark .tc-table tr:hover td { background:#0f172a; }
+
+    /* ── Inputs ── */
+    .tc-input { border-radius:0.375rem; border:1px solid #cbd5e1; background:#fff; color:#1e293b;
+        padding:0.3rem 0.5rem; font-size:0.8125rem; width:100%; }
+    .dark .tc-input { border-color:#475569; background:#1e293b; color:#f1f5f9; }
+    .tc-input:focus { outline:none; border-color:#0d9488; box-shadow:0 0 0 2px rgba(13,148,136,0.18); }
+    .tc-select { border-radius:0.375rem; border:1px solid #cbd5e1; background:#fff; color:#1e293b;
+        padding:0.3rem 0.5rem; font-size:0.8125rem; }
+    .dark .tc-select { border-color:#475569; background:#1e293b; color:#f1f5f9; }
+
+    /* ── Buttons ── */
+    .btn-primary { display:inline-flex; align-items:center; gap:0.375rem; padding:0.4rem 1rem;
+        border-radius:0.5rem; font-size:0.8125rem; font-weight:500; cursor:pointer; border:none;
+        background:#0f9488; color:#fff; transition:background 0.15s; }
+    .btn-primary:hover { background:#0d7a70; }
+    .btn-primary:disabled { opacity:0.45; cursor:not-allowed; }
+    .btn-secondary { display:inline-flex; align-items:center; gap:0.375rem; padding:0.4rem 0.875rem;
+        border-radius:0.5rem; font-size:0.8125rem; font-weight:500; cursor:pointer;
+        border:1px solid #cbd5e1; background:#fff; color:#475569; transition:background 0.15s; }
+    .dark .btn-secondary { background:#1e293b; border-color:#475569; color:#94a3b8; }
+    .btn-secondary:hover { background:#f1f5f9; }
+    .dark .btn-secondary:hover { background:#0f172a; }
+    .btn-success { display:inline-flex; align-items:center; gap:0.375rem; padding:0.4rem 1rem;
+        border-radius:0.5rem; font-size:0.8125rem; font-weight:500; cursor:pointer; border:none;
+        background:#16a34a; color:#fff; transition:background 0.15s; }
+    .btn-success:hover { background:#15803d; }
+    .btn-success:disabled { opacity:0.55; cursor:default; }
+    .btn-danger { display:inline-flex; align-items:center; gap:0.25rem; padding:0.3rem 0.6rem;
+        border-radius:0.375rem; font-size:0.75rem; font-weight:500; cursor:pointer; border:none;
+        background:transparent; color:#ef4444; transition:background 0.15s; }
+    .btn-danger:hover { background:#fef2f2; }
+
+    /* ── Cards ── */
+    .tc-card { background:#fff; border:1px solid #e2e8f0; border-radius:0.75rem; padding:1.25rem; }
+    .dark .tc-card { background:#1e293b; border-color:#334155; }
+
+    /* ── Badges ── */
+    .badge-verde { background:#dcfce7; color:#15803d; border-radius:9999px; padding:0.1rem 0.5rem; font-size:0.7rem; font-weight:600; }
+    .badge-amarillo { background:#fef9c3; color:#854d0e; border-radius:9999px; padding:0.1rem 0.5rem; font-size:0.7rem; font-weight:600; }
+    .badge-rojo { background:#fee2e2; color:#b91c1c; border-radius:9999px; padding:0.1rem 0.5rem; font-size:0.7rem; font-weight:600; }
+    .badge-azul { background:#dbeafe; color:#1d4ed8; border-radius:9999px; padding:0.1rem 0.5rem; font-size:0.7rem; font-weight:600; }
+    .dark .badge-verde { background:#14532d; color:#86efac; }
+    .dark .badge-amarillo { background:#422006; color:#fde68a; }
+    .dark .badge-rojo { background:#450a0a; color:#fca5a5; }
+
+    /* ── Bloque tabs ── */
+    .bloque-tab { padding:0.4rem 0.875rem; border-radius:0.5rem 0.5rem 0 0; font-size:0.8125rem;
+        font-weight:500; cursor:pointer; border:1px solid #e2e8f0; border-bottom:none;
+        background:#f8fafc; color:#64748b; transition:background 0.15s; }
+    .bloque-tab.active { background:#fff; color:#0f9488; font-weight:700; border-color:#0f9488 #0f9488 #fff; }
+    .dark .bloque-tab { background:#1e293b; border-color:#334155; color:#94a3b8; }
+    .dark .bloque-tab.active { background:#0f172a; color:#2dd4bf; border-color:#0d9488 #0d9488 #0f172a; }
+    .bloque-content { display:none; }
+    .bloque-content.active { display:block; }
+
+    /* ── Resultado MC ── */
+    .resultado-card { border-radius:0.75rem; padding:1rem 1.25rem; border:1px solid; }
+    .resultado-p50 { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+    .resultado-p80 { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+    .resultado-p90 { background:#fff7ed; border-color:#fed7aa; color:#c2410c; }
+    .dark .resultado-p50 { background:#1e3a5f; border-color:#1d4ed8; color:#93c5fd; }
+    .dark .resultado-p80 { background:#14532d; border-color:#15803d; color:#86efac; }
+    .dark .resultado-p90 { background:#431407; border-color:#c2410c; color:#fdba74; }
+
+    /* ── Spinner ── */
+    .tc-spinner { display:inline-block; width:1.25rem; height:1.25rem; border:2px solid #e2e8f0;
+        border-top-color:#0f9488; border-radius:50%; animation:tc-spin 0.7s linear infinite; }
+    @@keyframes tc-spin { to { transform:rotate(360deg); } }
+
+    /* ── Sticky table header ── */
+    .tc-table-wrap { overflow-x:auto; max-height:60vh; overflow-y:auto; }
+    .tc-table thead th { position:sticky; top:0; z-index:1; }
+</style>
+}
+
+<div class="flex" style="min-height:calc(100vh - 3.5rem)">
+
+@* ══════════════════════════ SIDEBAR ══════════════════════════════════ *@
+<aside id="tc-sidebar" class="w-56 flex-shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col sticky top-0" style="height:calc(100vh - 3.5rem); overflow-y:auto">
+
+    <div class="flex items-center justify-between px-3 py-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+            <div class="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
+                <span class="material-icons text-teal-600 dark:text-teal-400" style="font-size:16px">analytics</span>
+            </div>
+            <span class="tc-sb-label text-sm font-bold text-slate-800 dark:text-slate-100 truncate">Taller Costos</span>
+        </div>
+        <button type="button" onclick="tcToggleSidebar()"
+                class="flex-shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
+                title="Minimizar sidebar">
+            <span class="material-icons text-base" id="tc-sidebar-icon">chevron_left</span>
+        </button>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+
+        <p class="tc-sb-group px-2 pt-1 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">Dashboard</p>
+
+        <button type="button" class="step-btn" data-section="resumen" onclick="tcNav('resumen')">
+            <span class="material-icons step-icon">insights</span>
+            <span class="tc-sb-label">Resumen Global</span>
+        </button>
+
+        <p class="tc-sb-group px-2 pt-2 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">Proyecto</p>
+
+        <button type="button" class="step-btn" data-section="proyectos" onclick="tcNav('proyectos')">
+            <span class="material-icons step-icon">folder_open</span>
+            <span class="tc-sb-label">Mis Proyectos</span>
+        </button>
+        <button type="button" class="step-btn" data-section="proyecto" onclick="tcNav('proyecto')">
+            <span class="material-icons step-icon">edit_note</span>
+            <span class="tc-sb-label">Datos Proyecto</span>
+        </button>
+        <button type="button" class="step-btn" data-section="empresas" onclick="tcNav('empresas')">
+            <span class="material-icons step-icon">business</span>
+            <span class="tc-sb-label">Empresas</span>
+        </button>
+        <button type="button" class="step-btn" data-section="contratos" onclick="tcNav('contratos')">
+            <span class="material-icons step-icon">receipt_long</span>
+            <span class="tc-sb-label">Contratos</span>
+            <span class="step-badge tc-sb-label" id="sb-contratos-count">0</span>
+        </button>
+
+        <div id="sb-contrato-items" class="hidden">
+            <p class="tc-sb-group px-2 pt-2 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">Contrato Activo</p>
+            <button type="button" class="step-btn pl-5" data-section="bloqueA" onclick="tcNav('bloqueA')">
+                <span class="material-icons step-icon text-sm" style="font-size:16px">table_chart</span>
+                <span class="tc-sb-label">A — Resumen</span>
+            </button>
+            <button type="button" class="step-btn pl-5" data-section="bloqueB" onclick="tcNav('bloqueB')">
+                <span class="material-icons step-icon text-sm" style="font-size:16px">list_alt</span>
+                <span class="tc-sb-label">B — Ítems</span>
+            </button>
+            <button type="button" class="step-btn pl-5" data-section="bloqueD" onclick="tcNav('bloqueD')">
+                <span class="material-icons step-icon text-sm" style="font-size:16px">bar_chart</span>
+                <span class="tc-sb-label">D — V. de Costo</span>
+            </button>
+            <button type="button" class="step-btn pl-5" data-section="bloqueE" onclick="tcNav('bloqueE')">
+                <span class="material-icons step-icon text-sm" style="font-size:16px">tune</span>
+                <span class="tc-sb-label">E — Factores</span>
+            </button>
+            <button type="button" class="step-btn pl-5" data-section="bloqueF" onclick="tcNav('bloqueF')">
+                <span class="material-icons step-icon text-sm" style="font-size:16px">category</span>
+                <span class="tc-sb-label">F — Clasificación</span>
+            </button>
+        </div>
+
+        <p class="tc-sb-group px-2 pt-2 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">Análisis</p>
+
+        <button type="button" class="step-btn" data-section="riesgos" onclick="tcNav('riesgos')">
+            <span class="material-icons step-icon">warning_amber</span>
+            <span class="tc-sb-label">Riesgos y Oportunidades</span>
+        </button>
+        <button type="button" class="step-btn" data-section="montecarlo" onclick="tcNav('montecarlo')">
+            <span class="material-icons step-icon">casino</span>
+            <span class="tc-sb-label">Análisis Monte Carlo</span>
+        </button>
+
+        <p class="tc-sb-group px-2 pt-2 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">Referencia</p>
+
+        <button type="button" class="step-btn" data-section="glosario" onclick="tcNav('glosario')">
+            <span class="material-icons step-icon" style="color:#f59e0b">functions</span>
+            <span class="tc-sb-label">Glosario de Fórmulas</span>
+        </button>
+
+    </nav>
+</aside>
+
+@* ══════════════════════════ MAIN ══════════════════════════════════════ *@
+<main class="flex-1 min-w-0 overflow-y-auto bg-slate-50 dark:bg-slate-950">
+
+    @* ─── PROYECTOS ──────────────────────────────────────────────────── *@
+    <section id="tc-s-proyectos" class="tc-section p-6">
+        <div class="flex items-center justify-between mb-5">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Taller de Rango de Costos</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Sistema de análisis probabilístico — CODELCO Vicepresidencia Proyectos</p>
+            </div>
+            <button class="btn-primary" onclick="tcAbrirModalProyecto()">
+                <span class="material-icons text-base">add</span> Nuevo Proyecto
+            </button>
+        </div>
+        <div id="tc-proyectos-lista" class="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            <div class="text-center py-10 text-slate-400 col-span-3">
+                <div class="tc-spinner mx-auto mb-3"></div>
+                <p class="text-sm">Cargando proyectos...</p>
+            </div>
+        </div>
+    </section>
+
+    @* ─── DATOS PROYECTO ─────────────────────────────────────────────── *@
+    <section id="tc-s-proyecto" class="tc-section p-6 max-w-2xl">
+        <div class="flex items-center gap-3 mb-5">
+            <button class="btn-secondary" onclick="tcNav('proyectos')">
+                <span class="material-icons text-base">arrow_back</span>
+            </button>
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Datos del Proyecto</h2>
+        </div>
+        <div class="tc-card space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nombre del Proyecto *</label>
+                    <input id="proy-nombre" type="text" class="tc-input" placeholder="Ej: PROYECTO TOVE 4" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Código *</label>
+                    <input id="proy-codigo" type="text" class="tc-input" placeholder="Ej: A22M451" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fecha del Ejercicio *</label>
+                    <input id="proy-fecha" type="date" class="tc-input" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Organización</label>
+                    <input id="proy-org" type="text" class="tc-input" placeholder="CODELCO - VICEPRESIDENCIA PROYECTOS" />
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button class="btn-primary" onclick="tcGuardarProyecto()">
+                    <span class="material-icons text-base">save</span> Guardar
+                </button>
+                <button class="btn-secondary" onclick="tcNav('contratos')">
+                    Siguiente: Contratos <span class="material-icons text-base">arrow_forward</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    @* ─── RESUMEN GLOBAL ──────────────────────────────────────────────── *@
+    <section id="tc-s-resumen" class="tc-section p-6">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap;">
+            <div>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                    Resumen Global del Proyecto
+                    <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Vista consolidada de todos los contratos del proyecto: CAPEX total, EAT determinístico, resultado Monte Carlo (P50/P80/P90) y semáforo de cumplimiento presupuestario. Verde: EAT ≤ CAPEX; Ámbar: EAT entre 100-115% del CAPEX; Rojo: EAT &gt; 115% del CAPEX.</span></span>
+                </h2>
+                <p id="tc-resumen-subtitle" class="text-xs text-slate-500 dark:text-slate-400"></p>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <div class="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
+                    <span class="material-icons text-teal-500 flex-shrink-0" style="font-size:18px">folder_open</span>
+                    <select id="tc-resumen-sel-proy"
+                            class="tc-select border-0 bg-transparent p-0 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none min-w-[14rem]"
+                            onchange="tcCambiarProyectoResumen(this.value)">
+                        <option value="">— Selecciona un proyecto —</option>
+                    </select>
+                </div>
+                <button class="btn-secondary" onclick="tcCargarResumen()" title="Actualizar" style="display:inline-flex;align-items:center;gap:0.375rem;">
+                    <span class="material-icons text-base">refresh</span>
+                </button>
+                <button onclick="tcAbrirPdfResumen()" title="Generar Reporte PDF"
+                        style="display:inline-flex;align-items:center;gap:0.375rem;padding:0.4rem 0.875rem;border-radius:0.5rem;font-size:0.8125rem;font-weight:500;cursor:pointer;border:1px solid #cbd5e1;background:#fff;color:#475569;">
+                    <span class="material-icons" style="font-size:1rem;">picture_as_pdf</span> Reporte PDF
+                </button>
+                <button onclick="tcAbrirPdfEjecutivoCod()" title="Informe ejecutivo CODELCO (compacto, para comité)"
+                        style="display:inline-flex;align-items:center;gap:0.375rem;padding:0.4rem 0.875rem;border-radius:0.5rem;font-size:0.8125rem;font-weight:600;cursor:pointer;border:1px solid #e87722;background:linear-gradient(180deg,#fff8f0,#fff);color:#9a3412;">
+                    <span class="material-icons" style="font-size:1rem;color:#e87722;">description</span> Informe ejecutivo CODELCO
+                </button>
+            </div>
+        </div>
+        <div id="tc-resumen-content">
+            <div class="tc-card border-dashed border-slate-200 dark:border-slate-700 text-center py-16">
+                <span class="material-icons text-5xl text-slate-200 dark:text-slate-700 mb-3 block">insights</span>
+                <p class="text-sm font-semibold text-slate-400 dark:text-slate-500 mb-1">Sin datos todavía</p>
+                <p class="text-xs text-slate-400 dark:text-slate-600">Selecciona un proyecto en el selector de arriba.</p>
+            </div>
+        </div>
+    </section>
+
+    @* ─── EMPRESAS CONTRATISTAS ───────────────────────────────────────── *@
+    <section id="tc-s-empresas" class="tc-section p-6">
+        <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-3">
+                <button class="btn-secondary" onclick="tcNav('proyecto')">
+                    <span class="material-icons text-base">arrow_back</span>
+                </button>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Empresas contratistas</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Gestionadas por proyecto. Cada contrato se asocia a una empresa.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="btn-secondary flex items-center gap-1" type="button" onclick="tcCargarPanelEmpresas()" title="Actualizar">
+                    <span class="material-icons text-base">refresh</span>
+                </button>
+                <button class="btn-primary" type="button" onclick="tcAbrirModalEmpresaNueva()">
+                    <span class="material-icons text-base">add</span> Nueva empresa
+                </button>
+            </div>
+        </div>
+        <p id="tc-empresas-aviso" class="text-sm text-amber-700 dark:text-amber-400 mb-3 hidden"></p>
+        <div id="tc-empresas-lista" class="space-y-2"></div>
+    </section>
+
+    @* ─── CONTRATOS ───────────────────────────────────────────────────── *@
+    <section id="tc-s-contratos" class="tc-section p-6">
+        @* Header *@
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <button class="btn-secondary" onclick="tcNav('proyecto')">
+                    <span class="material-icons text-base">arrow_back</span>
+                </button>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Contratos del Proyecto</h2>
+                    <p id="tc-proyecto-header" class="text-xs text-slate-500 dark:text-slate-400"></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="btn-secondary" type="button" onclick="tcNav('empresas')" title="Empresas">
+                    <span class="material-icons text-base">business</span> Empresas
+                </button>
+                <button class="btn-primary" onclick="tcAbrirModalContrato()">
+                <span class="material-icons text-base">add</span> Nuevo Contrato
+            </button>
+            </div>
+        </div>
+        @* KPI resumen — poblado por JS *@
+        <div id="tc-contratos-kpi" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4"></div>
+        @* Barra de búsqueda *@
+        <div id="tc-contratos-toolbar" class="hidden flex items-center gap-2 mb-3">
+            <div class="relative flex-1 max-w-xs">
+                <span class="material-icons absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" style="font-size:16px">search</span>
+                <input id="tc-contratos-search" type="text" placeholder="Buscar por código o nombre…"
+                       oninput="tcFiltrarContratos()"
+                       class="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-400" />
+            </div>
+            <span id="tc-contratos-count-txt" class="text-xs text-slate-400 ml-1"></span>
+        </div>
+        @* Tabla de contratos — poblada por JS *@
+        <div id="tc-contratos-lista">
+            <div class="text-center py-8 text-slate-400">
+                <div class="tc-spinner mx-auto mb-3"></div>
+            </div>
+        </div>
+    </section>
+
+    @* ─── BLOQUE A ────────────────────────────────────────────────────── *@
+    <section id="tc-s-bloqueA" class="tc-section p-6 max-w-3xl">
+        <div id="tc-bloque-header" class="flex items-center gap-3 mb-5">
+            <button class="btn-secondary" onclick="tcNav('contratos')">
+                <span class="material-icons text-base">arrow_back</span>
+            </button>
+            <div>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1 flex-wrap">
+                    <span id="tc-contrato-codigo-A">CC001</span> — Bloque A: Resumen de Costos
+                    <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Punto de partida del análisis. Registra el CAPEX autorizado, el monto comprometido en contratos vigentes y el POR COMPROMETER (ítems pendientes). El EAT (Estimado al Término) se calcula automáticamente como Comprometido + Por Comprometer.</span></span>
+                </h2>
+                <p id="tc-contrato-nombre-A" class="text-xs text-slate-500 dark:text-slate-400"></p>
+            </div>
+        </div>
+        <div class="tc-card space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nombre del Paquete</label>
+                    <input id="bloqA-nombre" type="text" class="tc-input" placeholder="Ej: CONSTRUCCION PLANTA CICLONES" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">CAPEX (USD$)<span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Capital Expenditure: presupuesto total autorizado por el directorio para este contrato. Es el techo financiero de referencia. El semáforo EAT/CAPEX indica si el proyecto está dentro del margen (Verde ≤100%, Ámbar 100–115%, Rojo >115%).</span></span></label>
+                    <input id="bloqA-capex" type="text" inputmode="decimal" class="tc-input text-right tabular-nums" placeholder="0" data-decimals="0" onfocus="tcNumFocus(this)" onblur="tcNumBlur(this)" oninput="tcNumInput(this);tcCalcEAT()" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">COMPROMETIDO (USD$)<span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Monto ya contratado mediante órdenes de compra, contratos o acuerdos firmados. Este valor es fijo y no tiene variabilidad en el análisis probabilístico. Representa el compromiso contractual vigente del contrato.</span></span></label>
+                    <input id="bloqA-comp" type="text" inputmode="decimal" class="tc-input text-right tabular-nums" placeholder="0" data-decimals="0" onfocus="tcNumFocus(this)" onblur="tcNumBlur(this)" oninput="tcNumInput(this);tcCalcEAT()" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">POR COMPROMETER (USD$)<span class="gpr-tt"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Suma de los ítems del Bloque B+C aún no contratados. Este monto tiene variabilidad y es el insumo principal de la simulación Monte Carlo. Refleja los costos inciertos que pueden variar entre el mínimo y el máximo estimado.</span></span></label>
+                    <input id="bloqA-porcomp" type="text" inputmode="decimal" class="tc-input text-right tabular-nums" placeholder="0" data-decimals="0" onfocus="tcNumFocus(this)" onblur="tcNumBlur(this)" oninput="tcNumInput(this);tcCalcEAT()" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">ESTIMADO A TÉRMINO (USD$)<span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">EAT = Comprometido + Por Comprometer. Es la proyección determinística del costo final del contrato sin contingencias. El análisis Monte Carlo calcula el EAT probabilístico (P50/P80/P90) sobre esta base.</span></span></label>
+                    <input id="bloqA-eat" type="text" inputmode="decimal" class="tc-input bg-slate-50 dark:bg-slate-800 text-right tabular-nums" data-decimals="0" readonly />
+                </div>
+            </div>
+            <div class="border-t border-slate-200 dark:border-slate-700 pt-3 mt-1">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Organización</p>
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Empresa contratista <span class="text-slate-500 font-normal">(opcional)</span></label>
+                    <select id="bloqA-empresa" class="tc-input appearance-none" title="Puede vincular un paquete a una empresa de la pestaña Empresas cuando la tenga.">
+                        <option value="">— Seleccione —</option>
+                    </select>
+                    <p class="text-xs text-slate-400 mt-1">Defina empresas en la sección <strong>Empresas</strong> si aún no existen.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Familia</label>
+                    <select id="bloqA-familia" class="tc-input appearance-none">
+                        <option value="">— Sin Familia —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="border-t border-slate-200 dark:border-slate-700 pt-3 mt-1">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Tipo de Cambio y Factor</p>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Dólar Observado (CLP/USD)<span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Tipo de cambio oficial publicado por el Banco Central de Chile. Se usa para convertir los costos en USD a pesos chilenos (CLP). Actualizar con el valor vigente en la fecha del ejercicio.</span></span></label>
+                        <input id="bloqA-tasa" type="number" class="tc-input" placeholder="900" step="1" min="1" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Factor<span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Multiplicador aplicado al costo base para incluir gastos generales, imprevistos directos u otros ajustes del proyecto. Factor 1.0 = sin ajuste. Afecta el cálculo del costo en CLP.</span></span></label>
+                        <input id="bloqA-factor" type="number" class="tc-input" placeholder="1" step="any" min="0.000000000000001" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fecha Dólar</label>
+                        <input id="bloqA-fecha-tasa" type="date" class="tc-input" />
+                    </div>
+                </div>
+            </div>
+            <div id="bloqA-validacion" class="hidden rounded-lg px-3 py-2 text-sm"></div>
+            <div class="flex gap-2 pt-2">
+                <button class="btn-primary" onclick="tcGuardarBloqueA()">
+                    <span class="material-icons text-base">save</span> Guardar Bloque A
+                </button>
+                <button class="btn-secondary" onclick="tcNav('bloqueB')">
+                    Siguiente: Ítems <span class="material-icons text-base">arrow_forward</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    @* ─── BLOQUE B+C ──────────────────────────────────────────────────── *@
+    <section id="tc-s-bloqueB" class="tc-section p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <button class="btn-secondary" onclick="tcNav('bloqueA')">
+                    <span class="material-icons text-base">arrow_back</span>
+                </button>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1 flex-wrap">
+                        <span id="tc-contrato-codigo-B">CC001</span> — Bloque B+C: Ítems Por Comprometer
+                        <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Desglose de costos pendientes de contratar. Cada ítem puede marcarse como Certeza (costo fijo) o Incertidumbre (con rango Min/Probable/Máx). La Clase de Estimación AACE (1 a 5) indica el nivel de definición del alcance: Clase 5 tiene ±50% de variabilidad; Clase 1, ±3-15%.</span></span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Incluye Clase de Estimación (Bloque C)</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button class="btn-secondary" onclick="tcAddItemRow()">
+                    <span class="material-icons text-base">add_row_below</span>
+                    Agregar Ítem
+                </button>
+                <button class="btn-primary" onclick="tcGuardarItems()">
+                    <span class="material-icons text-base">save</span> Guardar
+                </button>
+            </div>
+        </div>
+        <div class="mb-4 grid grid-cols-4 gap-3">
+            <div class="tc-card !py-3 !px-4">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Suma Por Comprometer
+                    <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Suma de la columna Costo Total USD$ solo para ítems con check activo en "Por Comprometer".</span></span>
+                </p>
+                <p class="text-base font-bold text-slate-800 dark:text-slate-100" id="bloqB-suma">$0</p>
+                <p class="text-xs text-slate-400">USD$</p>
+            </div>
+            <div class="tc-card !py-3 !px-4">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Suma ítems Costo Calc.
+                    <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Suma de los valores en Costo Calc. $CLP de todas las filas (automático u override manual), sin filtrar por checks.</span></span>
+                </p>
+                <p class="text-base font-bold text-teal-700 dark:text-teal-400" id="bloqB-suma-clp">$0</p>
+                <p class="text-xs text-slate-400">$CLP</p>
+            </div>
+            <div class="tc-card !py-3 !px-4 border-l-4 border-slate-300 dark:border-slate-600">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Suma Costo Total USD$
+                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Suma completa de la columna Costo Total USD$ considerando todos los ítems, independiente del check.</span></span>
+                </p>
+                <p class="text-base font-bold text-slate-700 dark:text-slate-300" id="bloqB-suma-total">$0</p>
+                <p class="text-xs text-slate-400">Todos los ítems (USD$)</p>
+            </div>
+            <div class="tc-card !py-3 !px-4 border-l-4 border-indigo-400">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Estimado a Término
+                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">EAT del contrato en USD: Comprometido + suma por comprometer (ítems checkeados).</span></span>
+                </p>
+                <p class="text-base font-bold text-indigo-700 dark:text-indigo-300" id="bloqB-eat">$0</p>
+                <p class="text-xs text-slate-400">Por Comprometer + Comprometido (USD$)</p>
+            </div>
+        </div>
+        <span id="bloqB-porcomp" class="hidden">0</span>
+        <span id="bloqB-diff-badge" class="hidden"></span>
+        <div class="tc-table-wrap border border-slate-200 dark:border-slate-700 rounded-lg">
+            <table class="tc-table">
+                <thead>
+                    <tr>
+                        <th class="w-8 text-center">#</th>
+                        <th class="w-24">Código</th>
+                        <th class="min-w-[220px]">Descripción</th>
+                        <th class="w-24">Sub Partida</th>
+                        <th class="w-16 text-center">Unidad</th>
+                        <th class="w-12 text-center">Certeza</th>
+                        <th class="w-24 text-center">Por Comprometer</th>
+                        <th class="w-32 text-right">Costo Total USD$</th>
+                        <th class="w-36 text-center" title="(Costo Total USD / Factor) × Dólar">Costo Calc. $CLP</th>
+                        <th class="w-24">Clase Estim.</th>
+                        <th class="min-w-[160px]">Consideraciones</th>
+                        <th class="w-8"></th>
+                    </tr>
+                </thead>
+                <tbody id="bloqB-tbody">
+                </tbody>
+                <tfoot>
+                    <tr class="font-semibold bg-slate-50 dark:bg-slate-800">
+                        <td colspan="7" class="px-2 py-2 text-right text-slate-600 dark:text-slate-400">Total:</td>
+                        <td id="bloqB-total" class="px-2 py-2 text-teal-700 dark:text-teal-400">$0</td>
+                        <td colspan="4"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button class="btn-secondary" onclick="tcNav('bloqueD')">
+                Siguiente: V. de Costo <span class="material-icons text-base">arrow_forward</span>
+            </button>
+        </div>
+    </section>
+
+    @* ─── BLOQUE D ────────────────────────────────────────────────────── *@
+    <section id="tc-s-bloqueD" class="tc-section p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <button class="btn-secondary" onclick="tcNav('bloqueB')">
+                    <span class="material-icons text-base">arrow_back</span>
+                </button>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <span id="tc-contrato-codigo-D">CC001</span> — V. de Costo
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Ítems de <strong>incertidumbre</strong> con rangos Mínimo / Probable / Máximo. Ítems de certeza se muestran como referencia.</p>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="tcGuardarItems()">
+                <span class="material-icons text-base">save</span> Guardar
+            </button>
+        </div>
+        <div class="tc-table-wrap border border-slate-200 dark:border-slate-700 rounded-lg">
+            <table class="tc-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" class="text-center w-8">#</th>
+                        <th rowspan="2" class="w-24">Código</th>
+                        <th rowspan="2" class="min-w-[220px]">Descripción</th>
+                        <th rowspan="2" class="w-32 text-right align-bottom pr-2" title="Valor de Bloque B, misma fila">Costo Total USD$</th>
+                        <th colspan="2" class="text-center border-l border-slate-300 bg-blue-50 dark:bg-blue-900/20 text-blue-700">Mínimo</th>
+                        <th colspan="2" class="text-center border-l border-slate-300 bg-teal-50 dark:bg-teal-900/20 text-teal-700">Probable</th>
+                        <th colspan="2" class="text-center border-l border-slate-300 bg-amber-50 dark:bg-amber-900/20 text-amber-700">Máximo</th>
+                    </tr>
+                    <tr>
+                        <th class="text-center border-l border-slate-300 w-24 bg-blue-50 dark:bg-blue-900/20 text-blue-600">%</th>
+                        <th class="text-right w-36 bg-blue-50 dark:bg-blue-900/20 text-blue-600">USD$</th>
+                        <th class="text-center border-l border-slate-300 w-24 bg-teal-50 dark:bg-teal-900/20 text-teal-600">%</th>
+                        <th class="text-right w-36 bg-teal-50 dark:bg-teal-900/20 text-teal-600">USD$</th>
+                        <th class="text-center border-l border-slate-300 w-24 bg-amber-50 dark:bg-amber-900/20 text-amber-600">%</th>
+                        <th class="text-right w-36 bg-amber-50 dark:bg-amber-900/20 text-amber-600">USD$</th>
+                    </tr>
+                </thead>
+                <tbody id="bloqD-tbody">
+                </tbody>
+            </table>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button class="btn-secondary" onclick="tcNav('bloqueE')">
+                Siguiente: Factores <span class="material-icons text-base">arrow_forward</span>
+            </button>
+        </div>
+    </section>
+
+    @* ─── BLOQUE E ────────────────────────────────────────────────────── *@
+    <section id="tc-s-bloqueE" class="tc-section p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <button class="btn-secondary" onclick="tcNav('bloqueD')">
+                    <span class="material-icons text-base">arrow_back</span>
+                </button>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <span id="tc-contrato-codigo-E">CC001</span> — Bloque E: Factores de Rango
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Ítems incertidumbre no-vía riesgo</p>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="tcGuardarItems()">
+                <span class="material-icons text-base">save</span> Guardar
+            </button>
+        </div>
+        <div class="tc-table-wrap border border-slate-200 dark:border-slate-700 rounded-lg">
+            <table class="tc-table" style="table-layout:fixed">
+                <colgroup>
+                    <col style="width:90px">
+                    <col style="width:calc(22% - 22px)">
+                    <col style="width:calc(35% - 22px)">
+                    <col style="width:calc(35% - 22px)">
+                    <col style="width:80px">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th>Oportunidades</th>
+                        <th>Amenazas</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="bloqE-tbody">
+                </tbody>
+            </table>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button class="btn-secondary" onclick="tcNav('bloqueF')">
+                Siguiente: Clasificación <span class="material-icons text-base">arrow_forward</span>
+            </button>
+        </div>
+    </section>
+
+    @* ─── BLOQUE F ────────────────────────────────────────────────────── *@
+    <section id="tc-s-bloqueF" class="tc-section p-6">
+        <div class="flex items-center gap-3 mb-2">
+            <button class="btn-secondary" onclick="tcNav('bloqueE')">
+                <span class="material-icons text-base">arrow_back</span>
+            </button>
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">
+                <span id="tc-contrato-codigo-F">CC001</span> — Bloque F: Clasificación Incertidumbre vs. Certeza
+            </h2>
+        </div>
+        <div class="flex items-center gap-3 mb-5">
+            <button id="bloqF-gen-btn" class="btn-primary" onclick="tcGenerarAnalisisMC()">
+                <span class="material-icons text-base">insights</span> Generar Análisis MonteCarlo
+            </button>
+            <div id="bloqF-gen-loading" class="hidden flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <div class="tc-spinner" style="width:1.25rem;height:1.25rem;border-width:2px"></div>
+                <span>Simulando 10.000 iteraciones…</span>
+            </div>
+        </div>
+        <div class="flex flex-col gap-6">
+            <div>
+                <h3 class="text-sm font-bold text-green-600 dark:text-green-400 mb-2 flex items-center gap-1">
+                    <span class="material-icons text-base">check_circle_outline</span>
+                    CERTEZA — Costo Fijo
+                </h3>
+                <div class="tc-table-wrap border border-green-200 dark:border-green-900 rounded-lg">
+                    <table class="tc-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Costo USD$</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bloqF-cert"></tbody>
+                        <tfoot>
+                            <tr class="font-semibold bg-green-50 dark:bg-green-900/20">
+                                <td colspan="2" class="px-2 py-1 text-right text-sm">Total:</td>
+                                <td id="bloqF-total-cert" class="px-2 py-1 text-green-700 dark:text-green-400"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-sm font-bold text-red-600 dark:text-red-400 mb-2 flex items-center gap-1">
+                    <span class="material-icons text-base">help_outline</span>
+                    INCERTIDUMBRE — Entran al Modelo Monte Carlo
+                </h3>
+                <div class="tc-table-wrap border border-red-200 dark:border-red-900 rounded-lg">
+                    <table class="tc-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Código</th>
+                                <th rowspan="2" class="min-w-[180px]">Descripción</th>
+                                <th rowspan="2" class="text-right">Costo USD$</th>
+                                <th colspan="2" class="text-center border-l border-slate-300 bg-blue-50 dark:bg-blue-900/20 text-blue-700">Mínimo</th>
+                                <th colspan="2" class="text-center border-l border-slate-300 bg-teal-50 dark:bg-teal-900/20 text-teal-700">Probable</th>
+                                <th colspan="2" class="text-center border-l border-slate-300 bg-amber-50 dark:bg-amber-900/20 text-amber-700">Máximo</th>
+                                <th class="text-center border-l-2 border-purple-400 bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 font-bold">Incertidumbre</th>
+                            </tr>
+                            <tr>
+                                <th class="text-center border-l border-slate-300 w-20 bg-blue-50 dark:bg-blue-900/20 text-blue-600">%</th>
+                                <th class="text-right w-28 bg-blue-50 dark:bg-blue-900/20 text-blue-600">USD$</th>
+                                <th class="text-center border-l border-slate-300 w-20 bg-teal-50 dark:bg-teal-900/20 text-teal-600">%</th>
+                                <th class="text-right w-28 bg-teal-50 dark:bg-teal-900/20 text-teal-600">USD$</th>
+                                <th class="text-center border-l border-slate-300 w-20 bg-amber-50 dark:bg-amber-900/20 text-amber-600">%</th>
+                                <th class="text-right w-28 bg-amber-50 dark:bg-amber-900/20 text-amber-600">USD$</th>
+                                <th class="text-right w-32 border-l-2 border-purple-400 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 font-semibold">(USD$)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bloqF-incert"></tbody>
+                        <tfoot>
+                            <tr class="font-semibold bg-red-50 dark:bg-red-900/20">
+                                <td colspan="2" class="px-2 py-1 text-right text-sm">Total:</td>
+                                <td id="bloqF-total-incert" class="px-2 py-1 text-red-700 dark:text-red-400"></td>
+                                <td colspan="6"></td>
+                                <td id="bloqF-total-mc" class="px-2 py-1 text-right font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/10 border-l-2 border-purple-400">—</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @* KPI resultado análisis *@
+        <div id="bloqF-kpi" class="hidden mt-5">
+            <div class="tc-card border border-purple-200 dark:border-purple-800">
+                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-purple-500">insights</span>
+                    Análisis Incertidumbre — Monte Carlo <span id="bloqF-kpi-items" class="text-xs font-normal text-slate-400 ml-1"></span>
+                </h3>
+
+                @* Fila 1: EAT principal + sub-métricas *@
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div class="col-span-1 rounded-xl p-5 bg-gradient-to-br from-purple-600 to-purple-800 text-white text-center shadow-lg flex flex-col justify-center">
+                        <p class="text-xs font-semibold opacity-80 mb-1 uppercase tracking-wide flex items-center justify-center gap-1">
+                            EAT Estimado P50
+                            <span class="gpr-tt"><span class="material-icons gpr-tt-icon" style="color:rgba(255,255,255,0.6)">help_outline</span><span class="gpr-tt-box">EAT probabilístico en el percentil 50: hay un 50% de probabilidad de que el costo final no supere este valor. Se calcula como Certeza (fija) + Media P50 de los ítems de incertidumbre simulados por Monte Carlo. Es la mejor estimación central del costo total.</span></span>
+                        </p>
+                        <p class="text-3xl font-bold leading-tight" id="bloqF-kpi-eat">—</p>
+                        <p class="text-xs opacity-60 mt-1">Incertidumbre P50 + Certeza</p>
+                    </div>
+                    <div class="col-span-2 grid grid-cols-2 gap-3">
+                        <div class="tc-card py-3 px-4 border border-red-200 dark:border-red-800">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                                <span class="material-icons text-red-500" style="font-size:14px">help_outline</span>
+                                Incertidumbre — Monte Carlo
+                                <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Suma de los valores medios simulados por Monte Carlo para los ítems con variabilidad. A diferencia del valor puntual, captura la distribución estadística del costo incierto. Un valor alto relativo al CAPEX indica mayor exposición al riesgo de costo.</span></span>
+                            </p>
+                            <p class="text-xl font-bold text-red-700 dark:text-red-400" id="bloqF-kpi-mc">—</p>
+                            <p class="text-xs text-slate-400 mt-1">Suma media MC por ítem</p>
+                        </div>
+                        <div class="tc-card py-3 px-4 border border-green-200 dark:border-green-800">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                                <span class="material-icons text-green-500" style="font-size:14px">check_circle_outline</span>
+                                Total Certeza
+                                <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Costos identificados con alta certeza (contratos firmados, precios fijos). Se suman directamente al EAT sin variabilidad estadística. Un mayor peso de Certeza en el total indica menor riesgo global del contrato.</span></span>
+                            </p>
+                            <p class="text-xl font-bold text-green-700 dark:text-green-400" id="bloqF-kpi-cert">—</p>
+                            <p class="text-xs text-slate-400 mt-1">Costos fijos del contrato</p>
+                        </div>
+                    </div>
+                </div>
+
+                @* Fila 2: Percentiles de la distribución del total *@
+                <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Distribución EAT (10.000 iteraciones)</p>
+                    <div class="grid grid-cols-4 gap-3">
+                        <div class="tc-card py-2 px-3 border border-blue-200 dark:border-blue-800">
+                            <p class="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1 flex items-center gap-1">
+                                P10 — Optimista
+                                <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Solo el 10% de las simulaciones resultaron en un costo menor a este valor. Representa el escenario más favorable. Útil como referencia de mínimo realista, pero no recomendado como presupuesto de gestión.</span></span>
+                            </p>
+                            <p class="text-base font-bold text-slate-800 dark:text-slate-100" id="bloqF-kpi-p10">—</p>
+                        </div>
+                        <div class="tc-card py-2 px-3 border border-teal-200 dark:border-teal-800">
+                            <p class="text-xs text-teal-600 dark:text-teal-400 font-semibold mb-1 flex items-center gap-1">
+                                P50 — Base
+                                <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Mediana de la distribución: el 50% de las simulaciones no superaron este valor. Es el escenario más probable y sirve como línea base de referencia. No incluye contingencia suficiente para el 50% de escenarios adversos.</span></span>
+                            </p>
+                            <p class="text-base font-bold text-slate-800 dark:text-slate-100" id="bloqF-kpi-p50">—</p>
+                        </div>
+                        <div class="tc-card py-2 px-3 border border-amber-200 dark:border-amber-800">
+                            <p class="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1 flex items-center gap-1">
+                                P80 — Conservador
+                                <span class="gpr-tt"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">El 80% de las simulaciones no superaron este valor. Estándar AACE/CODELCO para proyectos de capital: incluye contingencia suficiente para 4 de cada 5 escenarios. Es el presupuesto recomendado para la gestión del contrato.</span></span>
+                            </p>
+                            <p class="text-base font-bold text-slate-800 dark:text-slate-100" id="bloqF-kpi-p80">—</p>
+                        </div>
+                        <div class="tc-card py-2 px-3 border border-orange-200 dark:border-orange-800">
+                            <p class="text-xs text-orange-600 dark:text-orange-400 font-semibold mb-1 flex items-center gap-1">
+                                P90 — Gestión
+                                <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">El 90% de las simulaciones no superaron este valor. Corresponde a la reserva de gestión o techo de autorización del directorio para el peor 10% de escenarios. Si el EAT P90 supera el CAPEX, se recomienda revisar el alcance o solicitar ajuste presupuestario.</span></span>
+                            </p>
+                            <p class="text-base font-bold text-slate-800 dark:text-slate-100" id="bloqF-kpi-p90">—</p>
+                        </div>
+                    </div>
+                </div>
+
+                @* Gráficos Monte Carlo *@
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="tc-card">
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1">
+                            <span class="material-icons text-purple-500" style="font-size:14px">bar_chart</span>
+                            Histograma de Frecuencia — Distribución del EAT
+                            <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Muestra cuántas de las 10.000 simulaciones resultaron en cada rango de costo. Una distribución ancha indica alta incertidumbre; una estrecha, mayor certeza. Las líneas verticales marcan P50, P80 y P90. Una cola derecha pronunciada (asimetría positiva) indica riesgo de sobrecosto.</span></span>
+                        </p>
+                        <div style="position:relative;height:220px">
+                            <canvas id="bloqF-chart-hist"></canvas>
+                        </div>
+                    </div>
+                    <div class="tc-card">
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1">
+                            <span class="material-icons text-purple-500" style="font-size:14px">show_chart</span>
+                            Curva S — Distribución Acumulada (CDF)
+                            <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Función de Distribución Acumulada (CDF): para cualquier valor en el eje X, el eje Y indica la probabilidad de que el costo no supere ese valor. Permite leer directamente cualquier percentil. La zona entre P50 y P90 representa el rango de contingencia recomendado.</span></span>
+                        </p>
+                        <div style="position:relative;height:220px">
+                            <canvas id="bloqF-chart-cdf"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-2 mt-5 flex-wrap">
+            <button class="btn-secondary" onclick="tcNav('contratos')">
+                <span class="material-icons text-base">arrow_back</span> Volver a Contratos
+            </button>
+            <button id="bloqF-save-btn" class="btn-success hidden" onclick="tcGuardarMcManual()">
+                <span class="material-icons text-base">save</span> Guardar Análisis
+            </button>
+            <button id="bloqF-pdf-btn" class="btn-secondary hidden" onclick="tcAbrirPdf()">
+                <span class="material-icons text-base">picture_as_pdf</span> Generar Reporte PDF
+            </button>
+        </div>
+    </section>
+
+    @* ─── RIESGOS ─────────────────────────────────────────────────────── *@
+    <section id="tc-s-riesgos" class="tc-section p-6">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                Riesgos y Oportunidades
+                <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Eventos con probabilidad de ocurrencia que pueden aumentar (Riesgo/Amenaza) o reducir (Oportunidad) el costo del contrato. Se modelan como variables de Bernoulli en el Monte Carlo: si el riesgo ocurre, su impacto se suma al EAT; si no ocurre, el efecto es cero. Los niveles de probabilidad CODELCO van de N1 (Remoto) a N5 ≥75% (Casi Seguro).</span></span>
+            </h2>
+            <button onclick="tcAbrirPdfRiesgos()" title="Generar Reporte PDF"
+                    style="display:inline-flex;align-items:center;gap:0.375rem;padding:0.4rem 0.875rem;border-radius:0.5rem;font-size:0.8125rem;font-weight:500;cursor:pointer;border:1px solid #cbd5e1;background:#fff;color:#475569;">
+                <span class="material-icons" style="font-size:1rem;">picture_as_pdf</span> Reporte PDF
+            </button>
+        </div>
+
+        @* Selector de proyecto *@
+        <div class="tc-card mb-5 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700">
+            <div class="flex items-center gap-3">
+                <span class="material-icons text-teal-600 dark:text-teal-400 text-xl">folder_open</span>
+                <div class="flex-1">
+                    <label class="block text-xs font-semibold text-teal-700 dark:text-teal-300 mb-1">Proyecto de trabajo</label>
+                    <select id="tc-riesgos-proy-sel" class="tc-select w-full max-w-md"
+                            onchange="tcRiesgosSeleccionarProyecto(this.value)">
+                        <option value="">— Selecciona un proyecto para continuar —</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        @* Estado sin proyecto *@
+        <div id="tc-riesgos-sin-proyecto" class="text-center py-16 text-slate-400">
+            <span class="material-icons text-5xl mb-3">inventory_2</span>
+            <p class="text-base font-medium">Selecciona un proyecto</p>
+            <p class="text-sm mt-1">Las amenazas y oportunidades se registrarán bajo el proyecto elegido.</p>
+        </div>
+
+        @* Cuerpo (se muestra solo cuando hay proyecto seleccionado) *@
+        <div id="tc-riesgos-body" class="hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Proyecto activo:
+                        <span id="riesgos-proyecto-label" class="font-semibold text-teal-600 dark:text-teal-400"></span>
+                    </p>
+                </div>
+                <div class="flex gap-2 items-center">
+                    <select id="tc-revision-sel" class="tc-select" onchange="tcCargarRevision()">
+                        <option value="">— Selecciona revisión —</option>
+                    </select>
+                    <button class="btn-secondary" onclick="tcNuevaRevision()">
+                        <span class="material-icons text-base">add</span> Nueva Rev.
+                    </button>
+                </div>
+            </div>
+
+            <div id="tc-riesgos-panel" class="hidden">
+                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium text-slate-700 dark:text-slate-300" id="tc-rev-titulo"></p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-snug">
+                            Vista de tabla: pulse <span class="material-icons text-[14px] align-text-bottom text-teal-600">edit</span> para editar una fila; <strong class="text-teal-700 dark:text-teal-400">Listo</strong> aplica los cambios en memoria. Use <strong>Guardar revisión</strong> para persistir en el servidor.
+                        </p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="btn-secondary" onclick="tcAddRiesgoRow()">
+                            <span class="material-icons text-base">add_row_below</span> Agregar
+                        </button>
+                        <button class="btn-secondary" onclick="tcExportarRiesgosCSV()" title="Exportar tabla a CSV (Excel)">
+                            <span class="material-icons text-base">download</span> Exportar CSV
+                        </button>
+                        <button class="btn-primary" onclick="tcGuardarRiesgos()">
+                            <span class="material-icons text-base">save</span> Guardar Revisión
+                        </button>
+                    </div>
+                </div>
+                <div class="tc-table-wrap border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+                    <table class="tc-table w-full text-left border-collapse">
+                        <thead class="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 w-7">#</th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Origen
+                                    <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Indica si el riesgo es Interno (dentro del control del equipo) o Externo (condiciones de mercado, regulaciones, terceros). Los riesgos externos suelen tener mayor incertidumbre y menor capacidad de mitigación directa.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Código
+                                    <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Identificador único del riesgo en el registro. Facilita el seguimiento, referencias cruzadas en informes y trazabilidad entre revisiones sucesivas del análisis.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Título</th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción</th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">
+                                    Prob. %
+                                    <span class="gpr-tt"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Probabilidad de que el riesgo se materialice (0-100%). Escala CODELCO: N1 Remoto (&lt;25%), N2 ≥25%, N3 ≥50%, N4 ≥65%, N5 ≥75% (Casi Seguro). A mayor probabilidad, mayor peso del riesgo en el EAT simulado.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 text-right">
+                                    Impacto Probable USD
+                                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Costo más probable si el riesgo ocurre. Es el valor modal de la distribución triangular del impacto. Se usa como valor central en la simulación Monte Carlo junto con los valores Mín y Máx.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 text-right">
+                                    Mín USD
+                                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Costo mínimo estimado si el riesgo ocurre. Límite inferior de la distribución triangular. En el Monte Carlo ninguna simulación generará un impacto menor a este valor cuando el riesgo se materializa.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 text-right">
+                                    Máx USD
+                                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Costo máximo estimado si el riesgo ocurre. Límite superior de la distribución triangular. Refleja el peor escenario razonablemente posible. Un spread Mín–Máx amplio indica alta incertidumbre sobre el impacto.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">
+                                    Tipo
+                                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Marca el evento como oportunidad (reduce costos) en lugar de amenaza (aumenta costos). Las oportunidades entran con signo negativo en el EAT combinado, mejorando el margen presupuestario si se materializan.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 text-right">
+                                    VE USD
+                                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Valor Esperado = Prob% × Impacto Probable. Estimación determinística del costo esperado por este riesgo. La suma de los VE es el impacto neto esperado sobre el presupuesto sin Monte Carlo.</span></span>
+                                </th>
+                                <th class="py-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Notas Cambio
+                                    <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Registro de modificaciones entre revisiones: por qué cambió la probabilidad, el impacto o el estado del riesgo. Crea trazabilidad del análisis y sustenta las decisiones documentadas del equipo de proyecto.</span></span>
+                                </th>
+                                <th class="py-2 px-2 w-8"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tc-riesgos-tbody">
+                        </tbody>
+                        <tfoot class="bg-slate-50 dark:bg-slate-800/40 border-t-2 border-slate-300 dark:border-slate-600">
+                            <tr class="font-semibold text-sm">
+                                <td colspan="9" class="px-3 py-2 text-right text-slate-600 dark:text-slate-400">
+                                    Impacto neto esperado (Σ VE amenazas − Σ VE oportunidades):
+                                    <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Suma neta de valores esperados: Σ(Prob × Impacto Probable) amenazas − Σ(Prob × Ahorro Probable) oportunidades. Es una estimación determinística del efecto total de los riesgos sobre el presupuesto, antes de la simulación Monte Carlo.</span></span>
+                                </td>
+                                <td class="px-2 py-2"></td>
+                                <td id="tc-riesgos-total" class="px-2 py-2 text-orange-600 dark:text-orange-400 font-bold tabular-nums"></td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div id="tc-riesgos-empty" class="text-center py-10 text-slate-400">
+                <span class="material-icons text-4xl mb-2">warning_amber</span>
+                <p class="text-sm">Selecciona o crea una revisión para gestionar riesgos.</p>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button class="btn-primary" onclick="tcNav('montecarlo')">
+                    Ir a Análisis Monte Carlo <span class="material-icons text-base">arrow_forward</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    @* ─── MONTE CARLO ─────────────────────────────────────────────────── *@
+    <section id="tc-s-montecarlo" class="tc-section p-6">
+        <div class="flex items-center gap-3 mb-5">
+            <button class="btn-secondary" onclick="tcNav('riesgos')">
+                <span class="material-icons text-base">arrow_back</span>
+            </button>
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Análisis Monte Carlo</h2>
+        </div>
+
+        <div class="grid grid-cols-3 gap-6">
+            <div class="col-span-1 space-y-4">
+                <div class="tc-card">
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Configuración</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Revisión de Riesgos</label>
+                            <select id="mc-revision-sel" class="tc-select w-full">
+                                <option value="">Sin riesgos</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Iteraciones</label>
+                            <input id="mc-iter" type="number" class="tc-input" value="10000" min="1000" max="100000" step="1000" />
+                        </div>
+                    </div>
+                </div>
+                <div class="tc-card" id="mc-resumen-input">
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Resumen del Modelo</h3>
+                    <div class="space-y-2 text-sm" id="mc-resumen-body">
+                        <p class="text-slate-400 text-xs">Selecciona un proyecto con contratos completos.</p>
+                    </div>
+                </div>
+                <button id="mc-ejecutar-btn" class="btn-primary w-full justify-center py-3 text-base" onclick="tcEjecutarMonteCarlo()" disabled>
+                    <span class="material-icons">casino</span> Ejecutar Análisis
+                </button>
+            </div>
+
+            <div class="col-span-2 space-y-4">
+                <div id="mc-loading" class="hidden text-center py-12">
+                    <div class="tc-spinner mx-auto mb-3" style="width:2.5rem;height:2.5rem;border-width:3px"></div>
+                    <p class="text-slate-600 dark:text-slate-400">Ejecutando simulación Monte Carlo...</p>
+                    <p class="text-xs text-slate-400 mt-1" id="mc-loading-iter"></p>
+                </div>
+                <div id="mc-resultados" class="hidden space-y-4">
+                    <div class="tc-card">
+                        <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                            <span class="material-icons text-teal-500">analytics</span>
+                            Resultados del Análisis
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="tc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Escenario</th>
+                                        <th>EAT (USD$)</th>
+                                        <th>Contingencia (USD$)</th>
+                                        <th>% Crecimiento vs CAPEX</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mc-tabla-resultados"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="resultado-card resultado-p50">
+                            <p class="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
+                                EAT P50 — Escenario Base
+                                <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Mediana del EAT simulado. El 50% de las 10.000+ iteraciones generaron un costo por debajo de este valor. Úselo como compromiso base en condiciones normales de proyecto.</span></span>
+                            </p>
+                            <p class="text-2xl font-bold" id="mc-p50-eat">—</p>
+                            <p class="text-xs mt-1">Contingencia: <span id="mc-p50-cont" class="font-semibold">—</span></p>
+                            <p class="text-xs">Crecimiento: <span id="mc-p50-crec" class="font-semibold">—</span></p>
+                        </div>
+                        <div class="resultado-card resultado-p80">
+                            <p class="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
+                                EAT P80 — Conservador
+                                <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">El 80% de las simulaciones están por debajo. Contingencia conservadora recomendada para proyectos mineros. Si supera el CAPEX, se recomienda revisar alcance o solicitar ajuste presupuestario.</span></span>
+                            </p>
+                            <p class="text-2xl font-bold" id="mc-p80-eat">—</p>
+                            <p class="text-xs mt-1">Contingencia: <span id="mc-p80-cont" class="font-semibold">—</span></p>
+                            <p class="text-xs">Crecimiento: <span id="mc-p80-crec" class="font-semibold">—</span></p>
+                        </div>
+                        <div class="resultado-card resultado-p90">
+                            <p class="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
+                                EAT P90 — Gestión
+                                <span class="gpr-tt gpr-tt-left"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Solo el 10% de los escenarios superaron este valor. Reserva de gestión para el directorio. Representa el techo de autorización ante escenarios adversos extremos del proyecto.</span></span>
+                            </p>
+                            <p class="text-2xl font-bold" id="mc-p90-eat">—</p>
+                            <p class="text-xs mt-1">Contingencia: <span id="mc-p90-cont" class="font-semibold">—</span></p>
+                            <p class="text-xs">Crecimiento: <span id="mc-p90-crec" class="font-semibold">—</span></p>
+                        </div>
+                    </div>
+                    <div class="tc-card">
+                        <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
+                            Estadísticas del Modelo
+                            <span class="gpr-tt gpr-tt-right"><span class="material-icons gpr-tt-icon">help_outline</span><span class="gpr-tt-box">Métricas estadísticas de la simulación: Media, Desviación Estándar, Coeficiente de Variación (CV%). Un CV alto indica mayor dispersión relativa y mayor incertidumbre en la estimación final del costo.</span></span>
+                        </h3>
+                        <div class="grid grid-cols-4 gap-3 text-sm" id="mc-stats-grid"></div>
+                    </div>
+                </div>
+                <div id="mc-sin-resultados" class="tc-card text-center py-8 text-slate-400">
+                    <span class="material-icons text-4xl mb-2">casino</span>
+                    <p>Configura los parámetros y ejecuta el análisis.</p>
+                </div>
+
+                <div id="mc-historial-wrap" class="tc-card mt-4">
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Historial de Análisis</h3>
+                    <div id="mc-historial" class="space-y-2 max-h-52 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @* ─── GLOSARIO DE FÓRMULAS ───────────────────────────────────────────── *@
+    <section id="tc-s-glosario" class="tc-section p-6">
+
+        @* Encabezado *@
+        <div class="rounded-2xl mb-6 p-6 text-white" style="background:linear-gradient(135deg,#b45309 0%,#d97706 50%,#f59e0b 100%)">
+            <div class="flex items-start gap-4">
+                <span class="material-icons text-white/80" style="font-size:2.5rem">functions</span>
+                <div>
+                    <h2 class="text-xl font-bold mb-1">Glosario de Fórmulas y Fundamentos Estadísticos</h2>
+                    <p class="text-amber-100 text-sm leading-relaxed max-w-3xl">
+                        Base matemática del Taller de Costos y sus análisis Monte Carlo. Cada fórmula incluye su propósito,
+                        expresión matemática y potencial de aplicación en mega-proyectos de construcción y minería.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        @* ── SECCIÓN 1: DISTRIBUCIONES DE PROBABILIDAD ── *@
+        <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span class="material-icons text-amber-500" style="font-size:16px">show_chart</span>
+            1 — Distribuciones de Probabilidad
+        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+            @* Triangular *@
+            <div class="rounded-2xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-amber-600 dark:text-amber-400 text-base">change_history</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Distribución Triangular</p>
+                        <p class="text-xs text-slate-400">Estimación de tres puntos — estándar PMI / AACE</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">Parámetros: a = mínimo · b = más probable · c = máximo</div>
+                    <div class="text-amber-700 dark:text-amber-300 font-semibold">PDF: f(x) = 2(x−a)/[(c−a)(b−a)]  si a ≤ x ≤ b</div>
+                    <div class="text-amber-700 dark:text-amber-300 font-semibold">CDF⁻¹: x = a + √[u·(c−a)·(b−a)]  si u ≤ (b−a)/(c−a)</div>
+                    <div class="text-indigo-600 dark:text-indigo-300">Media = (a + b + c) / 3</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-amber-600 dark:text-amber-400">¿Qué hace?</span> Modela variables donde el experto conoce el rango completo (mín/máx) y el valor más probable. No requiere datos históricos — basta el juicio experto.</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Ideal para estimar ítems de costo cuando no hay series históricas: costos de ingeniería, perforación, voladuras, montaje electromecánico. Permite modelar el riesgo de sobrecosto sin depender de datos actuariales.</p>
+                    <p><span class="font-semibold text-blue-600 dark:text-blue-400">Uso en este sistema</span> Bloque B (incertidumbre), impacto de riesgos/oportunidades en Bloque D y motor Monte Carlo del Taller.</p>
+                </div>
+            </div>
+
+            @* PERT *@
+            <div class="rounded-2xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-purple-600 dark:text-purple-400 text-base">timeline</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Distribución PERT (Beta-PERT)</p>
+                        <p class="text-xs text-slate-400">Variante suavizada de la triangular — mayor peso al valor modal</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">λ = factor de forma (default 4)</div>
+                    <div class="text-purple-700 dark:text-purple-300 font-semibold">μ = (a + λ·b + c) / (λ + 2)</div>
+                    <div class="text-purple-700 dark:text-purple-300 font-semibold">α₁ = λ·(μ−a)/(c−a) · (c−μ)/(b−μ)  ·  (μ−a)/(c−a)</div>
+                    <div class="text-indigo-600 dark:text-indigo-300">Varianza = (μ−a)·(c−μ) / (λ+3)</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-purple-600 dark:text-purple-400">¿Qué hace?</span> Genera una curva más suave que la triangular, concentrando más probabilidad en torno al valor modal. Evita los quiebres bruscos en los extremos del triángulo.</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Recomendada en estimaciones de cronograma (PERT clásico de NASA/USAF) y en contratos EPC donde el costo tiende a converger al valor más probable con menor dispersión en los extremos.</p>
+                </div>
+            </div>
+
+            @* Bernoulli × Triangular *@
+            <div class="rounded-2xl border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-rose-600 dark:text-rose-400 text-base">bolt</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Bernoulli × Triangular</p>
+                        <p class="text-xs text-slate-400">Modelo estocástico de riesgos — ocurrencia × magnitud</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">p = probabilidad de ocurrencia · T(a,b,c) = impacto</div>
+                    <div class="text-rose-700 dark:text-rose-300 font-semibold">Rₖᵢ = Bₖ(p) · T(aₖ, bₖ, cₖ)</div>
+                    <div class="text-rose-700 dark:text-rose-300 font-semibold">R_total_i = Σₖ Rₖᵢ  (amenazas +, oportunidades −)</div>
+                    <div class="text-indigo-600 dark:text-indigo-300">VE = p · b  (valor esperado determinístico)</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-rose-600 dark:text-rose-400">¿Qué hace?</span> Simula si cada riesgo ocurre (dado de Bernoulli) y, si ocurre, cuánto impacta (triangular). Captura la doble incertidumbre: ¿pasa? + ¿cuánto cuesta?</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Fundamental para riesgos catastróficos de baja probabilidad y alto impacto: falla de talud, rotura de presa de relaves, paro de faena por conflicto social, incendio de instalaciones. Estos eventos tienen p = 5–15% pero pueden duplicar el CAPEX del contrato.</p>
+                </div>
+            </div>
+
+            @* EAT Combinado *@
+            <div class="rounded-2xl border border-teal-200 dark:border-teal-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-teal-600 dark:text-teal-400 text-base">account_balance</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">EAT Combinado (Estimado al Término)</p>
+                        <p class="text-xs text-slate-400">Modelo integrado certeza + incertidumbre + riesgos</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">B = certeza · Σ Iⱼᵢ = incertidumbre sim. i · R_total_i = riesgos</div>
+                    <div class="text-teal-700 dark:text-teal-300 font-semibold">EATᵢ = B + Σⱼ Iⱼᵢ + R_total_i</div>
+                    <div class="text-teal-700 dark:text-teal-300 font-semibold">Contingencia P80 = EAT_P80 − B</div>
+                    <div class="text-indigo-600 dark:text-indigo-300">Rango EAT: [EAT_P10, EAT_P90]</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-teal-600 dark:text-teal-400">¿Qué hace?</span> Produce la distribución completa del costo final del proyecto. Cada iteración MC suma certeza (fija), una realización de cada ítem de incertidumbre y una realización de cada riesgo activo.</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Permite definir la contingencia presupuestaria con base estadística: P50 como línea base de proyecto, P80 como presupuesto aprobado ante directorio, P90 como reserva ante crédito bancario o board de CODELCO. Elimina la contingencia "fija del 10%" sin fundamento técnico.</p>
+                </div>
+            </div>
+
+            @* Cópula Gaussiana *@
+            <div class="rounded-2xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-blue-600 dark:text-blue-400 text-base">scatter_plot</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Cópula Gaussiana + Cholesky</p>
+                        <p class="text-xs text-slate-400">Simulación de variables correlacionadas</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">Σ = matriz correlación Spearman · L = factor Cholesky</div>
+                    <div class="text-blue-700 dark:text-blue-300 font-semibold">1. Σ = L · Lᵀ  (descomposición Cholesky)</div>
+                    <div class="text-blue-700 dark:text-blue-300 font-semibold">2. W ~ N(0,I) → Z = L · W  (normales correlacionadas)</div>
+                    <div class="text-blue-700 dark:text-blue-300 font-semibold">3. U = Φ(Z) → X = F⁻¹(U)  (transf. a distribución objetivo)</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-blue-600 dark:text-blue-400">¿Qué hace?</span> Si el precio del cobre sube, los costos de mano de obra también suben. Si una tarea se atrasa, sus dependientes también lo hacen. La cópula captura estas dependencias en la simulación sin asumir independencia.</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Un análisis MC sin correlaciones subestima sistemáticamente la contingencia. En el sismo de 2010 en Chile, varios proyectos mineros vieron cómo contratos de obra civil, estructuras y montaje se encareciaron simultáneamente — evento que la simulación independiente tenía probabilidad cercana a cero. La cópula modela estos escenarios de cola correctamente.</p>
+                </div>
+            </div>
+        </div>
+
+        @* ── SECCIÓN 2: MÉTRICAS DE ANÁLISIS ── *@
+        <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span class="material-icons text-indigo-500" style="font-size:16px">analytics</span>
+            2 — Métricas de Análisis de Riesgo
+        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+            @* Percentiles *@
+            <div class="rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-indigo-600 dark:text-indigo-400 text-base">percent</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Percentiles P50 / P80 / P90</p>
+                        <p class="text-xs text-slate-400">Umbral de confianza para toma de decisiones</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">X[·] = array ordenado ascendente de N simulaciones</div>
+                    <div class="text-indigo-700 dark:text-indigo-300 font-semibold">i = (q/100) · (N−1)</div>
+                    <div class="text-indigo-700 dark:text-indigo-300 font-semibold">Pq = X[⌊i⌋] + frac(i) · (X[⌊i⌋+1] − X[⌊i⌋])</div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <div class="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2 text-center">
+                        <p class="text-xs font-bold text-emerald-700 dark:text-emerald-400">P50</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Línea base · 50% prob.</p>
+                    </div>
+                    <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-2 text-center">
+                        <p class="text-xs font-bold text-amber-700 dark:text-amber-400">P80</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Presupuesto aprobado</p>
+                    </div>
+                    <div class="rounded-lg bg-red-50 dark:bg-red-900/20 p-2 text-center">
+                        <p class="text-xs font-bold text-red-700 dark:text-red-400">P90</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Reserva / crédito</p>
+                    </div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Un proyecto minero que aprueba su CAPEX con P50 tiene 50% de probabilidad de sobrecosto. Usar P80 reduce ese riesgo al 20%. La diferencia entre P50 y P80 es la contingencia técnicamente justificada ante el directorio.</p>
+                </div>
+            </div>
+
+            @* CVaR *@
+            <div class="rounded-2xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-red-600 dark:text-red-400 text-base">crisis_alert</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">CVaR — Expected Shortfall</p>
+                        <p class="text-xs text-slate-400">Pérdida esperada en el peor escenario</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">α = nivel de confianza (ej. 0.90)</div>
+                    <div class="text-red-700 dark:text-red-300 font-semibold">CVaR_α = E[EAT | EAT &gt; P_α]</div>
+                    <div class="text-red-700 dark:text-red-300 font-semibold">= (1/(1−α)) · ∫_{Pα}^{∞} x·f(x) dx</div>
+                    <div class="text-indigo-600 dark:text-indigo-300">Aprox. MC: promedio del (1−α)·N% superior</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-red-600 dark:text-red-400">¿Qué hace?</span> No pregunta solo "¿cuánto puede costar en el percentil 90?" sino "¿cuánto costará en promedio en el peor 10% de escenarios?".</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Esencial para proyectos con financiamiento externo (bonos, crédito sindicado). Los bancos y fondos soberanos exigen el CVaR90 para dimensionar la reserva de contingencia. En minería de litio y cobre, proyectos de +USD 2B usan CVaR como métrica obligatoria en el Information Memorandum.</p>
+                </div>
+            </div>
+
+                @* ── SECCIÓN 3: CORRELACIONES ── *@
+                <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span class="material-icons text-blue-500" style="font-size:16px">hub</span>
+                    3 — Correlaciones y Dependencias
+                </h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+                    @* Correlación Spearman *@
+                    <div class="rounded-2xl border border-cyan-200 dark:border-cyan-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                        <div class="flex items-start gap-3 mb-3">
+                            <div class="w-9 h-9 rounded-lg bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center flex-shrink-0">
+                                <span class="material-icons text-cyan-600 dark:text-cyan-400 text-base">compare_arrows</span>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Correlación de Spearman (ρ)</p>
+                                <p class="text-xs text-slate-400">Medida de dependencia monótona entre variables</p>
+                            </div>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                            <div class="text-slate-400">rₖ = rango de xₖ · n = número de obs.</div>
+                            <div class="text-cyan-700 dark:text-cyan-300 font-semibold">ρ = 1 − [6·Σdᵢ²] / [n·(n²−1)]</div>
+                            <div class="text-slate-400">dᵢ = diferencia de rangos entre pares</div>
+                            <div class="text-indigo-600 dark:text-indigo-300">ρ ∈ [−1, 1] · 0 = sin dependencia monótona</div>
+                        </div>
+                        <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                            <p><span class="font-semibold text-cyan-600 dark:text-cyan-400">¿Qué hace?</span> Mide si cuando una variable sube, la otra tiende a subir (ρ positivo) o bajar (ρ negativo), sin asumir linealidad. Robusta ante distribuciones no normales.</p>
+                            <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Contratos que comparten proveedores, mano de obra especializada o insumos críticos (acero, cobre) tienen correlaciones positivas altas. Ignorarlas genera análisis de riesgo optimistas que no superan una auditoría externa independiente.</p>
+                        </div>
+                    </div>
+                </div>
+
+            @* Análisis Tornado *@
+            <div class="rounded-2xl border border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-orange-600 dark:text-orange-400 text-base">filter_tilt_shift</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Análisis Tornado</p>
+                        <p class="text-xs text-slate-400">Ranking de sensibilidad de variables sobre el EAT total</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-400">Para cada variable j: fijar al mínimo y al máximo</div>
+                    <div class="text-orange-700 dark:text-orange-300 font-semibold">EAT_max_j = EAT fijando xⱼ = cⱼ (máximo)</div>
+                    <div class="text-orange-700 dark:text-orange-300 font-semibold">EAT_min_j = EAT fijando xⱼ = aⱼ (mínimo)</div>
+                    <div class="text-orange-700 dark:text-orange-300 font-semibold">Swing_j = EAT_max_j − EAT_min_j</div>
+                    <div class="text-indigo-600 dark:text-indigo-300">Orden: mayor Swing → top del tornado</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-orange-600 dark:text-orange-400">¿Qué hace?</span> Identifica qué contratos o ítems tienen mayor impacto en el costo final cuando varían de mínimo a máximo. Separa lo importante de lo irrelevante.</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> En un proyecto de USD 800M con 40 contratos, el tornado revela que 4–6 contratos concentran el 80% de la variabilidad del EAT (principio de Pareto del riesgo). Permite al equipo de control focalizar el monitoreo y negociar mejores contratos en los ítems de mayor swing.</p>
+                </div>
+            </div>
+
+            @* Coeficiente de Variación *@
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-slate-600 dark:text-slate-400 text-base">straighten</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Coeficiente de Variación (CV)</p>
+                        <p class="text-xs text-slate-400">Dispersión relativa — comparabilidad entre contratos</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-slate-700 dark:text-slate-300 font-semibold">CV = σ / μ × 100%</div>
+                    <div class="text-slate-400">σ = desviación estándar · μ = media de la simulación</div>
+                    <div class="text-emerald-600 dark:text-emerald-400">CV &lt;20% → incertidumbre BAJA</div>
+                    <div class="text-amber-600 dark:text-amber-400">CV 20–50% → incertidumbre MEDIA</div>
+                    <div class="text-red-600 dark:text-red-400">CV &gt;50% → incertidumbre ALTA</div>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-slate-600 dark:text-slate-400">¿Qué hace?</span> Normaliza la dispersión por el valor medio, permitiendo comparar la calidad de estimación entre contratos de distinto tamaño. Un contrato de USD 200M con CV 30% es más incierto que uno de USD 5M con CV 15%.</p>
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Potencial en megaproyectos</span> Sirve como semáforo de madurez del estimado: CV alto indica que la ingeniería de detalle es insuficiente o que los alcances no están congelados — señal de alerta antes de comprometer presupuesto.</p>
+                </div>
+            </div>
+        </div>
+
+
+
+        @* ── SECCIÓN 4: VALOR ESPERADO Y RESERVAS ── *@
+        <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span class="material-icons text-emerald-500" style="font-size:16px">savings</span>
+            4 — Valor Esperado y Reservas de Contingencia
+        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+
+            @* VE *@
+            <div class="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-emerald-600 dark:text-emerald-400 text-base">calculate</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Valor Esperado (VE)</p>
+                        <p class="text-xs text-slate-400">Estimación determinística del impacto de riesgos</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-emerald-700 dark:text-emerald-300 font-semibold">VE = p × c</div>
+                    <div class="text-slate-400">p = probabilidad · c = impacto probable (costo)</div>
+                    <div class="text-slate-400">VE_total = Σₖ pₖ × cₖ</div>
+                </div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-emerald-600 dark:text-emerald-400">Limitación</span> El VE ignora la distribución de probabilidad. Dos proyectos con el mismo VE pueden tener perfiles de riesgo radicalmente distintos. El MC supera esta limitación.</p>
+                </div>
+            </div>
+
+            @* Contingencia P80 *@
+            <div class="rounded-2xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-amber-600 dark:text-amber-400 text-base">shield</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Contingencia Estadística</p>
+                        <p class="text-xs text-slate-400">Reserva justificada con base probabilística</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-amber-700 dark:text-amber-300 font-semibold">C_P80 = EAT_P80 − EAT_certeza</div>
+                    <div class="text-amber-700 dark:text-amber-300 font-semibold">C_P90 = EAT_P90 − EAT_certeza</div>
+                    <div class="text-slate-400">EAT_certeza = Bloque A (costos comprometidos)</div>
+                </div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-amber-600 dark:text-amber-400">Potencial</span> Reemplaza el porcentaje fijo de contingencia (10%, 15%) por un valor calculado. En proyectos mineros de Clase III–IV el sistema determina automáticamente si la contingencia requerida es 8% o 35% según la distribución real de costos e incertidumbre.</p>
+                </div>
+            </div>
+
+            @* Δ Incertidumbre *@
+            <div class="rounded-2xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-800 p-5 shadow-sm">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0">
+                        <span class="material-icons text-violet-600 dark:text-violet-400 text-base">swap_vert</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-slate-100 text-sm">Δ Incertidumbre</p>
+                        <p class="text-xs text-slate-400">Sesgo entre estimación puntual y MC P50</p>
+                    </div>
+                </div>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-4 py-3 mb-3 font-mono text-xs space-y-1">
+                    <div class="text-violet-700 dark:text-violet-300 font-semibold">Δ = MC_P50 − Σ probable_ítems</div>
+                    <div class="text-slate-400">Δ &gt; 0 → distribución sesgada al alza</div>
+                    <div class="text-slate-400">Δ &lt; 0 → distribución sesgada a la baja</div>
+                </div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">
+                    <p><span class="font-semibold text-violet-600 dark:text-violet-400">Potencial</span> Detecta contratos donde el estimador tiene sesgo optimista sistemático (Δ positivo consistente) — patrón común en obras civiles de minería donde los contratistas subestiman interferencias y condiciones de terreno.</p>
+                </div>
+            </div>
+        </div>
+
+        @* ── SECCIÓN 5: APLICACIÓN EN MEGAPROYECTOS ── *@
+        <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span class="material-icons text-rose-500" style="font-size:16px">domain</span>
+            5 — Aplicación en Megaproyectos de Construcción y Minería
+        </h3>
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 shadow-sm mb-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
+                        <span class="material-icons text-amber-500" style="font-size:16px">construction</span>
+                        Proyectos de Construcción
+                    </h4>
+                    <div class="space-y-2.5">
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">EPC / EPCM:</span><span class="text-slate-500 dark:text-slate-400"> Separa incertidumbre de ingeniería (Bloque B) de riesgos de construcción (Bloque D). Permite negociar el alcance del seguro de obras y el techo del contrato EPC sobre base estadística.</span></div>
+                        </div>
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">Obras civiles:</span><span class="text-slate-500 dark:text-slate-400"> Triangular para variaciones de terreno, consolidaciones inesperadas, conflictos de interferencias subterráneas. CV alto en fundaciones alertó sobrecostos reales de 40–80% en proyectos similares.</span></div>
+                        </div>
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">Cronograma:</span><span class="text-slate-500 dark:text-slate-400"> SRA integra riesgos de programa con duraciones probabilísticas. Genera la curva de probabilidad de la fecha de puesta en marcha — crítico para planificar flujos de caja y penalidades contractuales.</span></div>
+                        </div>
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">Contingencia diferenciada:</span><span class="text-slate-500 dark:text-slate-400"> P50 para contratos maduros con ingeniería al 90%, P80 para contratos en etapa conceptual. La AACE recomenda esto desde Class 1 a Class 5.</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
+                        <span class="material-icons text-slate-500" style="font-size:16px">landscape</span>
+                        Proyectos Mineros
+                    </h4>
+                    <div class="space-y-2.5">
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">CAPEX de mina:</span><span class="text-slate-500 dark:text-slate-400"> Bernoulli×Triangular para riesgos geotécnicos (derrumbe, agua subterránea), ambientales (paralización DGA) y comunitarios (conflicto con comunidades indígenas). Modela el "tail risk" que define la rentabilidad del proyecto.</span></div>
+                        </div>
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">Correlación con precio del commodity:</span><span class="text-slate-500 dark:text-slate-400"> Cópula Gaussiana entre contratos de mano de obra especializada y precio del cobre. Cuando el cobre sube, la presión sobre mano de obra calificada sube simultáneamente — efecto ignorado en análisis independientes.</span></div>
+                        </div>
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">Plantas concentradoras:</span><span class="text-slate-500 dark:text-slate-400"> Tornado identifica que molinos SAG, correas transportadoras y sistemas de agua son el 70% del riesgo de costo en plantas de +100 ktpd. Focaliza la revisión de ingeniería en lo que realmente importa.</span></div>
+                        </div>
+                        <div class="flex gap-3 text-xs">
+                            <span class="material-icons text-emerald-500 flex-shrink-0" style="font-size:15px">check_circle</span>
+                            <div><span class="font-semibold text-slate-700 dark:text-slate-200">Informes de control:</span><span class="text-slate-500 dark:text-slate-400"> PDF con EAT_P80 y curva de probabilidad acumulada: el formato requerido por CODELCO, Antofagasta Minerals y BHP para reportes mensuales de proyecto al directorio.</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Flujo del sistema *@
+        <div class="rounded-2xl border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10 p-5">
+            <h4 class="text-sm font-bold text-teal-700 dark:text-teal-300 mb-4 flex items-center gap-2">
+                <span class="material-icons text-teal-500" style="font-size:16px">account_tree</span>
+                Flujo de Análisis del Taller de Costos
+            </h4>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-28 rounded-xl bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-700 px-3 py-2 text-center shadow-sm">
+                        <span class="material-icons text-teal-500 block mb-0.5" style="font-size:18px">lock</span>
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">Bloque A</span>
+                        <span class="block text-slate-400">Certeza</span>
+                    </div>
+                </div>
+                <span class="material-icons text-slate-300" style="font-size:20px">arrow_forward</span>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-28 rounded-xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-700 px-3 py-2 text-center shadow-sm">
+                        <span class="material-icons text-amber-500 block mb-0.5" style="font-size:18px">swap_vert</span>
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">Bloque B</span>
+                        <span class="block text-slate-400">Incertidumbre</span>
+                    </div>
+                </div>
+                <span class="material-icons text-slate-300" style="font-size:20px">arrow_forward</span>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-28 rounded-xl bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-700 px-3 py-2 text-center shadow-sm">
+                        <span class="material-icons text-rose-500 block mb-0.5" style="font-size:18px">warning_amber</span>
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">Bloque D</span>
+                        <span class="block text-slate-400">Riesgos</span>
+                    </div>
+                </div>
+                <span class="material-icons text-slate-300" style="font-size:20px">arrow_forward</span>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-28 rounded-xl bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 px-3 py-2 text-center shadow-sm">
+                        <span class="material-icons text-purple-500 block mb-0.5" style="font-size:18px">casino</span>
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">MC × 10.000</span>
+                        <span class="block text-slate-400">Simulación</span>
+                    </div>
+                </div>
+                <span class="material-icons text-slate-300" style="font-size:20px">arrow_forward</span>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-28 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 px-3 py-2 text-center shadow-sm">
+                        <span class="material-icons text-indigo-500 block mb-0.5" style="font-size:18px">bar_chart</span>
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">EAT P50/P80</span>
+                        <span class="block text-slate-400">+ Tornado</span>
+                    </div>
+                </div>
+                <span class="material-icons text-slate-300" style="font-size:20px">arrow_forward</span>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-28 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-3 py-2 text-center shadow-sm">
+                        <span class="material-icons text-slate-500 block mb-0.5" style="font-size:18px">picture_as_pdf</span>
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">Informe PDF</span>
+                        <span class="block text-slate-400">Directorio</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+</main>
+</div>
+
+@* ════════════════════ MODAL PROYECTO ═══════════════════════════════════ *@
+<div id="modal-proyecto" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 id="modal-proy-titulo" class="text-base font-bold text-slate-800 dark:text-slate-100">Nuevo Proyecto</h3>
+            <button onclick="tcCerrarModal('modal-proyecto')" class="text-slate-400 hover:text-slate-600">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+        <div class="space-y-3">
+            <input id="modal-proy-nombre" type="text" class="tc-input" placeholder="Nombre del Proyecto *" />
+            <div class="grid grid-cols-2 gap-3">
+                <input id="modal-proy-codigo" type="text" class="tc-input" placeholder="Código (Ej: A22M451) *" />
+                <input id="modal-proy-fecha" type="date" class="tc-input" />
+            </div>
+            <input id="modal-proy-org" type="text" class="tc-input" placeholder="Organización" />
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button class="btn-primary" onclick="tcGuardarProyectoModal()">
+                <span class="material-icons text-base">save</span> Guardar
+            </button>
+            <button class="btn-secondary" onclick="tcCerrarModal('modal-proyecto')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+@* ════════════════════ MODAL CONTRATO ════════════════════════════════════ *@
+<div id="modal-contrato" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-xl mx-4 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 id="modal-cont-titulo" class="text-base font-bold text-slate-800 dark:text-slate-100">Nuevo Contrato</h3>
+            <button onclick="tcCerrarModal('modal-contrato')" class="text-slate-400 hover:text-slate-600">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+        <input id="modal-cont-id" type="hidden" value="" />
+        <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Código</label>
+                    <input id="modal-cont-codigo" type="text" class="tc-input" placeholder="CC001 (auto)" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nombre del Paquete *</label>
+                    <input id="modal-cont-nombre" type="text" class="tc-input" placeholder="Ej: CONSTRUCCION PLANTA..." />
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Empresa contratista <span class="text-slate-500 font-normal">(opcional)</span></label>
+                <select id="modal-cont-empresa" class="tc-input appearance-none" title="Puede vincular el paquete a una empresa de la pestaña Empresas.">
+                    <option value="">— Agregue empresas (sección Empresas) —</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">CAPEX (USD$)</label>
+                    <input id="modal-cont-capex" type="number" class="tc-input" placeholder="0" step="0.01" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">COMPROMETIDO (USD$)</label>
+                    <input id="modal-cont-comp" type="number" class="tc-input" placeholder="0" step="0.01" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">POR COMPROMETER (USD$)</label>
+                    <input id="modal-cont-porcomp" type="number" class="tc-input" placeholder="0" step="0.01" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">EAT (USD$)</label>
+                    <input id="modal-cont-eat" type="number" class="tc-input bg-slate-50 dark:bg-slate-800" readonly placeholder="Auto" />
+                </div>
+            </div>
+            <p class="text-xs text-slate-400">EAT = COMPROMETIDO + POR COMPROMETER</p>
+            <div class="border-t border-slate-200 dark:border-slate-700 pt-3 mt-1">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Tipo de Cambio y Factor</p>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Dólar Observado (CLP/USD)</label>
+                        <input id="modal-cont-tasa" type="number" class="tc-input" placeholder="900" step="1" min="1" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Factor</label>
+                        <input id="modal-cont-factor" type="number" class="tc-input" placeholder="1" step="any" min="0.000000000000001" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fecha Dólar</label>
+                        <input id="modal-cont-fecha-tasa" type="date" class="tc-input" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button class="btn-primary" onclick="tcGuardarContratoModal()">
+                <span class="material-icons text-base">save</span> Guardar
+            </button>
+            <button class="btn-secondary" onclick="tcCerrarModal('modal-contrato')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+@* ════════════════════ MODAL EMPRESA ════════════════════════════════════ *@
+<div id="modal-empresa" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 id="modal-emp-titulo" class="text-base font-bold text-slate-800 dark:text-slate-100">Nueva empresa</h3>
+            <button type="button" onclick="tcCerrarModal('modal-empresa')" class="text-slate-400 hover:text-slate-600">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+        <input id="modal-emp-id" type="hidden" value="" />
+        <div class="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">RUT *</label>
+                    <input id="modal-emp-rut" type="text" class="tc-input" placeholder="12.345.678-9" autocomplete="off" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nombre o razón social *</label>
+                    <input id="modal-emp-nombre" type="text" class="tc-input" placeholder="Ej: Constructora ABC SpA" />
+                </div>
+            </div>
+            <p class="text-xs text-slate-400">RUT único por proyecto. Demás campos opcionales.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Contacto (opcional)</label>
+                    <input id="modal-emp-contacto" type="text" class="tc-input" placeholder="Representante" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Teléfono (opcional)</label>
+                    <input id="modal-emp-telefono" type="text" class="tc-input" />
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">E-mail (opcional)</label>
+                <input id="modal-emp-email" type="email" class="tc-input" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notas (opcional)</label>
+                <textarea id="modal-emp-notas" class="tc-input min-h-[3.5rem]" placeholder="Alcance, observaciones…"></textarea>
+            </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button type="button" class="btn-primary" onclick="tcGuardarModalEmpresa()">
+                <span class="material-icons text-base">save</span> Guardar
+            </button>
+            <button type="button" class="btn-secondary" onclick="tcCerrarModal('modal-empresa')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="~/js/taller-costos.js" asp-append-version="true"></script>
+<script>
+    // Inicializar con el token anti-forgery
+    window.tcAntiForgery = '@Html.AntiForgeryToken()';
+    document.addEventListener('DOMContentLoaded', () => tcInit());
+</script>
+}

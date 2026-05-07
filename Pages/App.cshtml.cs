@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using RazorIdentity.Models.Api;
@@ -5,6 +6,7 @@ using RazorIdentity.Services;
 
 namespace RazorIdentity.Pages
 {
+    [Authorize]
     public class AppModel : PageModel
     {
         private readonly IRitApiClient _ritApi;
@@ -18,9 +20,12 @@ namespace RazorIdentity.Pages
 
         public List<AppApi> Apps { get; set; } = new();
         public string? ErrorApi { get; set; }
+        /// <summary>True si el usuario tiene rol Super_admin: puede ver RitWeb separado por proyectos.</summary>
+        public bool IsSuperAdmin { get; set; }
 
         public async Task OnGetAsync()
         {
+            IsSuperAdmin = User.IsInRole("Super_admin") || User.IsInRole("Super_Admin");
             try
             {
                 Apps = await _ritApi.GetListAsync<AppApi>("api/Apps");

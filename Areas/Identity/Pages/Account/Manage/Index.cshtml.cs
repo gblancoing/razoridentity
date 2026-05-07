@@ -1,6 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-#nullable disable
+#nullable enable
 
 using System;
 using System.ComponentModel.DataAnnotations;
@@ -9,6 +9,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using RazorIdentity.Data;
+using RazorIdentity.Models.Api;
+using RazorIdentity.Services;
 
 namespace RazorIdentity.Areas.Identity.Pages.Account.Manage
 {
@@ -16,13 +20,19 @@ namespace RazorIdentity.Areas.Identity.Pages.Account.Manage
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly ApplicationDbContext _dbContext;
+        private readonly IRitApiClient _ritApi;
 
         public IndexModel(
             UserManager<IdentityUser> userManager,
-            SignInManager<IdentityUser> signInManager)
+            SignInManager<IdentityUser> signInManager,
+            ApplicationDbContext dbContext,
+            IRitApiClient ritApi)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _dbContext = dbContext;
+            _ritApi = ritApi;
         }
 
         /// <summary>
@@ -33,6 +43,15 @@ namespace RazorIdentity.Areas.Identity.Pages.Account.Manage
 
         /// <summary>Email del usuario (para mostrar en la ficha).</summary>
         public string Email { get; set; }
+
+        /// <summary>Nombre completo del perfil (Datos personales).</summary>
+        public string FullName { get; set; }
+
+        /// <summary>Cargo del perfil (Datos personales o RIT_API Ficha).</summary>
+        public string Cargo { get; set; }
+
+        /// <summary>Turno desde RIT_API Ficha (si está disponible).</summary>
+        public string? Turno { get; set; }
 
         /// <summary>Indica si el correo está confirmado (para la ficha).</summary>
         public bool EmailConfirmed { get; set; }
@@ -74,6 +93,31 @@ namespace RazorIdentity.Areas.Identity.Pages.Account.Manage
             Username = userName;
             Email = user?.Email ?? userName;
             EmailConfirmed = user?.EmailConfirmed ?? false;
+
+            var profile = await _dbContext.UserProfiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == user.Id);
+
+            FullName = profile?.FullName?.Trim();
+            Cargo = profile?.Cargo?.Trim();
+            Turno = null;
+
+            // Preferir datos de RIT_API Ficha cuando estén disponibles
+            try
+            {
+                var ficha = await _ritApi.GetAsync<UsuarioFichaApi>($"api/Usuarios/{user.Id}/Ficha");
+                if (ficha != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(ficha.NombreCompleto)) FullName = ficha.NombreCompleto.Trim();
+                    if (!string.IsNullOrWhiteSpace(ficha.NCargo)) Cargo = ficha.NCargo.Trim();
+                    if (!string.IsNullOrWhiteSpace(ficha.Turno)) Turno = ficha.Turno.Trim();
+                    if (!string.IsNullOrWhiteSpace(ficha.Email)) Email = ficha.Email.Trim();
+                }
+            }
+            catch
+            {
+                // Si RIT_API no está disponible, se mantienen FullName, Cargo, Email de perfil/Identity
+            }
 
             Input = new InputModel
             {

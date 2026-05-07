@@ -21,6 +21,23 @@ public class SpecialistRequest
 {
     public string Specialist { get; set; } = "";
     public string Prompt { get; set; } = "";
+    /// <summary>Opcional; usado por especialista "analytics" (filtro por mes).</summary>
+    public int? Month { get; set; }
+    /// <summary>Opcional; usado por especialista "analytics" (filtro por año).</summary>
+    public int? Year { get; set; }
+    /// <summary>Opcional; usado por especialista "analytics" (filtro por proyecto).</summary>
+    public int? ProyectoId { get; set; }
+    public string? Model { get; set; }
+}
+
+/// <summary>Request para POST /api/Ollama/analyze (análisis con datos del proyecto).</summary>
+public class AnalyzeRequest
+{
+    public string Prompt { get; set; } = "";
+    public int? ProyectoId { get; set; }
+    public int? Month { get; set; }
+    public int? Year { get; set; }
+    public string? Model { get; set; }
 }
 
 /// <summary>Response de specialist (misma forma que generate)</summary>

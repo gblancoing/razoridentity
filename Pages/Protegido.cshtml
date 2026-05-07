@@ -22,7 +22,7 @@
                 <div class="w-10 h-10 bg-ritweb-teal rounded-lg flex items-center justify-center text-white font-bold text-xl flex-shrink-0">G</div>
                 <div class="min-w-0 sidebar-logo-text">
                     <h1 class="font-bold text-lg leading-tight tracking-tight text-slate-800 dark:text-slate-100 truncate">GPR</h1>
-                    <p class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold">Gerencia Proyectos Relavez</p>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold">Gerencia Proyectos Relaves</p>
                 </div>
             </a>
             <button type="button" id="sidebar-toggle" class="hidden lg:block p-2 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition-colors flex-shrink-0" aria-label="Minimizar o expandir menú">
@@ -330,6 +330,7 @@
                     <form method="post" asp-page-handler="UpdateProyecto" class="mb-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg flex flex-wrap items-end gap-3">
                         <input type="hidden" name="id" value="@edit.Id" />
                         <label class="flex flex-col gap-1"><span class="text-sm text-slate-600 dark:text-slate-300">Nombre</span><input type="text" name="nombre" value="@edit.Nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" required /></label>
+                        <label class="flex flex-col gap-1"><span class="text-sm text-slate-600 dark:text-slate-300">N° Contrato</span><input type="text" name="numeroContrato" value="@edit.NumeroContrato" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-56 transition" placeholder="Ej: 12345" /></label>
                         <label class="flex flex-col gap-1"><span class="text-sm text-slate-600 dark:text-slate-300">Región</span><select name="regionId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var re in Model.Regiones) { @if (re.Id == edit.RegionId) { <option value="@re.Id" selected>@re.Nombre</option> } else { <option value="@re.Id">@re.Nombre</option> } }</select></label>
                         <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors">Guardar</button>
                         <a asp-page="/Protegido" asp-route-tab="proyectos" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">Cancelar</a>
@@ -338,17 +339,18 @@
             }
             <form method="post" asp-page-handler="CreateProyecto" class="mb-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg flex flex-wrap items-end gap-3">
                 <label class="flex flex-col gap-1"><span class="text-sm text-slate-600 dark:text-slate-300">Nombre</span><input type="text" name="nombre" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-64 transition" placeholder="Nuevo proyecto" required /></label>
+                <label class="flex flex-col gap-1"><span class="text-sm text-slate-600 dark:text-slate-300">N° Contrato</span><input type="text" name="numeroContrato" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-56 transition" placeholder="Ej: 12345" /></label>
                 <label class="flex flex-col gap-1"><span class="text-sm text-slate-600 dark:text-slate-300">Región</span><select name="regionId" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal w-48 transition" required>@foreach (var re in Model.Regiones) { <option value="@re.Id">@re.Nombre</option> }</select></label>
                 <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-ritweb-teal hover:bg-teal-700 shadow-sm transition-colors">Agregar</button>
             </form>
             <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm">
                 <table class="min-w-full">
-                    <thead class="bg-slate-100 dark:bg-slate-700"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Nombre</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Región</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Acciones</th></tr></thead>
+                    <thead class="bg-slate-100 dark:bg-slate-700"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Id</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Nombre</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">N° Contrato</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Región</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Acciones</th></tr></thead>
                     <tbody class="divide-y divide-slate-200 dark:divide-slate-600">
                         @foreach (var pr in Model.Proyectos)
                         {
                             var regionNombre = Model.Regiones.FirstOrDefault(re => re.Id == pr.RegionId)?.Nombre ?? "-";
-                            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors"><td class="px-4 py-3 text-sm">@pr.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">@pr.Nombre</td><td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">@regionNombre</td>
+                            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors"><td class="px-4 py-3 text-sm">@pr.Id</td><td class="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">@pr.Nombre</td><td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">@(string.IsNullOrWhiteSpace(pr.NumeroContrato) ? "—" : pr.NumeroContrato)</td><td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">@regionNombre</td>
                                 <td class="px-4 py-3">
                                     <a asp-page="/Protegido" asp-route-tab="proyectos" asp-route-editProyectoId="@pr.Id" class="text-ritweb-teal dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 text-sm font-medium mr-3">Editar</a>
                                     <form method="post" asp-page-handler="DeleteProyecto" class="inline"><input type="hidden" name="id" value="@pr.Id" /><button type="submit" class="text-red-600 hover:text-red-700 text-sm font-medium" onclick="return confirm('¿Eliminar este proyecto?');">Eliminar</button></form>
@@ -693,7 +695,7 @@
                     <span>@(Model.MensajeApp)</span>
                 </div>
             }
-            <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Asigne una, varias o todas las aplicaciones a cada usuario. El super_admin controla el acceso por app; puede validar desde otra Api_App con GET /api/UsuariosApp/por-usuario/{userId}.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Asigne una, varias o todas las aplicaciones a cada usuario. El super_admin controla el acceso por app; puede validar desde otra Api_App con GET /api/UsuariosApp/por-usuario/{userId}. Para <strong>PMO</strong> y <strong>RitWeb</strong>, indique además el <strong>proyecto por defecto</strong> en cada fila (si no, solo se usará el proyecto del centro de costo asignado en «Usuarios por centro», si existe).</p>
             <details class="empresa-accordion mb-6 rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-800/80" id="accordion-asignar-apps">
                 <summary class="flex items-center gap-2 cursor-pointer list-none px-4 py-3.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-b border-slate-200 dark:border-slate-600 transition-colors select-none">
                     <span class="material-icons text-slate-500 dark:text-slate-400 text-lg accordion-chevron transition-transform">expand_more</span>
@@ -724,30 +726,53 @@
             </details>
             <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm">
                 <table class="min-w-full">
-                    <thead class="bg-slate-100 dark:bg-slate-700"><tr><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Usuario</th><th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Apps asignadas</th></tr></thead>
+                    <thead class="bg-slate-100 dark:bg-slate-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Usuario</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">App</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider">Proyecto (PMO / RitWeb)</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-200 uppercase tracking-wider w-28">Quitar</th>
+                        </tr>
+                    </thead>
                     <tbody class="divide-y divide-slate-200 dark:divide-slate-600 bg-white dark:bg-slate-800">
-                        @foreach (var grupo in Model.UsuariosApp.GroupBy(ua => ua.UserId).OrderBy(g => Model.UserDisplayInfo.GetValueOrDefault(g.Key, "—")))
+                        @foreach (var ua in Model.UsuariosApp.OrderBy(x => Model.UserDisplayInfo.GetValueOrDefault(x.UserId, "—")).ThenBy(x => x.AppId))
                         {
-                            var usuarioNombre = Model.UserDisplayInfo.GetValueOrDefault(grupo.Key, "—");
-                            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors">
-                                <td class="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-100 align-top">@usuarioNombre</td>
+                            var usuarioNombre = Model.UserDisplayInfo.GetValueOrDefault(ua.UserId, "—");
+                            var appNombre = Model.Apps.FirstOrDefault(a => a.Id == ua.AppId)?.Nombre ?? "-";
+                            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors align-top">
+                                <td class="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">@usuarioNombre</td>
+                                <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">@appNombre</td>
                                 <td class="px-4 py-3">
-                                    <div class="flex flex-wrap gap-2">
-                                        @foreach (var ua in grupo)
-                                        {
-                                            var appNombre = Model.Apps.FirstOrDefault(a => a.Id == ua.AppId)?.Nombre ?? "-";
-                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-600/80 text-slate-700 dark:text-slate-200 text-sm">
-                                                @appNombre
-                                                <form method="post" asp-page-handler="DeleteUsuarioApp" class="inline"><input type="hidden" name="id" value="@ua.Id" /><button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs font-medium leading-none p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors" onclick="return confirm('¿Quitar @(appNombre) de este usuario?');" title="Quitar">×</button></form>
-                                            </span>
-                                        }
-                                    </div>
+                                    <form method="post" asp-page-handler="UpdateUsuarioAppProyecto" class="flex flex-wrap items-end gap-2">
+                                        <input type="hidden" name="id" value="@ua.Id" />
+                                        <select name="proyectoId" class="border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-md px-2 py-1.5 text-sm min-w-[12rem] max-w-[20rem]">
+                                            <option value="">— Sin proyecto (usar centro) —</option>
+                                            @foreach (var pr in Model.Proyectos.OrderBy(p => p.Nombre))
+                                            {
+                                                if (ua.ProyectoId == pr.Id)
+                                                {
+                                                    <option value="@pr.Id" selected>@pr.Nombre</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@pr.Id">@pr.Nombre</option>
+                                                }
+                                            }
+                                        </select>
+                                        <button type="submit" class="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-ritweb-teal hover:bg-teal-700">Guardar</button>
+                                    </form>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <form method="post" asp-page-handler="DeleteUsuarioApp" class="inline">
+                                        <input type="hidden" name="id" value="@ua.Id" />
+                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-700 text-xs font-medium" onclick="return confirm('¿Quitar esta app del usuario?');" title="Quitar asignación">Quitar app</button>
+                                    </form>
                                 </td>
                             </tr>
                         }
                         @if (!Model.UsuariosApp.Any())
                         {
-                            <tr><td colspan="2" class="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">No hay asignaciones. Use el acordeón «Asignar apps a usuario» para agregar.</td></tr>
+                            <tr><td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">No hay asignaciones. Use el acordeón «Asignar apps a usuario» para agregar.</td></tr>
                         }
                     </tbody>
                 </table>
@@ -795,7 +820,7 @@
             <div class="h-full bg-codelco-orange w-1/4"></div>
         </div>
         <footer class="mt-12 text-center text-slate-400 text-xs">
-            © @DateTime.Now.Year GPR - Gerencia Proyectos Relavez (Codelco). Todos los derechos reservados.
+            © @DateTime.Now.Year GPR - Gerencia Proyectos Relaves (Codelco). Todos los derechos reservados.
         </footer>
     </main>
 </div>

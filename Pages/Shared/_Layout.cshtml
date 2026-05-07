@@ -35,6 +35,38 @@
         })();
     </script>
     @await RenderSectionAsync("Head", required: false)
+    <style>
+        /* ── Sistema de tooltips GPR ─────────────────────────────────────── */
+        .gpr-tt { position: relative; display: inline-flex; align-items: center; cursor: help; }
+        .gpr-tt .gpr-tt-icon {
+            font-size: 13px !important; color: #94a3b8; margin-left: 3px;
+            vertical-align: middle; flex-shrink: 0; transition: color 0.15s;
+        }
+        .gpr-tt:hover .gpr-tt-icon { color: #0d9488; }
+        .gpr-tt .gpr-tt-box {
+            visibility: hidden; opacity: 0;
+            background: #1e293b; color: #f8fafc;
+            font-size: 0.72rem; line-height: 1.55; font-weight: 400;
+            padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+            width: 230px; max-width: 90vw;
+            position: absolute; z-index: 9999;
+            bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.28);
+            transition: opacity 0.15s; pointer-events: none;
+            white-space: normal; text-align: left;
+        }
+        .gpr-tt .gpr-tt-box::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border: 5px solid transparent; border-top-color: #1e293b;
+        }
+        .gpr-tt:hover .gpr-tt-box { visibility: visible; opacity: 1; }
+        /* Variante alineada a la derecha (tooltip cerca del borde izquierdo) */
+        .gpr-tt.gpr-tt-right .gpr-tt-box { left: 0; transform: none; }
+        .gpr-tt.gpr-tt-right .gpr-tt-box::after { left: 12px; transform: none; }
+        /* Variante alineada a la izquierda (tooltip cerca del borde derecho) */
+        .gpr-tt.gpr-tt-left .gpr-tt-box { left: auto; right: 0; transform: none; }
+        .gpr-tt.gpr-tt-left .gpr-tt-box::after { left: auto; right: 12px; transform: none; }
+    </style>
 </head>
 <body class="min-h-screen flex flex-col bg-white dark:bg-slate-900 antialiased transition-colors">
     <header class="sticky top-0 z-50 w-full">
@@ -47,8 +79,8 @@
                                 <span class="text-white font-bold text-sm md:text-base tracking-tighter leading-none">GPR</span>
                             </div>
                             <div class="hidden sm:block border-l border-slate-200 dark:border-slate-600 pl-2 sm:pl-3 min-w-0">
-                                <span class="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 leading-none truncate block">GPR</span>
-                                <span class="block text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Gerencia Proyectos Relavez (Codelco)</span>
+                                <span class="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 leading-none truncate block">Gerencia</span>
+                                <span class="block text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Proyecto Relaves (Codelco)</span>
                             </div>
                         </a>
                         <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0 lg:hidden">
@@ -93,7 +125,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div>
                         <h3 class="text-lg font-bold text-white mb-3">GPR</h3>
-                        <p class="text-sm leading-relaxed">Gerencia Proyectos Relavez (Codelco). Sistema web para el registro de alertas e inspecciones en terreno, diseñado para proyectos mineros y constructivos.</p>
+                        <p class="text-sm leading-relaxed">Gerencia Proyectos Relaves (Codelco). Sistema web para el registro de alertas e inspecciones en terreno, diseñado para proyectos mineros y constructivos.</p>
                         <div class="flex gap-3 mt-4">
                             <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="Facebook"><span class="material-icons text-sm">facebook</span></a>
                             <a href="#" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center hover:bg-ritweb-teal transition-colors" aria-label="LinkedIn"><span class="material-icons text-sm">work</span></a>
@@ -125,13 +157,15 @@
         }
         <div class="@(isInicio ? "border-t border-slate-700" : "")">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-slate-400">
-                © @DateTime.Now.Year GPR - Gerencia Proyectos Relavez (Codelco). Todos los derechos reservados. <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/Privacy">Privacidad</a> · <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/App">App</a>
+                © @DateTime.Now.Year GPR - Gerencia Proyectos Relaves (Codelco). Todos los derechos reservados. <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/Privacy">Privacidad</a> · <a class="text-ritweb-teal hover:underline" asp-area="" asp-page="/App">App</a>
             </div>
         </div>
     </footer>
 
-    @* Botón flotante y panel de Chat IA (inferior derecha) *@
-    <div id="chat-widget-root" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex flex-col items-end gap-3">
+    @* Botón flotante Chat IA (p. ej. oculto en PMO: ViewData["SuppressFloatingChat"]). no-print: no impresión/PDF. *@
+    @if (ViewData["SuppressFloatingChat"] as bool? != true)
+    {
+    <div id="chat-widget-root" class="no-print fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex flex-col items-end gap-3">
         <div id="chat-floating-panel" class="hidden w-[calc(100vw-2rem)] max-w-[380px] sm:max-w-[380px] h-[70vh] min-h-[320px] max-h-[85vh] sm:h-[480px] sm:max-h-[70vh] flex flex-col rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-2xl overflow-hidden transition-all duration-200">
             <div class="flex items-center justify-between px-4 py-3 bg-ritweb-teal text-white border-b border-teal-600/30">
                 <div class="flex items-center gap-2">
@@ -143,7 +177,16 @@
                 </button>
             </div>
             <div id="chat-widget-messages" class="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 bg-slate-50 dark:bg-slate-900/50">
-                <p class="text-center text-slate-400 dark:text-slate-500 text-sm py-4">Escribe un mensaje y pulsa Enviar. API Ollama en ejecución.</p>
+                <p id="chat-widget-placeholder" class="text-center text-slate-400 dark:text-slate-500 text-sm py-2">Escribe un mensaje y pulsa Enviar. API Ollama en ejecución.</p>
+                <div id="chat-widget-suggested" class="flex flex-wrap gap-2 justify-center px-1 py-2">
+                    <span class="text-slate-500 dark:text-slate-400 text-xs w-full text-center mb-1">Para empezar:</span>
+                    <button type="button" class="chat-widget-suggested-btn rounded-lg border border-ritweb-teal/40 bg-ritweb-teal/5 hover:bg-ritweb-teal/15 dark:bg-ritweb-teal/10 dark:hover:bg-ritweb-teal/20 text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 transition-colors text-left max-w-full" data-prompt="¿Cuántas alertas se cerraron este mes?" data-specialist="analytics">¿Cuántas alertas se cerraron este mes?</button>
+                    <button type="button" class="chat-widget-suggested-btn rounded-lg border border-ritweb-teal/40 bg-ritweb-teal/5 hover:bg-ritweb-teal/15 dark:bg-ritweb-teal/10 dark:hover:bg-ritweb-teal/20 text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 transition-colors text-left max-w-full" data-prompt="¿Cuántas alertas hay abiertas actualmente?" data-specialist="analytics">¿Cuántas alertas hay abiertas?</button>
+                    <button type="button" class="chat-widget-suggested-btn rounded-lg border border-ritweb-teal/40 bg-ritweb-teal/5 hover:bg-ritweb-teal/15 dark:bg-ritweb-teal/10 dark:hover:bg-ritweb-teal/20 text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 transition-colors text-left max-w-full" data-prompt="Dame un resumen de eventos por sector" data-specialist="analytics">Resumen de eventos por sector</button>
+                    <button type="button" class="chat-widget-suggested-btn rounded-lg border border-ritweb-teal/40 bg-ritweb-teal/5 hover:bg-ritweb-teal/15 dark:bg-ritweb-teal/10 dark:hover:bg-ritweb-teal/20 text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 transition-colors text-left max-w-full" data-prompt="Tendencias de alertas por criticidad" data-specialist="analytics">Tendencias por criticidad</button>
+                    <button type="button" class="chat-widget-suggested-btn rounded-lg border border-ritweb-teal/40 bg-ritweb-teal/5 hover:bg-ritweb-teal/15 dark:bg-ritweb-teal/10 dark:hover:bg-ritweb-teal/20 text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 transition-colors text-left max-w-full" data-prompt="¿Cuántos eventos tipo Alerta se registraron este año?" data-specialist="analytics">Alertas registradas este año</button>
+                    <button type="button" class="chat-widget-suggested-btn rounded-lg border border-ritweb-teal/40 bg-ritweb-teal/5 hover:bg-ritweb-teal/15 dark:bg-ritweb-teal/10 dark:hover:bg-ritweb-teal/20 text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 transition-colors text-left max-w-full" data-prompt="Resume el estado de las alertas del proyecto" data-specialist="analytics">Estado de alertas del proyecto</button>
+                </div>
             </div>
             <div class="border-t border-slate-200 dark:border-slate-600 p-3 bg-white dark:bg-slate-800">
                 <form id="chat-widget-form" class="flex flex-col gap-2">
@@ -151,6 +194,7 @@
                     <div class="flex flex-col sm:flex-row gap-2">
                         <select id="chat-widget-specialist" name="specialist" class="rounded-lg border border-slate-300 dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 px-3 py-2 text-sm min-w-0 w-full sm:min-w-[100px] sm:w-auto">
                             <option value="general">General</option>
+                            <option value="analytics">Analytics</option>
                             <option value="database">Database</option>
                             <option value="frontend">Frontend</option>
                             <option value="backend">Backend</option>
@@ -177,9 +221,12 @@
         #chat-widget-root .message-content em { font-style: italic; }
         #chat-widget-root .message-content .list-bullet { margin-right: 0.25rem; }
     </style>
+    }
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery/dist/jquery.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (ViewData["SuppressFloatingChat"] as bool? != true)
+    {
     <script>
         (function () {
             var btn = document.getElementById('chat-floating-btn');
@@ -190,15 +237,31 @@
             var promptEl = document.getElementById('chat-widget-prompt');
             var sendBtn = document.getElementById('chat-widget-send');
             var errorEl = document.getElementById('chat-widget-error');
+            if (!btn || !panel || !form || !messagesEl || !promptEl || !sendBtn || !errorEl) return;
             function togglePanel(open) {
                 var show = open !== undefined ? open : !panel.classList.contains('hidden');
                 panel.classList.toggle('hidden', !show);
             }
             function hidePlaceholder() {
-                var ph = messagesEl.querySelector('.text-center.text-slate-400');
-                if (!ph) ph = messagesEl.querySelector('.text-slate-400');
+                var ph = document.getElementById('chat-widget-placeholder');
                 if (ph) ph.remove();
+                var sug = document.getElementById('chat-widget-suggested');
+                if (sug) sug.remove();
             }
+            messagesEl.querySelectorAll('.chat-widget-suggested-btn').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    var prompt = this.getAttribute('data-prompt') || '';
+                    var specialist = (this.getAttribute('data-specialist') || '').trim();
+                    if (prompt && promptEl) {
+                        promptEl.value = prompt;
+                        promptEl.focus();
+                        if (specialist) {
+                            var sel = document.getElementById('chat-widget-specialist');
+                            if (sel) sel.value = specialist;
+                        }
+                    }
+                });
+            });
             function escapeHtml(text) {
                 var d = document.createElement('div');
                 d.textContent = text;
@@ -230,6 +293,12 @@
                 errorEl.textContent = msg || '';
                 errorEl.classList.toggle('hidden', !msg);
             }
+            if (promptEl) promptEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (form) form.requestSubmit();
+                }
+            });
             if (btn) btn.addEventListener('click', function () { togglePanel(true); });
             if (closeBtn) closeBtn.addEventListener('click', function () { panel.classList.add('hidden'); });
             if (form) form.addEventListener('submit', async function (e) {
@@ -254,6 +323,7 @@
             });
         })();
     </script>
+    }
     <script>
         (function () {
             var nav = document.getElementById('main-nav');

@@ -1,0 +1,449 @@
+@page "{contratoId:guid}"
+@model RazorIdentity.Pages.TallerCostosPdfModel
+@{
+    Layout = null;
+    var incert = Model.Items.Where(i => !i.EsCerteza).ToList();
+    var cert   = Model.Items.Where(i =>  i.EsCerteza).ToList();
+    var mc     = Model.McResultado;
+    var hasMc  = mc is not null && Model.ItemMedias.Count > 0;
+    var certKusd = (double)cert.Sum(i => i.CostoUsd);
+
+    // Extraer a variables locales no-nulables para evitar CS0103/CS8602 en bloques script
+    var mcP10     = hasMc ? mc!.P10     : 0.0;
+    var mcP50     = hasMc ? mc!.P50     : 0.0;
+    var mcP80     = hasMc ? mc!.P80     : 0.0;
+    var mcP90     = hasMc ? mc!.P90     : 0.0;
+    var mcMedia   = hasMc ? mc!.Media   : 0.0;
+    var mcDesvStd = hasMc ? mc!.DesvStd : 0.0;
+    var mcIter    = hasMc ? mc!.Iteraciones : 0;
+    var mcFecha   = hasMc ? mc!.FechaCalculo.ToString("dd/MM/yyyy HH:mm") : "";
+
+    var chartDataJson = hasMc
+        ? System.Text.Json.JsonSerializer.Serialize(new {
+              p10 = mcP10, p50 = mcP50, p80 = mcP80, p90 = mcP90,
+              certKusd,
+              histLabels = Model.HistLabels,
+              histCounts = Model.HistCounts,
+              cdfPoints  = Model.CdfPuntos.Select(p => new { x = p.X, y = p.Y })
+          })
+        : "null";
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Reporte MC — @Model.Contrato.Codigo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; background: #fff; }
+
+    /* ── Portada ── */
+    .cover { padding: 40px 48px 24px; border-bottom: 3px solid #0f9488; }
+    .cover h1 { font-size: 22px; font-weight: 700; color: #0f172a; }
+    .cover .sub { font-size: 13px; color: #475569; margin-top: 4px; }
+    .cover-meta { display: flex; gap: 32px; margin-top: 14px; flex-wrap: wrap; }
+    .cover-meta .item { display: flex; flex-direction: column; }
+    .cover-meta .item label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+    .cover-meta .item span  { font-size: 12px; font-weight: 600; color: #334155; }
+
+    /* ── Secciones ── */
+    .section { padding: 20px 48px; }
+    .section + .section { border-top: 1px solid #e2e8f0; }
+    .section-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px;
+        display: flex; align-items: center; gap: 6px; }
+    .section-title .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    /* ── KPI cards ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    .kpi-card { border-radius: 8px; padding: 10px 12px; border: 1px solid; }
+    .kpi-card label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 2px; }
+    .kpi-card .val  { font-size: 15px; font-weight: 700; }
+    .kpi-eat  { background: linear-gradient(135deg,#7c3aed,#5b21b6); color: #fff; border-color: transparent; grid-column: span 2; }
+    .kpi-eat .val { font-size: 22px; }
+    .kpi-p10  { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+    .kpi-p50  { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .kpi-p80  { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+    .kpi-p90  { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+
+    /* ── Tablas ── */
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    thead th { background: #f8fafc; font-weight: 600; color: #475569; padding: 5px 6px;
+        text-align: left; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+    tbody td { padding: 4px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tfoot td { padding: 5px 6px; font-weight: 700; background: #f8fafc; border-top: 2px solid #e2e8f0; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .bg-blue   { background: #eff6ff; }
+    .bg-teal   { background: #f0fdfa; }
+    .bg-amber  { background: #fffbeb; }
+    .bg-purple { background: #faf5ff; color: #7c3aed; font-weight: 700; }
+    .border-l  { border-left: 1px solid #e2e8f0; }
+    .border-l2 { border-left: 2px solid #a855f7; }
+
+    /* ── Gráficos ── */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+    .chart-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+    .chart-box p { font-size: 10px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+    canvas { max-width: 100%; height: 180px !important; }
+
+    /* ── Print ── */
+    @@media print {
+        body { font-size: 10px; }
+        .no-print { display: none !important; }
+        .page-break { page-break-before: always; }
+        .avoid-break { page-break-inside: avoid; }
+        canvas { max-height: 160px !important; }
+    }
+    .print-btn { position: fixed; bottom: 20px; right: 20px; padding: 10px 20px;
+        background: #0f9488; color: #fff; border: none; border-radius: 8px;
+        font-size: 13px; font-weight: 600; cursor: pointer; z-index: 999; }
+    .print-btn:hover { background: #0d7a70; }
+    .footer-bar { padding: 12px 48px; background: #f8fafc; border-top: 1px solid #e2e8f0;
+        font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">⬇ Guardar / Imprimir PDF</button>
+
+@* ── PORTADA ───────────────────────────────────────────────────────────────── *@
+<div class="cover">
+    <h1>Reporte Análisis Monte Carlo — Taller de Rango de Costos</h1>
+    <div class="sub">CODELCO — Vicepresidencia Proyectos</div>
+    <div class="cover-meta">
+        <div class="item"><label>Proyecto</label><span>@Model.Proyecto.Nombre</span></div>
+        <div class="item"><label>Código</label><span>@Model.Proyecto.Codigo</span></div>
+        <div class="item"><label>Contrato</label><span>@Model.Contrato.Codigo — @Model.Contrato.NombrePaquete</span></div>
+        <div class="item"><label>Organización</label><span>@Model.Proyecto.Organizacion</span></div>
+        <div class="item"><label>Fecha ejercicio</label><span>@Model.Proyecto.FechaEjercicio.ToString("dd/MM/yyyy")</span></div>
+        <div class="item"><label>Tasa de cambio</label><span>@Model.Contrato.TasaCambio.ToString("N0") CLP/USD</span></div>
+        <div class="item"><label>Factor</label><span>@Model.Contrato.Factor</span></div>
+        <div class="item"><label>Generado</label><span>@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span></div>
+        @if (hasMc)
+        {
+            <div class="item"><label>Cálculo MC</label><span>@mcFecha</span></div>
+        }
+    </div>
+</div>
+
+@* ── KPI MONTE CARLO ──────────────────────────────────────────────────────── *@
+@if (hasMc)
+{
+<div class="section avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#7c3aed"></span> Resumen Análisis Monte Carlo (@mcIter.ToString("N0") iteraciones)
+    </div>
+    <div class="kpi-grid">
+        <div class="kpi-card kpi-eat">
+            <label>EAT Estimado — P50 (Incertidumbre + Certeza)</label>
+            <div class="val">@Model.FmtKusd(mcP50 + certKusd)</div>
+        </div>
+        <div></div>
+        <div class="kpi-card kpi-p10">
+            <label>P10 — Optimista</label>
+            <div class="val">@Model.FmtKusd(mcP10 + certKusd)</div>
+        </div>
+        <div class="kpi-card kpi-p50">
+            <label>P50 — Base</label>
+            <div class="val">@Model.FmtKusd(mcP50 + certKusd)</div>
+        </div>
+        <div class="kpi-card kpi-p80">
+            <label>P80 — Conservador</label>
+            <div class="val">@Model.FmtKusd(mcP80 + certKusd)</div>
+        </div>
+        <div class="kpi-card kpi-p90">
+            <label>P90 — Gestión</label>
+            <div class="val">@Model.FmtKusd(mcP90 + certKusd)</div>
+        </div>
+    </div>
+
+    <table style="width:260px">
+        <tr><td style="color:#475569">Media distribución:</td><td class="text-right" style="font-weight:600">@Model.FmtKusd(mcMedia)</td></tr>
+        <tr><td style="color:#475569">Desviación estándar:</td><td class="text-right" style="font-weight:600">@Model.FmtKusd(mcDesvStd)</td></tr>
+        <tr><td style="color:#475569">Total Certeza (fijo):</td><td class="text-right" style="font-weight:600">@Model.FmtKusd((decimal)certKusd)</td></tr>
+    </table>
+
+    <div class="charts-grid avoid-break">
+        <div class="chart-box">
+            <p>Histograma de Frecuencia — Distribución del EAT</p>
+            <canvas id="pdf-hist"></canvas>
+        </div>
+        <div class="chart-box">
+            <p>Curva S — Distribución Acumulada (CDF)</p>
+            <canvas id="pdf-cdf"></canvas>
+        </div>
+    </div>
+</div>
+}
+
+@* ── BLOQUE F — CLASIFICACIÓN ─────────────────────────────────────────────── *@
+<div class="section page-break avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#ef4444"></span> Bloque F — INCERTIDUMBRE (Entran al Modelo Monte Carlo)
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th class="text-right">Costo USD$</th>
+                <th class="text-center border-l bg-blue">Mín %</th>
+                <th class="text-right bg-blue">Mín USD$</th>
+                <th class="text-center border-l bg-teal">Prob %</th>
+                <th class="text-right bg-teal">Prob USD$</th>
+                <th class="text-center border-l bg-amber">Máx %</th>
+                <th class="text-right bg-amber">Máx USD$</th>
+                @if (hasMc) { <th class="text-right border-l2 bg-purple">MC (USD$)</th> }
+            </tr>
+        </thead>
+        <tbody>
+            @for (int idx = 0; idx < incert.Count; idx++)
+            {
+                var item = incert[idx];
+                <tr>
+                    <td>@item.CodigoItem</td>
+                    <td>@item.Descripcion</td>
+                    <td class="text-right">@Model.FmtUsd(item.CostoUsd)</td>
+                    <td class="text-center border-l bg-blue">@Model.FmtPct(item.MinPct)</td>
+                    <td class="text-right bg-blue">@(item.MinKusd.HasValue ? Model.FmtKusd(item.MinKusd.Value) : "—")</td>
+                    <td class="text-center border-l bg-teal">@Model.FmtPct(item.ProbablePct)</td>
+                    <td class="text-right bg-teal">@(item.ProbableKusd.HasValue ? Model.FmtKusd(item.ProbableKusd.Value) : "—")</td>
+                    <td class="text-center border-l bg-amber">@Model.FmtPct(item.MaxPct)</td>
+                    <td class="text-right bg-amber">@(item.MaxKusd.HasValue ? Model.FmtKusd(item.MaxKusd.Value) : "—")</td>
+                    @if (hasMc)
+                    {
+                        var mcVal = idx < Model.ItemMedias.Count ? Model.ItemMedias[idx] : 0;
+                        <td class="text-right border-l2 bg-purple">@Model.FmtKusd(mcVal)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2" class="text-right">Total:</td>
+                <td class="text-right">@Model.FmtUsd(incert.Sum(i => i.CostoUsd))</td>
+                <td colspan="6"></td>
+                @if (hasMc)
+                {
+                    <td class="text-right border-l2 bg-purple">@Model.FmtKusd(Model.ItemMedias.Sum())</td>
+                }
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<div class="section avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#16a34a"></span> Bloque F — CERTEZA (Costo Fijo)
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th class="text-right">Costo USD$</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in cert)
+            {
+                <tr>
+                    <td>@item.CodigoItem</td>
+                    <td>@item.Descripcion</td>
+                    <td class="text-right">@Model.FmtUsd(item.CostoUsd)</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2" class="text-right">Total:</td>
+                <td class="text-right">@Model.FmtUsd(cert.Sum(i => i.CostoUsd))</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+@* ── BLOQUE B — ÍTEMS COMPLETOS ───────────────────────────────────────────── *@
+<div class="section page-break avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#0ea5e9"></span> Bloque B/C — Ítems del Por Comprometer
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Sub-partida</th>
+                <th class="text-center">Certeza</th>
+                <th>Clase Est.</th>
+                <th class="text-right">Costo USD$</th>
+                <th class="text-right">USD$</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{ int orden = 1; }
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td class="text-center">@(orden++)</td>
+                    <td>@item.CodigoItem</td>
+                    <td>@item.Descripcion</td>
+                    <td>@item.SubPartida</td>
+                    <td class="text-center">@(item.EsCerteza ? "✓" : "")</td>
+                    <td>@item.ClaseEstimacion</td>
+                    <td class="text-right">@Model.FmtUsd(item.CostoUsd)</td>
+                    <td class="text-right">@Model.FmtKusd(item.CostoUsd)</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="6" class="text-right">Total:</td>
+                <td class="text-right">@Model.FmtUsd(Model.Items.Sum(i => i.CostoUsd))</td>
+                <td class="text-right">@Model.FmtKusd(Model.Items.Sum(i => i.CostoUsd))</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+@* ── BLOQUE D — RANGOS ────────────────────────────────────────────────────── *@
+@if (incert.Any())
+{
+<div class="section avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#8b5cf6"></span> Bloque D — Variación de Costo (Incertidumbre)
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th class="text-right">Costo USD$</th>
+                <th class="text-center border-l bg-blue">Mín %</th>
+                <th class="text-right bg-blue">Mín USD$</th>
+                <th class="text-center border-l bg-teal">Prob %</th>
+                <th class="text-right bg-teal">Prob USD$</th>
+                <th class="text-center border-l bg-amber">Máx %</th>
+                <th class="text-right bg-amber">Máx USD$</th>
+                <th class="text-center">Clase Est.</th>
+                <th class="text-center">Vía Riesgo</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in incert)
+            {
+                <tr>
+                    <td>@item.CodigoItem</td>
+                    <td>@item.Descripcion</td>
+                    <td class="text-right">@Model.FmtUsd(item.CostoUsd)</td>
+                    <td class="text-center border-l bg-blue">@Model.FmtPct(item.MinPct)</td>
+                    <td class="text-right bg-blue">@(item.MinKusd.HasValue ? Model.FmtKusd(item.MinKusd.Value) : "—")</td>
+                    <td class="text-center border-l bg-teal">@Model.FmtPct(item.ProbablePct)</td>
+                    <td class="text-right bg-teal">@(item.ProbableKusd.HasValue ? Model.FmtKusd(item.ProbableKusd.Value) : "—")</td>
+                    <td class="text-center border-l bg-amber">@Model.FmtPct(item.MaxPct)</td>
+                    <td class="text-right bg-amber">@(item.MaxKusd.HasValue ? Model.FmtKusd(item.MaxKusd.Value) : "—")</td>
+                    <td class="text-center">@item.ClaseEstimacion</td>
+                    <td class="text-center">@(item.ViaRiesgo ? "✓" : "")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+}
+
+@* ── PIE DE PÁGINA ─────────────────────────────────────────────────────────── *@
+<div class="footer-bar no-print">
+    <span>Reporte generado por Sistema Taller de Rango de Costos — CODELCO</span>
+    <span>@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
+</div>
+
+@* ── GRÁFICOS CHART.JS ─────────────────────────────────────────────────────── *@
+@if (hasMc)
+{
+<script>
+(function () {
+    var cd = @Html.Raw(chartDataJson);
+    var p10 = cd.p10, p50 = cd.p50, p80 = cd.p80, p90 = cd.p90;
+    var certKusd = cd.certKusd;
+    var histLabels = cd.histLabels, histCounts = cd.histCounts, cdfPoints = cd.cdfPoints;
+
+    var barColors = histLabels.map(function(v){
+        return v < p10 ? 'rgba(59,130,246,0.7)' :
+               v < p50 ? 'rgba(16,185,129,0.7)' :
+               v < p80 ? 'rgba(245,158,11,0.7)' :
+               v < p90 ? 'rgba(249,115,22,0.7)' :
+                         'rgba(239,68,68,0.7)';
+    });
+
+    var vLines = {
+        id: 'vLines',
+        afterDraw: function(chart) {
+            var ctx = chart.ctx, ca = chart.chartArea, sx = chart.scales.x;
+            [{v:p10,c:'#3b82f6',l:'P10'},{v:p50,c:'#10b981',l:'P50'},
+             {v:p80,c:'#f59e0b',l:'P80'},{v:p90,c:'#ef4444',l:'P90'}].forEach(function(ln){
+                var px = sx.getPixelForValue(ln.v);
+                ctx.save(); ctx.beginPath(); ctx.moveTo(px,ca.top); ctx.lineTo(px,ca.bottom);
+                ctx.strokeStyle=ln.c; ctx.lineWidth=2; ctx.setLineDash([5,3]); ctx.stroke();
+                ctx.fillStyle=ln.c; ctx.font='bold 9px sans-serif';
+                ctx.fillText(ln.l, px+2, ca.top+10); ctx.restore();
+            });
+        }
+    };
+
+    var fmtX = function(v){ return (v+certKusd).toFixed(0); };
+
+    new Chart(document.getElementById('pdf-hist'), {
+        type: 'bar', plugins: [vLines],
+        data: { labels: histLabels, datasets: [{
+            data: histCounts, backgroundColor: barColors, borderWidth: 0,
+            barPercentage: 1, categoryPercentage: 1
+        }]},
+        options: { animation: false, responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: { title: function(i){ return fmtX(i[0].parsed.x)+' USD$'; },
+                    label: function(i){ return i.parsed.y+' iteraciones'; }}} },
+            scales: { x: { type:'linear', ticks:{ maxTicksLimit:5, callback: fmtX } },
+                      y: { ticks:{ maxTicksLimit:4 } } } }
+    });
+
+    var hLines = {
+        id: 'hLines',
+        afterDraw: function(chart) {
+            var ctx = chart.ctx, ca = chart.chartArea, sy = chart.scales.y;
+            [{y:10,c:'#3b82f6',l:'P10'},{y:50,c:'#10b981',l:'P50'},
+             {y:80,c:'#f59e0b',l:'P80'},{y:90,c:'#ef4444',l:'P90'}].forEach(function(ln){
+                var py = sy.getPixelForValue(ln.y);
+                ctx.save(); ctx.beginPath(); ctx.moveTo(ca.left,py); ctx.lineTo(ca.right,py);
+                ctx.strokeStyle=ln.c; ctx.lineWidth=1; ctx.setLineDash([4,3]); ctx.stroke();
+                ctx.fillStyle=ln.c; ctx.font='bold 9px sans-serif';
+                ctx.fillText(ln.l, ca.left+2, py-3); ctx.restore();
+            });
+        }
+    };
+
+    new Chart(document.getElementById('pdf-cdf'), {
+        type: 'line', plugins: [hLines],
+        data: { datasets: [
+            { data: cdfPoints, borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,0.08)',
+              borderWidth:2, pointRadius:0, fill:true, tension:0.3 },
+            { data: [{x:p10,y:10},{x:p50,y:50},{x:p80,y:80},{x:p90,y:90}],
+              type:'scatter', pointRadius:5, showLine:false,
+              pointBackgroundColor:['#3b82f6','#10b981','#f59e0b','#ef4444'],
+              pointBorderColor:'#fff', pointBorderWidth:2 }
+        ]},
+        options: { animation: false, responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: { title: function(i){ return fmtX(i[0].parsed.x)+' USD$'; },
+                    label: function(i){ return 'P acum: '+i.parsed.y.toFixed(1)+'%'; }}} },
+            scales: { x: { type:'linear', ticks:{ maxTicksLimit:5, callback: fmtX } },
+                      y: { min:0, max:100, ticks:{ callback: function(v){ return v+'%'; }, maxTicksLimit:6 } } } }
+    });
+})();
+</script>
+}
+
+</body>
+</html>

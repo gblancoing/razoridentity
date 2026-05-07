@@ -32,7 +32,24 @@
                                 <span asp-validation-for="Input.FullName" class="text-red-600 text-xs mt-1 block"></span>
                             </div>
                             <div class="md:col-span-2">
-                                <label asp-for="Input.Address" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <label asp-for="Input.Cargo" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <input asp-for="Input.Cargo" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Ej: Jefe de proyecto, Ingeniero de terreno" />
+                                <span asp-validation-for="Input.Cargo" class="text-red-600 text-xs mt-1 block"></span>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label asp-for="Input.Turno" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Turno <span class="font-normal normal-case text-slate-400">(opcional)</span></label>
+                                <select asp-for="Input.Turno" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition">
+                                    <option value="">— Sin asignar —</option>
+                                    @foreach (var t in Model.TurnosDisponibles.Where(x => x.Activo).OrderBy(x => x.Orden).ThenBy(x => x.Nombre))
+                                    {
+                                        var turnoValor = string.IsNullOrEmpty(t.Codigo) ? t.Nombre : $"{t.Nombre} ({t.Codigo})";
+                                        <option value="@turnoValor">@turnoValor</option>
+                                    }
+                                </select>
+                                <p class="text-slate-500 text-xs mt-0.5">Se obtiene desde la ficha del usuario (RIT_API) y se guarda al enviar el formulario.</p>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label asp-for="Input.Address" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Dirección <span class="font-normal normal-case text-slate-400">(opcional)</span></label>
                                 <input asp-for="Input.Address" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Calle, número, depto/oficina" />
                                 <span asp-validation-for="Input.Address" class="text-red-600 text-xs mt-1 block"></span>
                             </div>
@@ -47,7 +64,7 @@
                                 <span asp-validation-for="Input.RegionOrState" class="text-red-600 text-xs mt-1 block"></span>
                             </div>
                             <div>
-                                <label asp-for="Input.PostalCode" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
+                                <label asp-for="Input.PostalCode" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Código postal <span class="font-normal normal-case text-slate-400">(opcional)</span></label>
                                 <input asp-for="Input.PostalCode" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Código postal" />
                                 <span asp-validation-for="Input.PostalCode" class="text-red-600 text-xs mt-1 block"></span>
                             </div>
@@ -78,13 +95,13 @@
                             <span asp-validation-for="Input.WebsiteUrl" class="text-red-600 text-xs mt-1 block"></span>
                         </div>
                         <div>
-                            <label asp-for="Input.OtherLinks" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
-                            <input asp-for="Input.OtherLinks" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Twitter, GitHub, etc. (separados por coma si aplica)" />
+                            <label asp-for="Input.OtherLinks" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Otros enlaces o redes <span class="font-normal normal-case text-slate-400">(opcional)</span></label>
+                                <input asp-for="Input.OtherLinks" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Twitter, GitHub, etc. (separados por coma si aplica)" />
                             <span asp-validation-for="Input.OtherLinks" class="text-red-600 text-xs mt-1 block"></span>
                         </div>
                         <div>
-                            <label asp-for="Input.BioOrNotes" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5"></label>
-                            <textarea asp-for="Input.BioOrNotes" rows="3" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Biografía breve o notas"></textarea>
+                            <label asp-for="Input.BioOrNotes" class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Notas o biografía breve <span class="font-normal normal-case text-slate-400">(opcional)</span></label>
+                                <textarea asp-for="Input.BioOrNotes" rows="3" class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-ritweb-teal/50 focus:border-ritweb-teal transition" placeholder="Biografía breve o notas"></textarea>
                             <span asp-validation-for="Input.BioOrNotes" class="text-red-600 text-xs mt-1 block"></span>
                         </div>
                     </div>
@@ -113,5 +130,7 @@
 </div>
 
 @section Scripts {
+    @* jQuery debe cargar antes que los scripts de validación; si el layout no lo cargó (cache, ruta), aquí se asegura. *@
+    <script src="~/lib/jquery/dist/jquery.js"></script>
     <partial name="_ValidationScriptsPartial" />
 }

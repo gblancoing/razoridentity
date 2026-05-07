@@ -1,0 +1,272 @@
+@page "{proyectoId:guid}"
+@model RazorIdentity.Pages.TallerCostosPdfRiesgosModel
+@{
+    Layout = null;
+    var amenazas    = Model.Riesgos.Where(r =>  r.EsAmenaza).ToList();
+    var oportunidades = Model.Riesgos.Where(r => !r.EsAmenaza).ToList();
+    var hayDatos    = Model.Riesgos.Any();
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Reporte Riesgos — @Model.Proyecto.Codigo</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; background: #fff; }
+
+    /* ── Portada ── */
+    .cover { padding: 40px 48px 24px; border-bottom: 3px solid #7c3aed; }
+    .cover h1 { font-size: 22px; font-weight: 700; color: #0f172a; }
+    .cover .sub { font-size: 13px; color: #475569; margin-top: 4px; }
+    .cover-meta { display: flex; gap: 32px; margin-top: 14px; flex-wrap: wrap; }
+    .cover-meta .item { display: flex; flex-direction: column; }
+    .cover-meta .item label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+    .cover-meta .item span  { font-size: 12px; font-weight: 600; color: #334155; }
+
+    /* ── Secciones ── */
+    .section { padding: 20px 48px; }
+    .section + .section { border-top: 1px solid #e2e8f0; }
+    .section-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px;
+        display: flex; align-items: center; gap: 6px; }
+    .section-title .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    /* ── KPI cards ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .kpi-card { border-radius: 8px; padding: 10px 12px; border: 1px solid; }
+    .kpi-card label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 2px; }
+    .kpi-card .val  { font-size: 15px; font-weight: 700; }
+    .kpi-total  { background: linear-gradient(135deg,#7c3aed,#5b21b6); color: #fff; border-color: transparent; grid-column: span 2; }
+    .kpi-total .val { font-size: 20px; }
+    .kpi-red    { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .kpi-green  { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .kpi-amber  { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+    .kpi-slate  { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+
+    /* ── Tablas ── */
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    thead th { background: #f8fafc; font-weight: 600; color: #475569; padding: 5px 6px;
+        text-align: left; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+    tbody td { padding: 4px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tfoot td { padding: 5px 6px; font-weight: 700; background: #f8fafc; border-top: 2px solid #e2e8f0; }
+    .text-right  { text-align: right; }
+    .text-center { text-align: center; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 9px;
+             font-weight: 700; white-space: nowrap; color: #fff; }
+
+    /* ── Fuente badge ── */
+    .fuente-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+        border-radius: 6px; font-size: 10px; font-weight: 600; margin-bottom: 12px; }
+    .fuente-mc     { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
+    .fuente-taller { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
+
+    /* ── Print ── */
+    @@media print {
+        body { font-size: 10px; }
+        .no-print { display: none !important; }
+        .page-break { page-break-before: always; }
+        .avoid-break { page-break-inside: avoid; }
+    }
+    .print-btn { position: fixed; bottom: 20px; right: 20px; padding: 10px 20px;
+        background: #7c3aed; color: #fff; border: none; border-radius: 8px;
+        font-size: 13px; font-weight: 600; cursor: pointer; z-index: 999; }
+    .print-btn:hover { background: #6d28d9; }
+    .footer-bar { padding: 12px 48px; background: #f8fafc; border-top: 1px solid #e2e8f0;
+        font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">⬇ Guardar / Imprimir PDF</button>
+
+@* ── PORTADA ─────────────────────────────────────────────────────────────── *@
+<div class="cover">
+    <h1>Reporte Análisis de Riesgos y Oportunidades</h1>
+    <div class="sub">CODELCO — Vicepresidencia Proyectos — Taller de Rango de Costos</div>
+    <div class="cover-meta">
+        <div class="item"><label>Proyecto</label><span>@Model.Proyecto.Nombre</span></div>
+        <div class="item"><label>Código</label><span>@Model.Proyecto.Codigo</span></div>
+        @if (!string.IsNullOrEmpty(Model.Proyecto.Organizacion))
+        {
+        <div class="item"><label>Organización</label><span>@Model.Proyecto.Organizacion</span></div>
+        }
+        <div class="item"><label>Fecha ejercicio</label><span>@Model.Proyecto.FechaEjercicio.ToString("dd/MM/yyyy")</span></div>
+        <div class="item"><label>Fuente de datos</label>
+            <span>@(Model.Fuente == "montecarlo" ? "Montecarlo — Pestaña Riesgos" : Model.Fuente == "taller" ? "Taller Revisión Nativa" : "Sin datos")</span>
+        </div>
+        @if (Model.McActualizado.HasValue)
+        {
+        <div class="item"><label>Actualizado</label><span>@Model.McActualizado.Value.ToString("dd/MM/yyyy HH:mm")</span></div>
+        }
+        @if (!string.IsNullOrEmpty(Model.RevisionLabel))
+        {
+        <div class="item"><label>Revisión</label><span>@Model.RevisionLabel</span></div>
+        }
+        <div class="item"><label>Generado</label><span>@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span></div>
+    </div>
+</div>
+
+@* ── KPI RESUMEN ──────────────────────────────────────────────────────────── *@
+@if (hayDatos)
+{
+<div class="section avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#7c3aed"></span> Resumen del Análisis
+    </div>
+    <div class="kpi-grid">
+        <div class="kpi-card kpi-total">
+            <label>Total Riesgos y Oportunidades</label>
+            <div class="val">@Model.Riesgos.Count</div>
+            <div style="font-size:10px;margin-top:4px;opacity:.8">@amenazas.Count amenaza(s) · @oportunidades.Count oportunidad(es)</div>
+        </div>
+        <div></div>
+        <div class="kpi-card kpi-red">
+            <label>VE Amenazas (impacto esperado)</label>
+            <div class="val">@Model.FmtKusd(Model.VeAmenazas)</div>
+        </div>
+        <div class="kpi-card kpi-green">
+            <label>VE Oportunidades (ahorro esperado)</label>
+            <div class="val">@Model.FmtKusd(Model.VeOportunidades)</div>
+        </div>
+        <div class="kpi-card kpi-amber" style="grid-column:span 2">
+            <label>VE Neto (Amenazas − Oportunidades)</label>
+            <div class="val" style="font-size:18px">@Model.FmtKusd(Model.VeNeto)</div>
+        </div>
+        <div class="kpi-card kpi-slate" style="grid-column:span 2">
+            <label>Distribución</label>
+            <div style="font-size:10px;margin-top:4px">
+                @{
+                    var porNivel = Model.Riesgos.GroupBy(r => r.NivelLabel)
+                        .Select(g => new { label = g.Key, count = g.Count(), color = g.First().NivelColor })
+                        .OrderByDescending(x => x.count).ToList();
+                }
+                @foreach (var n in porNivel)
+                {
+                    <span style="margin-right:8px">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:@n.color;vertical-align:middle;margin-right:2px"></span>
+                        @n.label: @n.count
+                    </span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@* ── AMENAZAS ─────────────────────────────────────────────────────────────── *@
+@if (amenazas.Any())
+{
+<div class="section avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#ef4444"></span> Amenazas (@amenazas.Count)
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Plan de Respuesta</th>
+                <th class="text-center">Nivel</th>
+                <th class="text-right">Prob %</th>
+                <th class="text-right">Mín USD$</th>
+                <th class="text-right">Moda USD$</th>
+                <th class="text-right">Máx USD$</th>
+                <th class="text-right">VE USD$</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in amenazas.OrderByDescending(x => Math.Abs(x.VE)))
+            {
+                <tr>
+                    <td>@r.Codigo</td>
+                    <td>@r.Descripcion</td>
+                    <td style="font-size:9px;color:#64748b">@(string.IsNullOrEmpty(r.PlanRespuesta) ? "—" : r.PlanRespuesta)</td>
+                    <td class="text-center">
+                        <span class="badge" style="background:@r.NivelColor">@r.NivelLabel</span>
+                    </td>
+                    <td class="text-right">@Model.FmtPct(r.ProbPct)</td>
+                    <td class="text-right">@Model.FmtKusd(r.Min)</td>
+                    <td class="text-right" style="font-weight:600">@Model.FmtKusd(r.Moda)</td>
+                    <td class="text-right">@Model.FmtKusd(r.Max)</td>
+                    <td class="text-right" style="color:#b91c1c;font-weight:700">@Model.FmtKusd(r.VE)</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="8" class="text-right">VE Total Amenazas:</td>
+                <td class="text-right" style="color:#b91c1c">@Model.FmtKusd(Model.VeAmenazas)</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+}
+
+@* ── OPORTUNIDADES ────────────────────────────────────────────────────────── *@
+@if (oportunidades.Any())
+{
+<div class="section avoid-break">
+    <div class="section-title">
+        <span class="dot" style="background:#16a34a"></span> Oportunidades (@oportunidades.Count)
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Plan de Captura</th>
+                <th class="text-center">Nivel</th>
+                <th class="text-right">Prob %</th>
+                <th class="text-right">Mín USD$</th>
+                <th class="text-right">Moda USD$</th>
+                <th class="text-right">Máx USD$</th>
+                <th class="text-right">VE USD$</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in oportunidades.OrderBy(x => x.VE))
+            {
+                <tr>
+                    <td>@r.Codigo</td>
+                    <td>@r.Descripcion</td>
+                    <td style="font-size:9px;color:#64748b">@(string.IsNullOrEmpty(r.PlanRespuesta) ? "—" : r.PlanRespuesta)</td>
+                    <td class="text-center">
+                        <span class="badge" style="background:@r.NivelColor">@r.NivelLabel</span>
+                    </td>
+                    <td class="text-right">@Model.FmtPct(r.ProbPct)</td>
+                    <td class="text-right">@Model.FmtKusd(Math.Abs(r.Min))</td>
+                    <td class="text-right" style="font-weight:600">@Model.FmtKusd(Math.Abs(r.Moda))</td>
+                    <td class="text-right">@Model.FmtKusd(Math.Abs(r.Max))</td>
+                    <td class="text-right" style="color:#15803d;font-weight:700">@Model.FmtKusd(Math.Abs(r.VE))</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="8" class="text-right">VE Total Oportunidades:</td>
+                <td class="text-right" style="color:#15803d">@Model.FmtKusd(Model.VeOportunidades)</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+}
+
+@* ── SIN DATOS ────────────────────────────────────────────────────────────── *@
+@if (!hayDatos)
+{
+<div class="section" style="text-align:center;padding:60px 48px;color:#94a3b8">
+    <div style="font-size:40px;margin-bottom:12px">⚠</div>
+    <p style="font-size:14px;font-weight:600;margin-bottom:6px">Sin riesgos registrados</p>
+    <p style="font-size:11px">Este proyecto no tiene riesgos en la pestaña Montecarlo ni en revisiones nativas.</p>
+</div>
+}
+
+@* ── PIE DE PÁGINA ─────────────────────────────────────────────────────────── *@
+<div class="footer-bar no-print">
+    <span>Reporte generado por Sistema Taller de Rango de Costos — CODELCO</span>
+    <span>@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
+</div>
+
+</body>
+</html>

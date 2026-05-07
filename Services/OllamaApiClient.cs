@@ -17,6 +17,7 @@ public class OllamaApiClient : IOllamaApiClient
     private const string SpecialistsPath = "api/Ollama/specialists";
     private const string GeneratePath = "api/Ollama/generate";
     private const string SpecialistPath = "api/Ollama/specialist";
+    private const string AnalyzePath = "api/Ollama/analyze";
 
     public OllamaApiClient(HttpClient httpClient) => _httpClient = httpClient;
 
@@ -41,12 +42,29 @@ public class OllamaApiClient : IOllamaApiClient
         return body?.GetContent() ?? "";
     }
 
-    public async Task<string> SpecialistAsync(string specialist, string prompt, CancellationToken ct = default)
+    public async Task<string> SpecialistAsync(string specialist, string prompt, int? month = null, int? year = null, int? proyectoId = null, string? model = null, CancellationToken ct = default)
     {
-        var request = new SpecialistRequest { Specialist = specialist, Prompt = prompt };
+        var request = new SpecialistRequest
+        {
+            Specialist = specialist,
+            Prompt = prompt,
+            Month = month,
+            Year = year,
+            ProyectoId = proyectoId,
+            Model = model
+        };
         var response = await _httpClient.PostAsJsonAsync(SpecialistPath, request, JsonOptions, ct);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<SpecialistResponse>(JsonOptions, ct);
+        return body?.GetContent() ?? "";
+    }
+
+    public async Task<string> AnalyzeAsync(string prompt, int? proyectoId = null, int? month = null, int? year = null, string? model = null, CancellationToken ct = default)
+    {
+        var request = new AnalyzeRequest { Prompt = prompt, ProyectoId = proyectoId, Month = month, Year = year, Model = model };
+        var response = await _httpClient.PostAsJsonAsync(AnalyzePath, request, JsonOptions, ct);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<GenerateResponse>(JsonOptions, ct);
         return body?.GetContent() ?? "";
     }
 

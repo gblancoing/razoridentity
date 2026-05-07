@@ -9,5 +9,6 @@ public interface IRitApiClient
     Task<T?> GetAsync<T>(string ruta, CancellationToken ct = default);
     Task<T?> PostAsync<TRequest, T>(string ruta, TRequest body, CancellationToken ct = default);
     Task<T?> PutAsync<TRequest, T>(string ruta, TRequest body, CancellationToken ct = default);
+    Task<T?> PatchAsync<TRequest, T>(string ruta, TRequest body, CancellationToken ct = default);
     Task DeleteAsync(string ruta, CancellationToken ct = default);
 }

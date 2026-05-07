@@ -8,6 +8,8 @@ obj/
 ## User secrets / local settings
 **/secrets.json
 **/appsettings.*.local.json
+.claude/
+.cursor/
 
 ## OS
 Thumbs.db

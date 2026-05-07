@@ -1,0 +1,1616 @@
+@page "/PMO"
+@model RazorIdentity.Pages.PmoModel
+@{
+    ViewData["Title"] = "PMO";
+    ViewData["SuppressFloatingChat"] = true;
+    var pmoUrl = Url.Page("/PMO");
+    var pid = Model.ProyectoActivoId;
+    string NavPmo(string seccion) => Url.Page("/PMO", null, new { proyectoId = pid, seccion }) ?? "/PMO";
+    var navProyecto = Url.Page("/PMO", null, new { proyectoId = pid, seccion = "proyecto" }) ?? "/PMO";
+    var navVectores = pid is { } pidV ? Url.Page("/PMO", null, new { proyectoId = pidV, seccion = "vectores" }) : null;
+    var navControlFisico = pid is { } pidCf ? Url.Page("/PMO", null, new { proyectoId = pidCf, seccion = "control_fisico" }) : null;
+    var navResumen = pid is { } pidR ? Url.Page("/PMO", null, new { proyectoId = pidR, seccion = "resumen" }) : null;
+    var navGeneralSolo = Url.Page("/PMO", null, new { seccion = "general" }) ?? "/PMO";
+    var esMenuResumen = Model.MostrarSeccionResumen;
+    var esMenuGeneral = Model.MostrarSeccionGeneral;
+    var esMenuProyecto = !esMenuGeneral && (!Model.ProyectoActivoId.HasValue || string.Equals(Model.PmoSeccion, "proyecto", StringComparison.OrdinalIgnoreCase));
+    var pmoMenu = new (string Id, string Etiqueta, bool RequiereProyecto, string Grupo, string Icono, string IconoColor)[]
+    {
+        ("general", "General", false, "Marco", "menu_book", "text-amber-500"),
+        ("proyecto", "Proyecto", false, "Marco", "folder_special", "text-teal-500"),
+        ("resumen", "Resumen General", true, "Tablero", "insights", "text-teal-500"),
+        ("vectores", "Vectores Financiero", true, "Tablero", "stacked_line_chart", "text-sky-500"),
+        ("control_fisico", "Control Físico", true, "Tablero", "timeline", "text-emerald-500"),
+        ("factorial", "Factorial", true, "Análisis", "bubble_chart", "text-indigo-500"),
+        ("gestion_proyecto", "Gestión de Proyecto", true, "Análisis", "assignment", "text-blue-500"),
+        ("gestion_primavera", "Gestión Primavera", true, "Análisis", "calendar_month", "text-violet-500"),
+        ("info_pmo", "Info PMO", true, "Análisis", "help_outline", "text-slate-500"),
+    };
+}
+<style>
+    #pmo-sidebar { transition: width 0.22s ease; will-change: width; overflow: hidden; }
+    #pmo-sidebar.pmo-collapsed { width: 3.5rem !important; }
+    #pmo-sidebar.pmo-collapsed .pmo-sb-label,
+    #pmo-sidebar.pmo-collapsed .pmo-sb-group,
+    #pmo-sidebar.pmo-collapsed .pmo-sb-badge { display: none; }
+    #pmo-sidebar .pmo-sb-item.active {
+        background: linear-gradient(90deg, rgba(20,184,166,0.10), rgba(20,184,166,0.04));
+        color: rgb(15 118 110);
+        font-weight: 600;
+        position: relative;
+    }
+    .dark #pmo-sidebar .pmo-sb-item.active { color: rgb(94 234 212); background: linear-gradient(90deg, rgba(20,184,166,0.18), rgba(20,184,166,0.06)); }
+    #pmo-sidebar .pmo-sb-item.active::before {
+        content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+        border-radius: 0 3px 3px 0; background: rgb(13 148 136);
+    }
+    #pmo-sidebar .pmo-sb-item.locked { opacity: .55; cursor: not-allowed; }
+    #pmo-sidebar .pmo-sb-item.locked:hover { background: transparent !important; }
+</style>
+<div class="flex flex-col lg:flex-row min-h-[calc(100vh-8rem)] gap-0">
+    @* Sidebar PMO — estilo claro, agrupado por sección, items con icono y estado de bloqueo. *@
+    <aside id="pmo-sidebar" class="w-full lg:w-56 shrink-0 bg-white dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-700 flex flex-col lg:sticky lg:top-14" style="">
+        @* Cabecera del sidebar: badge del módulo + título + botón colapsar (solo lg). *@
+        <div class="flex items-center justify-between px-3 py-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
+                    <span class="material-icons text-teal-600 dark:text-teal-400" style="font-size:18px" aria-hidden="true">space_dashboard</span>
+                </div>
+                <div class="min-w-0 pmo-sb-label">
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-100 leading-none truncate">PMO</p>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">Planning &amp; Control</p>
+                </div>
+            </div>
+            <button type="button" onclick="togglePmoSidebar()"
+                    class="hidden lg:inline-flex flex-shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    title="Minimizar sidebar" aria-label="Minimizar sidebar">
+                <span class="material-icons text-base" id="pmo-sidebar-icon" aria-hidden="true">chevron_left</span>
+            </button>
+        </div>
+
+        @* Navegación agrupada por Grupo. *@
+        <nav class="flex-1 lg:overflow-y-auto py-2 px-2 space-y-0.5 text-sm">
+            @{
+                string ultimoGrupo = null;
+            }
+            @foreach (var item in pmoMenu)
+            {
+                if (item.Grupo != ultimoGrupo)
+                {
+                    ultimoGrupo = item.Grupo;
+                    <p class="pmo-sb-group px-2 pt-2 pb-1 text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-[0.12em]">@item.Grupo</p>
+                }
+                var activo = string.Equals(Model.PmoSeccion, item.Id, StringComparison.OrdinalIgnoreCase);
+                var bloqueado = item.RequiereProyecto && !Model.ProyectoActivoId.HasValue;
+                if (bloqueado)
+                {
+                    <span class="pmo-sb-item locked w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-slate-500 dark:text-slate-400" title="Seleccione un proyecto primero">
+                        <span class="material-icons flex-shrink-0 text-slate-300 dark:text-slate-600" style="font-size:18px" aria-hidden="true">@item.Icono</span>
+                        <span class="pmo-sb-label truncate flex-1">@item.Etiqueta</span>
+                        <span class="pmo-sb-badge material-icons text-slate-300 dark:text-slate-600 flex-shrink-0" style="font-size:14px" aria-hidden="true">lock</span>
+                    </span>
+                }
+                else if (activo)
+                {
+                    <a href="@NavPmo(item.Id)" class="pmo-sb-item active w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg" title="@item.Etiqueta">
+                        <span class="material-icons flex-shrink-0 @item.IconoColor" style="font-size:18px" aria-hidden="true">@item.Icono</span>
+                        <span class="pmo-sb-label truncate flex-1">@item.Etiqueta</span>
+                    </a>
+                }
+                else
+                {
+                    <a href="@NavPmo(item.Id)" class="pmo-sb-item w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-800 dark:hover:text-teal-200 transition-colors" title="@item.Etiqueta">
+                        <span class="material-icons flex-shrink-0 @item.IconoColor" style="font-size:18px" aria-hidden="true">@item.Icono</span>
+                        <span class="pmo-sb-label truncate flex-1">@item.Etiqueta</span>
+                    </a>
+                }
+            }
+            <div class="my-2 border-t border-slate-100 dark:border-slate-800 mx-1"></div>
+            <a href="/App" class="pmo-sb-item w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Volver a Aplicaciones">
+                <span class="material-icons flex-shrink-0 text-slate-500" style="font-size:18px" aria-hidden="true">apps</span>
+                <span class="pmo-sb-label truncate flex-1">Aplicaciones</span>
+            </a>
+        </nav>
+
+        @if (Model.ProyectoActivoId.HasValue && !string.IsNullOrWhiteSpace(Model.ProyectoActivoNombre))
+        {
+            <div class="pmo-sb-label flex-shrink-0 border-t border-slate-200 dark:border-slate-700 px-3 py-2.5 bg-slate-50/80 dark:bg-slate-900/40">
+                <p class="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Proyecto activo</p>
+                <p class="text-xs font-semibold text-teal-700 dark:text-teal-300 truncate mt-0.5" title="@Model.ProyectoActivoNombre">@Model.ProyectoActivoNombre</p>
+            </div>
+        }
+    </aside>
+    <script>
+        (function () {
+            window.togglePmoSidebar = function () {
+                var sb = document.getElementById('pmo-sidebar');
+                var ic = document.getElementById('pmo-sidebar-icon');
+                if (!sb) return;
+                sb.classList.toggle('pmo-collapsed');
+                if (ic) ic.textContent = sb.classList.contains('pmo-collapsed') ? 'chevron_right' : 'chevron_left';
+                try { localStorage.setItem('pmoSidebarCollapsed', sb.classList.contains('pmo-collapsed') ? '1' : '0'); } catch (_) {}
+            };
+            try {
+                if (localStorage.getItem('pmoSidebarCollapsed') === '1') {
+                    var sb = document.getElementById('pmo-sidebar');
+                    var ic = document.getElementById('pmo-sidebar-icon');
+                    if (sb) sb.classList.add('pmo-collapsed');
+                    if (ic) ic.textContent = 'chevron_right';
+                }
+            } catch (_) {}
+        })();
+    </script>
+
+    <div class="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900/40">
+        <div class="flex-1 min-w-0 p-4 sm:p-6 lg:px-8 xl:px-10 space-y-4">
+            @if (Model.MostrarSeccionResumen)
+            {
+                <div class="sticky z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 mb-2 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200/90 dark:border-slate-700/90 top-14 md:top-16">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <div class="min-w-0 shrink border-t border-b border-slate-200/80 dark:border-slate-600/70 py-0.5">
+                            <div class="flex items-center gap-1.5 min-w-0 leading-tight" title="@Model.ProyectoActivoNombre">
+                                <span class="h-0 w-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-amber-500 shrink-0" aria-hidden="true"></span>
+                                <span class="text-sm font-semibold text-amber-900 dark:text-amber-200 truncate">@(Model.ProyectoActivoNombre ?? "Proyecto")</span>
+                            </div>
+                            <nav class="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs font-medium text-slate-500 dark:text-slate-400 min-w-0 mt-0.5 leading-tight">
+                                <a asp-page="/App" class="hover:text-ritweb-teal dark:hover:text-teal-400">Aplicaciones</a>
+                                <span class="material-icons text-[14px] shrink-0 opacity-70">chevron_right</span>
+                                <a href="@navProyecto" class="hover:text-ritweb-teal dark:hover:text-teal-400">PMO</a>
+                                <span class="material-icons text-[14px] shrink-0 opacity-70">chevron_right</span>
+                                <span class="text-slate-700 dark:text-slate-200 font-medium">Resumen General — KPI</span>
+                            </nav>
+                        </div>
+                        <div class="flex flex-wrap items-end gap-2 flex-1 justify-end min-w-0">
+                            <div>
+                                <label for="pmo-res-fecha-seg" class="block text-[10px] font-semibold text-[#166f7b] dark:text-teal-400 mb-0.5">Fecha seguimiento EVM</label>
+                                <input type="month" id="pmo-res-fecha-seg" class="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs w-[9.5rem]" />
+                            </div>
+                            <button type="button" id="pmo-res-refresh" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[#166f7b] hover:bg-[#125a63] text-white text-xs font-medium shadow-sm shrink-0">
+                                <span class="material-icons text-[16px]">refresh</span>
+                                Actualizar vista
+                            </button>
+                            @if (navVectores != null)
+                            {
+                                <a href="@navVectores" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 shrink-0">
+                                    <span class="material-icons text-[16px]">stacked_line_chart</span>
+                                    Vectores Financiero
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (Model.MostrarModuloPmo)
+            {
+                @* Una fila (wrap en móvil): izq. proyecto+miga; centro azul; der. roja. *@
+                <div class="sticky z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 mb-2 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200/90 dark:border-slate-700/90 top-14 md:top-16">
+                    <div class="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-2 lg:flex-nowrap">
+                    <div class="w-full sm:w-auto sm:max-w-[13rem] md:max-w-[15rem] lg:max-w-[16rem] shrink-0 min-w-0 border-t border-b border-slate-200/80 dark:border-slate-600/70 py-0.5 self-center">
+                        <div class="flex items-center gap-1.5 min-w-0 leading-tight" title="@Model.ProyectoActivoNombre">
+                            <span class="h-0 w-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-amber-500 shrink-0" aria-hidden="true"></span>
+                            <span class="text-sm font-semibold text-amber-900 dark:text-amber-200 truncate">@(Model.ProyectoActivoNombre ?? "Proyecto")</span>
+                        </div>
+                        <nav class="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs font-medium text-slate-500 dark:text-slate-400 min-w-0 mt-0.5 leading-tight">
+                            <a asp-page="/App" class="hover:text-ritweb-teal dark:hover:text-teal-400">Aplicaciones</a>
+                            <span class="material-icons text-[14px] shrink-0 opacity-70">chevron_right</span>
+                            <a href="@navProyecto" class="hover:text-ritweb-teal dark:hover:text-teal-400">PMO</a>
+                            <span class="material-icons text-[14px] shrink-0 opacity-70">chevron_right</span>
+                            <span class="text-slate-700 dark:text-slate-200 font-medium">Vectores Financiero</span>
+                        </nav>
+                    </div>
+                    @* Filtros de fecha + importación dentro del rectángulo azul (entre miga y barra roja). *@
+                    <div id="vf-filtros-wrap" class="flex-1 min-w-0 flex justify-center">
+                        <div class="rounded-lg border-2 border-blue-500/75 dark:border-blue-500/90 bg-sky-50/90 dark:bg-slate-900/95 shadow-sm px-2.5 py-2 sm:px-3 w-full max-w-3xl">
+                            <div class="flex flex-wrap items-end gap-x-2 gap-y-2">
+                                <div>
+                                    <label for="vf-sap-desc-top" class="block text-[10px] font-semibold text-sky-800 dark:text-sky-300 mb-0.5">Descripción (filtro primario)</label>
+                                    <select id="vf-sap-desc-top" class="rounded-md border border-sky-300 dark:border-sky-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs w-[16rem] hidden">
+                                        <option value="">Todas</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="vf-desde" class="block text-[10px] font-semibold text-sky-800 dark:text-sky-300 mb-0.5">Desde (mes)</label>
+                                    <input type="month" id="vf-desde" class="rounded-md border border-sky-300 dark:border-sky-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs w-[9.5rem]" />
+                                </div>
+                                <div>
+                                    <label for="vf-hasta" class="block text-[10px] font-semibold text-sky-800 dark:text-sky-300 mb-0.5">Hasta (mes)</label>
+                                    <input type="month" id="vf-hasta" class="rounded-md border border-sky-300 dark:border-sky-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs w-[9.5rem]" />
+                                </div>
+                                <button type="button" id="vf-clear-fechas" class="p-1.5 rounded-md border border-sky-300 dark:border-sky-600 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-slate-800 shrink-0" title="Limpiar fechas">
+                                    <span class="material-icons text-[18px]">cleaning_services</span>
+                                </button>
+                                <span id="vf-load" class="hidden inline-flex text-xs text-sky-800 dark:text-sky-200 items-center gap-1 shrink-0 pb-1.5"><span class="material-icons text-base animate-spin">progress_activity</span> Cargando…</span>
+                                <div id="vf-import-wrap" class="flex flex-wrap items-center gap-2 sm:ml-auto sm:grow-0 w-full sm:w-auto">
+                                    <button type="button" id="vf-import-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium shadow-sm shrink-0">
+                                        <span class="material-icons text-[16px]">upload_file</span>
+                                        Importar tabla
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="min-w-0 w-full sm:w-auto sm:max-w-[min(100%,42rem)] lg:max-w-[50%] flex justify-end sm:justify-end shrink-0 sm:ml-auto lg:ml-0 self-center">
+                        <div class="rounded-lg border-2 border-red-400/70 dark:border-red-700/80 bg-white/95 dark:bg-slate-900/95 shadow-sm px-2 py-1.5 sm:px-3 max-w-full">
+                            <div class="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 justify-end">
+                                <span class="flex items-center text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 shrink-0 px-0.5">Vectores</span>
+                                @foreach (var m in PycFinancierosCatalog.ModosVectorBarraPmo)
+                                {
+                                    <button type="button" id="vf-mv-@m.Id" data-tabla="@m.Tabla" class="vf-mv-btn shrink-0 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium border border-amber-400/90 bg-amber-50 text-amber-950 hover:bg-amber-100 dark:bg-amber-950/45 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-900/55 @(m.Id == "real_parcial" ? "ring-2 ring-amber-500 ring-offset-1 ring-offset-white dark:ring-offset-slate-900 bg-amber-100 dark:bg-amber-900/70" : "")">@m.Etiqueta</button>
+                                }
+                                <span class="w-px shrink-0 self-stretch min-h-[1.5rem] bg-slate-300 dark:bg-slate-600 mx-0.5" role="separator" aria-hidden="true"></span>
+                                <span class="flex items-center text-[10px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 shrink-0 px-0.5">Análisis</span>
+                                @foreach (var m in PycFinancierosCatalog.ModosAnalisis)
+                                {
+                                    <button type="button" id="vf-ma-@m.Id" class="vf-ma-btn shrink-0 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium border border-sky-500/80 bg-sky-50 text-sky-950 hover:bg-sky-100 dark:bg-sky-950/50 dark:border-sky-500 dark:text-sky-100 dark:hover:bg-sky-900/55">@m.Etiqueta</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            }
+            else if (Model.MostrarModuloControlFisico)
+            {
+                <div class="sticky z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 mb-2 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200/90 dark:border-slate-700/90 top-14 md:top-16">
+                    <div class="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-2 lg:flex-nowrap">
+                        <div class="w-full sm:w-auto sm:max-w-[13rem] md:max-w-[15rem] lg:max-w-[16rem] shrink-0 min-w-0 border-t border-b border-slate-200/80 dark:border-slate-600/70 py-0.5 self-center">
+                            <div class="flex items-center gap-1.5 min-w-0 leading-tight" title="@Model.ProyectoActivoNombre">
+                                <span class="h-0 w-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-amber-500 shrink-0" aria-hidden="true"></span>
+                                <span class="text-sm font-semibold text-amber-900 dark:text-amber-200 truncate">@(Model.ProyectoActivoNombre ?? "Proyecto")</span>
+                            </div>
+                            <nav class="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs font-medium text-slate-500 dark:text-slate-400 min-w-0 mt-0.5 leading-tight">
+                                <a asp-page="/App" class="hover:text-ritweb-teal dark:hover:text-teal-400">Aplicaciones</a>
+                                <span class="material-icons text-[14px] shrink-0 opacity-70">chevron_right</span>
+                                <a href="@navProyecto" class="hover:text-ritweb-teal dark:hover:text-teal-400">PMO</a>
+                                <span class="material-icons text-[14px] shrink-0 opacity-70">chevron_right</span>
+                                @if (navVectores != null)
+                                {
+                                    <a href="@navVectores" class="hover:text-ritweb-teal dark:hover:text-teal-400">Vectores</a>
+                                    <span class="material-icons text-[14px] shrink-0 opacity-70">chevron_right</span>
+                                }
+                                <span class="text-slate-700 dark:text-slate-200 font-medium">Control físico — líneas base</span>
+                            </nav>
+                        </div>
+                        <div class="flex-1 min-w-0 flex justify-center">
+                            <div class="rounded-lg border-2 border-emerald-500/75 dark:border-emerald-500/90 bg-emerald-50/90 dark:bg-slate-900/95 shadow-sm px-2.5 py-2 sm:px-3 w-full max-w-3xl">
+                                <div class="flex flex-wrap items-end gap-x-2 gap-y-2">
+                                    <div>
+                                        <label for="pmo-cf-desde" class="block text-[10px] font-semibold text-emerald-900 dark:text-emerald-300 mb-0.5">Desde</label>
+                                        <input type="date" id="pmo-cf-desde" class="rounded-md border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs w-[10.5rem]" />
+                                    </div>
+                                    <div>
+                                        <label for="pmo-cf-hasta" class="block text-[10px] font-semibold text-emerald-900 dark:text-emerald-300 mb-0.5">Hasta</label>
+                                        <input type="date" id="pmo-cf-hasta" class="rounded-md border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs w-[10.5rem]" />
+                                    </div>
+                                    <div>
+                                        <label for="pmo-cf-vector" class="block text-[10px] font-semibold text-emerald-900 dark:text-emerald-300 mb-0.5">Vector fila (opcional)</label>
+                                        <select id="pmo-cf-vector" class="rounded-md border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs min-w-[8rem] max-w-[12rem]"></select>
+                                    </div>
+                                    <button type="button" id="pmo-cf-clear" class="p-1.5 rounded-md border border-emerald-300 dark:border-emerald-600 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-slate-800 shrink-0" title="Limpiar filtros">
+                                        <span class="material-icons text-[18px]">cleaning_services</span>
+                                    </button>
+                                    <span id="pmo-cf-load" class="hidden inline-flex text-xs text-emerald-900 dark:text-emerald-200 items-center gap-1 shrink-0 pb-1.5"><span class="material-icons text-base animate-spin">progress_activity</span> Cargando…</span>
+                                    <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+                                        <button type="button" id="pmo-cf-reload" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-emerald-600 text-emerald-900 dark:text-emerald-100 text-xs font-medium hover:bg-emerald-100 dark:hover:bg-slate-800" title="Recargar datos desde el servidor">
+                                            <span class="material-icons text-[16px]">refresh</span> Actualizar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-full lg:w-auto shrink-0 flex flex-wrap items-center gap-1.5 justify-end">
+                            <button type="button" id="pmo-cf-open-import-modal" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-amber-500/80 text-amber-900 dark:text-amber-100 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:border-amber-600 dark:hover:bg-amber-900/40 shrink-0" title="Importar Excel a una tabla av_fisico_*">
+                                <span class="material-icons text-[16px]">upload_file</span> Importar
+                            </button>
+                            <span class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mr-0.5 sm:ml-0.5">Curva S</span>
+                            <button type="button" id="pmo-cf-serie-todas" class="px-2 py-1 rounded-md text-xs font-medium border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">Todas</button>
+                            <button type="button" id="pmo-cf-serie-real" class="px-2 py-1 rounded-md text-xs font-medium border border-green-500/60 text-green-800 dark:text-green-200 bg-green-50 dark:bg-green-950/40">REAL</button>
+                            <button type="button" id="pmo-cf-serie-npc" class="px-2 py-1 rounded-md text-xs font-medium border border-blue-500/60 text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-950/40">NPC</button>
+                            <button type="button" id="pmo-cf-serie-poa" class="px-2 py-1 rounded-md text-xs font-medium border border-amber-500/60 text-amber-900 dark:text-amber-100 bg-amber-50 dark:bg-amber-950/40">POA</button>
+                            <button type="button" id="pmo-cf-serie-v0" class="px-2 py-1 rounded-md text-xs font-medium border border-cyan-500/60 text-cyan-900 dark:text-cyan-100 bg-cyan-50 dark:bg-cyan-950/40">V0</button>
+                            <button type="button" id="pmo-cf-serie-api" class="px-2 py-1 rounded-md text-xs font-medium border border-red-500/60 text-red-800 dark:text-red-200 bg-red-50 dark:bg-red-950/40">API</button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <nav class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    <a asp-page="/App" class="hover:text-ritweb-teal dark:hover:text-teal-400">Aplicaciones</a>
+                    <span class="material-icons text-[16px]">chevron_right</span>
+                    <a href="@navProyecto" class="hover:text-ritweb-teal dark:hover:text-teal-400">PMO</a>
+                    <span class="material-icons text-[16px]">chevron_right</span>
+                    @if (esMenuGeneral)
+                    {
+                        <span class="text-slate-800 dark:text-slate-200">General</span>
+                    }
+                    else if (esMenuProyecto)
+                    {
+                        <span class="text-slate-800 dark:text-slate-200">Proyecto</span>
+                    }
+                    else if (esMenuResumen)
+                    {
+                        <span class="text-slate-800 dark:text-slate-200">Resumen General</span>
+                    }
+                    else
+                    {
+                        <span class="text-slate-800 dark:text-slate-200">PMO</span>
+                    }
+                </nav>
+            }
+
+            @if (Model.MostrarSeccionGeneral)
+            {
+                <div class="w-full max-w-none space-y-8 sm:space-y-10">
+                    <div class="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+                        <div class="rounded-2xl border-2 border-teal-500/40 dark:border-teal-500/50 bg-gradient-to-br from-teal-50 via-white to-sky-50/80 dark:from-teal-950/40 dark:via-slate-800 dark:to-slate-900 p-6 sm:p-8 shadow-md">
+                            <div class="flex flex-wrap items-start gap-4">
+                                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#166f7b] text-white shadow-lg">
+                                    <span class="material-icons text-4xl" aria-hidden="true">hub</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-teal-800 dark:text-teal-300">Entrada al módulo PMO</p>
+                                    <h1 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Gobierno de datos e indicadores</h1>
+                                    <p class="mt-1 text-sm font-medium text-teal-900/90 dark:text-teal-200/90">MDG — <span class="font-semibold">Master Data Governance</span></p>
+                                    <p class="mt-4 text-sm sm:text-base text-slate-700 dark:text-slate-300 leading-relaxed">
+                                        Esta pestaña concentra el <strong class="text-slate-800 dark:text-slate-200">marco de referencia</strong> del módulo: niveles de indicadores alineados a <strong class="text-slate-800 dark:text-slate-200">PMI</strong> y <strong class="text-slate-800 dark:text-slate-200">PMO</strong>, enlace con la estrategia <strong class="text-slate-800 dark:text-slate-200">GPR</strong> (SRD / SMD), y <strong class="text-teal-800 dark:text-teal-300">fórmulas o definiciones de cálculo</strong> para homogeneizar el lenguaje entre terreno, PMO y dirección.
+                                    </p>
+                                    <ul class="mt-4 grid gap-2 sm:grid-cols-2 text-xs text-slate-600 dark:text-slate-400">
+                                        <li class="flex gap-2"><span class="material-icons text-teal-600 dark:text-teal-400 text-base shrink-0" aria-hidden="true">check_circle</span><span><strong class="text-slate-700 dark:text-slate-300">N1–N3:</strong> quién consume cada indicador y con qué detalle.</span></li>
+                                        <li class="flex gap-2"><span class="material-icons text-teal-600 dark:text-teal-400 text-base shrink-0" aria-hidden="true">functions</span><span><strong class="text-slate-700 dark:text-slate-300">Fórmulas:</strong> base común antes de umbrales GPR (Esperado / Mín. / Sobre esperado).</span></li>
+                                        <li class="flex gap-2"><span class="material-icons text-teal-600 dark:text-teal-400 text-base shrink-0" aria-hidden="true">event_note</span><span><strong class="text-slate-700 dark:text-slate-300">Cadencia:</strong> cronograma tipo mes y reuniones SRD.</span></li>
+                                        <li class="flex gap-2"><span class="material-icons text-teal-600 dark:text-teal-400 text-base shrink-0" aria-hidden="true">account_tree</span><span><strong class="text-slate-700 dark:text-slate-300">EVM:</strong> donde aplica, se indica <span class="font-mono text-[11px]">EV</span>, <span class="font-mono text-[11px]">PV</span>, <span class="font-mono text-[11px]">AC</span> según PMBOK.</span></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <aside class="rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-5 sm:p-6 shadow-sm flex flex-col h-full">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-ritweb-teal dark:text-teal-400">Contenido de General</p>
+                            <nav class="mt-3 flex-1 space-y-1 text-sm" aria-label="Secciones General">
+                                <a href="#pmo-general-jerarquia" class="flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:text-teal-900 dark:hover:text-teal-100 transition">
+                                    <span class="material-icons text-lg text-teal-600 dark:text-teal-400" aria-hidden="true">layers</span>
+                                    Jerarquía N1–N3 y KPI
+                                </a>
+                                <a href="#pmo-general-gpr" class="flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:text-amber-900 dark:hover:text-amber-100 transition">
+                                    <span class="material-icons text-lg text-amber-600 dark:text-amber-400" aria-hidden="true">verified</span>
+                                    Alineación GPR
+                                </a>
+                                <a href="#pmo-general-crono" class="flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/35 hover:text-sky-900 dark:hover:text-sky-100 transition">
+                                    <span class="material-icons text-lg text-sky-600 dark:text-sky-400" aria-hidden="true">calendar_month</span>
+                                    Cronograma mensual
+                                </a>
+                            </nav>
+                            <p class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-600 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                                Las fórmulas son <strong class="text-slate-600 dark:text-slate-300">plantillas</strong>. Acuerde definiciones de medición (p. ej. cómo mide la organización el Valor Ganado <span class="font-mono">EV</span>) en su catálogo MDG.
+                            </p>
+                        </aside>
+                    </div>
+
+                    <section class="rounded-2xl border border-slate-200 dark:border-slate-600 bg-off-white dark:bg-slate-800/50 py-8 sm:py-10 px-4 sm:px-6 lg:px-10 xl:px-12 shadow-sm">
+                        <p class="text-center text-ritweb-teal dark:text-teal-400 font-semibold uppercase tracking-wider text-xs sm:text-sm mb-2">Marco de referencia</p>
+                        <h2 class="text-center text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">Cómo apoya esta guía al módulo PMO</h2>
+                        <p class="text-center text-slate-600 dark:text-slate-300 max-w-3xl mx-auto mb-8 sm:mb-10 text-sm sm:text-base px-2">Mismo criterio visual que el inicio de la plataforma: tarjetas claras, iconos en verde GPR y texto centrado para que el contenido ocupe el ancho útil sin sensación de “mitad vacía”.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+                            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm p-6 lg:p-7">
+                                <div class="w-12 h-12 bg-ritweb-teal/10 dark:bg-ritweb-teal/20 border border-ritweb-teal/20 rounded flex items-center justify-center mb-4">
+                                    <span class="material-icons text-ritweb-teal text-2xl" aria-hidden="true">analytics</span>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Indicadores y fórmulas</h3>
+                                <p class="text-sm text-slate-600 dark:text-slate-300">Definiciones compartidas de KPI por nivel (N1–N3) y columna de fórmula para alinear PMO, proyecto y terreno antes de tableros GPR.</p>
+                            </div>
+                            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm p-6 lg:p-7">
+                                <div class="w-12 h-12 bg-ritweb-teal/10 dark:bg-ritweb-teal/20 border border-ritweb-teal/20 rounded flex items-center justify-center mb-4">
+                                    <span class="material-icons text-ritweb-teal text-2xl" aria-hidden="true">groups</span>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Ritmo GPR (SRD / SMD)</h3>
+                                <p class="text-sm text-slate-600 dark:text-slate-300">Comités, staff semanal y sesiones de mejora descritos en bloque dedicado, con estrellas de alineación respecto a esta guía.</p>
+                            </div>
+                            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm p-6 lg:p-7">
+                                <div class="w-12 h-12 bg-ritweb-teal/10 dark:bg-ritweb-teal/20 border border-ritweb-teal/20 rounded flex items-center justify-center mb-4">
+                                    <span class="material-icons text-ritweb-teal text-2xl" aria-hidden="true">schedule</span>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Cronograma mensual</h3>
+                                <p class="text-sm text-slate-600 dark:text-slate-300">Vista de cuatro semanas con mediciones N1/N2/N3 y reuniones, para coordinar calendario corporativo y cierres.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div id="pmo-general-jerarquia" class="scroll-mt-24">
+                        <p class="text-center text-ritweb-teal dark:text-teal-400 font-semibold uppercase tracking-wider text-xs sm:text-sm mb-2">Indicadores por audiencia</p>
+                        <h2 class="text-center text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">Jerarquía de indicadores</h2>
+                        <p class="text-center text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-3xl mx-auto mb-4 px-2">Reporting ejecutivo (N1), gestión de proyecto y PMO (N2) y terreno (N3). Pulse un nivel para desplegar la tabla con <strong class="text-slate-700 dark:text-slate-300">fórmula o definición de cálculo</strong>, importancia y periodicidad.</p>
+                        <div class="flex flex-wrap justify-center gap-2 mb-6">
+                            <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-950/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200">N1 Estratégico</span>
+                            <span class="inline-flex items-center rounded-full bg-sky-100 dark:bg-sky-950/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-sky-900 dark:text-sky-200">N2 Táctico</span>
+                            <span class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-950/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">N3 Operativo</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="pmo-mdg-nivel-cards" role="tablist" aria-label="Niveles de indicadores N1 a N3">
+                            <button type="button" role="tab" id="pmo-mdg-tab-1" data-mdg-nivel="1" aria-selected="false" aria-controls="pmo-mdg-panel-1" tabindex="0"
+                                    class="mdg-nivel-btn group rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-5 shadow-sm ring-2 ring-amber-400/30 dark:ring-amber-500/25 text-left transition hover:shadow-md hover:ring-amber-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+                                <span class="flex items-start justify-between gap-2">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Nivel 1 — N1</span>
+                                    <span class="material-icons text-amber-600/80 dark:text-amber-400/90 text-xl shrink-0 opacity-0 group-hover:opacity-100 mdg-nivel-chevron transition-opacity" aria-hidden="true">expand_more</span>
+                                </span>
+                                <span class="block text-base font-semibold text-slate-900 dark:text-slate-100 mt-1">Nivel estratégico / ejecutivo</span>
+                                <span class="block mt-2 text-sm text-slate-600 dark:text-slate-300 leading-snug">Vista agregada para dirección y patrocinio: pocos indicadores clave, horizonte amplio y foco en valor y alineación estratégica.</span>
+                            </button>
+                            <button type="button" role="tab" id="pmo-mdg-tab-2" data-mdg-nivel="2" aria-selected="false" aria-controls="pmo-mdg-panel-2" tabindex="-1"
+                                    class="mdg-nivel-btn group rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-5 shadow-sm ring-2 ring-sky-400/30 dark:ring-sky-500/25 text-left transition hover:shadow-md hover:ring-sky-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+                                <span class="flex items-start justify-between gap-2">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400">Nivel 2 — N2</span>
+                                    <span class="material-icons text-sky-600/80 dark:text-sky-400/90 text-xl shrink-0 opacity-0 group-hover:opacity-100 mdg-nivel-chevron transition-opacity" aria-hidden="true">expand_more</span>
+                                </span>
+                                <span class="block text-base font-semibold text-slate-900 dark:text-slate-100 mt-1">Nivel táctico / gestión</span>
+                                <span class="block mt-2 text-sm text-slate-600 dark:text-slate-300 leading-snug">Seguimiento de portafolio y proyectos: desempeño frente a plan, riesgos, costos y cronograma con suficiente detalle para decisiones de gestión.</span>
+                            </button>
+                            <button type="button" role="tab" id="pmo-mdg-tab-3" data-mdg-nivel="3" aria-selected="false" aria-controls="pmo-mdg-panel-3" tabindex="-1"
+                                    class="mdg-nivel-btn group rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-5 shadow-sm ring-2 ring-emerald-400/30 dark:ring-emerald-500/25 text-left transition hover:shadow-md hover:ring-emerald-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+                                <span class="flex items-start justify-between gap-2">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Nivel 3 — N3</span>
+                                    <span class="material-icons text-emerald-600/80 dark:text-emerald-400/90 text-xl shrink-0 opacity-0 group-hover:opacity-100 mdg-nivel-chevron transition-opacity" aria-hidden="true">expand_more</span>
+                                </span>
+                                <span class="block text-base font-semibold text-slate-900 dark:text-slate-100 mt-1">Nivel operativo / terreno</span>
+                                <span class="block mt-2 text-sm text-slate-600 dark:text-slate-300 leading-snug">Datos de ejecución diaria o por frente de trabajo: actividades, avances físicos, consumos y registros de campo que alimentan niveles superiores.</span>
+                            </button>
+                        </div>
+
+                        <div id="pmo-mdg-detail-wrap" class="mt-5 hidden rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-600 bg-slate-50/90 dark:bg-slate-900/50 px-4 py-3">
+                                <h3 id="pmo-mdg-detail-title" class="text-sm font-bold text-slate-800 dark:text-slate-100">KPI y controles de referencia</h3>
+                                <button type="button" id="pmo-mdg-detail-close" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                    <span class="material-icons text-[16px]" aria-hidden="true">close</span>
+                                    Cerrar
+                                </button>
+                            </div>
+                            <div class="p-4 sm:p-5">
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Referencia <strong class="text-slate-600 dark:text-slate-300">PMI / PMBOK</strong> (valor ganado, riesgos, beneficios) y rol <strong class="text-slate-600 dark:text-slate-300">PMO</strong>. La columna <strong class="text-slate-600 dark:text-slate-300">Fórmula</strong> unifica el cálculo antes de fijar umbrales GPR. Símbolos habituales: <span class="font-mono text-[11px]">EV</span> Valor ganado, <span class="font-mono text-[11px]">PV</span> Valor planificado, <span class="font-mono text-[11px]">AC</span> Costo real.</p>
+
+                                <div id="pmo-mdg-panel-1" role="tabpanel" aria-labelledby="pmo-mdg-tab-1" class="hidden mdg-kpi-panel space-y-4">
+                                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">N1 — Ejecutivo / estratégico</p>
+                                    <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600">
+                                        <table class="w-full min-w-0 text-xs sm:text-sm text-left table-auto">
+                                            <thead class="bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100">
+                                                <tr>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[18%]">KPI o control clave</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[26%]">Fórmula / definición de cálculo</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[30%]">Importancia (por qué importa)</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[26%]">Periodicidad de medición sugerida</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-200 dark:divide-slate-600 text-slate-700 dark:text-slate-300">
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Alineación estratégica del portafolio</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Índice = Σ(w<sub>i</sub>·a<sub>i</sub>) / Σw<sub>i</sub> con a<sub>i</sub> ∈ [0,1] score de alineación del proyecto <em>i</em> y w<sub>i</sub> peso (CAPEX, riesgo, estrategia). Alternativa: % proyectos con a<sub>i</sub> ≥ umbral / N total.</td>
+                                                    <td class="px-3 py-2">Asegura que la inversión y los proyectos reflejan prioridades corporativas; reduce dispersión y proyectos “huérfanos” de la estrategia.</td>
+                                                    <td class="px-3 py-2">Revisión <strong>trimestral</strong> (comité ejecutivo); lectura anual en planificación estratégica.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Valor / beneficios de negocio (real vs. caso de negocio)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">% Realización = (Beneficio acumulado real / Beneficio planificado en el periodo) × 100. Variante: VAN o margen real vs. línea base del business case en términos homogéneos (moneda, horizonte).</td>
+                                                    <td class="px-3 py-2">Vincula entregables con retorno esperado; foco en resultados, no solo en actividades (benefits realization).</td>
+                                                    <td class="px-3 py-2">Seguimiento <strong>mensual</strong> agregado; informe <strong>trimestral</strong> a patrocinio y alta dirección.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Salud del portafolio (semáforo: plazo, costo, riesgo)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Agregación tipo SPI<sub>port</sub> = ΣEV<sub>j</sub>/ΣPV<sub>j</sub>, CPI<sub>port</sub> = ΣEV<sub>j</sub>/ΣAC<sub>j</sub> (o promedio ponderado por presupuesto). Riesgo: exposición = max<sub>k</sub>(P<sub>k</sub>·I<sub>k</sub>) o Σ sobre top-K riesgos. Semáforo = reglas GPR sobre esos índices.</td>
+                                                    <td class="px-3 py-2">Ofrece una síntesis accionable sin sobrecargar al ejecutivo con detalle operativo.</td>
+                                                    <td class="px-3 py-2"><strong>Mensual</strong> para PMO; <strong>trimestral</strong> para directorio cuando aplique.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Capacidad vs. demanda (pipeline, throughput)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Ratio = Demanda (FTE o horas requeridas del portafolio) / Capacidad disponible (FTE PMO, ingeniería, etc.). Alternativa: proyectos activos / capacidad estándar acordada.</td>
+                                                    <td class="px-3 py-2">Evita sobre-compromiso de la organización y conflictos entre proyectos por recursos escasos.</td>
+                                                    <td class="px-3 py-2"><strong>Mensual</strong>; revisión en <strong>gates</strong> o etapas de inversión.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Riesgos materiales agregados (top riesgos corporativos)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Puntuación = P × I (probabilidad × impacto en escala acordada) o matriz ordinal. Tendencia Δ = Score<sub>t</sub> − Score<sub>t−1</sub>. Priorización por score o por proximidad al umbral “crítico”.</td>
+                                                    <td class="px-3 py-2">Anticipa impactos en objetivos estratégicos y reputación; prioriza escalamiento.</td>
+                                                    <td class="px-3 py-2"><strong>Mensual</strong>; actualización <strong>inmediata</strong> si hay riesgo crítico.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div id="pmo-mdg-panel-2" role="tabpanel" aria-labelledby="pmo-mdg-tab-2" class="hidden mdg-kpi-panel space-y-4">
+                                    <p class="text-sm font-semibold text-sky-800 dark:text-sky-200">N2 — Táctico / gestión de proyecto y PMO</p>
+                                    <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600">
+                                        <table class="w-full min-w-0 text-xs sm:text-sm text-left table-auto">
+                                            <thead class="bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-100">
+                                                <tr>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[18%]">KPI o control clave</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[26%]">Fórmula / definición de cálculo</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[30%]">Importancia (por qué importa)</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[26%]">Periodicidad de medición sugerida</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-200 dark:divide-slate-600 text-slate-700 dark:text-slate-300">
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">SPI y CPI (desempeño de cronograma y costo — EVM)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">SPI = EV / PV (si PV=0, definir regla). CPI = EV / AC. SV = EV − PV, CV = EV − AC. Opcional: EAC = BAC/CPI o EAC = AC + (BAC−EV)/(CPI·SPI) según política.</td>
+                                                    <td class="px-3 py-2">Detecta desviaciones con suficiente antelación para acciones correctivas; lenguaje común entre PMO y proyecto.</td>
+                                                    <td class="px-3 py-2">Cálculo <strong>semanal o quincenal</strong> en control de proyecto; consolidación <strong>mensual</strong> en PMO.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Cumplimiento de hitos (milestones)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">% Cumplimiento = (Hitos completados a fecha de corte / Hitos planificados a esa fecha) × 100. Con pesos: % = Σ(w<sub>h</sub>·I<sub>h</sub>) / Σw<sub>h</sub> × 100, I<sub>h</sub>∈{0,1} si el hito h está cumplido a la fecha.</td>
+                                                    <td class="px-3 py-2">Conecta el plan con compromisos contractuales, entregables de negocio y dependencias entre equipos.</td>
+                                                    <td class="px-3 py-2">Revisión <strong>semanal</strong> en equipo de proyecto; reporte <strong>mensual</strong> a PMO.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Exposición de riesgos del proyecto (registro, tendencia)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Exposición<sub>riesgo r</sub> = P<sub>r</sub> × I<sub>r</sub> (escalas normalizadas). Exposición proyecto = Σ Exposición<sub>r</sub> sobre riesgos abiertos o max(P×I). Tendencia = variación del score entre periodos.</td>
+                                                    <td class="px-3 py-2">Prioriza mitigaciones y reservas; evita sorpresas en comités de cambio.</td>
+                                                    <td class="px-3 py-2"><strong>Semanal</strong> en proyecto; síntesis <strong>mensual</strong> en PMO / portafolio.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Línea base vs. cambios (alcance, cronograma, costo aprobados)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Variación aprobada Δ% = (Valor medido post-cambio − Línea base aprobada) / |Línea base| × 100 por dimensión (alcance, tiempo, costo). Conteo de CR aprobadas / rechazadas como control de gobierno.</td>
+                                                    <td class="px-3 py-2">Mantiene trazabilidad PMI; evita “scope creep” no gobernado.</td>
+                                                    <td class="px-3 py-2">Por cada <strong>cambio aprobado</strong>; auditoría de variaciones <strong>mensual</strong>.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Calidad / no conformidades abiertas</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Backlog NC = Σ NC abiertas o Σ días-abiertos ponderados. Tasa = NC nuevas / inspecciones en el periodo. % Cierre = NC cerradas / (abiertas inicio + nuevas) en el periodo.</td>
+                                                    <td class="px-3 py-2">Reduce retrabajo y costo de calidad; alinea entrega con criterios de aceptación.</td>
+                                                    <td class="px-3 py-2"><strong>Semanal</strong> en obra o fábrica de software; tendencia <strong>mensual</strong>.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Uso de recursos críticos (cuellos de botella)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Utilización % = Horas imputadas (o asignadas) / Horas disponibles del recurso × 100 en la ventana. Cuello = recurso con utilización &gt; umbral o cola máxima de tareas pendientes.</td>
+                                                    <td class="px-3 py-2">Explica retrasos compartidos entre proyectos y permite re-planificar.</td>
+                                                    <td class="px-3 py-2"><strong>Quincenal</strong> o <strong>mensual</strong> según criticidad del recurso.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div id="pmo-mdg-panel-3" role="tabpanel" aria-labelledby="pmo-mdg-tab-3" class="hidden mdg-kpi-panel space-y-4">
+                                    <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-200">N3 — Operativo / terreno</p>
+                                    <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600">
+                                        <table class="w-full min-w-0 text-xs sm:text-sm text-left table-auto">
+                                            <thead class="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100">
+                                                <tr>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[18%]">KPI o control clave</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[26%]">Fórmula / definición de cálculo</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[30%]">Importancia (por qué importa)</th>
+                                                    <th scope="col" class="px-3 py-2 font-semibold w-[26%]">Periodicidad de medición sugerida</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-200 dark:divide-slate-600 text-slate-700 dark:text-slate-300">
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Avance físico vs. plan (por frente, WBS o paquete)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">% Avance físico = (Cantidad ejecutada acumulada / Cantidad total planificada del paquete) × 100. Con pesos WBS: % = Σ(w<sub>p</sub>·%<sub>p</sub>) / Σw<sub>p</sub>. Alimenta EV físico si se usa misma unidad de medida que el presupuesto.</td>
+                                                    <td class="px-3 py-2">Base objetiva para SPI y reporting; evidencia de progreso real en terreno.</td>
+                                                    <td class="px-3 py-2"><strong>Diario</strong> o por turno; consolidado <strong>semanal</strong> por capataz / jefe de terreno.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Productividad / cantidad ejecutada (unidades de obra, entregables)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Productividad Q = Unidades ejecutadas / Unidad de tiempo (día, turno) o Q = Unidades / HH si se miden horas-hombre. Desviación vs. estándar: (Q<sub>real</sub> − Q<sub>std</sub>) / Q<sub>std</sub> × 100.</td>
+                                                    <td class="px-3 py-2">Conecta esfuerzo operativo con metas de corto plazo y detecta desviaciones de ritmo.</td>
+                                                    <td class="px-3 py-2"><strong>Diario</strong> en frentes críticos; resumen <strong>semanal</strong>.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Seguridad, salud y ambiente (incidentes, near-miss, inspecciones)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Tasa frecuencia = N° eventos (incidentes o near-miss registrados) / HH o / millón HH según norma corporativa. Cumplimiento inspecciones = Inspecciones OK / Inspecciones programadas × 100.</td>
+                                                    <td class="px-3 py-2">Cumplimiento legal y parada de faena; cultura de prevención.</td>
+                                                    <td class="px-3 py-2">Registro <strong>inmediato</strong> de eventos; revisión <strong>diaria</strong> en faena; tendencia <strong>semanal</strong>.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Inspecciones y punch list (calidad de ejecución)</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">% Observaciones cerradas = Cerradas en el periodo / (Abiertas inicio + Nuevas) × 100. Días promedio de cierre = Σ días hasta cierre / N cierres. Backlog = Σ observaciones abiertas.</td>
+                                                    <td class="px-3 py-2">Reduce retrabajo antes de entregar al cliente o a otra disciplina.</td>
+                                                    <td class="px-3 py-2">Por <strong>disciplina</strong> según avance; cierre <strong>semanal</strong> de observaciones abiertas.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">Consumo de materiales y horas-hombre vs. presupuesto operativo</td>
+                                                    <td class="px-3 py-2 font-mono text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">Variación costo = (Costo acumulado real − Presupuesto operativo a la misma línea base) / Presupuesto × 100. Consumo físico vs. BOQ = (Cantidad consumida − Cantidad presupuestada) / Cantidad presupuestada × 100. HH imputadas vs. HH presupuestadas análogo.</td>
+                                                    <td class="px-3 py-2">Alimenta el control de costo (CPI) con datos granulares y detecta fugas.</td>
+                                                    <td class="px-3 py-2"><strong>Semanal</strong> como mínimo en proyectos de alta quema de costo.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-gradient-to-r from-slate-50 via-white to-teal-50/40 dark:from-slate-900/40 dark:via-slate-800/60 dark:to-teal-950/20 px-4 py-4 sm:px-6 lg:px-8 shadow-sm w-full">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 text-center">Flujo de datos y decisiones (MDG → tableros GPR)</p>
+                        <div class="flex flex-wrap items-center justify-center gap-x-1 gap-y-2 text-[11px] sm:text-xs font-medium text-slate-800 dark:text-slate-200">
+                            <span class="rounded-lg bg-emerald-100 dark:bg-emerald-950/55 px-2.5 py-1.5 border border-emerald-200/80 dark:border-emerald-800/60">N3 Terreno</span>
+                            <span class="material-icons text-slate-400 dark:text-slate-500 text-base shrink-0" aria-hidden="true">arrow_forward</span>
+                            <span class="rounded-lg bg-sky-100 dark:bg-sky-950/50 px-2.5 py-1.5 border border-sky-200/80 dark:border-sky-800/60">N2 PMO / proyecto</span>
+                            <span class="material-icons text-slate-400 dark:text-slate-500 text-base shrink-0" aria-hidden="true">arrow_forward</span>
+                            <span class="rounded-lg bg-amber-100 dark:bg-amber-950/45 px-2.5 py-1.5 border border-amber-200/80 dark:border-amber-800/60">N1 Dirección</span>
+                        </div>
+                        <p class="text-center text-[11px] text-slate-500 dark:text-slate-400 mt-3 max-w-2xl mx-auto">Las <strong class="text-slate-600 dark:text-slate-300">fórmulas</strong> aseguran que el mismo número signifique lo mismo en cada nivel antes de aplicar umbrales <em>Esperado / Mínimo / Sobre esperado</em>.</p>
+                    </div>
+
+                    <div id="pmo-general-gpr" class="scroll-mt-24 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 shadow-sm space-y-8">
+                        <div class="text-center max-w-3xl mx-auto">
+                            <p class="text-ritweb-teal dark:text-teal-400 font-semibold uppercase tracking-wider text-xs mb-2">Gobierno y reuniones</p>
+                            <div class="flex justify-center mb-2">
+                                <span class="material-icons text-amber-500 text-3xl" aria-hidden="true">verified</span>
+                            </div>
+                            <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Estrategia GPR: SRD, SMD y directrices de KPI</h2>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-3 text-left sm:text-center">
+                                La gerencia plantea un <strong class="text-slate-700 dark:text-slate-300">doble riel</strong>: <strong class="text-slate-800 dark:text-slate-200">control</strong> (medir, ver el tablero, comparar con umbrales en las SRD) y <strong class="text-slate-800 dark:text-slate-200">mitigación</strong> (actuar con planes concretos cuando hay brecha, vía SMD). Abajo: primero el <strong>objetivo</strong> de reportabilidad N1/N2; luego el <strong>ciclo</strong> y las <strong>instancias</strong> que operan ese control.
+                            </p>
+                        </div>
+
+                        <section class="rounded-xl border-2 border-[#166f7b]/35 dark:border-teal-500/40 bg-gradient-to-br from-teal-50/90 via-white to-slate-50/80 dark:from-slate-900/80 dark:via-slate-800 dark:to-slate-900 p-5 sm:p-6 shadow-sm" aria-labelledby="pmo-gpr-objetivo-heading">
+                            <div class="flex flex-wrap items-start gap-3">
+                                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#166f7b] text-white">
+                                    <span class="material-icons text-2xl" aria-hidden="true">flag</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-[#166f7b] dark:text-teal-300" id="pmo-gpr-objetivo-heading">Objetivo de gobierno — visión gerencia</p>
+                                    <h3 class="mt-1 text-lg font-bold text-slate-900 dark:text-slate-50">Reportabilidad N1 y N2 para el tablero GPR</h3>
+                                    <p class="mt-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                        <strong>Meta:</strong> que exista, <strong>por cada proyecto o estudio</strong>, un <strong>reporte de una página</strong> dedicado a los <strong class="text-amber-900 dark:text-amber-200">KPI N1</strong> y otro a los <strong class="text-sky-900 dark:text-sky-200">KPI N2</strong>, de modo que la alta dirección y el comité puedan <strong>leer el estado estratégico y táctico sin ruido</strong>. Esos indicadores se miden en <strong>cadencia mayormente mensual</strong>; por eso la <strong>instancia de comité que los examina también es mensual</strong>: el ritmo de la reunión sigue al ritmo de los datos.
+                                    </p>
+                                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                                        Este apartado describe <strong class="text-slate-700 dark:text-slate-300">qué se persigue construir</strong> (artefactos y alineación temporal). El comité, en la sección SRD, <strong>consume</strong> ese tablero y esos resúmenes; no es lo mismo que el objetivo en sí.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800/80 px-4 py-4 sm:px-6 sm:py-5">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 text-center">Ciclo de control y mitigación (visión gerencia)</p>
+                            <div class="flex flex-col md:flex-row flex-wrap items-stretch justify-center gap-3 md:gap-2 text-sm">
+                                <div class="flex-1 min-w-[10rem] rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/80 dark:bg-sky-950/30 px-4 py-3 text-center">
+                                    <span class="material-icons text-sky-600 dark:text-sky-400 text-xl mb-1" aria-hidden="true">dashboard</span>
+                                    <p class="font-bold text-slate-800 dark:text-slate-100">1. Control</p>
+                                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Tablero GPR, KPI N1/N2 (y N3 donde aplique), umbrales <em>Esperado / Mín. / Sobre esperado</em>. Las SRD validan lectura y decisiones.</p>
+                                </div>
+                                <div class="hidden md:flex items-center text-slate-400 dark:text-slate-500" aria-hidden="true">
+                                    <span class="material-icons">arrow_forward</span>
+                                </div>
+                                <div class="flex-1 min-w-[10rem] rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/25 px-4 py-3 text-center">
+                                    <span class="material-icons text-amber-600 dark:text-amber-400 text-xl mb-1" aria-hidden="true">warning</span>
+                                    <p class="font-bold text-slate-800 dark:text-slate-100">2. Brecha</p>
+                                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">KPI por debajo de <strong>«Esperado»</strong> o tendencia no aceptable: se declara explícitamente en comité o staff.</p>
+                                </div>
+                                <div class="hidden md:flex items-center text-slate-400 dark:text-slate-500" aria-hidden="true">
+                                    <span class="material-icons">arrow_forward</span>
+                                </div>
+                                <div class="flex-1 min-w-[10rem] rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/20 px-4 py-3 text-center">
+                                    <span class="material-icons text-rose-600 dark:text-rose-400 text-xl mb-1" aria-hidden="true">healing</span>
+                                    <p class="font-bold text-slate-800 dark:text-slate-100">3. Mitigación</p>
+                                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><strong>SMD:</strong> planes de acción, responsables y plazos hasta recuperar desempeño o estado aceptable.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-6 lg:grid-cols-2">
+                            <section class="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40 p-5 sm:p-6">
+                                <h3 class="text-sm font-bold uppercase tracking-wide text-sky-800 dark:text-sky-300 flex items-center gap-2 mb-3">
+                                    <span class="material-icons text-sky-600 dark:text-sky-400 text-xl" aria-hidden="true">groups</span>
+                                    SRD — Sesiones de revisión de desempeño
+                                </h3>
+                                <ul class="space-y-4 text-sm text-slate-700 dark:text-slate-300">
+                                    <li>
+                                        <p class="font-semibold text-slate-800 dark:text-slate-100">Comité GPR (mensual)</p>
+                                        <p class="mt-1">En cada sesión el comité <strong>revisa el tablero GPR</strong> donde se muestran los <strong class="text-amber-800 dark:text-amber-200">KPI de Nivel 1</strong> y los <strong class="text-sky-800 dark:text-sky-200">KPI de Nivel 2</strong>. La conversación se apoya en los <strong>resúmenes de una página por proyecto o estudio</strong> definidos como <a href="#pmo-gpr-objetivo-heading" class="text-ritweb-teal dark:text-teal-400 font-semibold hover:underline">objetivo de gobierno</a> arriba (uno para N1 y otro para N2).</p>
+                                        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400"><strong class="text-slate-700 dark:text-slate-300">Función de control:</strong> contrastar valores y tendencias con los <strong>tres umbrales</strong> acordados. <strong class="text-slate-700 dark:text-slate-300">Disparador de mitigación:</strong> si un KPI está <strong>por debajo de «Esperado»</strong>, debe <strong>iniciarse o mantenerse una SMD</strong> específica hasta corregir la trayectoria.</p>
+                                    </li>
+                                    <li>
+                                        <p class="font-semibold text-slate-800 dark:text-slate-100">Reunión semanal — Staff GPR</p>
+                                        <p class="mt-1"><strong>Control operativo escalado:</strong> revisión del estado <strong>de una página</strong> de los KPI <strong class="text-emerald-800 dark:text-emerald-200">N3</strong>, actualizados <strong>semanalmente</strong>. Solo los <strong>N3 más críticos</strong> por proyecto; los directores definen cuáles suben a esta mesa para alimentar después el tablero y el comité.</p>
+                                    </li>
+                                    <li>
+                                        <p class="font-semibold text-slate-800 dark:text-slate-100">Reunión semanal — Staff del proyecto</p>
+                                        <p class="mt-1"><strong>Control en detalle:</strong> el equipo revisa <strong>todos</strong> sus KPI <strong>N1, N2 y N3</strong> con la granularidad propia del proyecto, cerrando la cadena entre terreno y lo que verá gerencia.</p>
+                                    </li>
+                                </ul>
+                            </section>
+                            <section class="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40 p-5 sm:p-6">
+                                <h3 class="text-sm font-bold uppercase tracking-wide text-rose-800 dark:text-rose-300 flex items-center gap-2 mb-3">
+                                    <span class="material-icons text-rose-600 dark:text-rose-400 text-xl" aria-hidden="true">trending_up</span>
+                                    SMD — Sesiones de mejora de desempeño
+                                </h3>
+                                <ul class="space-y-3 text-sm text-slate-700 dark:text-slate-300 list-disc list-inside marker:text-rose-500">
+                                    <li><strong>Propósito (mitigación):</strong> instrumentar la etapa <strong>3</strong> del ciclo: <strong>planes de acción</strong> que <strong>recuperen el desempeño</strong> de un KPI señalado en SRD como bajo <strong>«Esperado»</strong>.</li>
+                                    <li><strong>Contenido mínimo:</strong> <strong>compromisos concretos</strong>, <strong>responsables</strong> y <strong>plazos</strong> acordados en cada sesión.</li>
+                                    <li><strong>Duración del proceso:</strong> las SMD asociadas a un KPI <strong>continúan</strong> hasta que la <strong>tendencia</strong> del indicador cambie favorablemente o vuelva a estado <strong>«Esperado»</strong> o <strong>«Sobre lo esperado»</strong>.</li>
+                                </ul>
+                            </section>
+                        </div>
+
+                        <section class="rounded-xl border-2 border-amber-200/80 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-950/20 p-5 sm:p-6">
+                            <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
+                                <span class="material-icons text-amber-600 dark:text-amber-400" aria-hidden="true">analytics</span>
+                                Directrices de KPI (definición y mediciones)
+                            </h3>
+                            <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                                <table class="w-full min-w-0 text-xs sm:text-sm text-left">
+                                    <thead class="bg-slate-100 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200">
+                                        <tr>
+                                            <th scope="col" class="px-3 py-2 font-semibold w-[22%]">Tema</th>
+                                            <th scope="col" class="px-3 py-2 font-semibold">Requisito GPR</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200 dark:divide-slate-600 text-slate-700 dark:text-slate-300">
+                                        <tr>
+                                            <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 align-top">Jerarquía</td>
+                                            <td class="px-3 py-2">Los KPI se definen en <strong>tres niveles</strong>: <strong>N1</strong> estratégico, <strong>N2</strong> táctico y <strong>N3</strong> operativo, y deben estar <strong>relacionados jerárquicamente</strong> entre sí.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 align-top">Influencia y prioridad</td>
+                                            <td class="px-3 py-2">Un KPI <strong>N3</strong> puede influir a <strong>varios</strong> N2 o N1. Los de <strong>mayor influencia</strong> sobre el cumplimiento del proyecto deben <strong>priorizarse</strong> como indicadores más fuertes del compromiso.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 align-top">Regla de monitoreo</td>
+                                            <td class="px-3 py-2">Debe existir <strong>jerarquía clara</strong>: si un KPI <strong>N3 no influye</strong> a ningún <strong>N2</strong>, <strong>no debe monitorearse</strong>. Lo mismo aplica si un <strong>N2 no influye</strong> a <strong>N1</strong>.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 align-top">Umbrales (por cada KPI)</td>
+                                            <td class="px-3 py-2">Tres valores de referencia: <strong>Esperado</strong>, <strong>Mínimo tolerado</strong> y <strong>Sobre lo esperado</strong>. El desempeño se contrasta contra ellos en el tablero y en las SRD/SMD.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 align-top">Periodicidad de medición</td>
+                                            <td class="px-3 py-2"><strong class="text-amber-900 dark:text-amber-200">N1:</strong> mensual. <strong class="text-sky-900 dark:text-sky-200">N2:</strong> mensual y/o semanal (según diseño). <strong class="text-emerald-900 dark:text-emerald-200">N3:</strong> semanal.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Relación con las tablas de esta pestaña General</p>
+                            <ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                                <li class="flex gap-2">
+                                    <span class="material-icons text-amber-400 text-lg shrink-0" aria-hidden="true">star</span>
+                                    <span><strong>Ejemplos de KPI, fórmulas y periodicidades</strong> por N1/N2/N3 en las tarjetas superiores <strong>apoyan</strong> el diseño del tablero GPR y las reuniones SRD, pero <strong>no sustituyen</strong> la definición oficial por proyecto ni los tres umbrales en sistema.</span>
+                                </li>
+                                <li class="flex gap-2">
+                                    <span class="material-icons text-slate-400 dark:text-slate-500 text-lg shrink-0" aria-hidden="true">star_border</span>
+                                    <span><strong>Mapa de influencias N3→N2→N1</strong>, <strong>valores «Esperado / Mínimo / Sobre esperado»</strong> por KPI, <strong>plantillas «una página»</strong> y <strong>actas SMD</strong> deben vivir en el <strong>MDG operativo y tableros</strong> acordados por la organización.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div id="pmo-general-crono" class="scroll-mt-24 rounded-2xl border border-slate-200 dark:border-slate-600 bg-off-white dark:bg-slate-800/50 p-5 sm:p-6 md:p-8 shadow-sm space-y-5">
+                        <div class="text-center max-w-3xl mx-auto">
+                            <p class="text-ritweb-teal dark:text-teal-400 font-semibold uppercase tracking-wider text-xs mb-2">Cadencia</p>
+                            <div class="flex justify-center mb-2">
+                                <span class="material-icons text-teal-600 dark:text-teal-400 text-3xl" aria-hidden="true">calendar_month</span>
+                            </div>
+                            <h2 class="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Cronograma tipo mes (4 semanas) — ritmos GPR</h2>
+                            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2">Vista referencial: cada celda es una <strong class="text-slate-600 dark:text-slate-300">semana</strong>. Ajuste el día fijo del comité o staff según su calendario corporativo.</p>
+                            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-3 max-w-3xl mx-auto leading-relaxed">El <strong>control</strong> se ejerce con ritmo semanal (datos N3, SRD, instancia N2). El <strong>cierre de mes</strong> consolida N2 y N1 y produce <strong>dos reportes de una página distintos</strong> (uno N2 y otro N1), <strong>por proyecto o estudio</strong>, alineados al <a href="#pmo-gpr-objetivo-heading" class="text-ritweb-teal dark:text-teal-400 font-semibold hover:underline">objetivo de gobierno</a>. El comité GPR usa esos insumos junto al tablero. La <strong>mitigación</strong> (SMD) se activa cuando el desempeño queda bajo <strong>Esperado</strong>.</p>
+                        </div>
+                        <div class="flex flex-wrap justify-center gap-2 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide">
+                            <span class="inline-flex items-center gap-1 rounded-full border border-teal-200 dark:border-teal-800 bg-teal-50/90 dark:bg-teal-950/40 px-2.5 py-1 text-teal-900 dark:text-teal-100">Control semanal</span>
+                            <span class="inline-flex items-center gap-1 rounded-full border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/35 px-2.5 py-1 text-amber-950 dark:text-amber-100">Gobierno — cierre mes</span>
+                            <span class="inline-flex items-center gap-1 rounded-full border border-rose-200 dark:border-rose-800 bg-rose-50/90 dark:bg-rose-950/30 px-2.5 py-1 text-rose-900 dark:text-rose-100">Mitigación (SMD)</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-[36rem] w-full text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200">
+                                        <th scope="col" class="text-left font-semibold px-3 py-2 border border-slate-200 dark:border-slate-600 w-[40%]">Etapa / actividad</th>
+                                        <th scope="col" class="text-center font-semibold px-2 py-2 border border-slate-200 dark:border-slate-600">Sem. 1</th>
+                                        <th scope="col" class="text-center font-semibold px-2 py-2 border border-slate-200 dark:border-slate-600">Sem. 2</th>
+                                        <th scope="col" class="text-center font-semibold px-2 py-2 border border-slate-200 dark:border-slate-600">Sem. 3</th>
+                                        <th scope="col" class="text-center font-semibold px-2 py-2 border border-slate-200 dark:border-slate-600">Sem. 4</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-slate-700 dark:text-slate-300">
+                                    <tr class="bg-slate-100/90 dark:bg-slate-900/50">
+                                        <td colspan="5" class="px-3 py-1.5 border border-slate-200 dark:border-slate-600 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Semanal — control operativo y seguimiento</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">Captura / registro <span class="text-emerald-700 dark:text-emerald-400">N3</span> (operativo; diario en faena si aplica)</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-emerald-50/80 dark:bg-emerald-950/30 text-[10px] px-1">L–D</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-emerald-50/80 dark:bg-emerald-950/30 text-[10px] px-1">L–D</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-emerald-50/80 dark:bg-emerald-950/30 text-[10px] px-1">L–D</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-emerald-50/80 dark:bg-emerald-950/30 text-[10px] px-1">L–D</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">Cierre / medición <span class="text-emerald-700 dark:text-emerald-400">KPI N3</span> (semanal GPR)</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-teal-100/90 dark:bg-teal-950/40 font-semibold text-teal-900 dark:text-teal-100">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-teal-100/90 dark:bg-teal-950/40 font-semibold text-teal-900 dark:text-teal-100">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-teal-100/90 dark:bg-teal-950/40 font-semibold text-teal-900 dark:text-teal-100">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-teal-100/90 dark:bg-teal-950/40 font-semibold text-teal-900 dark:text-teal-100">●</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">SRD — Staff GPR: tablero <span class="text-emerald-700 dark:text-emerald-400">N3</span> críticos (1 página)</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-100/80 dark:bg-sky-950/35">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-100/80 dark:bg-sky-950/35">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-100/80 dark:bg-sky-950/35">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-100/80 dark:bg-sky-950/35">●</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">SRD — Staff proyecto: revisión <span class="text-amber-800 dark:text-amber-300">N1</span>+<span class="text-sky-800 dark:text-sky-300">N2</span>+<span class="text-emerald-800 dark:text-emerald-300">N3</span></td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-violet-100/70 dark:bg-violet-950/30">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-violet-100/70 dark:bg-violet-950/30">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-violet-100/70 dark:bg-violet-950/30">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-violet-100/70 dark:bg-violet-950/30">●</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">Instancia semanal <span class="text-sky-700 dark:text-sky-400">N2</span> (control de proyecto / PMO)</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-50 dark:bg-sky-950/25">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-50 dark:bg-sky-950/25">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-50 dark:bg-sky-950/25">●</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-50 dark:bg-sky-950/25">●</td>
+                                    </tr>
+                                    <tr class="bg-slate-100/90 dark:bg-slate-900/50">
+                                        <td colspan="5" class="px-3 py-1.5 border border-slate-200 dark:border-slate-600 text-[10px] font-bold uppercase tracking-wider text-amber-900/90 dark:text-amber-200/90">Mensual — cierre, reportes de una página (por proyecto o estudio) e instancia de gobierno</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">Cierre <span class="text-sky-700 dark:text-sky-400">KPI N2</span> mensual (consolidación PMO) <span class="block text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Medición mensual N2</span></td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-amber-100/90 dark:bg-amber-950/40 font-semibold text-amber-900 dark:text-amber-100">●</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">Reporte <strong>una página</strong> <span class="text-sky-700 dark:text-sky-400">N2</span> (gerencia; identificado por proyecto o estudio) <span class="block text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Insumo tablero / comité — lectura ejecutiva del nivel táctico</span></td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-sky-100/90 dark:bg-sky-950/45 font-semibold text-sky-900 dark:text-sky-100">●</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">Cierre <span class="text-amber-800 dark:text-amber-300">KPI N1</span> mensual (consolidación / medición estratégica) <span class="block text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Medición mensual N1</span></td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-amber-200/90 dark:bg-amber-950/50 font-semibold text-amber-950 dark:text-amber-100">●</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">Reporte <strong>una página</strong> <span class="text-amber-800 dark:text-amber-300">N1</span> (gerencia; identificado por proyecto o estudio) <span class="block text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Insumo tablero / comité — lectura ejecutiva del nivel estratégico</span></td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-amber-200/90 dark:bg-amber-950/50 font-semibold text-amber-950 dark:text-amber-100">●</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium">SRD — <strong>Comité GPR</strong> (revisa tablero <span class="text-amber-800 dark:text-amber-300">N1</span>+<span class="text-sky-800 dark:text-sky-300">N2</span>; apoyado en reportes 1p; evalúa brechas) <span class="block text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Control de gobierno — dispara mitigación si aplica</span></td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 text-slate-400">—</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-amber-200/90 dark:bg-amber-950/50 font-semibold text-amber-950 dark:text-amber-100">●</td>
+                                    </tr>
+                                    <tr class="bg-slate-100/90 dark:bg-slate-900/50">
+                                        <td colspan="5" class="px-3 py-1.5 border border-slate-200 dark:border-slate-600 text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-200/90">Mitigación — cierre de brechas frente al umbral Esperado</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-3 py-2 border border-slate-200 dark:border-slate-600 font-medium"><strong>SMD</strong> — mejora si KPI &lt; Esperado (plan de acción)</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-rose-50/80 dark:bg-rose-950/25 text-[10px] text-rose-800 dark:text-rose-200">Si aplica</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-rose-50/80 dark:bg-rose-950/25 text-[10px] text-rose-800 dark:text-rose-200">Si aplica</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-rose-50/80 dark:bg-rose-950/25 text-[10px] text-rose-800 dark:text-rose-200">Si aplica</td>
+                                        <td class="text-center border border-slate-200 dark:border-slate-600 bg-rose-50/80 dark:bg-rose-950/25 text-[10px] text-rose-800 dark:text-rose-200">Si aplica</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400"><span class="font-semibold text-slate-600 dark:text-slate-300">Leyenda:</span> ● = hito o instancia en esa semana (en cierre de mes, varias filas pueden caer la misma semana según calendario); “L–D” = actividad continua. Los <strong>reportes de una página N1 y N2</strong> son <strong>artefactos distintos</strong>, uno por nivel y por proyecto o estudio. <strong>SMD</strong> puede abrirse en cualquier semana tras una SRD si hay brecha frente al umbral Esperado.</p>
+                    </div>
+
+                    <script>
+                        (function () {
+                            var wrap = document.getElementById('pmo-mdg-detail-wrap');
+                            var titleEl = document.getElementById('pmo-mdg-detail-title');
+                            var btns = document.querySelectorAll('.mdg-nivel-btn');
+                            var panels = {
+                                '1': document.getElementById('pmo-mdg-panel-1'),
+                                '2': document.getElementById('pmo-mdg-panel-2'),
+                                '3': document.getElementById('pmo-mdg-panel-3')
+                            };
+                            var titles = {
+                                '1': 'N1 — KPI y controles (ejecutivo / estratégico)',
+                                '2': 'N2 — KPI y controles (táctico / gestión)',
+                                '3': 'N3 — KPI y controles (operativo / terreno)'
+                            };
+                            function clearActive() {
+                                btns.forEach(function (b) {
+                                    b.setAttribute('aria-selected', 'false');
+                                    b.tabIndex = -1;
+                                    b.classList.remove('ring-teal-500', 'dark:ring-teal-400', 'shadow-lg');
+                                });
+                                Object.keys(panels).forEach(function (k) {
+                                    if (panels[k]) panels[k].classList.add('hidden');
+                                });
+                            }
+                            function openNivel(n) {
+                                if (!wrap || !panels[n]) return;
+                                clearActive();
+                                var btn = document.querySelector('.mdg-nivel-btn[data-mdg-nivel="' + n + '"]');
+                                if (btn) {
+                                    btn.setAttribute('aria-selected', 'true');
+                                    btn.tabIndex = 0;
+                                    btn.classList.add('ring-teal-500', 'dark:ring-teal-400', 'shadow-lg');
+                                }
+                                panels[n].classList.remove('hidden');
+                                if (titleEl) titleEl.textContent = titles[n] || 'KPI y controles';
+                                wrap.classList.remove('hidden');
+                                wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            }
+                            function closeDetail() {
+                                clearActive();
+                                if (wrap) wrap.classList.add('hidden');
+                                var firstTab = document.getElementById('pmo-mdg-tab-1');
+                                if (firstTab) firstTab.tabIndex = 0;
+                            }
+                            btns.forEach(function (b) {
+                                b.addEventListener('click', function () {
+                                    var n = b.getAttribute('data-mdg-nivel');
+                                    if (wrap && !wrap.classList.contains('hidden') && b.getAttribute('aria-selected') === 'true') {
+                                        closeDetail();
+                                        return;
+                                    }
+                                    openNivel(n);
+                                });
+                                b.addEventListener('keydown', function (e) {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        b.click();
+                                    }
+                                });
+                            });
+                            var closeBtn = document.getElementById('pmo-mdg-detail-close');
+                            if (closeBtn) closeBtn.addEventListener('click', closeDetail);
+                        })();
+                    </script>
+
+                    <p class="text-xs text-slate-500 dark:text-slate-400 text-center max-w-2xl mx-auto leading-relaxed">
+                        Use el menú lateral para ir a <strong class="text-slate-700 dark:text-slate-300">Proyecto</strong> o, si ya tiene uno asignado, a <strong class="text-slate-700 dark:text-slate-300">Vectores Financiero</strong>, <strong class="text-slate-700 dark:text-slate-300">Control físico</strong> y el resto de secciones.
+                    </p>
+                </div>
+            }
+
+            @if (esMenuProyecto)
+            {
+                <div class="w-full max-w-none space-y-6">
+                    @if (Model.ErrorCarga != null)
+                    {
+                        <div class="rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/80 p-4 text-amber-800 dark:text-amber-200 text-sm flex items-start gap-3">
+                            <span class="material-icons text-amber-600 dark:text-amber-400 flex-shrink-0">warning</span>
+                            <div>
+                                <p>@Model.ErrorCarga</p>
+                                <p class="mt-2 text-xs opacity-90">Asigne la app <strong>PMO</strong> y un proyecto en <strong>Ajustes → Usuarios por app</strong>, o use un usuario con rol que vea todos los proyectos.</p>
+                            </div>
+                        </div>
+                    }
+                    @if (Model.ErrorProyectoParametro != null)
+                    {
+                        <div class="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/80 p-4 text-red-800 dark:text-red-200 text-sm flex items-start gap-3">
+                            <span class="material-icons text-red-600 dark:text-red-400 flex-shrink-0">error_outline</span>
+                            <p>@Model.ErrorProyectoParametro</p>
+                        </div>
+                    }
+
+                    @* Encabezado compacto Portafolio PMO — eyebrow, título, contexto y accesos rápidos. *@
+                    <div class="relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-600 bg-gradient-to-br from-white via-white to-slate-50/80 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800/70 px-4 py-4 sm:px-5 sm:py-4 shadow-sm">
+                        <span aria-hidden="true" class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#166f7b] via-[#123B6D] to-amber-500"></span>
+                        <div class="pl-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-5">
+                            <div class="min-w-0 flex items-start gap-3">
+                                <div class="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#166f7b]/10 dark:bg-teal-500/10 text-[#166f7b] dark:text-teal-300 border border-[#166f7b]/20 dark:border-teal-700/40">
+                                    <span class="material-icons text-[22px]" aria-hidden="true">folder_special</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#166f7b] dark:text-teal-400">Portafolio PMO</p>
+                                    <h1 class="mt-0.5 text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Acceso al módulo PMO</h1>
+                                    @if (Model.ProyectoActivoId.HasValue)
+                                    {
+                                        <p class="mt-1 text-[11.5px] sm:text-xs text-slate-500 dark:text-slate-400 leading-snug">
+                                            Proyecto en contexto: <span class="font-semibold text-teal-800 dark:text-teal-200">@(Model.ProyectoActivoNombre ?? ("#" + Model.ProyectoActivoId))</span>
+                                            <span class="text-slate-400 dark:text-slate-500">· pulse otra tarjeta para cambiar.</span>
+                                        </p>
+                                    }
+                                    else
+                                    {
+                                        <p class="mt-1 text-[11.5px] sm:text-xs text-slate-500 dark:text-slate-400 leading-snug">Elija un <span class="font-semibold text-slate-700 dark:text-slate-300">proyecto o estudio</span> según sus permisos en RIT — KPI N1/N2 mensual, N3 semanal.</p>
+                                    }
+                                </div>
+                            </div>
+                            <div class="shrink-0 flex flex-wrap items-center gap-1.5 pl-1 sm:pl-0">
+                                <a href="@navGeneralSolo" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-colors" title="Abrir Marco GPR (General)">
+                                    <span class="material-icons text-[16px] text-slate-500 dark:text-slate-400" aria-hidden="true">menu_book</span>
+                                    <span class="hidden sm:inline">Marco GPR</span>
+                                </a>
+                                @if (navVectores != null)
+                                {
+                                    <a href="@navVectores" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#166f7b] hover:bg-[#125a63] dark:bg-teal-600 dark:hover:bg-teal-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors" title="Abrir Vectores Financiero">
+                                        <span class="material-icons text-[16px]" aria-hidden="true">stacked_line_chart</span>
+                                        <span class="hidden sm:inline">Vectores</span>
+                                    </a>
+                                }
+                                @if (navControlFisico != null)
+                                {
+                                    <a href="@navControlFisico" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/90 dark:bg-emerald-950/40 px-3 py-1.5 text-xs font-semibold text-emerald-900 dark:text-emerald-100 hover:bg-emerald-100/90 dark:hover:bg-emerald-900/50 transition-colors" title="Abrir Control físico">
+                                        <span class="material-icons text-[16px]" aria-hidden="true">timeline</span>
+                                        <span class="hidden sm:inline">Control físico</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (Model.ProyectosDisponibles.Count > 0 && Model.ErrorCarga == null)
+                    {
+                        <div class="relative max-w-md">
+                            <span class="material-icons pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]" aria-hidden="true">search</span>
+                            <input type="search" id="pmo-proyecto-filter" autocomplete="off" placeholder="Buscar por nombre, código o contrato…" aria-label="Filtrar proyectos"
+                                   class="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 pl-10 pr-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-[#166f7b]/35 focus:border-[#166f7b]" />
+                        </div>
+
+                        <div id="pmo-proyecto-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                            @foreach (var p in Model.ProyectosDisponibles)
+                            {
+                                var activo = Model.ProyectoActivoId == p.Id;
+                                var hrefProyecto = Url.Page("/PMO", null, new { proyectoId = p.Id, seccion = "resumen" }) ?? "#";
+                                var contratoTxt = string.IsNullOrWhiteSpace(p.NumeroContrato) ? "Sin contrato en RiT" : p.NumeroContrato;
+                                var filtro = $"{p.Nombre} {p.Id} {p.NumeroContrato ?? ""}".Trim();
+                                <a href="@hrefProyecto" data-pmo-proyecto-card data-pmo-filter-text="@filtro"
+                                   class="group relative flex flex-col rounded-2xl border bg-white dark:bg-slate-800 p-5 sm:p-6 shadow-sm transition-all duration-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#166f7b] dark:focus-visible:ring-offset-slate-900 @(activo ? "border-[#166f7b] ring-2 ring-[#166f7b]/35 dark:border-teal-500 dark:ring-teal-500/30" : "border-slate-200 dark:border-slate-600 hover:border-[#166f7b]/50 dark:hover:border-teal-500/50")"
+                                   aria-label="Abrir módulo PMO para @(p.Nombre)">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0 flex-1">
+                                            <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-50 leading-snug line-clamp-2 group-hover:text-[#166f7b] dark:group-hover:text-teal-400 transition-colors">@p.Nombre</h2>
+                                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">#@p.Id@if (!string.IsNullOrWhiteSpace(p.NumeroContrato)) { <span class="text-slate-400 dark:text-slate-500"> · </span> @p.NumeroContrato }</p>
+                                            <p class="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">Región <span class="font-medium text-slate-600 dark:text-slate-400">@p.RegionId</span></p>
+                                        </div>
+                                        <span class="shrink-0 inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:text-emerald-200 border border-emerald-200/80 dark:border-emerald-800/60">Activo</span>
+                                    </div>
+                                    <div class="mt-4 flex flex-wrap items-end justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/80">
+                                        <div class="min-w-0 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-snug">
+                                            <p><span class="text-slate-400 dark:text-slate-500">Contrato:</span> @contratoTxt</p>
+                                            <p class="mt-1 text-slate-600 dark:text-slate-300">GPR: reportes <strong class="font-semibold text-amber-800 dark:text-amber-200">N1</strong> y <strong class="font-semibold text-sky-800 dark:text-sky-200">N2</strong> (una página c/u) · ritmo comité mensual</p>
+                                        </div>
+                                        <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-200 group-hover:bg-[#166f7b] group-hover:text-white dark:group-hover:bg-teal-600 transition-colors" aria-hidden="true">
+                                            <span class="material-icons text-[22px]">arrow_forward</span>
+                                        </span>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                        <p id="pmo-proyecto-filter-empty" class="hidden text-sm text-slate-500 dark:text-slate-400 text-center py-8">Ningún proyecto coincide con la búsqueda.</p>
+                    }
+                    else if (Model.ErrorCarga == null)
+                    {
+                        <div class="rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40 px-6 py-14 text-center">
+                            <span class="material-icons text-4xl text-slate-300 dark:text-slate-600 mb-3" aria-hidden="true">folder_off</span>
+                            <p class="text-slate-700 dark:text-slate-300 font-medium">No hay proyectos disponibles</p>
+                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">Revise la asignación de la app <strong class="text-slate-600 dark:text-slate-300">PMO</strong> y proyecto en <strong class="text-slate-600 dark:text-slate-300">Ajustes → Usuarios por app</strong>.</p>
+                        </div>
+                    }
+
+                    <script>
+                        (function () {
+                            var input = document.getElementById('pmo-proyecto-filter');
+                            var grid = document.getElementById('pmo-proyecto-grid');
+                            if (!input || !grid) return;
+                            var cards = grid.querySelectorAll('[data-pmo-proyecto-card]');
+                            var emptyMsg = document.getElementById('pmo-proyecto-filter-empty');
+                            function applyFilter() {
+                                var q = (input.value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                                var n = 0;
+                                cards.forEach(function (card) {
+                                    var t = (card.getAttribute('data-pmo-filter-text') || '').toLowerCase();
+                                    var show = !q || t.indexOf(q) !== -1;
+                                    card.classList.toggle('hidden', !show);
+                                    if (show) n++;
+                                });
+                                if (emptyMsg) emptyMsg.classList.toggle('hidden', n !== 0);
+                            }
+                            input.addEventListener('input', applyFilter);
+                            input.addEventListener('search', applyFilter);
+                        })();
+                    </script>
+                </div>
+            }
+
+            @if (Model.MostrarSeccionResumen)
+            {
+                <input type="hidden" id="pmo-resumen-proyecto-id" value="@Model.ProyectoActivoId" />
+                <input type="hidden" id="pmo-proyecto-id" value="@Model.ProyectoActivoId" />
+                <div class="w-full max-w-none space-y-8 sm:space-y-10 pb-10">
+                    @if (Model.ErrorCarga != null)
+                    {
+                        <div class="rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/80 p-4 text-amber-800 dark:text-amber-200 text-sm flex items-start gap-3">
+                            <span class="material-icons text-amber-600 dark:text-amber-400 flex-shrink-0">warning</span>
+                            <p>@Model.ErrorCarga</p>
+                        </div>
+                    }
+
+                    @* Encabezado compacto del Tablero GPR — eyebrow, título, fuente y chips por nivel. *@
+                    <div class="relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-600 bg-gradient-to-br from-white via-white to-slate-50/80 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800/70 px-4 py-4 sm:px-5 sm:py-4 shadow-sm">
+                        <span aria-hidden="true" class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#166f7b] via-[#123B6D] to-amber-500"></span>
+                        <div class="pl-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-5">
+                            <div class="min-w-0 flex items-start gap-3">
+                                <div class="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#166f7b]/10 dark:bg-teal-500/10 text-[#166f7b] dark:text-teal-300 border border-[#166f7b]/20 dark:border-teal-700/40">
+                                    <span class="material-icons text-[22px]" aria-hidden="true">leaderboard</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#166f7b] dark:text-teal-400">Tablero GPR · lectura por niveles</p>
+                                    <h1 class="mt-0.5 text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Vista proyectada de KPI <span class="font-medium text-slate-500 dark:text-slate-400">(N1 · N2 · N3)</span></h1>
+                                    <p class="mt-1 text-[11.5px] text-slate-500 dark:text-slate-400 leading-snug">Fuente: <span class="font-semibold text-slate-700 dark:text-slate-300">Curva S / EVM</span> (PostgreSQL) · Detalle ampliado abajo en <span class="font-semibold text-slate-700 dark:text-slate-300">Vectores Financiero</span>.</p>
+                                </div>
+                            </div>
+                            <div class="shrink-0 flex flex-wrap gap-1.5 pl-1 sm:pl-0">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-semibold bg-amber-50 text-amber-900 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/60" title="Nivel 1 — Estratégico / dirección: estado y cierre.">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>N1 · Estado &amp; cierre
+                                </span>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-semibold bg-sky-50 text-sky-900 border border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-200 dark:border-sky-800/60" title="Nivel 2 — Táctico / PMO: control de desempeño.">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>N2 · Desempeño
+                                </span>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-900 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800/60" title="Nivel 3 — Operativo / terreno: físico y costo acumulado.">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>N3 · Físico &amp; costo
+                                </span>
+                            </div>
+                        </div>
+                        <p id="pmo-res-msg" class="hidden mt-3 ml-3 text-xs sm:text-sm rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/40 px-3 py-2 text-amber-900 dark:text-amber-100"></p>
+                    </div>
+
+                    @* N1 ancho completo (1×1); N2 y N3 en fila 1×2 debajo. *@
+                    <div class="w-full space-y-5 sm:space-y-6">
+                        <section class="group w-full rounded-2xl border border-slate-200/90 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-md shadow-slate-200/30 dark:shadow-none overflow-hidden flex flex-col ring-1 ring-slate-100/80 dark:ring-slate-700/50" aria-labelledby="pmo-res-n1-h">
+                            <div class="relative px-5 py-4 sm:px-6 sm:py-5 bg-gradient-to-br from-amber-50/95 via-white to-white dark:from-amber-950/35 dark:via-slate-800 dark:to-slate-800 border-b border-amber-100 dark:border-amber-900/40">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 dark:bg-amber-400/10 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-700/50">
+                                        <span class="material-icons text-[24px]" aria-hidden="true">military_tech</span>
+                                    </div>
+                                    <div class="min-w-0 flex-1 pt-0.5">
+                                        <p class="text-[10px] font-bold uppercase tracking-wider text-amber-800/90 dark:text-amber-300/90">Nivel 1</p>
+                                        <h2 id="pmo-res-n1-h" class="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-50 leading-snug">Estratégico / dirección</h2>
+                                        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 leading-snug max-w-4xl">Estado integrado, VAC y % avance valorizado vs plan (GPR: control y mitigación).</p>
+                                    </div>
+                                    <div id="pmo-res-n1-mit-slot" class="shrink-0 self-start" data-pmo-mit-slot="n1"></div>
+                                </div>
+                            </div>
+                            <div id="pmo-res-n1-body" class="p-5 sm:p-6 lg:p-8 flex-1 min-h-[14rem] text-sm bg-slate-50/40 dark:bg-slate-900/25 text-slate-600 dark:text-slate-400 flex items-stretch justify-center w-full">
+                                <span class="inline-flex items-center gap-2 self-center"><span class="material-icons text-[22px] animate-spin text-[#166f7b]" aria-hidden="true">progress_activity</span> Cargando…</span>
+                            </div>
+                        </section>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
+                            <section class="group min-w-0 rounded-2xl border border-slate-200/90 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-md shadow-slate-200/30 dark:shadow-none overflow-hidden flex flex-col ring-1 ring-slate-100/80 dark:ring-slate-700/50" aria-labelledby="pmo-res-n2-h">
+                            <div class="relative px-5 py-4 bg-gradient-to-br from-sky-50/95 via-white to-white dark:from-sky-950/35 dark:via-slate-800 dark:to-slate-800 border-b border-sky-100 dark:border-sky-900/40">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 dark:bg-sky-400/10 text-sky-800 dark:text-sky-300 border border-sky-200/60 dark:border-sky-700/50">
+                                        <span class="material-icons text-[24px]" aria-hidden="true">tune</span>
+                                    </div>
+                                    <div class="min-w-0 flex-1 pt-0.5">
+                                        <p class="text-[10px] font-bold uppercase tracking-wider text-sky-800/90 dark:text-sky-300/90">Nivel 2</p>
+                                        <h2 id="pmo-res-n2-h" class="text-base font-bold text-slate-900 dark:text-slate-50 leading-snug">Táctico / PMO — proyecto</h2>
+                                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-snug">CPI, SPI y variaciones CV / SV frente al plan.</p>
+                                    </div>
+                                    <div id="pmo-res-n2-mit-slot" class="shrink-0 self-start" data-pmo-mit-slot="n2"></div>
+                                </div>
+                            </div>
+                            <div id="pmo-res-n2-body" class="p-5 sm:p-6 flex-1 min-h-[17rem] text-sm bg-slate-50/40 dark:bg-slate-900/25 text-slate-600 dark:text-slate-400 flex items-stretch justify-center">
+                                <span class="inline-flex items-center gap-2 self-center"><span class="material-icons text-[22px] animate-spin text-[#166f7b]" aria-hidden="true">progress_activity</span> Cargando…</span>
+                            </div>
+                            </section>
+                            <section class="group min-w-0 rounded-2xl border border-slate-200/90 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-md shadow-slate-200/30 dark:shadow-none overflow-hidden flex flex-col ring-1 ring-slate-100/80 dark:ring-slate-700/50" aria-labelledby="pmo-res-n3-h">
+                            <div class="relative px-5 py-4 bg-gradient-to-br from-emerald-50/95 via-white to-white dark:from-emerald-950/35 dark:via-slate-800 dark:to-slate-800 border-b border-emerald-100 dark:border-emerald-900/40">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 dark:bg-emerald-400/10 text-emerald-800 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-700/50">
+                                        <span class="material-icons text-[24px]" aria-hidden="true">engineering</span>
+                                    </div>
+                                    <div class="min-w-0 flex-1 pt-0.5">
+                                        <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-800/90 dark:text-emerald-300/90">Nivel 3</p>
+                                        <h2 id="pmo-res-n3-h" class="text-base font-bold text-slate-900 dark:text-slate-50 leading-snug">Operativo / terreno</h2>
+                                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-snug">Avance físico y costo acumulado vs reproyectado (NPC / API).</p>
+                                    </div>
+                                    <div id="pmo-res-n3-mit-slot" class="shrink-0 self-start" data-pmo-mit-slot="n3"></div>
+                                </div>
+                            </div>
+                            <div id="pmo-res-n3-body" class="p-5 sm:p-6 flex-1 min-h-[17rem] text-sm bg-slate-50/40 dark:bg-slate-900/25 text-slate-600 dark:text-slate-400 flex items-stretch justify-center">
+                                <span class="inline-flex items-center gap-2 self-center"><span class="material-icons text-[22px] animate-spin text-[#166f7b]" aria-hidden="true">progress_activity</span> Cargando…</span>
+                            </div>
+                            </section>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-6">
+                        @{
+                            ViewData["PmoVfToolbarModo"] = "ResumenCurvaS";
+                        }
+                        <partial name="_PmoVectoresToolbarStacked" />
+                        <partial name="_PmoTabPanelVf" />
+                    </div>
+                </div>
+
+                @* Modal único — detalle "Estrategia de mitigación (GPR)" para N1, N2 y N3. *@
+                <div id="pmo-res-mit-modal" class="hidden fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[1px]" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="pmo-res-mit-modal-title">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-hidden flex flex-col">
+                        <div id="pmo-res-mit-modal-head" class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-start gap-3">
+                            <span id="pmo-res-mit-modal-icon" class="material-icons text-[26px] shrink-0" aria-hidden="true">verified</span>
+                            <div class="min-w-0 flex-1">
+                                <p id="pmo-res-mit-modal-eyebrow" class="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Estrategia de mitigación (GPR)</p>
+                                <h3 id="pmo-res-mit-modal-title" class="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-50 mt-0.5">Detalle de mitigación</h3>
+                            </div>
+                            <button type="button" id="pmo-res-mit-modal-close" class="shrink-0 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" title="Cerrar">
+                                <span class="material-icons text-[20px]">close</span>
+                            </button>
+                        </div>
+                        <div id="pmo-res-mit-modal-body" class="p-5 overflow-y-auto text-sm text-slate-700 dark:text-slate-200 space-y-3"></div>
+                        <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 flex justify-end">
+                            <button type="button" id="pmo-res-mit-modal-close-2" class="px-4 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Model.MostrarSeccionPlaceholder && Model.PlaceholderTituloSeccion != null)
+            {
+                <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-8 shadow-sm max-w-2xl">
+                    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">@Model.PlaceholderTituloSeccion</h1>
+                    <p class="text-slate-600 dark:text-slate-300 mt-2 text-sm">Esta sección está en preparación. Pronto podrá utilizarla desde el menú lateral.</p>
+                </div>
+            }
+
+            @if (Model.MostrarModuloPmo)
+            {
+                <input type="hidden" id="pmo-proyecto-id" value="@Model.ProyectoActivoId" />
+
+                @if (Model.ErrorCarga != null)
+                {
+                    <div class="rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/80 p-4 text-amber-800 dark:text-amber-200 text-sm flex items-start gap-3">
+                        <span class="material-icons text-amber-600 dark:text-amber-400 flex-shrink-0">warning</span>
+                        <div>
+                            <p>@Model.ErrorCarga</p>
+                        </div>
+                    </div>
+                }
+
+                <partial name="_PmoTabPanelVf" />
+            }
+
+            @if (Model.MostrarModuloControlFisico)
+            {
+                <input type="hidden" id="pmo-cf-proyecto-id" value="@Model.ProyectoActivoId" />
+                @if (Model.ErrorCarga != null)
+                {
+                    <div class="rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/80 p-4 text-amber-800 dark:text-amber-200 text-sm flex items-start gap-3">
+                        <span class="material-icons text-amber-600 dark:text-amber-400 flex-shrink-0">warning</span>
+                        <p>@Model.ErrorCarga</p>
+                    </div>
+                }
+                <div class="space-y-5">
+                    <p id="pmo-cf-status" class="text-xs text-slate-500 dark:text-slate-400"></p>
+                    <div id="pmo-cf-kpi" class="min-h-[3rem]"></div>
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-sm">
+                        <div class="relative h-[min(28rem,55vh)] w-full">
+                            <canvas id="pmo-cf-chart"></canvas>
+                        </div>
+                    </div>
+                    <div id="pmo-cf-table-section" class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                        <div id="pmo-cf-table-hint" class="p-4 text-sm text-slate-600 dark:text-slate-300">
+                            <span class="material-icons text-slate-400 align-middle text-lg mr-1" aria-hidden="true">table_chart</span>
+                            Pulse <strong>Todas</strong>, <strong>REAL</strong>, <strong>NPC</strong>, <strong>POA</strong>, <strong>V0</strong> o <strong>API</strong> en <strong>Curva S</strong> para mostrar aquí el detalle en tabla (filtrado por Desde / Hasta / Vector fila). Por defecto no hay tabla. Use <strong>Actualizar</strong> para recargar datos del servidor.
+                        </div>
+                        <div id="pmo-cf-table-wrap" class="hidden border-t border-slate-200 dark:border-slate-600">
+                            <div class="px-4 py-2 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-600 flex flex-wrap items-center gap-2">
+                                <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">Detalle filtrado</span>
+                                <span id="pmo-cf-table-filter-caption" class="text-xs text-slate-500 dark:text-slate-400"></span>
+                            </div>
+                            <div id="pmo-cf-table-inner" class="p-4 max-h-[min(32rem,60vh)] overflow-y-auto text-slate-800 dark:text-slate-200"></div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Model.MostrarModuloFactorial)
+            {
+                <input type="hidden" id="pmo-factorial-proyecto-id" value="@Model.ProyectoActivoId" />
+                <div class="space-y-5">
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-sm">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Factorial</h2>
+                                <p id="pmo-fac-active-title" class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-0.5">Eficiencia del Gasto Físico - Financiero</p>
+                                <p id="pmo-fac-active-subtitle" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5"></p>
+                            </div>
+                            <div class="inline-flex p-1 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                                <button type="button" id="pmo-fac-main-eficiencia" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm">Eficiencia del Gasto</button>
+                                <button type="button" id="pmo-fac-main-predictividad" class="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 dark:text-slate-300">Predictividad</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <section id="pmo-fac-panel-eficiencia" class="space-y-4">
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-sm">
+                            <div class="flex flex-wrap items-end gap-3">
+                                <div>
+                                    <label for="pmo-fac-mes-corte" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Mes de corte</label>
+                                    <input type="month" id="pmo-fac-mes-corte" class="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-800 dark:text-slate-100" />
+                                </div>
+                                <button type="button" id="pmo-fac-refresh" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium">Actualizar</button>
+                                <span id="pmo-fac-status" class="text-xs text-slate-500 dark:text-slate-400"></span>
+                            </div>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#123B6D] to-[#0f4d8a] text-white">
+                                <p class="text-sm font-bold tracking-wide">EFICIENCIA DEL GASTO FÍSICO - FINANCIERO</p>
+                                <p id="pmo-fac-exec-banner-sub" class="text-[11px] text-slate-200 mt-0.5">Análisis de Eficiencia Presupuestaria y Ejecución Física</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm border-collapse">
+                                    <thead>
+                                        <tr class="text-[10px] uppercase tracking-wide font-bold bg-[#123B6D] text-white">
+                                            <th class="border border-white/40 px-2 py-2.5 text-center align-middle">Avances</th>
+                                            <th class="border border-white/40 px-2 py-2.5 text-center" colspan="3">Avance Financiero (USD)</th>
+                                            <th class="border border-white/40 px-2 py-2.5 text-center" colspan="3">Avance Físico</th>
+                                            <th class="border border-white/40 px-2 py-2.5 text-center" colspan="2">Eficiencia</th>
+                                        </tr>
+                                        <tr class="text-[10px] uppercase tracking-wide font-bold">
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-[#123B6D] text-white px-2 py-2 text-left">Períodos</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-[#123B6D] text-white px-2 py-2 text-right">Plan V0</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-amber-300 text-slate-900 px-2 py-2 text-right dark:bg-amber-400">Gasto Real</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-teal-600 text-white px-2 py-2 text-right dark:bg-teal-700">Cumpli. Financiero (%) <span class="material-icons text-[14px] align-middle opacity-90" aria-hidden="true">search</span></th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-[#123B6D] text-white px-2 py-2 text-right">Prog. V0</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-amber-300 text-slate-900 px-2 py-2 text-right dark:bg-amber-400">Avance Físico</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-teal-600 text-white px-2 py-2 text-right dark:bg-teal-700">Cumpli. Físico (%) <span class="material-icons text-[14px] align-middle opacity-90" aria-hidden="true">search</span></th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-teal-600 text-white px-2 py-2 text-right dark:bg-teal-700">Eficien. Gasto (%) <span class="material-icons text-[14px] align-middle opacity-90" aria-hidden="true">search</span></th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-teal-600 text-white px-2 py-2 text-center dark:bg-teal-700">Nota <span class="material-icons text-[14px] align-middle opacity-90" aria-hidden="true">search</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pmo-fac-ef-tbody" class="divide-y divide-slate-100 dark:divide-slate-700 text-slate-800 dark:text-slate-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#123B6D] to-[#0f4d8a] text-white flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-sm font-bold tracking-wide">TABLA DE DATOS HISTORICOS MENSUALES - EFICIENCIA DEL GASTO</p>
+                                    <p class="text-[11px] text-slate-200 mt-0.5">Resumen mensual de avances fisicos y financieros</p>
+                                </div>
+                                <button type="button" id="pmo-fac-export-hist" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm">
+                                    <span class="material-icons text-[16px]">grid_on</span>Exportar a Excel
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm border-collapse">
+                                    <thead>
+                                        <tr class="text-[10px] uppercase tracking-wide font-bold text-slate-800 dark:text-slate-100">
+                                            <th rowspan="2" class="border border-slate-300 dark:border-slate-600 bg-slate-200 dark:bg-slate-700 px-2 py-2 text-center align-middle">
+                                                <div>Periodo</div>
+                                                <div class="text-[9px] font-semibold normal-case text-slate-600 dark:text-slate-300 mt-0.5">Mes/Año</div>
+                                            </th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-sky-200 dark:bg-sky-900/50 px-2 py-2 text-center" colspan="3">Avance Financiero (USD)</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-emerald-200 dark:bg-emerald-900/40 px-2 py-2 text-center" colspan="3">Avance Físico (%)</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-amber-200 dark:bg-amber-900/40 px-2 py-2 text-center" colspan="2">Eficiencia</th>
+                                        </tr>
+                                        <tr class="text-[10px] uppercase font-bold">
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-sky-100 dark:bg-sky-900/30 px-2 py-2 text-right text-slate-800 dark:text-slate-200">Plan V0</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-sky-100 dark:bg-sky-900/30 px-2 py-2 text-right text-slate-800 dark:text-slate-200">Gasto Real</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-sky-100 dark:bg-sky-900/30 px-2 py-2 text-right text-slate-800 dark:text-slate-200">Cumpl. (%)</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-2 text-right text-slate-800 dark:text-slate-200">Prog. V0</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-2 text-right text-slate-800 dark:text-slate-200">Avance Físico</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-2 text-right text-slate-800 dark:text-slate-200">Cumpl. (%)</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-2 text-right text-slate-800 dark:text-slate-200">Eficien. Gasto (%)</th>
+                                            <th class="border border-slate-300 dark:border-slate-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-2 text-center text-slate-800 dark:text-slate-200">Nota</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pmo-fac-hist-tbody" class="divide-y divide-slate-100 dark:divide-slate-700 text-slate-800 dark:text-slate-100"></tbody>
+                                </table>
+                            </div>
+                            <div class="px-4 py-3 bg-slate-50 dark:bg-slate-900/70 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-2">Leyenda</p>
+                                <div class="flex flex-wrap gap-x-4 gap-y-2">
+                                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-teal-600"></span>Planificado: Plan V0 y Prog. V0</span>
+                                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-amber-500"></span>Real: Gasto Real y Avance Físico</span>
+                                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-slate-400"></span>Cumplimiento: (Real ÷ Plan) × 100</span>
+                                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-amber-800/70"></span>Eficiencia: (Cumpl. Físico ÷ Cumpl. Financiero) × 100</span>
+                                </div>
+                                <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-500">Eficiencia &gt; 100% indica mejor desempeño físico que financiero | &lt; 100% requiere atención</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="pmo-fac-panel-predictividad" class="hidden space-y-4">
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-sm">
+                            <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-end">
+                                <div class="flex flex-wrap items-end gap-3">
+                                    <div>
+                                        <label for="pmo-pred-hasta20" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Período de corte</label>
+                                        <input type="month" id="pmo-pred-hasta20" class="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 shadow-sm" />
+                                    </div>
+                                    <button type="button" id="pmo-pred-refresh" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm">
+                                        <span class="material-icons text-[18px]">refresh</span>Actualizar
+                                    </button>
+                                    <button type="button" id="pmo-pred-import-btn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold shadow-sm">
+                                        <span class="material-icons text-[18px]">upload_file</span>Importar Predictividad
+                                    </button>
+                                    <input type="file" id="pmo-pred-file" accept=".xlsx,.xls" class="hidden" />
+                                </div>
+                                <div class="flex lg:justify-end">
+                                    <span id="pmo-pred-status" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200 min-h-[30px]"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="pmo-pred-cards" class="w-full"></div>
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-sm">
+                                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Tendencia financiera (MM USD)</h4>
+                                <div class="relative h-[min(22rem,50vh)] w-full"><canvas id="pmo-pred-chart-fin"></canvas></div>
+                            </div>
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-sm">
+                                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Tendencia física (%)</h4>
+                                <div class="relative h-[min(22rem,50vh)] w-full"><canvas id="pmo-pred-chart-fis"></canvas></div>
+                            </div>
+                        </div>
+                        <div id="pmo-pred-historico-host" class="w-full"></div>
+                    </section>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Model.MostrarModuloPmo || Model.MostrarSeccionResumen)
+{
+<div id="vf-modal-clave" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-600">
+        <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Clave de importación</h3>
+        <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">Validación en servidor.</p>
+        <input type="password" id="vf-clave-input" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 mb-4 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100" placeholder="Clave" autocomplete="off" />
+        <div class="flex justify-end gap-2">
+            <button type="button" id="vf-clave-cancel" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm">Cancelar</button>
+            <button type="button" id="vf-clave-ok" class="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Continuar</button>
+        </div>
+    </div>
+</div>
+
+<div id="vf-modal-cascada" class="hidden fixed inset-0 z-[205] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[1px]" aria-hidden="true">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-6xl w-full p-5 border border-amber-200/90 dark:border-amber-700/70 relative max-h-[90vh] overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="vf-cascada-title">
+        <button type="button" id="vf-cascada-close-x" class="absolute top-3 right-3 p-1 rounded-lg text-slate-500 hover:bg-amber-50 dark:hover:bg-slate-700" title="Cerrar">
+            <span class="material-icons text-[22px]">close</span>
+        </button>
+        <h3 id="vf-cascada-title" class="text-lg font-bold text-slate-800 dark:text-slate-100 pr-10 inline-flex items-center gap-2">
+            <span class="material-icons text-amber-500 text-[20px]">insights</span>
+            Análisis Detallado de Cascada
+        </h3>
+        <p id="vf-cascada-sub" class="text-xs text-teal-700 dark:text-teal-300 mt-1 font-medium"></p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4 text-sm">
+            <div class="rounded-lg border border-amber-200 dark:border-amber-700/70 bg-amber-50/50 dark:bg-amber-900/20 p-3"><div class="text-xs text-amber-800 dark:text-amber-200 uppercase tracking-wide">Total Base</div><div id="vf-cascada-kpi-base" class="font-semibold text-slate-800 dark:text-slate-100">—</div></div>
+            <div class="rounded-lg border border-teal-200 dark:border-teal-700/70 bg-teal-50/40 dark:bg-teal-900/20 p-3"><div class="text-xs text-teal-800 dark:text-teal-200 uppercase tracking-wide">Total Real</div><div id="vf-cascada-kpi-real" class="font-semibold text-slate-800 dark:text-slate-100">—</div></div>
+            <div class="rounded-lg border border-sky-200 dark:border-sky-700/70 bg-sky-50/40 dark:bg-sky-900/20 p-3"><div class="text-xs text-sky-800 dark:text-sky-200 uppercase tracking-wide">Diferencia</div><div id="vf-cascada-kpi-dif" class="font-semibold text-slate-800 dark:text-slate-100">—</div></div>
+            <div class="rounded-lg border border-slate-300 dark:border-slate-600 bg-white/60 dark:bg-slate-800/40 p-3"><div class="text-xs text-slate-600 dark:text-slate-300 uppercase tracking-wide">% Desviación</div><div id="vf-cascada-kpi-pct" class="font-semibold text-slate-800 dark:text-slate-100">—</div></div>
+        </div>
+        <div class="mt-3 rounded-lg border border-amber-200 dark:border-amber-700/70 p-3 bg-gradient-to-r from-amber-50 to-teal-50 dark:from-amber-900/20 dark:to-teal-900/20">
+            <p id="vf-cascada-conclusiones" class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">Cargando...</p>
+        </div>
+        <div class="mt-3 rounded-lg border border-slate-200 dark:border-slate-600 overflow-auto max-h-[42vh] shadow-inner">
+            <table class="min-w-full text-xs">
+                <thead class="bg-gradient-to-r from-slate-800 to-teal-800 text-white">
+                    <tr>
+                        <th class="p-2 text-left">Período</th><th class="p-2 text-right">Base USD</th><th class="p-2 text-right">Real USD</th><th class="p-2 text-right">Diferencia USD</th><th class="p-2 text-right">% Diferencia</th>
+                    </tr>
+                </thead>
+                <tbody id="vf-cascada-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.__pycFinCfg = @Html.Raw(Model.FinancierosCatalogJson);
+    window.__pycFinCfg.pageBase = '@pmoUrl';
+    @if (Model.MostrarSeccionResumen)
+    {
+        <text>window.__pycFinCfg.iniciarEnCurvaS = true;</text>
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="~/js/pyc-vectores-financieros.js" asp-append-version="true"></script>
+<script>
+(function () {
+    if (!document.getElementById('pmo-proyecto-id')) return;
+    if (window.pycVectoresFinInit) {
+        window.pycVectoresFinInit(function () {
+            return document.getElementById('pmo-proyecto-id').value || null;
+        });
+    }
+})();
+</script>
+}
+
+@if (Model.MostrarSeccionResumen)
+{
+<script>
+    window.__pmoResumenCfg = { pageBase: '@pmoUrl' };
+</script>
+<script src="~/js/pmo-resumen-kpi.js" asp-append-version="true"></script>
+<script>
+(function () {
+    var el = document.getElementById('pmo-resumen-proyecto-id');
+    if (!el || !window.pmoResumenKpiInit) return;
+    window.pmoResumenKpiInit(function () { return el.value || null; });
+})();
+</script>
+}
+
+@if (Model.MostrarModuloFactorial)
+{
+<script>
+    window.__pmoFactorialCfg = { pageBase: '@pmoUrl' };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="~/js/pmo-factorial.js" asp-append-version="true"></script>
+<script>
+(function () {
+    if (!document.getElementById('pmo-factorial-proyecto-id')) return;
+    if (window.pmoFactorialInit) {
+        window.pmoFactorialInit(function () {
+            return document.getElementById('pmo-factorial-proyecto-id').value || null;
+        });
+    }
+})();
+</script>
+}
+
+@if (Model.MostrarModuloControlFisico)
+{
+<div id="pmo-cf-import-modal" class="hidden fixed inset-0 z-[199] flex items-center justify-center bg-black/45 p-4" aria-hidden="true">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-600 relative" role="dialog" aria-modal="true" aria-labelledby="pmo-cf-import-title">
+        <button type="button" id="pmo-cf-import-modal-close-x" class="absolute top-3 right-3 p-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" title="Cerrar">
+            <span class="material-icons text-[22px]">close</span>
+        </button>
+        <h3 id="pmo-cf-import-title" class="text-lg font-bold text-slate-800 dark:text-slate-100 pr-10 mb-1">Importar avance físico</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Reemplazo por tabla destino (solo filas de este proyecto en esa tabla).</p>
+        <div class="space-y-3">
+            <div>
+                <label for="pmo-cf-tabla-import" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Tabla destino</label>
+                <select id="pmo-cf-tabla-import" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100">
+                    <option value="av_fisico_real">av_fisico_real</option>
+                    <option value="av_fisico_npc">av_fisico_npc</option>
+                    <option value="av_fisico_poa">av_fisico_poa</option>
+                    <option value="av_fisico_v0">av_fisico_v0</option>
+                    <option value="av_fisico_api">av_fisico_api</option>
+                </select>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Primera hoja del Excel: <span class="font-mono">id</span>, <span class="font-mono">periodo</span> o fecha, <span class="font-mono">vector</span>, <span class="font-mono">ie_parcial</span>, … (también <span class="font-mono">IeParcial</span>, <span class="font-mono">ApiAcum</span>, <span class="font-mono">id_av_vo</span>, etc.). Las tablas <span class="font-mono">av_fisico_*</span> son <strong>independientes</strong>: no se alteran las demás ni la entidad de proyectos.</p>
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+                <button type="button" id="pmo-cf-import-modal-file-btn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium shadow-sm">
+                    <span class="material-icons text-[18px]">folder_open</span> Seleccionar Excel…
+                </button>
+                <button type="button" id="pmo-cf-import-modal-close-btn" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">Cancelar</button>
+            </div>
+            <input type="file" id="pmo-cf-file" accept=".xlsx,.xls" class="hidden" />
+        </div>
+    </div>
+</div>
+<div id="pmo-cf-modal-clave" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-600">
+        <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Clave de importación</h3>
+        <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">Requerida para importar avance físico.</p>
+        <input type="password" id="pmo-cf-clave-input" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 mb-4 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100" placeholder="Clave" autocomplete="off" />
+        <div class="flex justify-end gap-2">
+            <button type="button" id="pmo-cf-clave-cancel" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm">Cancelar</button>
+            <button type="button" id="pmo-cf-clave-ok" class="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Continuar</button>
+        </div>
+    </div>
+</div>
+<script>
+    window.__pmoCfCfg = { pageBase: '@pmoUrl' };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="~/js/pmo-control-fisico.js" asp-append-version="true"></script>
+<script>
+(function () {
+    if (!document.getElementById('pmo-cf-proyecto-id')) return;
+    if (window.pmoControlFisicoInit) {
+        window.pmoControlFisicoInit(function () {
+            return document.getElementById('pmo-cf-proyecto-id').value || null;
+        });
+    }
+})();
+</script>
+}

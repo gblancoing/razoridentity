@@ -236,18 +236,20 @@ namespace RazorIdentity.Pages
             return RedirectToPage(new { tab = "regiones" });
         }
 
-        public async Task<IActionResult> OnPostCreateProyectoAsync(string nombre, int regionId)
+        public async Task<IActionResult> OnPostCreateProyectoAsync(string nombre, int regionId, string? numeroContrato)
         {
             if (string.IsNullOrWhiteSpace(nombre)) return RedirectToPage(new { tab = "proyectos" });
-            try { await _ritApi.PostAsync<object, ProyectoApi>("api/Proyectos", new { Nombre = nombre.Trim(), RegionId = regionId }); }
+            var body = new { Nombre = nombre.Trim(), RegionId = regionId, NumeroContrato = string.IsNullOrWhiteSpace(numeroContrato) ? null : numeroContrato.Trim() };
+            try { await _ritApi.PostAsync<object, ProyectoApi>("api/Proyectos", body); }
             catch (Exception ex) { _logger.LogWarning(ex, "Error crear proyecto"); }
             return RedirectToPage(new { tab = "proyectos" });
         }
 
-        public async Task<IActionResult> OnPostUpdateProyectoAsync(int id, string nombre, int regionId)
+        public async Task<IActionResult> OnPostUpdateProyectoAsync(int id, string nombre, int regionId, string? numeroContrato)
         {
             if (string.IsNullOrWhiteSpace(nombre)) return RedirectToPage(new { tab = "proyectos" });
-            try { await _ritApi.PutAsync<object, ProyectoApi>($"api/Proyectos/{id}", new { Nombre = nombre.Trim(), RegionId = regionId }); }
+            var body = new { Nombre = nombre.Trim(), RegionId = regionId, NumeroContrato = string.IsNullOrWhiteSpace(numeroContrato) ? null : numeroContrato.Trim() };
+            try { await _ritApi.PutAsync<object, ProyectoApi>($"api/Proyectos/{id}", body); }
             catch (Exception ex) { _logger.LogWarning(ex, "Error actualizar proyecto"); }
             return RedirectToPage(new { tab = "proyectos" });
         }
@@ -437,6 +439,26 @@ namespace RazorIdentity.Pages
             }
             var msg = asignadas > 0 ? $"Se asignaron {asignadas} app(s) correctamente." : "No se pudo asignar ninguna (posiblemente ya estaban asignadas).";
             return RedirectToPage(new { tab = "usuariosapp", mensajeApp = msg, mensajeAppEsError = asignadas == 0 });
+        }
+
+        /// <summary>Proyecto por defecto para la fila Usuario–App (PMO, RitWeb). Vacío = sin proyecto (solo centro u otros fallbacks).</summary>
+        public async Task<IActionResult> OnPostUpdateUsuarioAppProyectoAsync(int id, string? proyectoId)
+        {
+            int? pid = null;
+            if (!string.IsNullOrWhiteSpace(proyectoId) && int.TryParse(proyectoId.Trim(), out var v) && v > 0)
+                pid = v;
+            try
+            {
+                await _ritApi.PatchAsync<object, UsuarioAppApi>($"api/UsuariosApp/{id}/proyecto", new { proyectoId = pid });
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "Proyecto de la asignación actualizado.", mensajeAppEsError = false });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error actualizar ProyectoId en UsuariosApp {Id}", id);
+                var msg = ex.Message;
+                if (ex.InnerException != null) msg += " " + ex.InnerException.Message;
+                return RedirectToPage(new { tab = "usuariosapp", mensajeApp = "No se pudo guardar el proyecto. ¿Aplicó la migración en Rit_Api (UsuariosApp.ProyectoId)? " + msg, mensajeAppEsError = true });
+            }
         }
 
         public async Task<IActionResult> OnPostDeleteUsuarioAppAsync(int id)

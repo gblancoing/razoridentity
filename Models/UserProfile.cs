@@ -18,6 +18,10 @@ namespace RazorIdentity.Models
         [Display(Name = "Nombre completo")]
         public string? FullName { get; set; }
 
+        [MaxLength(200)]
+        [Display(Name = "Cargo")]
+        public string? Cargo { get; set; }
+
         [MaxLength(500)]
         [Display(Name = "Dirección")]
         public string? Address { get; set; }
