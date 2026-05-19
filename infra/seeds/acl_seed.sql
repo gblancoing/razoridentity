@@ -2,10 +2,11 @@ BEGIN;
 
 SET search_path TO acl;
 
+-- password_hash: PBKDF2-SHA256 para la contraseña demo "test123" (mismo algoritmo que PasswordHasher en ACL).
 INSERT INTO users (id, email, password_hash, display_name, is_active, is_super_admin, created_at, updated_at)
 VALUES
-  ('21212121-2121-2121-2121-212121212121', 'owner@comunaclic.test', 'test123', 'Owner Demo', true, false, now(), now()),
-  ('99999999-0000-0000-0000-000000000001', 'admin@comunaclic.test', 'test123', 'Super Admin', true, true, now(), now())
+  ('21212121-2121-2121-2121-212121212121', 'owner@comunaclic.test', 'pbkdf2:100000:fawH1t3ZKttmoUdvpSMGww==:ErGBBTDvYkOeSuN9I/cVV6DPBDNaqV0wVFAl6jtEVao=', 'Owner Demo', true, false, now(), now()),
+  ('99999999-0000-0000-0000-000000000001', 'admin@comunaclic.test', 'pbkdf2:100000:fawH1t3ZKttmoUdvpSMGww==:ErGBBTDvYkOeSuN9I/cVV6DPBDNaqV0wVFAl6jtEVao=', 'Super Admin', true, true, now(), now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO roles (id, name, created_at)
@@ -14,7 +15,8 @@ VALUES
   ('b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1', 'tenant_admin', now()),
   ('c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'partner_owner', now()),
   ('d1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1', 'partner_staff', now()),
-  ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'buyer', now())
+  ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'buyer', now()),
+  ('e2e2e2e2-e2e2-e2e2-e2e2-e2e2e2e2e2e2', 'customer', now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO permissions (id, code, description, created_at)

@@ -60,7 +60,7 @@ else
                     {
                         <a href="@($"/buyer/detail/professional/{_professionalId.Value}")" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Volver al perfil</a>
                     }
-                    <a href="/buyer" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Volver al portal</a>
+                    <a href="/categorias" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Ver categorías</a>
                 </div>
             </div>
         }
@@ -108,7 +108,7 @@ else
     private ComunaClick.Shared.Api.Buyer.Lead? _createdLead;
     private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
     private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
-    private string RegisterHref => $"/register?intent=buyer&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
+    private string RegisterHref => $"/register?role=natural&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

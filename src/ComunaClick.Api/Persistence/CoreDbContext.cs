@@ -394,6 +394,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Email).HasColumnName("email");
             entity.Property(x => x.Phone).HasColumnName("phone");
             entity.Property(x => x.FullName).HasColumnName("full_name");
+            entity.Property(x => x.AvatarUrl).HasColumnName("avatar_url");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();

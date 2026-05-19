@@ -7,393 +7,565 @@
 
 <PageTitle>@L.T("home.title")</PageTitle>
 
-<PublicNav />
-<div class="relative overflow-hidden bg-[linear-gradient(180deg,#ffe36b_0%,#fff4bc_16%,#f5f5f5_28%,#ffffff_100%)]">
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.55),transparent_34%),radial-gradient(circle_at_top_right,rgba(255,214,10,0.24),transparent_36%)]"></div>
+@* Marquee global: evita que el CSS aislado del RCL rompa la animación (keyframes + nombre deben coincidir en el documento). *@
+<style>
+    @@keyframes cc-home-brand-marquee {
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(-50%, 0, 0); }
+    }
 
-    <section class="max-w-7xl mx-auto px-4 pt-6 pb-8 relative">
-        <div class="grid grid-cols-1 xl:grid-cols-[1.55fr_0.75fr] gap-6 items-stretch">
-            <div class="rounded-[2rem] overflow-hidden bg-cover bg-center bg-no-repeat shadow-[0_30px_90px_-42px_rgba(0,0,0,0.32)] ring-1 ring-black/5"
-                 data-alt="Fotografía de feria y vida de barrio con negocios locales"
-                 style="@HeroStyle">
-                <div class="min-h-[38rem] bg-[linear-gradient(135deg,rgba(7,14,12,0.76)_0%,rgba(12,31,25,0.52)_45%,rgba(14,49,34,0.28)_100%)] p-7 sm:p-10 lg:p-12 flex flex-col justify-between gap-10">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <span class="inline-flex items-center rounded-full border border-white/20 bg-white/12 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-white/92 backdrop-blur">
-                            Compra y reserva local
-                        </span>
-                        <span class="inline-flex items-center rounded-full border border-white/14 bg-black/18 px-4 py-2 text-xs font-semibold text-white/80 backdrop-blur">
-                            Encuentra ofertas, agenda servicios y vende en tu comuna
-                        </span>
-                    </div>
+    .cc-ticker-rtl {
+        animation: cc-home-brand-marquee 38s linear infinite;
+        will-change: transform;
+    }
 
-                    <div class="max-w-3xl space-y-5">
-                        <h1 class="text-white text-4xl sm:text-5xl xl:text-6xl font-black leading-[0.95] tracking-[-0.055em] drop-shadow-[0_12px_28px_rgba(0,0,0,0.32)]">
-                            @(_siteContent?.Home.Title ?? L.T("home.hero.title"))
-                        </h1>
-                        <p class="max-w-2xl text-white/90 text-base sm:text-lg leading-8 font-medium drop-shadow-[0_8px_18px_rgba(0,0,0,0.3)]">
-                            @(_siteContent?.Home.Subtitle ?? L.T("home.hero.subtitle"))
-                        </p>
-                    </div>
+    @@media (prefers-reduced-motion: reduce) {
+        .cc-ticker-rtl {
+            animation: none;
+        }
+    }
 
+    .cc-ticker-rtl:hover {
+        animation-play-state: paused;
+    }
+</style>
+
+<!-- MEGA HERO -->
+<section class="cc-hero-bg relative min-h-[600px] sm:min-h-[700px] flex flex-col overflow-hidden">
+    <!-- Photo: full opacity, shows through gradient overlays on the right -->
+    <div class="absolute inset-0 bg-cover bg-center pointer-events-none" style="@HeroImageOnlyStyle"></div>
+    <!-- Left-to-right overlay: dark on left (text), transparent on right (photo) -->
+    <div class="absolute inset-0 bg-gradient-to-r from-[#043d2a]/95 via-[#065f46]/75 to-[#0f766e]/20 pointer-events-none"></div>
+    <!-- Top-to-bottom overlay for depth -->
+    <div class="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/50 pointer-events-none"></div>
+    <!-- Dot-grid texture -->
+    <div class="cc-dot-grid absolute inset-0 opacity-5 pointer-events-none"></div>
+    <!-- Bottom scene-transition fade -->
+    <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none"></div>
+
+    <div class="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 pt-16 pb-28 sm:pt-20 sm:pb-32 text-center max-w-5xl mx-auto w-full gap-6 sm:gap-8">
+
+        <!-- Floating trust badge -->
+        <div class="cc-badge-float inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/95">
+            <span class="cc-pulse-dot w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+            @L.T("home.hero.badge")
+        </div>
+
+        <!-- Headline -->
+        <h1 class="text-white text-[2.4rem] sm:text-5xl md:text-[3.6rem] lg:text-[4.2rem] font-extrabold font-headline leading-[1.06] tracking-[-0.04em] text-balance drop-shadow-lg max-w-4xl">
+            @(_siteContent?.Home.Title ?? L.T("home.hero.title"))
+        </h1>
+
+        <p class="text-white/75 text-base sm:text-xl md:text-2xl font-medium max-w-2xl mx-auto leading-relaxed text-balance">
+            @(_siteContent?.Home.Subtitle ?? L.T("home.hero.subtitle"))
+        </p>
+
+        <!-- Mega search bar -->
+        <div class="w-full max-w-3xl mx-auto">
+            <div class="cc-search-ring flex w-full items-stretch rounded-2xl h-[58px] sm:h-16 overflow-hidden bg-white shadow-[0_24px_64px_-12px_rgba(0,0,0,0.65)] ring-2 ring-white/15 transition-all duration-300">
+                <div class="flex items-center justify-center pl-4 sm:pl-5 bg-white shrink-0">
+                    <span class="material-symbols-outlined text-primary text-[26px]">search</span>
+                </div>
+                <input @bind="_searchQuery"
+                       @bind:event="oninput"
+                       @onkeydown="HandleSearchKeyDown"
+                       class="flex-1 min-w-0 border-0 bg-white text-[#111816] placeholder:text-gray-400 px-3 sm:px-4 text-base sm:text-lg focus:ring-0 focus:outline-none font-medium"
+                       placeholder="@L.T("home.search.placeholder")" />
+                <button type="button"
+                        @onclick="ExecuteSearchAsync"
+                        class="shrink-0 px-6 sm:px-10 bg-primary text-white font-headline font-extrabold text-sm sm:text-[15px] hover:brightness-110 active:scale-[0.97] transition-all duration-150">
+                    @L.T("home.search.button")
+                </button>
+            </div>
+
+            <!-- Quick pills below search -->
+            <div class="flex flex-wrap gap-2 mt-4 justify-center">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/12 border border-white/20 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-white/90 hover:bg-white/22 transition-colors cursor-default select-none">
+                    <span class="material-symbols-outlined text-emerald-300 text-[14px]">storefront</span>@L.T("home.market.promo1")
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/12 border border-white/20 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-white/90 hover:bg-white/22 transition-colors cursor-default select-none">
+                    <span class="material-symbols-outlined text-yellow-300 text-[14px]">bolt</span>@L.T("home.market.promo2")
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/12 border border-white/20 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-white/90 hover:bg-white/22 transition-colors cursor-default select-none">
+                    <span class="material-symbols-outlined text-sky-300 text-[14px]">verified</span>@L.T("home.market.promo3")
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/12 border border-white/20 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-white/90 hover:bg-white/22 transition-colors cursor-default select-none">
+                    <span class="material-symbols-outlined text-rose-300 text-[14px]">local_offer</span>@L.T("home.market.promo4")
+                </span>
+            </div>
+        </div>
+
+        <!-- CTA buttons -->
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-2">
+            @if (_siteContent is not null)
+            {
+                <a href="@_siteContent.Home.PrimaryCtaHref"
+                   class="rounded-full bg-white text-primary px-8 sm:px-10 py-3 sm:py-3.5 text-sm font-extrabold shadow-lg hover:shadow-2xl hover:scale-105 active:scale-[0.99] transition-all duration-200">
+                    @_siteContent.Home.PrimaryCtaLabel
+                </a>
+                <a href="@_siteContent.Home.SecondaryCtaHref"
+                   class="rounded-full border-2 border-white/50 bg-transparent px-8 sm:px-10 py-3 sm:py-3.5 text-sm font-bold text-white hover:bg-white/15 active:scale-[0.99] transition-all duration-200">
+                    @_siteContent.Home.SecondaryCtaLabel
+                </a>
+            }
+            else
+            {
+                <a href="/categorias"
+                   class="rounded-full bg-white text-primary px-8 sm:px-10 py-3 sm:py-3.5 text-sm font-extrabold shadow-lg hover:shadow-2xl hover:scale-105 active:scale-[0.99] transition-all duration-200">
+                    @L.T("home.hero.ctaPrimary")
+                </a>
+                <a href="/register?role=commerce"
+                   class="rounded-full border-2 border-white/50 bg-transparent px-8 sm:px-10 py-3 sm:py-3.5 text-sm font-bold text-white hover:bg-white/15 active:scale-[0.99] transition-all duration-200">
+                    @L.T("nav.register")
+                </a>
+            }
+        </div>
+    </div>
+</section>
+
+<!-- IMAGE TICKER: single marquee row -->
+<div class="bg-slate-950 pt-5 pb-6 relative overflow-hidden">
+    <!-- Fade edges -->
+    <div class="absolute left-0 top-0 bottom-0 w-20 z-10 pointer-events-none bg-gradient-to-r from-slate-950 to-transparent"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none bg-gradient-to-l from-slate-950 to-transparent"></div>
+
+    <div class="cc-ticker-rtl flex gap-3 w-max" role="region" aria-label="@L.T("home.categories.title")">
+        <a href="/categorias/alimentos-y-bebidas?code=food-beverages" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/alimentos-y-bebidas.png" alt="Alimentos y Bebidas" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Alimentos y Bebidas</span></a>
+        <a href="/categorias/hogar-y-limpieza?code=home-cleaning" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png" alt="Hogar y Limpieza" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Hogar y Limpieza</span></a>
+        <a href="/categorias/salud-y-cuidado?code=health-personal-care" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/salud-y-cuidado.png" alt="Salud y Cuidado" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Salud y Cuidado</span></a>
+        <a href="/categorias/moda-y-accesorios?code=fashion-accessories" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/moda.png" alt="Moda y Accesorios" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Moda y Accesorios</span></a>
+        <a href="/categorias/tecnologia?code=tech-accessories" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/tecnologia.png" alt="Tecnologia" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Tecnologia</span></a>
+        <a href="/categorias/regalos?code=gifts-celebrations" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/regalos.png" alt="Regalos" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Regalos</span></a>
+        <a href="/categorias/deportes?code=sports-outdoors" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/deporte.png" alt="Deportes" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Deportes</span></a>
+        <a href="/categorias/libreria?code=stationery-office" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/libreria.png" alt="Libreria" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Libreria y Oficina</span></a>
+        <a href="/categorias/artesania?code=crafts-entrepreneurs" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/artesania.png" alt="Artesania" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Artesania</span></a>
+        <a href="/categorias/inmuebles?code=inmuebles" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png" alt="Inmuebles" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Inmuebles</span></a>
+        <!-- duplicate set A -->
+        <a href="/categorias/alimentos-y-bebidas?code=food-beverages" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/alimentos-y-bebidas.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Alimentos y Bebidas</span></a>
+        <a href="/categorias/hogar-y-limpieza?code=home-cleaning" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Hogar y Limpieza</span></a>
+        <a href="/categorias/salud-y-cuidado?code=health-personal-care" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/salud-y-cuidado.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Salud y Cuidado</span></a>
+        <a href="/categorias/moda-y-accesorios?code=fashion-accessories" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/moda.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Moda y Accesorios</span></a>
+        <a href="/categorias/tecnologia?code=tech-accessories" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/tecnologia.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Tecnologia</span></a>
+        <a href="/categorias/regalos?code=gifts-celebrations" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/regalos.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Regalos</span></a>
+        <a href="/categorias/deportes?code=sports-outdoors" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/deporte.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Deportes</span></a>
+        <a href="/categorias/libreria?code=stationery-office" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/libreria.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Libreria y Oficina</span></a>
+        <a href="/categorias/artesania?code=crafts-entrepreneurs" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/artesania.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Artesania</span></a>
+        <a href="/categorias/inmuebles?code=inmuebles" class="shrink-0 w-32 flex flex-col items-center gap-2 group cursor-pointer" tabindex="-1" aria-hidden="true"><div class="w-32 h-20 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-lg group-hover:-translate-y-1 group-hover:ring-emerald-500/50 transition-all duration-300"><img src="_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png" alt="" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" /></div><span class="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 transition-colors text-center leading-tight">Inmuebles</span></a>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="w-full max-w-full min-w-0 overflow-x-clip bg-gradient-to-b from-slate-50 via-[#f0f4f3] to-slate-50">
+
+    <!-- Search results panel (conditional) -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-8">
+        @if (_searchLoading)
+        {
+            <div class="rounded-2xl bg-white border border-gray-200/80 p-5 shadow-sm mb-4 animate-pulse">
+                <p class="text-sm font-semibold text-[#2c2f30]">@L.T("home.market.searching")</p>
+            </div>
+        }
+        else if (_searchHasRun)
+        {
+            <div class="rounded-2xl bg-white border border-gray-200/80 p-5 sm:p-6 shadow-sm mb-8">
+                @if (!string.IsNullOrWhiteSpace(_searchError))
+                {
+                    <p class="text-sm font-semibold text-[#b02500]">@_searchError</p>
+                }
+                else if (!HasSearchResults)
+                {
+                    <p class="text-sm font-semibold text-[#2c2f30]">@L.T("home.market.noMatches") <span class="text-primary">"@_searchQuery"</span></p>
+                }
+                else
+                {
                     <div class="space-y-5">
-                        <label class="block w-full max-w-[760px]">
-                            <div class="flex w-full items-stretch rounded-[1.6rem] border border-white/40 bg-white/92 p-2 shadow-[0_18px_44px_-24px_rgba(0,0,0,0.55)] backdrop-blur">
-                                <div class="text-[#61897c] flex items-center justify-center pl-4 pr-3">
-                                    <span class="material-symbols-outlined text-[1.35rem]">search</span>
+                        @if (_categorySearchResults.Count > 0)
+                        {
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">@L.T("home.categories.title")</p>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach (var category in _categorySearchResults)
+                                    {
+                                        <a href="@GetCategoryHref(category)" class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-[#2d9e4f] hover:bg-emerald-200 transition-colors">
+                                            @CategoryVisualService.ResolveDisplayName(category.Code, category.Name)
+                                        </a>
+                                    }
                                 </div>
-                                <input @bind="_searchQuery"
-                                       @bind:event="oninput"
-                                       @onkeydown="HandleSearchKeyDown"
-                                       class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-[#111816] focus:outline-0 focus:ring-0 h-14 placeholder:text-[#61897c] px-1 text-base font-medium leading-normal"
-                                       placeholder="@L.T("home.search.placeholder")" />
-                                <button @onclick="ExecuteSearchAsync"
-                                        class="flex min-w-[128px] cursor-pointer items-center justify-center overflow-hidden rounded-[1.2rem] h-14 px-6 bg-[#111816] text-white font-bold text-base shadow-[0_16px_28px_-18px_rgba(0,0,0,0.8)] transition-transform active:scale-95">
-                                    <span>@L.T("home.search.button")</span>
-                                </button>
                             </div>
-                        </label>
-
-                        <div class="flex flex-wrap items-center gap-3">
-                            <a href="@(_siteContent?.Home.PrimaryCtaHref ?? "/buyer")"
-                               class="rounded-full bg-[#ffe000] px-6 py-3 text-sm font-black uppercase tracking-[0.12em] text-[#111816] shadow-[0_18px_28px_-20px_rgba(255,224,0,0.9)]">
-                                @(_siteContent?.Home.PrimaryCtaLabel ?? "Comprar y reservar")
-                            </a>
-                            <a href="@(_siteContent?.Home.SecondaryCtaHref ?? "/register?intent=partner")"
-                               class="rounded-full border border-white/50 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-sm">
-                                @(_siteContent?.Home.SecondaryCtaLabel ?? "Publicar para vender")
-                            </a>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-[760px]">
-                            <div class="rounded-[1.35rem] border border-white/18 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                                <p class="text-[11px] font-black uppercase tracking-[0.16em] text-white/70">Compra</p>
-                                <p class="mt-2 text-sm font-semibold leading-6 text-white">Encuentra productos y vitrinas activas cerca de ti.</p>
+                        }
+                        @if (_partnerSearchResults.Count > 0)
+                        {
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">@L.T("home.featured.title")</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    @foreach (var item in _partnerSearchResults)
+                                    {
+                                        <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-[#f0fdf4]/50 px-3 py-2.5 text-sm font-semibold hover:bg-emerald-50 transition-colors">
+                                            @item.Name
+                                        </a>
+                                    }
+                                </div>
                             </div>
-                            <div class="rounded-[1.35rem] border border-white/18 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                                <p class="text-[11px] font-black uppercase tracking-[0.16em] text-white/70">Reserva</p>
-                                <p class="mt-2 text-sm font-semibold leading-6 text-white">Agenda servicios desde fichas simples y claras.</p>
+                        }
+                        @if (_serviceSearchResults.Count > 0)
+                        {
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">@L.T("home.services.title")</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    @foreach (var item in _serviceSearchResults)
+                                    {
+                                        <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-[#f0fdf4]/50 px-3 py-2.5 text-sm font-semibold hover:bg-emerald-50 transition-colors">
+                                            @item.Name
+                                        </a>
+                                    }
+                                </div>
                             </div>
-                            <div class="rounded-[1.35rem] border border-white/18 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                                <p class="text-[11px] font-black uppercase tracking-[0.16em] text-white/70">Vende</p>
-                                <p class="mt-2 text-sm font-semibold leading-6 text-white">Publica tu negocio y empieza a captar pedidos.</p>
+                        }
+                        @if (_professionalSearchResults.Count > 0)
+                        {
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">@L.T("home.search.professionals")</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    @foreach (var item in _professionalSearchResults)
+                                    {
+                                        <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-[#f0fdf4]/50 px-3 py-2.5 text-sm font-semibold hover:bg-emerald-50 transition-colors">
+                                            @item.Name
+                                        </a>
+                                    }
+                                </div>
                             </div>
-                        </div>
+                        }
                     </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Value propositions -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="group flex items-center gap-4 rounded-2xl bg-white border border-gray-200/70 px-5 py-5 shadow-sm hover:shadow-lg hover:border-emerald-200 hover:-translate-y-1 transition-all duration-300">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 shadow-md shadow-emerald-500/25">
+                    <span class="material-symbols-outlined text-white text-[24px]">storefront</span>
+                </div>
+                <div>
+                    <p class="text-sm font-extrabold text-[#111816]">@L.T("home.value1.title")</p>
+                    <p class="text-xs text-[#5f7369] leading-snug mt-0.5">@L.T("home.value1.desc")</p>
                 </div>
             </div>
+            <div class="group flex items-center gap-4 rounded-2xl bg-white border border-gray-200/70 px-5 py-5 shadow-sm hover:shadow-lg hover:border-sky-200 hover:-translate-y-1 transition-all duration-300">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-500/25">
+                    <span class="material-symbols-outlined text-white text-[24px]">bolt</span>
+                </div>
+                <div>
+                    <p class="text-sm font-extrabold text-[#111816]">@L.T("home.value2.title")</p>
+                    <p class="text-xs text-[#5f7369] leading-snug mt-0.5">@L.T("home.value2.desc")</p>
+                </div>
+            </div>
+            <div class="group flex items-center gap-4 rounded-2xl bg-white border border-gray-200/70 px-5 py-5 shadow-sm hover:shadow-lg hover:border-amber-200 hover:-translate-y-1 transition-all duration-300">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-md shadow-amber-500/25">
+                    <span class="material-symbols-outlined text-white text-[24px]">location_on</span>
+                </div>
+                <div>
+                    <p class="text-sm font-extrabold text-[#111816]">@L.T("home.value3.title")</p>
+                    <p class="text-xs text-[#5f7369] leading-snug mt-0.5">@L.T("home.value3.desc")</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            <div class="grid grid-cols-1 gap-6">
-                <article class="rounded-[2rem] border border-[#ead686] bg-white/96 p-6 shadow-[0_20px_46px_-34px_rgba(0,0,0,0.24)] backdrop-blur">
-                    <div class="flex items-start justify-between gap-4">
+    <main class="w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 pb-16">
+    <div class="flex w-full min-w-0 flex-col items-stretch gap-8 lg:flex-row">
+        <div class="min-w-0 flex-1">
+
+            <!-- CATEGORIES -->
+            <section class="mb-12">
+                <div class="flex items-center justify-between mb-5 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-emerald-400 to-green-600 shrink-0"></div>
+                        <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.categories.title")</h2>
+                    </div>
+                    <a class="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all duration-200 shrink-0" href="/categorias">
+                        @L.T("home.categories.viewAll")
+                        <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+                    </a>
+                </div>
+                @if (_categoriesLoading)
+                {
+                    <div class="flex gap-4 overflow-hidden pb-2 pt-1">
+                        @for (int i = 0; i < 8; i++)
+                        {
+                            <div class="shrink-0 w-[144px] sm:w-[164px] rounded-2xl aspect-[4/5] bg-gray-200 animate-pulse"></div>
+                        }
+                    </div>
+                }
+                else if (_categories.Count == 0)
+                {
+                    <StatusBanner Message="@_categoriesStatusMessage" Level="warning" />
+                }
+                else
+                {
+                    <div class="flex gap-4 -mx-0.5 px-0.5 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        @foreach (var category in (_allCategories.Count > 0 ? _allCategories.Take(12) : _categories))
+                        {
+                            var image = CategoryVisualService.ResolveImage(category.Code, category.Name);
+                            <a href="@GetCategoryHref(category)"
+                               class="cc-card-lift snap-start shrink-0 w-[144px] sm:w-[164px] group cursor-pointer bg-cover bg-center flex flex-col justify-end p-3.5 rounded-2xl aspect-[4/5] ring-1 ring-black/10 shadow-lg"
+                               style="@BuildCategoryStyle(image)">
+                                <div class="rounded-xl bg-black/35 backdrop-blur-[2px] px-2.5 py-2">
+                                    <p class="text-white text-[13px] font-extrabold font-headline leading-tight drop-shadow-sm line-clamp-2">@CategoryVisualService.ResolveDisplayName(category.Code, category.Name)</p>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                }
+            </section>
+
+            <!-- PROMOTIONAL BANNER -->
+            <div class="mb-12 overflow-hidden rounded-3xl relative">
+                <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-6 sm:p-8 relative">
+                    <div class="cc-promo-dots absolute inset-0 opacity-10 pointer-events-none"></div>
+                    <div class="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none"></div>
+                    <div class="absolute -right-4 -bottom-12 w-32 h-32 rounded-full bg-white/5 pointer-events-none"></div>
+                    <div class="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                         <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#8a6b00]">Marketplace local</p>
-                            <h2 class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#111816]">Compra por categoría, entra a la vitrina y avanza rápido al siguiente paso.</h2>
-                            <p class="mt-3 text-sm leading-7 text-[#595c5d]">
-                                La portada prioriza búsqueda, categorías y oferta activa para que encontrar algo útil tome menos tiempo.
-                            </p>
+                            <div class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white mb-3">
+                                <span class="material-symbols-outlined text-yellow-300 text-[13px]">star</span>
+                                Destaca tu negocio
+                            </div>
+                            <h3 class="text-xl sm:text-2xl font-black text-white leading-tight">¿Tienes un negocio local?</h3>
+                            <p class="text-white/75 text-sm mt-1.5 max-w-sm">Llega a más clientes en tu comunidad. Gratis para empezar.</p>
                         </div>
-                        <span class="material-symbols-outlined text-[#ffb300] text-4xl">local_mall</span>
-                    </div>
-
-                    <div class="mt-6 grid grid-cols-3 gap-3">
-                        <div class="rounded-[1.35rem] bg-[#fff8dc] p-4">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#8a6b00]">Categorías</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_allCategories.Count == 0 ? "--" : _allCategories.Count.ToString())</p>
-                            <p class="mt-2 text-xs text-[#6b6350]">para explorar</p>
-                        </div>
-                        <div class="rounded-[1.35rem] bg-[#fff8dc] p-4">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#8a6b00]">Tiendas</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_featuredBusinesses.Count == 0 ? "--" : _featuredBusinesses.Count.ToString())</p>
-                            <p class="mt-2 text-xs text-[#6b6350]">en portada</p>
-                        </div>
-                        <div class="rounded-[1.35rem] bg-[#fff8dc] p-4">
-                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#8a6b00]">Reservas</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_featuredServices.Count == 0 ? "--" : _featuredServices.Count.ToString())</p>
-                            <p class="mt-2 text-xs text-[#6b6350]">disponibles</p>
-                        </div>
-                    </div>
-                </article>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <article class="rounded-[1.75rem] bg-white/92 px-5 py-5 border border-[#e7e7e7] shadow-[0_16px_36px_-30px_rgba(0,0,0,0.24)]">
-                        <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#3483fa]">Para comprar</p>
-                        <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#111816]">Explora vitrinas locales con acceso directo a contacto y detalle.</h3>
-                    </article>
-                    <article class="rounded-[1.75rem] bg-[#3483fa] px-5 py-5 text-white shadow-[0_20px_40px_-30px_rgba(52,131,250,0.65)]">
-                        <p class="text-[10px] uppercase tracking-[0.18em] font-black text-white/70">Para vender</p>
-                        <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-white">Activa tu negocio y muéstrate donde la gente ya está buscando.</h3>
-                        <a href="/register?intent=partner" class="inline-flex items-center gap-2 mt-4 text-sm font-bold text-white">
-                            <span>Quiero vender aquí</span>
-                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        <a href="/register?role=commerce"
+                           class="shrink-0 rounded-2xl bg-white text-emerald-700 px-7 py-3.5 text-sm font-extrabold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200 whitespace-nowrap">
+                            Publicar Gratis →
                         </a>
-                    </article>
-                </div>
-
-                @if (_searchLoading)
-                {
-                    <div class="rounded-[2rem] bg-white/95 p-6 shadow-[0_18px_44px_-28px_rgba(0,0,0,0.24)] backdrop-blur">
-                        <BrandedLoading Title="Buscando coincidencias" Message="Estamos cruzando categorías, partners, servicios y profesionales." Compact="true" />
                     </div>
-                }
-                else if (_searchHasRun)
+                </div>
+            </div>
+
+            <!-- FEATURED BUSINESSES -->
+            <section class="mb-12">
+                <div class="flex items-center justify-between mb-5 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-amber-400 to-orange-500 shrink-0"></div>
+                        <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.featured.title")</h2>
+                    </div>
+                    <a class="flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-50 px-4 py-1.5 text-sm font-bold text-amber-700 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all duration-200 shrink-0" href="/buyer/home">
+                        @L.T("home.featured.viewAll")
+                        <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+                    </a>
+                </div>
+                @if (_featuredLoading)
                 {
-                    <div class="rounded-[2rem] bg-white/95 p-6 shadow-[0_18px_44px_-28px_rgba(0,0,0,0.24)] backdrop-blur">
-                        @if (!string.IsNullOrWhiteSpace(_searchError))
+                    <div class="grid min-w-0 grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                        @for (int i = 0; i < 8; i++)
                         {
-                            <p class="text-sm font-semibold text-[#b02500]">@_searchError</p>
-                        }
-                        else if (!HasSearchResults)
-                        {
-                            <p class="text-sm font-semibold text-[#2c2f30]">No encontramos coincidencias para "@_searchQuery".</p>
-                        }
-                        else
-                        {
-                            <div class="space-y-5 text-[#2c2f30]">
-                                @if (_categorySearchResults.Count > 0)
-                                {
-                                    <div>
-                                        <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#7b8081] mb-2">Categorías encontradas</p>
-                                        <div class="flex flex-wrap gap-2">
-                                            @foreach (var category in _categorySearchResults)
-                                            {
-                                                <a href="@GetCategoryHref(category)" class="inline-flex items-center rounded-full bg-[#eff7eb] px-3 py-2 text-xs font-bold text-[#325800]">
-                                                    @CategoryVisualService.ResolveDisplayName(category.Code, category.Name)
-                                                </a>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-
-                                @if (_partnerSearchResults.Count > 0)
-                                {
-                                    <div>
-                                        <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#7b8081] mb-2">Negocios</p>
-                                        <div class="grid grid-cols-1 gap-2">
-                                            @foreach (var item in _partnerSearchResults)
-                                            {
-                                                <a href="@GetSearchResultHref(item)" class="rounded-2xl border border-[#e1ece5] px-4 py-3 text-sm font-semibold hover:bg-[#f3faf5]">
-                                                    @item.Name
-                                                </a>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-
-                                @if (_serviceSearchResults.Count > 0)
-                                {
-                                    <div>
-                                        <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#7b8081] mb-2">Servicios</p>
-                                        <div class="grid grid-cols-1 gap-2">
-                                            @foreach (var item in _serviceSearchResults)
-                                            {
-                                                <a href="@GetSearchResultHref(item)" class="rounded-2xl border border-[#e1ece5] px-4 py-3 text-sm font-semibold hover:bg-[#f3faf5]">
-                                                    @item.Name
-                                                </a>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-
-                                @if (_professionalSearchResults.Count > 0)
-                                {
-                                    <div>
-                                        <p class="text-[10px] uppercase tracking-[0.16em] font-black text-[#7b8081] mb-2">Profesionales</p>
-                                        <div class="grid grid-cols-1 gap-2">
-                                            @foreach (var item in _professionalSearchResults)
-                                            {
-                                                <a href="@GetSearchResultHref(item)" class="rounded-2xl border border-[#e1ece5] px-4 py-3 text-sm font-semibold hover:bg-[#f3faf5]">
-                                                    @item.Name
-                                                </a>
-                                            }
-                                        </div>
-                                    </div>
-                                }
+                            <div class="rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
+                                <div class="h-40 bg-gray-200"></div>
+                                <div class="p-4 space-y-2.5">
+                                    <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-1/2"></div>
+                                </div>
                             </div>
                         }
                     </div>
                 }
+                else if (_featuredBusinesses.Count == 0)
+                {
+                    <StatusBanner Message="@_featuredStatusMessage" Level="warning" />
+                }
+                else
+                {
+                    <div class="grid min-w-0 grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                        @foreach (var business in _featuredBusinesses)
+                        {
+                            <a href="@GetSearchResultHref(business)"
+                               class="cc-card-lift group min-w-0 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                                <div class="relative h-40 overflow-hidden">
+                                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="@BuildFeaturedImageOnlyStyle(business)"></div>
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
+                                    <span class="absolute top-2.5 left-2.5 rounded-lg bg-amber-100/95 text-amber-900 text-[10px] font-black px-2.5 py-0.5 uppercase tracking-wide border border-amber-200/70">@L.T("home.market.badge.local")</span>
+                                    <span class="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-primary shadow-md">
+                                        Ver →
+                                    </span>
+                                </div>
+                                <div class="p-3.5">
+                                    <h3 class="text-[13px] font-extrabold text-[#111816] line-clamp-2 min-h-[2.5rem] font-headline leading-snug">@business.Name</h3>
+                                    @if (!string.IsNullOrWhiteSpace(FormatPriceLine(business)))
+                                    {
+                                        <p class="mt-1.5 text-lg font-black text-primary font-headline leading-none">@FormatPriceLine(business)</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="mt-1.5 text-xs font-bold text-primary flex items-center gap-0.5">
+                                            @L.T("home.market.viewStore")
+                                            <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+                                        </p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                }
+            </section>
+
+            <!-- FEATURED SERVICES -->
+            <section class="mb-8">
+                <div class="flex items-center justify-between mb-5 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-sky-400 to-blue-600 shrink-0"></div>
+                        <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.services.title")</h2>
+                    </div>
+                    <a class="flex items-center gap-1 rounded-full border border-sky-300/50 bg-sky-50 px-4 py-1.5 text-sm font-bold text-sky-700 hover:bg-sky-500 hover:text-white hover:border-sky-500 transition-all duration-200 shrink-0" href="/buyer/home">
+                        @L.T("home.services.viewAll")
+                        <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+                    </a>
+                </div>
+                @if (_featuredServicesLoading)
+                {
+                    <div class="grid min-w-0 grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                        @for (int i = 0; i < 8; i++)
+                        {
+                            <div class="rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
+                                <div class="h-40 bg-gray-200"></div>
+                                <div class="p-4 space-y-2.5">
+                                    <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-1/2"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_featuredServices.Count == 0)
+                {
+                    <StatusBanner Message="@_featuredServicesStatusMessage" Level="warning" />
+                }
+                else
+                {
+                    <div class="grid min-w-0 grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                        @foreach (var service in _featuredServices)
+                        {
+                            <a href="@GetSearchResultHref(service)"
+                               class="cc-card-lift group min-w-0 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                                <div class="relative h-40 overflow-hidden">
+                                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="@BuildFeaturedImageOnlyStyle(service)"></div>
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
+                                    <span class="absolute top-2.5 left-2.5 rounded-lg bg-primary/95 text-white text-[10px] font-black px-2.5 py-0.5 uppercase tracking-wide shadow-sm">@L.T("home.market.badge.service")</span>
+                                    <span class="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-primary shadow-md">
+                                        Ver →
+                                    </span>
+                                </div>
+                                <div class="p-3.5">
+                                    <h3 class="text-[13px] font-extrabold text-[#111816] line-clamp-2 min-h-[2.5rem] font-headline leading-snug">@service.Name</h3>
+                                    @if (!string.IsNullOrWhiteSpace(FormatPriceLine(service)))
+                                    {
+                                        <p class="mt-1.5 text-xs text-[#61897c] font-medium">@L.T("home.market.from") <span class="text-lg font-black text-primary font-headline leading-none">@FormatPriceLine(service)</span></p>
+                                    }
+                                    else
+                                    {
+                                        <p class="mt-1.5 text-xs font-bold text-primary flex items-center gap-0.5">
+                                            @L.T("home.market.viewService")
+                                            <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+                                        </p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                }
+            </section>
+
+        </div>
+
+        <!-- SIDEBAR -->
+        <aside class="flex w-full min-w-0 shrink-0 flex-col gap-6 lg:w-80">
+
+            <!-- Local News -->
+            <div class="bg-white border border-gray-200/70 rounded-2xl overflow-hidden shadow-sm">
+                <div class="bg-gradient-to-r from-slate-800 to-slate-700 px-5 py-4 flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-emerald-400 text-[20px]">newspaper</span>
+                    <h3 class="text-[15px] font-black text-white">@L.T("home.news.title")</h3>
+                </div>
+                <div class="p-5">
+                    @if (_newsCards.Count == 0)
+                    {
+                        <p class="text-sm text-gray-500">No hay noticias para mostrar ahora.</p>
+                    }
+                    else
+                    {
+                        <div class="flex flex-col gap-4">
+                            @foreach (var news in _newsCards)
+                            {
+                                <a href="@news.Href" target="_blank" rel="noopener noreferrer" class="group cursor-pointer border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                                    <span class="@news.TagCss">@news.Tag</span>
+                                    <h4 class="break-words text-sm font-bold leading-snug group-hover:text-primary transition-colors">@news.Title</h4>
+                                    <p class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[11px]">schedule</span>
+                                        @news.TimeLabel
+                                    </p>
+                                </a>
+                            }
+                        </div>
+                        <a href="@NewsMoreHref" target="_blank" rel="noopener noreferrer"
+                           class="mt-5 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-700 hover:border-primary hover:text-primary transition-all duration-200">
+                            @L.T("home.news.button")
+                            <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+                        </a>
+                    }
+                </div>
             </div>
-        </div>
-    </section>
 
-    <section class="max-w-7xl mx-auto px-4 pb-6 relative">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <article class="rounded-[1.75rem] border border-[#ece1a4] bg-white px-6 py-5 shadow-[0_16px_44px_-32px_rgba(0,0,0,0.2)]">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#8a6b00]">Envío y coordinación</p>
-                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#111816]">Conecta rápido con negocios locales para concretar tu compra.</h3>
-            </article>
-            <article class="rounded-[1.75rem] border border-[#dbe8ff] bg-[#f3f8ff] px-6 py-5">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#3483fa]">Reserva simple</p>
-                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#103a7c]">Servicios visibles, horarios claros y menos vueltas para agendar.</h3>
-            </article>
-            <article class="rounded-[1.75rem] border border-[#d8e6de] bg-white px-6 py-5">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-black text-[#5a6b63]">Negocios activos</p>
-                <h3 class="mt-3 text-xl font-black tracking-[-0.03em] text-[#111816]">Más categorías, más vitrinas y mejores rutas para comprar cerca de ti.</h3>
-            </article>
-        </div>
-    </section>
-
-    <main class="max-w-7xl mx-auto px-4 pb-14">
-        <div class="space-y-12">
-                <section class="rounded-[2rem] border border-[#dae6de] bg-white p-6 md:p-8 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.18)]">
-                    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Categorías destacadas</p>
-                            <h2 class="text-[#111816] text-3xl font-black tracking-[-0.04em]">@L.T("home.categories.title")</h2>
-                            <p class="mt-2 text-sm text-[#595c5d]">Estas son las categorías con oferta activa para comprar, reservar o entrar directo a negocios de tu zona.</p>
-                        </div>
-                        <a class="text-primary font-bold text-sm" href="/categorias">@L.T("home.categories.viewAll")</a>
-                    </div>
-                    @if (_categoriesLoading)
+            <!-- Upcoming Events -->
+            <div class="bg-white border border-gray-200/70 rounded-2xl overflow-hidden shadow-sm">
+                <div class="bg-gradient-to-r from-primary to-emerald-600 px-5 py-4 flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-white/90 text-[20px]">event</span>
+                    <h3 class="text-[15px] font-black text-white">@L.T("home.events.title")</h3>
+                </div>
+                <div class="p-5">
+                    @if (_eventCards.Count == 0)
                     {
-                        <BrandedLoading Title="Cargando categorías" Message="Estamos preparando las categorías principales para ti." Compact="true" />
-                    }
-                    else if (_categories.Count == 0)
-                    {
-                        <StatusBanner Message="@_categoriesStatusMessage" Level="warning" />
+                        <p class="text-sm text-gray-500">No hay eventos próximos por ahora.</p>
                     }
                     else
                     {
-                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                            @foreach (var category in _categories)
+                        <div class="flex flex-col gap-4">
+                            @foreach (var eventCard in _eventCards)
                             {
-                                var image = GetCategoryImage(category);
-                                <a href="@GetCategoryHref(category)"
-                                   class="group relative min-h-[16.5rem] overflow-hidden rounded-[1.75rem] bg-cover bg-center p-5 flex items-end transition-transform duration-200 hover:translate-y-[-3px]"
-                                   style="@BuildCategoryStyle(image)">
-                                    <div class="absolute inset-x-0 top-0 p-4 flex justify-between items-start">
-                                        <span class="rounded-full bg-white/18 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm">
-                                            Comprar aquí
-                                        </span>
-                                        <span class="material-symbols-outlined text-white/90">north_east</span>
+                                <div class="flex gap-3.5 items-center group">
+                                    <div class="flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-emerald-100 rounded-xl w-14 h-14 shrink-0 border border-primary/15">
+                                        <span class="text-[9px] uppercase font-black text-primary tracking-wider">@eventCard.MonthLabel</span>
+                                        <span class="text-xl font-black text-[#111816] leading-none mt-0.5">@eventCard.DayLabel</span>
                                     </div>
-                                    <div class="relative z-10">
-                                        <p class="text-[10px] uppercase tracking-[0.16em] font-black text-white/80 mb-2">Explorar y convertir</p>
-                                        <p class="text-white text-2xl font-black leading-tight tracking-[-0.03em]">@CategoryVisualService.ResolveDisplayName(category.Code, category.Name)</p>
-                                    </div>
-                                </a>
-                            }
-                        </div>
-                    }
-                </section>
-
-                <section class="space-y-6">
-                    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 px-1">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Tiendas destacadas</p>
-                            <h2 class="text-[#111816] text-3xl font-black tracking-[-0.04em]">@L.T("home.featured.title")</h2>
-                            <p class="mt-2 text-sm text-[#595c5d]">Vitrinas locales listas para que descubras productos, contacto y siguientes pasos de compra.</p>
-                        </div>
-                        <a class="text-primary font-bold text-sm" href="/buyer/home">Explorar más</a>
-                    </div>
-                    @if (_featuredLoading)
-                    {
-                        <BrandedLoading Title="Cargando negocios destacados" Message="Estamos seleccionando vitrinas visibles para esta portada." Compact="true" />
-                    }
-                    else if (_featuredBusinesses.Count == 0)
-                    {
-                        <StatusBanner Message="@_featuredStatusMessage" Level="warning" />
-                    }
-                    else
-                    {
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            @foreach (var business in _featuredBusinesses)
-                            {
-                                <a href="@(business.CtaHref ?? "#")"
-                                   class="group overflow-hidden rounded-[2rem] border border-[#dae6de] bg-white shadow-[0_18px_50px_-34px_rgba(0,0,0,0.2)] hover:translate-y-[-3px] hover:shadow-[0_24px_60px_-36px_rgba(0,0,0,0.26)] transition-all duration-200">
-                                    <div class="relative h-60 bg-cover bg-center" style="@BuildFeaturedStyle(business)">
-                                        <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,22,0.08)_0%,rgba(17,24,22,0.62)_100%)]"></div>
-                                        <div class="absolute left-5 right-5 bottom-5 flex items-end justify-between gap-4">
-                                            <div>
-                                                <p class="text-[10px] uppercase tracking-[0.16em] font-black text-white/70 mb-2">Listo para vender</p>
-                                                <h3 class="text-white text-2xl font-black tracking-[-0.03em] leading-tight">@business.Name</h3>
-                                            </div>
-                                            <span class="shrink-0 inline-flex items-center rounded-full bg-white/18 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white backdrop-blur-sm">
-                                                @FeaturedTypeLabel(business.Category, business.CtaLabel)
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div class="p-5">
-                                        <p class="text-sm leading-7 text-[#595c5d]">
-                                            Entra a esta vitrina local para ver productos, contacto y próximos pasos de compra.
+                                    <div>
+                                        <h4 class="text-sm font-bold leading-snug group-hover:text-primary transition-colors">@eventCard.Title</h4>
+                                        <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[11px]">schedule</span>
+                                            @eventCard.TimeLabel
                                         </p>
-                                        <div class="mt-4 flex items-center justify-between gap-4 text-xs font-medium">
-                                            <span class="inline-flex items-center gap-2 rounded-full bg-[#f4f8f5] px-3 py-2 text-[#4f5c57]">
-                                                <span class="material-symbols-outlined text-sm">storefront</span>
-                                                Comprar en vitrina
-                                            </span>
-                                            <span class="inline-flex items-center gap-2 text-primary font-bold">
-                                                <span>@(business.CtaLabel ?? "Ver detalle")</span>
-                                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                                            </span>
-                                        </div>
                                     </div>
-                                </a>
+                                </div>
                             }
                         </div>
                     }
-                </section>
+                </div>
+            </div>
 
-                <section class="space-y-6">
-                    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 px-1">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-[#7b8081] mb-2">Servicios para reservar</p>
-                            <h2 class="text-[#111816] text-3xl font-black tracking-[-0.04em]">Servicios destacados</h2>
-                            <p class="mt-2 text-sm text-[#595c5d]">Servicios activos para que reserves rápido desde una experiencia más directa.</p>
-                        </div>
-                        <a class="text-primary font-bold text-sm" href="/buyer/home">Ver servicios</a>
+            <!-- Trust badge card -->
+            <div class="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50/80 border border-emerald-200/50 p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/25">
+                        <span class="material-symbols-outlined text-white text-[20px]">verified_user</span>
                     </div>
-                    @if (_featuredServicesLoading)
-                    {
-                        <BrandedLoading Title="Cargando servicios destacados" Message="Estamos preparando servicios activos para mostrar en portada." Compact="true" />
-                    }
-                    else if (_featuredServices.Count == 0)
-                    {
-                        <StatusBanner Message="@_featuredServicesStatusMessage" Level="warning" />
-                    }
-                    else
-                    {
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            @foreach (var service in _featuredServices)
-                            {
-                                <a href="@GetSearchResultHref(service)"
-                                   class="group rounded-[2rem] overflow-hidden border border-[#dae6de] bg-white shadow-[0_18px_50px_-34px_rgba(0,0,0,0.2)] hover:translate-y-[-3px] hover:shadow-[0_24px_60px_-36px_rgba(0,0,0,0.26)] transition-all duration-200">
-                                    <div class="relative h-56 bg-cover bg-center" style="@BuildFeaturedStyle(service)">
-                                        <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,22,0.05)_0%,rgba(17,24,22,0.58)_100%)]"></div>
-                                        <div class="absolute left-5 right-5 bottom-5">
-                                            <p class="text-[10px] uppercase tracking-[0.16em] font-black text-white/70 mb-2">Reserva disponible</p>
-                                            <div class="flex items-end justify-between gap-4">
-                                                <h3 class="text-white text-2xl font-black tracking-[-0.03em] leading-tight">@service.Name</h3>
-                                                <span class="inline-flex items-center rounded-full bg-white/18 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white backdrop-blur-sm">
-                                                    @FeaturedTypeLabel(service.Category, "Servicio")
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="p-5">
-                                        <p class="text-sm leading-7 text-[#595c5d]">
-                                            Reserva este servicio desde una ficha más clara, comercial y pensada para convertir rápido.
-                                        </p>
-                                        <div class="mt-4 flex items-center justify-between gap-4 text-xs font-medium">
-                                            <span class="inline-flex items-center gap-2 rounded-full bg-[#f4f8f5] px-3 py-2 text-[#4f5c57]">
-                                                <span class="material-symbols-outlined text-sm">schedule</span>
-                                                Reservar ahora
-                                            </span>
-                                            <span class="inline-flex items-center gap-2 text-primary font-bold">
-                                                <span>@(service.CtaLabel ?? "Reservar")</span>
-                                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </a>
-                            }
-                        </div>
-                    }
-                </section>
-        </div>
+                    <p class="text-sm font-extrabold text-[#111816]">Comercio Verificado</p>
+                </div>
+                <p class="text-xs text-[#5f7369] leading-relaxed">Todos los negocios en ComunaClic pasan por un proceso de verificación para garantizar una experiencia confiable.</p>
+            </div>
+
+        </aside>
+    </div>
     </main>
 </div>
-<PublicFooter />
 
 @code {
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
@@ -417,9 +589,16 @@
     private string? _searchError;
     private string _searchQuery = string.Empty;
     private ComunaClick.Shared.Api.Buyer.PublicSiteContentResponse? _siteContent;
-    private string HomeHeroImageUrl { get; set; } = BuildHomeHeroImageUrl();
+
+    [SupplyParameterFromQuery(Name = "q")]
+    private string? QFromUrl { get; set; }
+
+    /// <summary>Imagen fija de comercio local (Unsplash); coherente con la marca y sin variación aleatoria diaria.</summary>
+    private const string HomeHeroImageUrl =
+        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1920&q=82";
+
     private const string NewsMoreHref = "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FtVnVLQUFQAQ?hl=es-419&gl=CL&ceid=CL%3Aes-419";
-    private string HeroStyle => $"background-image: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.2)), url('{HomeHeroImageUrl}');";
+    private string HeroImageOnlyStyle => $"background-image: url('{HomeHeroImageUrl}');";
     private bool HasSearchResults
         => _categorySearchResults.Count > 0
         || _partnerSearchResults.Count > 0
@@ -450,12 +629,15 @@
             {
                 var distinctCategories = items
                     .Where(x => !string.IsNullOrWhiteSpace(x.Name))
-                    .GroupBy(x => NormalizeCategoryName(x.Name))
+                    .GroupBy(x => CategoryVisualService.ResolveDisplayName(x.Code, x.Name), StringComparer.OrdinalIgnoreCase)
                     .Select(g => g
-                        .OrderByDescending(HasCategoryImage)
-                        .ThenBy(x => x.Name)
+                        .OrderByDescending(x => !string.IsNullOrWhiteSpace(CategoryVisualService.ResolveImage(x.Code, x.Name)))
+                        .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
                         .First())
+                    .OrderBy(x => CategoryVisualService.ResolveDisplayName(x.Code, x.Name), StringComparer.OrdinalIgnoreCase)
                     .ToList();
+
+                PinInmueblesFirst(distinctCategories);
 
                 _allCategories.AddRange(distinctCategories);
                 _categories.AddRange(distinctCategories.Take(4));
@@ -472,12 +654,12 @@
 
         try
         {
-            var items = await BuyerApi.SearchAsync(null, "partners", 4);
+            var items = await BuyerApi.SearchAsync(null, "partners", 8);
             if (items is not null)
             {
                 _featuredBusinesses.AddRange(items
                     .Where(x => string.Equals(x.Type, "partner", StringComparison.OrdinalIgnoreCase))
-                    .Take(4));
+                    .Take(8));
             }
         }
         catch (HttpRequestException ex)
@@ -491,12 +673,12 @@
 
         try
         {
-            var items = await BuyerApi.SearchAsync(null, "services", 4);
+            var items = await BuyerApi.SearchAsync(null, "services", 8);
             if (items is not null)
             {
                 _featuredServices.AddRange(items
                     .Where(x => string.Equals(x.Type, "service", StringComparison.OrdinalIgnoreCase))
-                    .Take(4));
+                    .Take(8));
             }
         }
         catch (HttpRequestException ex)
@@ -506,6 +688,12 @@
         finally
         {
             _featuredServicesLoading = false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(QFromUrl))
+        {
+            _searchQuery = QFromUrl.Trim();
+            await ExecuteSearchAsync();
         }
     }
 
@@ -520,14 +708,6 @@
             ? $"/categorias/{slug}"
             : $"/categorias/{slug}?code={Uri.EscapeDataString(code)}";
     }
-
-    private static string? GetCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
-        => !string.IsNullOrWhiteSpace(category.ImageUrl)
-            ? category.ImageUrl
-            : CategoryVisualService.ResolveImage(category.Code, category.Name);
-
-    private static bool HasCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
-        => !string.IsNullOrWhiteSpace(GetCategoryImage(category));
 
     private async Task ExecuteSearchAsync()
     {
@@ -552,7 +732,8 @@
                 _allCategories
                     .Where(x =>
                         NormalizeCategoryName(x.Name).Contains(normalizedQuery, StringComparison.Ordinal)
-                        || NormalizeCategoryName(x.Code).Contains(normalizedQuery, StringComparison.Ordinal))
+                        || (!string.IsNullOrWhiteSpace(x.Code) && NormalizeCategoryName(x.Code).Contains(normalizedQuery, StringComparison.Ordinal)))
+                    .DistinctBy(x => CategoryVisualService.ResolveDisplayName(x.Code, x.Name), StringComparer.OrdinalIgnoreCase)
                     .Take(8));
 
             var partnersTask = BuyerApi.SearchAsync(query, "partners", 8);
@@ -610,18 +791,32 @@
             : "background-image: linear-gradient(135deg, rgba(45,158,79,0.95) 0%, rgba(34,197,94,0.8) 55%, rgba(220,252,231,0.65) 100%);";
     }
 
-    private static string BuildFeaturedStyle(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
+    private static string BuildFeaturedImageOnlyStyle(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
     {
         var image = CategoryVisualService.ResolveImage(item.Category, item.Category);
         return !string.IsNullOrWhiteSpace(image)
-            ? $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.05) 100%), url('{image}');"
-            : "background-image: linear-gradient(135deg, rgba(220,252,231,0.9) 0%, rgba(250,244,234,0.95) 55%, rgba(255,255,255,1) 100%);";
+            ? $"background-image: url('{image}');"
+            : "background-image: linear-gradient(135deg, rgba(220,252,231,0.95) 0%, rgba(250,244,234,0.98) 55%, rgba(255,255,255,1) 100%);";
     }
 
-    private static string FeaturedTypeLabel(string? category, string? ctaLabel)
-        => !string.IsNullOrWhiteSpace(category)
-            ? CategoryVisualService.ResolveDisplayName(category, category).ToUpperInvariant()
-            : ctaLabel ?? "Negocio local";
+    private static string? FormatPriceLine(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
+    {
+        if (item.Price is null)
+        {
+            return null;
+        }
+
+        var cur = (item.Currency ?? string.Empty).Trim().ToUpperInvariant();
+        var n = item.Price.Value;
+        return cur switch
+        {
+            "CLP" or "CL$" => $"$ {n:N0}",
+            "USD" or "US$" or "USD $" => $"US$ {n:N2}",
+            _ => string.IsNullOrWhiteSpace(item.Currency)
+                ? $"$ {n:N0}"
+                : $"{item.Currency} {n:N0}"
+        };
+    }
 
     private static string NormalizeCategoryName(string? value)
     {
@@ -638,13 +833,6 @@
             .Replace("ó", "o", StringComparison.Ordinal)
             .Replace("ú", "u", StringComparison.Ordinal)
             .Replace("ñ", "n", StringComparison.Ordinal);
-    }
-
-    private static string BuildHomeHeroImageUrl()
-    {
-        // Stable daily rotation so home feels fresh without flickering on each render.
-        var seed = DateTime.UtcNow.ToString("yyyyMMdd");
-        return $"https://picsum.photos/seed/comunaclic-home-{seed}/1800/1000";
     }
 
     private void HandleChange()
@@ -719,6 +907,17 @@
         return string.IsNullOrWhiteSpace(value) || string.Equals(value, key, StringComparison.Ordinal)
             ? fallback
             : value;
+    }
+
+    private static void PinInmueblesFirst(List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> categories)
+    {
+        var i = categories.FindIndex(c => string.Equals(c.Code, "inmuebles", StringComparison.OrdinalIgnoreCase));
+        if (i > 0)
+        {
+            var item = categories[i];
+            categories.RemoveAt(i);
+            categories.Insert(0, item);
+        }
     }
 
     private sealed record HomeNewsCard(

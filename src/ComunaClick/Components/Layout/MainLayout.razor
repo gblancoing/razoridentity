@@ -1,7 +1,11 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using ComunaClick.SharedUI.Components
 
-@Body
-<ComunaClick.SharedUI.Components.GlobalLogoutButton />
+<PublicNav />
+<div class="w-full min-w-0 max-w-full flex-1">
+    @Body
+</div>
+<PublicFooter />
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

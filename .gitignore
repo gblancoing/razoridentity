@@ -13,5 +13,12 @@
 .vscode/
 .idea/
 
+# Visual Studio user-specific files
+*.user
+*.slnLaunch.user
+
+# Claude Code local config
+.claude/
+
 # Logs
 *.log

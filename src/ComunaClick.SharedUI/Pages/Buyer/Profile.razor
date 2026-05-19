@@ -3,6 +3,7 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -12,8 +13,15 @@
     <section class="rounded-[2rem] bg-gradient-to-br from-[#3b6700] to-[#76BC21] p-8 text-[#f8ffef] shadow-[0_24px_48px_-24px_rgba(59,103,0,0.65)]">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div class="flex items-center gap-5">
-                <div class="flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-white/20 text-3xl font-black">
-                    @UserInitial
+                <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-white/50 bg-white/20 text-3xl font-black shadow-[0_8px_24px_rgba(0,0,0,0.15)] ring-2 ring-white/25">
+                    @if (ShowAvatarImage)
+                    {
+                        <img src="@AvatarUrl.Trim()" alt="" class="h-full w-full object-cover" @onerror="HandleAvatarError" />
+                    }
+                    else
+                    {
+                        <span>@UserInitial</span>
+                    }
                 </div>
                 <div>
                     <p class="text-[10px] uppercase tracking-[0.24em] text-white/80 font-bold">Cuenta personal</p>
@@ -33,6 +41,13 @@
             <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30] dark:text-white">@L.T("buyer.profile.heading")</h2>
             <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.subtitle")</p>
 
+            @if (!string.IsNullOrWhiteSpace(_bannerMessage))
+            {
+                <div class="mt-6">
+                    <StatusBanner Message="@_bannerMessage" Level="@_bannerLevel" />
+                </div>
+            }
+
             <div class="mt-8 space-y-5">
                 <div>
                     <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.name")</label>
@@ -41,6 +56,20 @@
                 <div>
                     <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.email")</label>
                     <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="Email" type="email" />
+                </div>
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.phone")</label>
+                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="Phone" type="tel" autocomplete="tel" />
+                </div>
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.avatarUrl")</label>
+                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary"
+                           @bind="AvatarUrl"
+                           @bind:after="ResetAvatarPreview"
+                           type="url"
+                           inputmode="url"
+                           placeholder="https://…" />
+                    <p class="mt-2 text-xs text-[#61897c]">@L.T("buyer.profile.avatarHint")</p>
                 </div>
 
                 <button class="inline-flex items-center gap-2 bg-primary text-[#111816] px-6 py-3 rounded-2xl font-bold disabled:opacity-60"
@@ -79,10 +108,26 @@
     private string CustomerId = string.Empty;
     private string FullName = string.Empty;
     private string Email = string.Empty;
+    private string Phone = string.Empty;
+    private string AvatarUrl = string.Empty;
     private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
+    private string _bannerMessage = string.Empty;
+    private string _bannerLevel = "warning";
     private bool _isSaving;
     private bool _profileInitialized;
+    private bool _avatarFailed;
+
+    private Guid? ResolveTenantId()
+    {
+        var tid = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
+        return tid is { } g && g != Guid.Empty ? g : null;
+    }
+
+    private bool ShowAvatarImage
+        => !_avatarFailed
+           && !string.IsNullOrWhiteSpace(AvatarUrl)
+           && AvatarUrl.Trim().StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
     private string UserInitial
         => string.IsNullOrWhiteSpace(FullName)
@@ -124,6 +169,43 @@
                 CustomerId = storedCustomerId;
             }
 
+            if (AuthState.IsAuthenticated)
+            {
+                var tenantId = ResolveTenantId();
+                if (!tenantId.HasValue)
+                {
+                    _bannerMessage = L.T("buyer.profile.tenantRequired");
+                    _bannerLevel = "warning";
+                }
+                else
+                {
+                    try
+                    {
+                        var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
+                        if (ensured is not null)
+                        {
+                            ApplyCustomer(ensured);
+                        }
+
+                        var fresh = await BuyerApi.GetBuyerCustomerAsync(tenantId);
+                        if (fresh is not null)
+                        {
+                            ApplyCustomer(fresh);
+                        }
+                    }
+                    catch (HttpRequestException)
+                    {
+                        _bannerMessage = L.T("buyer.status.profileFailed");
+                        _bannerLevel = "error";
+                    }
+                }
+            }
+            else
+            {
+                _bannerMessage = L.T("buyer.profile.loginRequired");
+                _bannerLevel = "info";
+            }
+
             _profileInitialized = true;
             StateHasChanged();
         }
@@ -133,14 +215,52 @@
         }
     }
 
+    private void ApplyCustomer(Customer c)
+    {
+        CustomerId = c.Id.ToString();
+        if (!string.IsNullOrWhiteSpace(c.FullName))
+        {
+            FullName = c.FullName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(c.Email))
+        {
+            Email = c.Email;
+        }
+
+        Phone = c.Phone ?? string.Empty;
+        AvatarUrl = c.AvatarUrl ?? string.Empty;
+        _avatarFailed = false;
+    }
+
+    private void ResetAvatarPreview()
+    {
+        _avatarFailed = false;
+    }
+
+    private void HandleAvatarError()
+    {
+        _avatarFailed = true;
+    }
+
     private async Task HandleSave()
     {
         _isSaving = true;
         _statusMessage = string.Empty;
         _statusLevel = "info";
-        if (!Guid.TryParse(CustomerId, out var customerId))
+
+        if (!AuthState.IsAuthenticated)
         {
-            _statusMessage = L.T("buyer.status.invalidCustomer");
+            _statusMessage = L.T("buyer.profile.loginRequired");
+            _statusLevel = "warning";
+            _isSaving = false;
+            return;
+        }
+
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue)
+        {
+            _statusMessage = L.T("buyer.profile.tenantRequired");
             _statusLevel = "error";
             _isSaving = false;
             return;
@@ -148,7 +268,29 @@
 
         try
         {
-            var updated = await BuyerApi.UpdateCustomerAsync(customerId, new CustomerUpdateRequest(Email, null, FullName));
+            if (!Guid.TryParse(CustomerId, out _))
+            {
+                var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
+                if (ensured is null)
+                {
+                    _statusMessage = L.T("buyer.status.profileFailed");
+                    _statusLevel = "error";
+                    _isSaving = false;
+                    return;
+                }
+
+                ApplyCustomer(ensured);
+            }
+
+            var avatarPayload = string.IsNullOrWhiteSpace(AvatarUrl) ? string.Empty : AvatarUrl.Trim();
+            var updated = await BuyerApi.UpdateBuyerCustomerAsync(
+                new CustomerUpdateRequest(
+                    Email.Trim(),
+                    string.IsNullOrWhiteSpace(Phone) ? string.Empty : Phone.Trim(),
+                    string.IsNullOrWhiteSpace(FullName) ? string.Empty : FullName.Trim(),
+                    avatarPayload),
+                tenantId);
+
             if (updated is null)
             {
                 _statusMessage = L.T("buyer.status.profileFailed");
@@ -156,6 +298,7 @@
             }
             else
             {
+                ApplyCustomer(updated);
                 await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
                 _statusMessage = L.T("buyer.status.profileUpdated");
                 _statusLevel = "success";

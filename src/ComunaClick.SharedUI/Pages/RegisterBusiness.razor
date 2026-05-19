@@ -1,6 +1,7 @@
 @page "/register"
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
@@ -9,112 +10,21 @@
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @implements IDisposable
 
-<PageTitle>Crear cuenta - ComunaClic</PageTitle>
+<PageTitle>@L.T("registerAccount.pageTitle")</PageTitle>
 
-<div class="min-h-screen bg-[#f7fbf9] dark:bg-background-dark">
-    <header class="sticky top-0 z-50 w-full bg-white dark:bg-background-dark border-b border-[#dbe6e2] dark:border-white/10">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <a class="material-symbols-outlined text-[#111816] dark:text-white cursor-pointer" href="/login">arrow_back</a>
-                <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
-            </div>
-            <div class="flex items-center gap-4">
-                <LanguageToggle />
-                <a class="text-sm font-semibold text-primary hover:underline" href="/login">Ya tengo cuenta</a>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <aside class="lg:col-span-5 space-y-6">
-                <div class="rounded-2xl border border-primary/20 bg-primary/5 p-6">
-                    <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">@HeroEyebrow</p>
-                    <h1 class="mt-3 text-3xl font-bold text-[#111816] dark:text-white">@HeroTitle</h1>
-                    <p class="mt-3 text-sm text-[#61897c]">
-                        @HeroDescription
-                    </p>
-                </div>
-
-                <div class="rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-white dark:bg-[#1a2e28] p-3">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <a href="/register?intent=buyer"
-                           class="@GetIntentCardClass("buyer")">
-                            <span class="material-symbols-outlined text-primary">event_available</span>
-                            <div>
-                                <p class="font-bold text-[#111816] dark:text-white">Cuenta personal</p>
-                                <p class="text-sm text-[#61897c]">Para reservar horas, comprar y seguir negocios.</p>
-                            </div>
-                        </a>
-                        <a href="/register?intent=partner"
-                           class="@GetIntentCardClass("partner")">
-                            <span class="material-symbols-outlined text-primary">storefront</span>
-                            <div>
-                                <p class="font-bold text-[#111816] dark:text-white">Soy partner</p>
-                                <p class="text-sm text-[#61897c]">Para crear negocio, catálogo y publicar.</p>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-
-                <div class="rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-white dark:bg-[#1a2e28] p-6 space-y-4">
-                    <h2 class="text-lg font-bold text-[#111816] dark:text-white">Qué pasará después</h2>
-                    <div class="space-y-3 text-sm text-[#111816] dark:text-gray-200">
-                        <div class="flex gap-3">
-                            <span class="material-symbols-outlined text-primary">person_add</span>
-                            <span>Se crea tu cuenta con correo y contraseña.</span>
-                        </div>
-                        @if (IsPartnerIntent)
-                        {
-                            <div class="flex gap-3">
-                                <span class="material-symbols-outlined text-primary">storefront</span>
-                                <span>Sigues al paso donde crearás tu primer negocio.</span>
-                            </div>
-                            <div class="flex gap-3">
-                                <span class="material-symbols-outlined text-primary">checklist</span>
-                                <span>Luego completas catálogo y publicación según el tipo de partner.</span>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="flex gap-3">
-                                <span class="material-symbols-outlined text-primary">travel_explore</span>
-                                <span>Entras a tu vista buyer para buscar negocios, servicios y profesionales.</span>
-                            </div>
-                            <div class="flex gap-3">
-                                <span class="material-symbols-outlined text-primary">bookmark_added</span>
-                                <span>Podrás reservar, comprar o retomar tu búsqueda cuando quieras.</span>
-                            </div>
-                        }
-                    </div>
-                </div>
-
-                @if (IsPartnerIntent)
-                {
-                    <div class="rounded-2xl border border-yellow-200 bg-yellow-50 p-5 text-sm text-yellow-800">
-                        No estás publicando todavía.
-                        En esta pantalla solo se crea la cuenta de acceso para continuar con la activación.
-                    </div>
-                }
-                else
-                {
-                    <div class="rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sm text-sky-800">
-                        Esta cuenta es para uso personal.
-                        Después de crearla entrarás directo a la experiencia buyer para buscar y reservar.
-                    </div>
-                }
-            </aside>
-
-            <section class="lg:col-span-7 rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-white dark:bg-[#1a2e28] p-6 lg:p-8">
+<div class="min-h-screen bg-[#f3f5f4] dark:bg-background-dark">
+    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
+            <section class="order-1 rounded-[1.75rem] border border-[#dbe6e2] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#1a2e28] sm:p-8 lg:order-2 lg:col-span-7">
                 <div class="mb-6">
-                    <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">Cuenta</p>
-                    <h2 class="mt-2 text-2xl font-bold text-[#111816] dark:text-white">@FormTitle</h2>
-                    <p class="mt-2 text-sm text-[#61897c]">@FormDescription</p>
+                    <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3b6700] dark:text-primary">@L.T("registerAccount.form.eyebrow")</p>
+                    <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#111816] dark:text-white">@FormTitle</h2>
+                    <p class="mt-2 text-sm leading-relaxed text-[#61897c]">@FormDescription</p>
                 </div>
 
                 @if (_loadingSession)
                 {
-                    <BrandedLoading Title="Cargando sesion" Message="Estamos verificando si ya tienes acceso activo." />
+                    <BrandedLoading Title="@L.T("registerAccount.loadingTitle")" Message="@L.T("registerAccount.loadingMessage")" />
                 }
                 else
                 {
@@ -126,52 +36,98 @@
                                 <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
                             }
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4 dark:border-white/10 dark:bg-[#10221c]">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#3b6700]">@L.T("registerAccount.social.eyebrow")</p>
+                                <p class="mt-2 text-xs leading-relaxed text-[#4a5c52] dark:text-gray-300">@SocialHint</p>
+                                <div class="@SocialButtonGridClass">
+                                    @if (IsNatural)
+                                    {
+                                        <button type="button"
+                                                class="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] transition hover:bg-gray-50 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
+                                                @onclick='@(() => ShowSocialInfo("Facebook"))'>
+                                            <svg class="h-5 w-6 shrink-0" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                                <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                                            </svg>
+                                            @L.T("registerAccount.social.facebook")
+                                        </button>
+                                    }
+                                    <button type="button"
+                                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] transition hover:bg-gray-50 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
+                                            @onclick='@(() => ShowSocialInfo("Google"))'>
+                                        <svg class="h-5 w-6 shrink-0" viewBox="0 0 48 48" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.48 32.905 28.075 36 22 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                                            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
+                                            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.86 11.86 0 0 1 24 36c-5.222 0-9.652-3.342-11.303-8l-6.571 4.819C9.656 39.663 16.318 44 24 44z" />
+                                            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+                                        </svg>
+                                        @L.T("registerAccount.social.google")
+                                    </button>
+                                    @if (IsProfessional)
+                                    {
+                                        <button type="button"
+                                                class="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] transition hover:bg-gray-50 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
+                                                @onclick='@(() => ShowSocialInfo("LinkedIn"))'>
+                                            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                                <path fill="#0A66C2" d="M20.5 2h-17A1.5 1.5 0 0 0 2 3.5v17A1.5 1.5 0 0 0 3.5 22h17a1.5 1.5 0 0 0 1.5-1.5v-17A1.5 1.5 0 0 0 20.5 2zM8 19H5V9h3v10zM6.5 7.5A1.75 1.75 0 1 1 8.2 5.7a1.75 1.75 0 0 1-1.7 1.8zM19 19h-3v-5.2c0-1.24-.45-2.1-1.6-2.1a1.7 1.7 0 0 0-1.6 1.1 2.1 2.1 0 0 0-.1.8V19H9.5s.1-8.1 0-9H12v1.2a3.1 3.1 0 0 1 2.8-1.5c2 0 3.2 1.2 3.2 3.6V19z" />
+                                            </svg>
+                                            @L.T("registerAccount.social.linkedin")
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                            <p class="text-center text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@L.T("registerAccount.social.orPassword")</p>
+
+                            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div class="md:col-span-2">
-                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Nombre</label>
-                                    <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">@L.T("registerAccount.label.name")</label>
+                                    <input class="mt-1.5 h-12 w-full rounded-2xl border border-[#dbe6e2] bg-[#fbfefd] px-4 dark:border-white/10 dark:bg-[#10221c] dark:text-white"
                                            @bind="_model.Name" />
                                     <ValidationMessage For="@(() => _model.Name)" class="text-xs text-red-500" />
                                 </div>
 
                                 <div class="md:col-span-2">
-                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Correo</label>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">@L.T("registerAccount.label.email")</label>
                                     <input type="email"
-                                           class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                           class="mt-1.5 h-12 w-full rounded-2xl border border-[#dbe6e2] bg-[#fbfefd] px-4 dark:border-white/10 dark:bg-[#10221c] dark:text-white"
                                            @bind="_model.Email" />
                                     <ValidationMessage For="@(() => _model.Email)" class="text-xs text-red-500" />
                                 </div>
 
                                 <div>
-                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Contraseña</label>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">@L.T("registerAccount.label.password")</label>
                                     <input type="password"
-                                           class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                           class="mt-1.5 h-12 w-full rounded-2xl border border-[#dbe6e2] bg-[#fbfefd] px-4 dark:border-white/10 dark:bg-[#10221c] dark:text-white"
                                            @bind="_model.Password" />
                                     <ValidationMessage For="@(() => _model.Password)" class="text-xs text-red-500" />
                                 </div>
 
                                 <div>
-                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Confirmar contraseña</label>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">@L.T("registerAccount.label.confirm")</label>
                                     <input type="password"
-                                           class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
+                                           class="mt-1.5 h-12 w-full rounded-2xl border border-[#dbe6e2] bg-[#fbfefd] px-4 dark:border-white/10 dark:bg-[#10221c] dark:text-white"
                                            @bind="_model.ConfirmPassword" />
                                     <ValidationMessage For="@(() => _model.ConfirmPassword)" class="text-xs text-red-500" />
                                 </div>
                             </div>
 
-                            <label class="flex items-start gap-3 rounded-xl border border-[#dbe6e2] dark:border-white/10 p-4">
-                                <input type="checkbox" class="mt-1" @bind="_model.AcceptFlow" />
-                                <span class="text-sm text-[#111816] dark:text-gray-200">
-                                    @AcceptLabel
-                                </span>
+                            <label class="flex items-start gap-3 rounded-2xl border border-[#dbe6e2] p-4 dark:border-white/10">
+                                <input type="checkbox" class="mt-1 rounded border-gray-300" @bind="_model.AcceptFlow" />
+                                <span class="text-sm leading-relaxed text-[#111816] dark:text-gray-200">@AcceptLabel</span>
                             </label>
 
-                            <div class="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
-                                <a href="/login" class="text-sm font-semibold text-[#61897c] hover:text-primary">Prefiero iniciar sesión</a>
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <a href="/login" class="text-sm font-semibold text-[#61897c] hover:text-[#3b6700]">@L.T("registerAccount.preferLogin")</a>
                                 <button type="submit"
-                                        class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm disabled:opacity-60"
+                                        class="inline-flex min-w-[200px] items-center justify-center rounded-2xl bg-[#3b6700] px-6 py-3.5 text-sm font-bold text-[#d9ffad] shadow-sm transition hover:brightness-105 disabled:opacity-60"
                                         disabled="@_isSubmitting">
-                                    @(_isSubmitting ? "Creando cuenta..." : SubmitLabel)
+                                    @if (_isSubmitting)
+                                    {
+                                        @L.T("registerAccount.creating")
+                                    }
+                                    else
+                                    {
+                                        @SubmitLabel
+                                    }
                                 </button>
                             </div>
 
@@ -192,40 +148,206 @@
                     </EditForm>
                 }
             </section>
+
+            <aside class="order-2 space-y-5 lg:order-1 lg:col-span-5">
+                <div class="overflow-hidden rounded-[1.75rem] border border-[#3b6700]/20 bg-gradient-to-br from-[#f4faf0] to-white p-6 dark:from-[#1a2e28] dark:to-[#10221c] sm:p-7">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#3b6700] dark:text-primary">@HeroEyebrow</p>
+                    <h1 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#111816] dark:text-white sm:text-3xl">@HeroTitle</h1>
+                    <p class="mt-3 text-sm leading-relaxed text-[#4a5c52] dark:text-gray-300">@HeroDescription</p>
+                </div>
+
+                <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7b8081]">@L.T("registerAccount.chooseEyebrow")</p>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <a href="@RegisterUrl("natural")" class="@GetRoleCardClass("natural")">
+                        <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">person</span>
+                        <div>
+                            <p class="font-bold text-[#111816] dark:text-white">@L.T("registerAccount.card.natural.title")</p>
+                            <p class="mt-0.5 text-xs text-[#61897c] sm:text-[11px]">@L.T("registerAccount.card.natural.body")</p>
+                        </div>
+                    </a>
+                    <a href="@RegisterUrl("commerce")" class="@GetRoleCardClass("commerce")">
+                        <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">storefront</span>
+                        <div>
+                            <p class="font-bold text-[#111816] dark:text-white">@L.T("registerAccount.card.commerce.title")</p>
+                            <p class="mt-0.5 text-xs text-[#61897c] sm:text-[11px]">@L.T("registerAccount.card.commerce.body")</p>
+                        </div>
+                    </a>
+                    <a href="@RegisterUrl("professional")" class="@GetRoleCardClass("professional")">
+                        <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">construction</span>
+                        <div>
+                            <p class="font-bold text-[#111816] dark:text-white">@L.T("registerAccount.card.professional.title")</p>
+                            <p class="mt-0.5 text-xs text-[#61897c] sm:text-[11px]">@L.T("registerAccount.card.professional.body")</p>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="rounded-[1.75rem] border border-[#dbe6e2] bg-white p-6 dark:border-white/10 dark:bg-[#1a2e28]">
+                    <h2 class="text-lg font-bold text-[#111816] dark:text-white">@L.T("registerAccount.next.title")</h2>
+                    <div class="mt-4 space-y-3 text-sm text-[#111816] dark:text-gray-200">
+                        @if (IsNatural)
+                        {
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">person_add</span>
+                                <span>@L.T("registerAccount.next.natural.1")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">travel_explore</span>
+                                <span>@L.T("registerAccount.next.natural.2")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">receipt_long</span>
+                                <span>@L.T("registerAccount.next.natural.3")</span>
+                            </div>
+                        }
+                        else if (IsCommerce)
+                        {
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">storefront</span>
+                                <span>@L.T("registerAccount.next.commerce.1")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">edit_square</span>
+                                <span>@L.T("registerAccount.next.commerce.2")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">checklist</span>
+                                <span>@L.T("registerAccount.next.commerce.3")</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">link</span>
+                                <span>@L.T("registerAccount.next.professional.1")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">handyman</span>
+                                <span>@L.T("registerAccount.next.professional.2")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">visibility</span>
+                                <span>@L.T("registerAccount.next.professional.3")</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (IsNatural)
+                {
+                    <div class="flex gap-3 rounded-[1.75rem] border border-sky-200/80 bg-sky-50/90 p-5 text-sm leading-relaxed text-sky-900 dark:border-sky-500/30 dark:bg-sky-950/30 dark:text-sky-100">
+                        <span class="material-symbols-outlined shrink-0 text-sky-600 dark:text-sky-300">info</span>
+                        <p>@L.T("registerAccount.notice.natural")</p>
+                    </div>
+                }
+                else if (IsCommerce)
+                {
+                    <div class="flex gap-3 rounded-[1.75rem] border border-amber-200/80 bg-amber-50/90 p-5 text-sm leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-100">
+                        <span class="material-symbols-outlined shrink-0 text-amber-600 dark:text-amber-300">info</span>
+                        <p>@L.T("registerAccount.notice.commerce")</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex gap-3 rounded-[1.75rem] border border-violet-200/80 bg-violet-50/90 p-5 text-sm leading-relaxed text-violet-950 dark:border-violet-500/30 dark:bg-violet-950/25 dark:text-violet-100">
+                        <span class="material-symbols-outlined shrink-0 text-violet-600 dark:text-violet-300">info</span>
+                        <p>@L.T("registerAccount.notice.professional")</p>
+                    </div>
+                }
+            </aside>
         </div>
     </main>
 </div>
 
 @code {
+    private const string RoleNatural = "natural";
+    private const string RoleCommerce = "commerce";
+    private const string RoleProfessional = "professional";
+
     private readonly RegisterAccountModel _model = new();
     private bool _loadingSession = true;
     private bool _isSubmitting;
     private bool _checkedAuth;
     private string? _statusMessage;
     private string _statusLevel = "info";
-    private string _intent = "buyer";
+    private string _role = RoleNatural;
     private string? _returnUrl;
 
-    private bool IsPartnerIntent => string.Equals(_intent, "partner", StringComparison.OrdinalIgnoreCase);
-    private string HeroEyebrow => IsPartnerIntent ? "Pre-onboarding partner" : "Cuenta personal";
-    private string HeroTitle => IsPartnerIntent ? "Crea tu cuenta y sigue con tu negocio" : "Crea tu cuenta para reservar y explorar";
-    private string HeroDescription => IsPartnerIntent
-        ? "Este paso crea tu acceso personal a ComunaClic. Apenas termine, te llevaremos al formulario para crear tu negocio."
-        : "Este paso crea tu acceso personal a ComunaClic para buscar negocios, reservar servicios y seguir tus próximas compras.";
-    private string FormTitle => IsPartnerIntent ? "Regístrate gratis" : "Crea tu cuenta personal";
-    private string FormDescription => IsPartnerIntent
-        ? "Usa un correo real. Después podrás entrar con él y seguir con la creación del negocio."
-        : "Usa un correo real. Después podrás entrar con él y usar la experiencia buyer de ComunaClic.";
-    private string AcceptLabel => IsPartnerIntent
-        ? "Entiendo que después de crear mi cuenta continuaré con el registro del negocio."
-        : "Entiendo que esta cuenta será mi acceso personal para buscar, reservar o comprar en ComunaClic.";
-    private string SubmitLabel => IsPartnerIntent ? "Crear cuenta y continuar con mi negocio" : "Crear cuenta personal";
+    private bool IsNatural => string.Equals(_role, RoleNatural, StringComparison.OrdinalIgnoreCase);
+    private bool IsCommerce => string.Equals(_role, RoleCommerce, StringComparison.OrdinalIgnoreCase);
+    private bool IsProfessional => string.Equals(_role, RoleProfessional, StringComparison.OrdinalIgnoreCase);
+    private bool IsPartnerPath => IsCommerce || IsProfessional;
+
+    private string ReturnUrlQuery =>
+        !string.IsNullOrWhiteSpace(_returnUrl) ? $"&returnUrl={Uri.EscapeDataString(_returnUrl)}" : string.Empty;
+
+    private string RegisterUrl(string role)
+        => $"/register?role={role}{ReturnUrlQuery}";
+
+    private string FormTitle => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.form.title.commerce"),
+        RoleProfessional => L.T("registerAccount.form.title.professional"),
+        _ => L.T("registerAccount.form.title.natural")
+    };
+
+    private string FormDescription => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.form.desc.commerce"),
+        RoleProfessional => L.T("registerAccount.form.desc.professional"),
+        _ => L.T("registerAccount.form.desc.natural")
+    };
+
+    private string HeroEyebrow => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.commerce.eyebrow"),
+        RoleProfessional => L.T("registerAccount.professional.eyebrow"),
+        _ => L.T("registerAccount.natural.eyebrow")
+    };
+
+    private string HeroTitle => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.commerce.heroTitle"),
+        RoleProfessional => L.T("registerAccount.professional.heroTitle"),
+        _ => L.T("registerAccount.natural.heroTitle")
+    };
+
+    private string HeroDescription => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.commerce.heroDesc"),
+        RoleProfessional => L.T("registerAccount.professional.heroDesc"),
+        _ => L.T("registerAccount.natural.heroDesc")
+    };
+
+    private string AcceptLabel => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.accept.commerce"),
+        RoleProfessional => L.T("registerAccount.accept.professional"),
+        _ => L.T("registerAccount.accept.natural")
+    };
+
+    private string SubmitLabel => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.submit.commerce"),
+        RoleProfessional => L.T("registerAccount.submit.professional"),
+        _ => L.T("registerAccount.submit.natural")
+    };
+
+    private string SocialHint => _role switch
+    {
+        RoleCommerce => L.T("registerAccount.social.hint.commerce"),
+        RoleProfessional => L.T("registerAccount.social.hint.professional"),
+        _ => L.T("registerAccount.social.hint.natural")
+    };
+
+    private string SocialButtonGridClass => IsCommerce
+        ? "mt-4 grid w-full max-w-sm grid-cols-1 gap-2 sm:mx-auto"
+        : "mt-4 grid w-full grid-cols-1 gap-2 sm:grid-cols-2";
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
-        _intent = ReadIntent();
-        _returnUrl = ReadReturnUrl();
+        Navigation.LocationChanged += OnLocationChanged;
+        SyncFromUri();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -246,10 +368,15 @@
             await AuthState.InitializeAsync();
             if (AuthState.IsAuthenticated)
             {
-                var destination = IsPartnerIntent
-                    ? "/register/business"
-                    : ResolveAuthenticatedDestination(AuthState.IsPersonalAccount, _returnUrl);
-                Navigation.NavigateTo(destination, true);
+                if (IsPartnerPath)
+                {
+                    Navigation.NavigateTo(PartnerOnboardingPath(), true);
+                }
+                else
+                {
+                    var destination = ResolveAuthenticatedDestination(AuthState.IsPersonalAccount, _returnUrl);
+                    Navigation.NavigateTo(destination, true);
+                }
                 return;
             }
 
@@ -262,14 +389,36 @@
         }
     }
 
-    private void HandleChange()
+    private void HandleChange() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        InvokeAsync(StateHasChanged);
+        var previousRole = _role;
+        SyncFromUri();
+        if (!string.Equals(previousRole, _role, StringComparison.OrdinalIgnoreCase))
+        {
+            _statusMessage = null;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void SyncFromUri()
+    {
+        _role = ReadRole();
+        _returnUrl = ReadReturnUrl();
     }
 
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    private void ShowSocialInfo(string providerLabel)
+    {
+        _statusLevel = "info";
+        _statusMessage = string.Format(System.Globalization.CultureInfo.CurrentUICulture, L.T("registerAccount.social.soon"), providerLabel);
     }
 
     private async Task HandleSubmitAsync()
@@ -277,9 +426,11 @@
         if (!_model.AcceptFlow)
         {
             _statusLevel = "warning";
-            _statusMessage = IsPartnerIntent
-                ? "Debes confirmar que continuarás con el registro del negocio en el siguiente paso."
-                : "Debes confirmar que crearás tu cuenta personal para continuar.";
+            _statusMessage = IsCommerce
+                ? "Debes confirmar que continuarás con el registro de tu comercio."
+                : IsProfessional
+                    ? "Debes confirmar que continuarás con el perfil profesional."
+                    : "Debes confirmar que deseas una cuenta de persona natural.";
             return;
         }
 
@@ -303,8 +454,8 @@
                 recaptchaToken));
 
             await AuthState.SetTokensAsync(tokens);
-            var destination = IsPartnerIntent
-                ? "/register/business"
+            var destination = IsPartnerPath
+                ? PartnerOnboardingPath()
                 : ResolveBuyerDestination(_returnUrl);
             Navigation.NavigateTo(destination, true);
         }
@@ -319,40 +470,61 @@
         }
     }
 
-    private string ReadIntent()
+    private string PartnerOnboardingPath()
+        => IsCommerce
+            ? "/register/business?defaultType=A"
+            : "/register/business?defaultType=C";
+
+    private string ReadRole()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var query = uri.Query.TrimStart('?');
-        if (string.IsNullOrWhiteSpace(query))
+        var q = uri.Query.TrimStart('?');
+        if (!string.IsNullOrWhiteSpace(q))
         {
-            return "buyer";
-        }
-
-        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var parts = pair.Split('=', 2);
-            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "intent", StringComparison.OrdinalIgnoreCase))
+            foreach (var pair in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
             {
-                continue;
-            }
+                var parts = pair.Split('=', 2);
+                if (!string.Equals(Uri.UnescapeDataString(parts[0]), "role", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
 
-            var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
-            return string.Equals(value, "partner", StringComparison.OrdinalIgnoreCase) ? "partner" : "buyer";
+                var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+                if (string.Equals(value, RoleCommerce, StringComparison.OrdinalIgnoreCase)) return RoleCommerce;
+                if (string.Equals(value, RoleProfessional, StringComparison.OrdinalIgnoreCase)) return RoleProfessional;
+                if (string.Equals(value, RoleNatural, StringComparison.OrdinalIgnoreCase)) return RoleNatural;
+            }
         }
 
-        return "buyer";
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            foreach (var pair in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = pair.Split('=', 2);
+                if (!string.Equals(Uri.UnescapeDataString(parts[0]), "intent", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+                if (string.Equals(value, "partner", StringComparison.OrdinalIgnoreCase)) return RoleCommerce;
+                if (string.Equals(value, "buyer", StringComparison.OrdinalIgnoreCase)) return RoleNatural;
+            }
+        }
+
+        return RoleNatural;
     }
 
     private string? ReadReturnUrl()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var query = uri.Query.TrimStart('?');
-        if (string.IsNullOrWhiteSpace(query))
+        var q = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(q))
         {
             return null;
         }
 
-        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var pair in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = pair.Split('=', 2);
             if (!string.Equals(Uri.UnescapeDataString(parts[0]), "returnUrl", StringComparison.OrdinalIgnoreCase))
@@ -379,18 +551,18 @@
             return returnUrl;
         }
 
-        return "/buyer";
+        return "/categorias";
     }
 
     private static string ResolveAuthenticatedDestination(bool isPersonalAccount, string? returnUrl)
         => isPersonalAccount ? ResolveBuyerDestination(returnUrl) : "/my-businesses";
 
-    private string GetIntentCardClass(string intent)
+    private string GetRoleCardClass(string role)
     {
-        var isActive = string.Equals(_intent, intent, StringComparison.OrdinalIgnoreCase);
+        var isActive = string.Equals(_role, role, StringComparison.OrdinalIgnoreCase);
         return isActive
-            ? "flex items-start gap-3 rounded-xl border border-primary bg-primary/5 p-4"
-            : "flex items-start gap-3 rounded-xl border border-[#dbe6e2] dark:border-white/10 p-4 hover:border-primary/40 transition-colors";
+            ? "flex min-h-full items-start gap-2 rounded-2xl border-2 border-[#3b6700] bg-[#f4faf0] p-3 sm:flex-col sm:items-stretch sm:gap-2 dark:border-primary dark:bg-primary/10"
+            : "flex min-h-full items-start gap-2 rounded-2xl border border-[#dbe6e2] p-3 transition hover:border-[#3b6700]/40 sm:flex-col sm:items-stretch sm:gap-2 dark:border-white/10";
     }
 
     private async Task<string?> ExecuteRecaptchaAsync()
@@ -443,7 +615,7 @@
                 TenantId: null,
                 PartnerId: null));
             await AuthState.SetTokensAsync(tokens);
-            var destination = IsPartnerIntent
+            var destination = IsPartnerPath
                 ? "/register/business"
                 : "/buyer";
             Navigation.NavigateTo(destination, true);

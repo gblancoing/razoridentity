@@ -3,74 +3,158 @@
 @inject NavigationManager Navigation
 @implements IDisposable
 
-<nav class="sticky top-0 z-50 bg-white dark:bg-background-dark border-b border-gray-200 dark:border-gray-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-            <a class="flex items-center gap-3" href="/" @onclick="CloseMenu">
-                <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-14 w-auto" />
-            </a>
-            <div class="hidden md:flex items-center gap-4">
-                <a class="text-sm font-medium hover:text-primary transition-colors" href="/" @onclick="CloseMenu">@L.T("nav.home")</a>
-                <a class="text-sm font-medium hover:text-primary transition-colors" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
-                <LanguageToggle />
-                <a class="text-sm font-medium hover:text-primary transition-colors" href="/help">@L.T("nav.help")</a>
-                @if (AuthState.IsAuthenticated)
-                {
+<!-- fixed: siempre visible al hacer scroll; reservar espacio con el div posterior -->
+<!-- z-[1040]: por encima de Leaflet (controles/ capas a z-index 1000) y debajo de modales típicos (Bootstrap 1050+) -->
+<header class="fixed top-0 left-0 right-0 z-[1040] w-full min-w-0 max-w-full border-b border-gray-200/90 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_2px_12px_rgba(0,0,0,.06)]">
+    <div class="bg-white text-[#2c2f30]">
+        <div class="mx-auto w-full max-w-none px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
+            <div class="flex h-[4.25rem] flex-nowrap items-center gap-4 sm:h-[4.75rem] sm:gap-6 lg:gap-8">
+                <a class="flex shrink-0 rounded-md px-0.5 py-1 hover:bg-gray-50 sm:rounded-lg sm:px-1"
+                   href="/"
+                   @onclick="GoHome"
+                   @onclick:preventDefault="true"
+                   aria-label="ComunaClic">
+                    <img src="_content/ComunaClick.SharedUI/logo.png" alt="ComunaClic" class="h-10 w-auto sm:h-11 lg:h-12 xl:h-[3.25rem]" />
+                </a>
+
+                <div class="hidden min-w-0 flex-1 justify-center lg:flex">
+                    <nav aria-label="@L.T("nav.secondaryNav")">
+                        <div class="flex max-w-full flex-nowrap items-center justify-center gap-3 overflow-x-auto overscroll-x-contain px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:gap-4 xl:gap-5">
+                            <a class="shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]"
+                               href="/"
+                               @onclick="GoHome"
+                               @onclick:preventDefault="true">@L.T("nav.home")</a>
+                            <a class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]"
+                               href="/services-near"
+                               @onclick="CloseMenu"
+                               title="@L.T("nav.favorites")">
+                                <span class="material-symbols-outlined text-[18px] leading-none text-primary xl:text-[20px]">bookmark</span>
+                                <span class="hidden xl:inline">@L.T("nav.favorites")</span>
+                            </a>
+                            <a class="shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]" href="/categorias" @onclick="CloseMenu">@L.T("nav.categories")</a>
+                            <a class="shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]" href="/services" @onclick="CloseMenu">@L.T("nav.services")</a>
+                            <a class="shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-[12px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary xl:px-2.5 xl:text-[13px]" href="/professionals" @onclick="CloseMenu">@L.T("nav.professionals")</a>
+                        </div>
+                    </nav>
+                </div>
+
+                <div class="ml-auto flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 lg:ml-0 lg:gap-2.5">
+                    <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/buyer/orders" @onclick="CloseMenu">@L.T("nav.myPurchases")</a>
+                    <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
+                    <div class="hidden items-center border-l border-gray-200 pl-2 lg:flex">
+                        <LanguageToggle />
+                    </div>
+                    @if (AuthState.IsAuthenticated)
+                    {
+                        <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/buyer/profile" @onclick="CloseMenu">@L.T("nav.myAccount")</a>
+                    }
+
+                    @if (AuthState.IsAuthenticated)
+                    {
+                        <button type="button"
+                                class="shrink-0 whitespace-nowrap rounded-full border-2 border-primary bg-white px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/5 sm:px-2.5 sm:text-xs xl:px-3 xl:text-sm"
+                                @onclick="HandleLogout">
+                            @L.T("nav.logout")
+                        </button>
+                    }
+                    else
+                    {
+                        @if (!_hideRegisterCta)
+                        {
+                            <a class="hidden shrink-0 whitespace-nowrap rounded-full border-2 border-primary bg-white px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/5 lg:inline sm:px-2.5 sm:text-xs xl:px-3 xl:text-sm"
+                               href="/register?role=commerce"
+                               @onclick="CloseMenu">@L.T("nav.register")</a>
+                        }
+                        <a class="shrink-0 whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-white shadow-sm hover:brightness-105 sm:px-3 sm:text-xs xl:px-4 xl:text-sm"
+                           href="/login"
+                           @onclick="CloseMenu">@L.T("nav.login")</a>
+                    }
+
                     <button type="button"
-                            class="rounded-full border-2 border-primary px-4 py-2 text-sm font-bold text-primary bg-white hover:bg-primary/10 transition-colors"
-                            @onclick="HandleLogout"> <span class="material-symbols-outlined text-[18px]">logout</span>
-                        @L.T("nav.logout")
+                            class="inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white p-1.5 text-[#2c2f30] hover:bg-gray-50 lg:hidden"
+                            aria-label="Menú"
+                            aria-expanded="@_mobileMenuOpen"
+                            @onclick="ToggleMenu">
+                        <span class="material-symbols-outlined text-[22px]">@(_mobileMenuOpen ? "close" : "menu")</span>
                     </button>
-                }
-                else
-                {
-                    <a class="rounded-full border-2 border-primary px-4 py-2 text-sm font-bold text-primary bg-white hover:bg-primary/10 transition-colors" href="/register?intent=partner">@L.T("nav.register")</a>
-                    <a class="rounded-full bg-primary text-white px-5 py-2 font-bold text-sm shadow-[0_8px_22px_-12px_rgba(34,197,94,0.9)]" href="/login">@L.T("nav.login")</a>
-                }
-            </div>
-            <div class="md:hidden flex items-center gap-2">
-                <LanguageToggle />
-                <button type="button"
-                        class="inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 p-2 text-[#111816] dark:text-white"
-                        aria-label="Abrir menú"
-                        aria-expanded="@_mobileMenuOpen"
-                        @onclick="ToggleMenu">
-                    <span class="material-symbols-outlined">@(_mobileMenuOpen ? "close" : "menu")</span>
-                </button>
+                </div>
             </div>
         </div>
+    </div>
 
-        @if (_mobileMenuOpen)
-        {
-            <div class="md:hidden border-t border-gray-200 dark:border-gray-800 py-3 space-y-2">
-                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/" @onclick="CloseMenu">@L.T("nav.home")</a>
+    @if (_mobileMenuOpen)
+    {
+        <div class="max-h-[min(70vh,calc(100dvh-4.75rem-env(safe-area-inset-top,0px)))] overflow-y-auto border-t border-gray-100 bg-white px-4 py-3 shadow-inner lg:hidden">
+            <div class="space-y-1 border-b border-gray-100 pb-3">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">@L.T("nav.secondaryNav")</p>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/services-near" @onclick="CloseMenu">@L.T("nav.favorites")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/categorias" @onclick="CloseMenu">@L.T("nav.categories")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/services" @onclick="CloseMenu">@L.T("nav.services")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/professionals" @onclick="CloseMenu">@L.T("nav.professionals")</a>
+            </div>
+            <div class="space-y-1 pt-3">
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10"
+                   href="/"
+                   @onclick="GoHome"
+                   @onclick:preventDefault="true">@L.T("nav.home")</a>
+                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/buyer/orders" @onclick="CloseMenu">@L.T("nav.myPurchases")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
-                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/help" @onclick="CloseMenu">@L.T("nav.help")</a>
+                <div class="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">@L.T("nav.language")</span>
+                    <LanguageToggle />
+                </div>
                 @if (AuthState.IsAuthenticated)
                 {
+                    <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/buyer/profile" @onclick="CloseMenu">@L.T("nav.myAccount")</a>
                     <button type="button"
-                            class="block w-full text-left rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary bg-white hover:bg-primary/10"
-                            @onclick="HandleLogout"> <span class="material-symbols-outlined text-[18px]">logout</span>
+                            class="block w-full rounded-lg border-2 border-primary px-3 py-2 text-left text-sm font-bold text-primary"
+                            @onclick="HandleLogout">
                         @L.T("nav.logout")
                     </button>
                 }
                 else
                 {
-                    <a class="block rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary bg-white hover:bg-primary/10" href="/register?intent=partner" @onclick="CloseMenu">@L.T("nav.register")</a>
-                    <a class="block rounded-lg bg-primary text-white px-3 py-2 text-sm font-bold" href="/login" @onclick="CloseMenu">@L.T("nav.login")</a>
+                    @if (!_hideRegisterCta)
+                    {
+                        <a class="block rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary" href="/register?role=commerce" @onclick="CloseMenu">@L.T("nav.register")</a>
+                    }
                 }
             </div>
-        }
-    </div>
-</nav>
+        </div>
+    }
+</header>
+<!-- Reserva la altura de la barra fija + notch (safe-area) -->
+<div class="h-[calc(4.25rem+env(safe-area-inset-top,0px))] shrink-0 sm:h-[calc(4.75rem+env(safe-area-inset-top,0px))]" aria-hidden="true"></div>
 
 @code {
     private bool _mobileMenuOpen;
     private bool _authInitialized;
+    private bool _hideRegisterCta;
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        Navigation.LocationChanged += OnLocationChanged;
+        RefreshRegisterVisibility();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        RefreshRegisterVisibility();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshRegisterVisibility()
+    {
+        try
+        {
+            var path = new Uri(Navigation.Uri).AbsolutePath;
+            _hideRegisterCta = path.StartsWith("/register", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            _hideRegisterCta = false;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -107,6 +191,12 @@
         _mobileMenuOpen = false;
     }
 
+    private void GoHome()
+    {
+        CloseMenu();
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+
     private async Task HandleLogout()
     {
         CloseMenu();
@@ -117,5 +207,6 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 }

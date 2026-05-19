@@ -76,6 +76,11 @@ public sealed class CustomersController : ControllerBase
             customer.FullName = request.FullName;
         }
 
+        if (request.AvatarUrl is not null)
+        {
+            customer.AvatarUrl = CustomerProfileHelper.SanitizeAvatarUrl(request.AvatarUrl);
+        }
+
         customer.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(customer);

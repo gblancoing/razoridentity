@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ComunaClick.Api.Modules.Crm;
 
 [ApiController]
-[Authorize(Policy = "buyer.customer")]
+[Authorize(Policy = "buyer.profile")]
 [Route("v1/buyer/customer")]
 public sealed class BuyerCustomerController : ControllerBase
 {
@@ -90,6 +90,77 @@ public sealed class BuyerCustomerController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
+        return Ok(customer);
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<Customer>> GetCurrent([FromQuery] Guid? tenantId)
+    {
+        var tid = tenantId ?? _tenantContext.TenantId;
+        if (!tid.HasValue || tid.Value == Guid.Empty)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var email = ResolveEmail(User);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { message = "Authenticated email claim is required." });
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var customer = await _db.Customers.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == tid.Value && x.Email != null && x.Email.ToLower() == normalizedEmail);
+
+        return customer is null ? NotFound() : Ok(customer);
+    }
+
+    [HttpPatch]
+    public async Task<ActionResult<Customer>> UpdateProfile([FromBody] CustomerUpdateRequest request, [FromQuery] Guid? tenantId)
+    {
+        var tid = tenantId ?? _tenantContext.TenantId;
+        if (!tid.HasValue || tid.Value == Guid.Empty)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var email = ResolveEmail(User);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { message = "Authenticated email claim is required." });
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var customer = await _db.Customers.FirstOrDefaultAsync(x =>
+            x.TenantId == tid.Value && x.Email != null && x.Email.ToLower() == normalizedEmail);
+
+        if (customer is null)
+        {
+            return NotFound();
+        }
+
+        if (request.Email is not null)
+        {
+            customer.Email = request.Email.Trim().ToLowerInvariant();
+        }
+
+        if (request.Phone is not null)
+        {
+            customer.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        }
+
+        if (request.FullName is not null)
+        {
+            customer.FullName = string.IsNullOrWhiteSpace(request.FullName) ? null : request.FullName.Trim();
+        }
+
+        if (request.AvatarUrl is not null)
+        {
+            customer.AvatarUrl = CustomerProfileHelper.SanitizeAvatarUrl(request.AvatarUrl);
+        }
+
+        customer.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
         return Ok(customer);
     }
 

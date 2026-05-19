@@ -1,0 +1,188 @@
+@using ComunaClick.Shared.Api.Buyer
+
+@* Búsqueda afinada: tipo de bien x modalidad (misma estructura que el catálogo en BD / migración 20260424) *@
+
+<section class="rounded-3xl bg-white border border-[#e3e6e8] p-5 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+            <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Inmuebles</p>
+            <h2 class="text-lg font-black tracking-[-0.02em] text-[#2c2f30]">Tipo de inmueble y operación</h2>
+            <p class="text-sm text-[#595c5d] mt-1">Elegí una opción para acotar los negocios en esta categoría.</p>
+        </div>
+        @if (!string.IsNullOrEmpty(SelectedCode))
+        {
+            <button type="button"
+                    class="self-start inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#2c2f30] hover:border-[#3b6700]/50"
+                    @onclick="() => OnPickSubcodeAsync(null)">
+                Quitar filtro
+            </button>
+        }
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8 xl:gap-6">
+        @foreach (var column in ColumnGroupNames)
+        {
+            <div class="space-y-6">
+                @foreach (var groupName in column)
+                {
+                    if (!Grouped.TryGetValue(NormalizeGroupKey(groupName), out var list) || list.Count == 0)
+                    {
+                        continue;
+                    }
+                    <div>
+                        <p class="text-sm font-bold text-[#2c2f30] mb-2">@FormatGroupTitle(list[0])</p>
+                        <ul class="space-y-1.5">
+                            @foreach (var sub in list.OrderBy(ModeOrder))
+                            {
+                                var isSelected = string.Equals(SelectedCode, sub.Code, StringComparison.Ordinal);
+                                <li>
+                                    <button type="button"
+                                            class="w-full text-left text-sm pl-0 py-0.5 rounded transition-colors @(isSelected ? "text-[#3b6700] font-bold" : "text-[#7b8081] hover:text-[#2c2f30]")"
+                                            @onclick="() => OnPickSubcodeAsync(sub.Code)">
+                                        @FormatModeLabel(sub)
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PublicSubcategoryItem> Subcategories { get; set; } = Array.Empty<PublicSubcategoryItem>();
+
+    [Parameter] public string? SelectedCode { get; set; }
+
+    [Parameter, EditorRequired] public string CategorySlug { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public string CategoryCode { get; set; } = "inmuebles";
+
+    [Parameter] public EventCallback<string?> OnSubcodePicked { get; set; }
+
+    /// <summary>Orden visual en columnas (misma distribución que la referencia de producto).</summary>
+    private static readonly string[][] ColumnGroupNames =
+    [
+        ["Agrícolas", "Bodegas", "Casas"],
+        ["Departamentos", "Estacionamientos", "Industriales"],
+        ["Locales", "Loteos", "Lotes de cementerio"],
+        ["Oficinas", "Otros inmuebles"],
+        ["Parcelas", "Sitios", "Terrenos"]
+    ];
+
+    private Dictionary<string, List<PublicSubcategoryItem>> Grouped { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override void OnParametersSet()
+    {
+        Grouped = new Dictionary<string, List<PublicSubcategoryItem>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sub in Subcategories)
+        {
+            var g = GetGroupName(sub.Name);
+            if (string.IsNullOrEmpty(g))
+            {
+                continue;
+            }
+            var key = NormalizeGroupKey(g);
+            if (!Grouped.ContainsKey(key))
+            {
+                Grouped[key] = new List<PublicSubcategoryItem>();
+            }
+            Grouped[key].Add(sub);
+        }
+    }
+
+    private static string NormalizeGroupKey(string g) => g.Trim().ToLowerInvariant();
+
+    private static string? GetGroupName(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return null;
+        }
+        const string sep = " — ";
+        var idx = fullName.IndexOf(sep, StringComparison.Ordinal);
+        if (idx <= 0)
+        {
+            idx = fullName.IndexOf(" - ", StringComparison.Ordinal);
+            if (idx <= 0)
+            {
+                return null;
+            }
+            return fullName[..idx].Trim();
+        }
+        return fullName[..idx].Trim();
+    }
+
+    private static string? GetMode(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return null;
+        }
+        const string sep = " — ";
+        var idx = fullName.IndexOf(sep, StringComparison.Ordinal);
+        if (idx < 0)
+        {
+            idx = fullName.IndexOf(" - ", StringComparison.Ordinal);
+            if (idx < 0)
+            {
+                return null;
+            }
+            return fullName[(idx + 3)..].Trim();
+        }
+        return fullName[(idx + sep.Length)..].Trim();
+    }
+
+    private static int ModeOrder(PublicSubcategoryItem s)
+    {
+        var m = (GetMode(s.Name) ?? string.Empty).Trim();
+        if (m.Equals("Arriendo", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+        if (m.Contains("temporal", StringComparison.OrdinalIgnoreCase))
+        {
+            return 1;
+        }
+        if (m.Equals("Venta", StringComparison.OrdinalIgnoreCase))
+        {
+            return 2;
+        }
+        return 3;
+    }
+
+    private static string FormatGroupTitle(PublicSubcategoryItem anyInGroup)
+    {
+        var g = GetGroupName(anyInGroup.Name);
+        return g ?? "Inmueble";
+    }
+
+    private static string FormatModeLabel(PublicSubcategoryItem sub)
+    {
+        var m = GetMode(sub.Name);
+        if (string.IsNullOrEmpty(m))
+        {
+            return sub.Name;
+        }
+        if (m.Contains("temporal", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Arriendo temporal";
+        }
+        if (m.Equals("Venta", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Venta";
+        }
+        if (m.Equals("Arriendo", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Arriendo";
+        }
+        return m;
+    }
+
+    private async Task OnPickSubcodeAsync(string? code)
+    {
+        await OnSubcodePicked.InvokeAsync(code);
+    }
+}

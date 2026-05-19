@@ -1,8 +1,6 @@
-﻿@page "/not-found"
+@page "/not-found"
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @implements IDisposable
-
-<PublicNav />
 
 <main class="max-w-3xl mx-auto px-4 py-12">
     <div class="bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-800 rounded-2xl p-10 text-center">
@@ -13,8 +11,6 @@
         </a>
     </div>
 </main>
-
-<PublicFooter />
 
 @code {
     protected override void OnInitialized()

@@ -3,116 +3,108 @@
 @inject NavigationManager Navigation
 @implements IDisposable
 
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
 @if (!AuthState.IsInitialized)
 {
-    <div class="admin-shell">
-        <main class="content-shell">
-            <article class="page-body">
-                <section class="not-found-card">
-                    <p class="eyebrow">ComunaClick.Admin</p>
-                    <h1>Cargando sesión administrativa</h1>
-                    <p>Estamos validando tu acceso al panel de gestión.</p>
-                </section>
-            </article>
-        </main>
-    </div>
+    <MudLayout>
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height:100vh">
+                <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                    <MudProgressCircular Color="Color.Success" Indeterminate="true" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">Validando acceso administrativo…</MudText>
+                </MudStack>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
 }
 else if (!AuthState.IsAuthenticated || !AuthState.IsPaymentsAdmin)
 {
-    <div class="admin-shell">
-        <main class="content-shell">
-            <article class="page-body">
-                <section class="not-found-card">
-                    <p class="eyebrow">ComunaClick.Admin</p>
-                    <h1>Redirigiendo al login</h1>
-                    <p>Necesitas una cuenta `platform_admin` o `tenant_admin` para entrar al panel.</p>
-                </section>
-            </article>
-        </main>
-    </div>
+    <MudLayout>
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height:100vh">
+                <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" Style="font-size:3rem" />
+                    <MudText Typo="Typo.h5">Acceso restringido</MudText>
+                    <MudText Color="Color.Secondary">Redirigiendo al login…</MudText>
+                </MudStack>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
 }
 else
 {
-    <div class="admin-shell">
-        <aside class="sidebar">
-            <a class="brand" href="/">
-                <div class="brand-icon">CA</div>
-                <div>
-                    <p class="brand-title">ComunaClick.Admin</p>
-                    <p class="brand-subtitle">Control de plataforma</p>
-                </div>
-            </a>
+    <MudLayout>
+        <MudAppBar Elevation="0" Color="Color.Surface" Style="border-bottom:1px solid #e8e5dc; background:rgba(255,255,255,0.85); backdrop-filter:blur(18px);">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudText Typo="Typo.overline" Style="color:#61897c; letter-spacing:0.12em;">ComunaClic</MudText>
+                <MudText Typo="Typo.subtitle1" Style="font-family:'Manrope',sans-serif; font-weight:800; color:#111816;">Panel central de operación</MudText>
+            </MudStack>
+            <MudSpacer />
+            <MudChip T="string" Icon="@Icons.Material.Filled.AdminPanelSettings" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+                @(AuthState.Tokens?.DisplayName ?? AuthState.Tokens?.Email ?? "Administrador")
+            </MudChip>
+            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" aria-label="Cerrar sesión" OnClick="Logout" />
+        </MudAppBar>
 
-            <nav class="sidebar-nav">
-                <NavLink href="/" Match="NavLinkMatch.All" class="nav-item">
-                    <span class="material-symbols-outlined">dashboard</span>
-                    Dashboard
-                </NavLink>
-                <NavLink href="/usuarios" class="nav-item">
-                    <span class="material-symbols-outlined">group</span>
-                    Usuarios
-                </NavLink>
-                <NavLink href="/tenants" class="nav-item">
-                    <span class="material-symbols-outlined">apartment</span>
-                    Tenants
-                </NavLink>
-                <NavLink href="/partners" class="nav-item">
-                    <span class="material-symbols-outlined">storefront</span>
-                    Partners
-                </NavLink>
-                <NavLink href="/categorias" class="nav-item">
-                    <span class="material-symbols-outlined">inventory_2</span>
-                    Categorías
-                </NavLink>
-                <NavLink href="/delivery-providers" class="nav-item">
-                    <span class="material-symbols-outlined">local_shipping</span>
-                    Delivery
-                </NavLink>
-                <NavLink href="/contenido" class="nav-item">
-                    <span class="material-symbols-outlined">edit_note</span>
-                    Contenido
-                </NavLink>
-                <NavLink href="/pagos" class="nav-item">
-                    <span class="material-symbols-outlined">payments</span>
-                    Pagos
-                </NavLink>
-                <NavLink href="/auditoria" class="nav-item">
-                    <span class="material-symbols-outlined">history</span>
-                    Auditoría
-                </NavLink>
-                <NavLink href="/configuracion" class="nav-item">
-                    <span class="material-symbols-outlined">settings</span>
-                    Configuración
-                </NavLink>
-            </nav>
+        <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Responsive"
+                   Style="border-right:1px solid #e8e5dc; background:rgba(255,255,255,0.9); backdrop-filter:blur(18px);">
+            <MudDrawerHeader Style="padding:24px 20px 16px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Style="background:linear-gradient(135deg,#22c55e,#2d9e4f); color:white; font-family:'Manrope',sans-serif; font-weight:800; border-radius:18px;">CA</MudAvatar>
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.subtitle2" Style="font-family:'Manrope',sans-serif; font-weight:800;">ComunaClick.Admin</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@RoleLabel</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudDrawerHeader>
 
-            <div class="sidebar-footer">
-                <p class="footer-label">Sesión</p>
-                <p class="footer-value">@RoleLabel</p>
-                <button class="primary-link mt-4" @onclick="Logout">Cerrar sesión</button>
-            </div>
-        </aside>
+            <MudNavMenu>
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+                <MudNavLink Href="/usuarios" Icon="@Icons.Material.Filled.Group">Usuarios</MudNavLink>
+                <MudNavLink Href="/tenants" Icon="@Icons.Material.Filled.Apartment">Tenants</MudNavLink>
+                <MudNavLink Href="/partners" Icon="@Icons.Material.Filled.Storefront">Partners</MudNavLink>
+                <MudNavLink Href="/categorias" Icon="@Icons.Material.Filled.Inventory2">Categorías</MudNavLink>
+                <MudNavLink Href="/delivery-providers" Icon="@Icons.Material.Filled.LocalShipping">Delivery</MudNavLink>
+                <MudNavLink Href="/contenido" Icon="@Icons.Material.Filled.EditNote">Contenido</MudNavLink>
+                <MudNavLink Href="/pagos" Icon="@Icons.Material.Filled.Payments">Pagos</MudNavLink>
+                <MudNavLink Href="/auditoria" Icon="@Icons.Material.Filled.History">Auditoría</MudNavLink>
+                <MudNavLink Href="/configuracion" Icon="@Icons.Material.Filled.Settings">Configuración</MudNavLink>
+            </MudNavMenu>
+        </MudDrawer>
 
-        <main class="content-shell">
-            <header class="topbar">
-                <div>
-                    <p class="topbar-label">ComunaClic</p>
-                    <p class="topbar-title">Panel central de operación</p>
-                </div>
-                <div class="user-pill">
-                    <span class="material-symbols-outlined">admin_panel_settings</span>
-                    @(AuthState.Tokens?.DisplayName ?? AuthState.Tokens?.Email ?? "Administrador")
-                </div>
-            </header>
-
-            <article class="page-body">
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-6">
                 @Body
-            </article>
-        </main>
-    </div>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
 }
 
 @code {
+    private bool _drawerOpen = true;
+
+    private MudTheme _theme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#22c55e",
+            PrimaryContrastText = "#ffffff",
+            Secondary = "#61897c",
+            Success = "#2d9e4f",
+            Background = "#fffdf7",
+            Surface = "#ffffff",
+            AppbarBackground = "transparent",
+            DrawerBackground = "transparent",
+            TextPrimary = "#111816",
+            TextSecondary = "#61897c",
+        }
+    };
+
     private string RoleLabel =>
         AuthState.Tokens?.Roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase) == true
             ? "Platform admin"
@@ -125,11 +117,7 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
-        {
-            return;
-        }
-
+        if (!firstRender) return;
         await AuthState.InitializeAsync();
         EnsureAuthenticated();
     }
@@ -142,15 +130,8 @@ else
 
     private void EnsureAuthenticated()
     {
-        if (!AuthState.IsInitialized)
-        {
-            return;
-        }
-
-        if (AuthState.IsAuthenticated && AuthState.IsPaymentsAdmin)
-        {
-            return;
-        }
+        if (!AuthState.IsInitialized) return;
+        if (AuthState.IsAuthenticated && AuthState.IsPaymentsAdmin) return;
 
         var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
         var returnUrl = string.IsNullOrWhiteSpace(relative) ? "/" : $"/{relative}";
@@ -162,6 +143,8 @@ else
         await AuthState.ClearAsync();
         Navigation.NavigateTo("/login", true);
     }
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 
     public void Dispose()
     {

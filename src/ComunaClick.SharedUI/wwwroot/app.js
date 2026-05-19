@@ -57,6 +57,48 @@ window.comunaclic.setCustomerId = function (customerId) {
   }
 };
 
+/** JSON string: { "orderId": "…", "bookingId": "…" } (optional keys) for buyer "Mis compras" quick recall. */
+/** JSON global de favoritos: { "version":1, "users": { "correo@x.com": { "places":[], "businesses":[] } } } } */
+window.comunaclic.getFavoritesData = function () {
+  try {
+    return localStorage.getItem("comunaclic.favoritesData") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setFavoritesData = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.favoritesData");
+    } else {
+      localStorage.setItem("comunaclic.favoritesData", json);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+window.comunaclic.getLastTracking = function () {
+  try {
+    return localStorage.getItem("comunaclic.lastTracking") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setLastTracking = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.lastTracking");
+    } else {
+      localStorage.setItem("comunaclic.lastTracking", json);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 window.comunaclic.getDeviceType = function () {
   try {
     const width = window.innerWidth || 0;
@@ -169,34 +211,72 @@ window.comunaclic.consumeGoogleIdTokenFromHash = function () {
   return idToken;
 };
 
-window.comunaclic.getCurrentPosition = function () {
+/**
+ * @param { { forceFresh?: boolean, maximumAge?: number, timeout?: number } } [request]
+ * forceFresh: true = solicitud nueva (mejor al pulsar "Activar ubicación" para que vuelva el aviso del navegador)
+ */
+window.comunaclic.getCurrentPosition = function (request) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation is not supported by this browser."));
       return;
     }
 
+    // Exige contexto "seguro" (HTTPS, localhost, 127.0.0.1). Con http://192.168.x.x el navegador suele bloquear el GPS.
+    if (typeof isSecureContext !== "undefined" && isSecureContext === false) {
+      reject(
+        new Error(
+          "En esta URL el navegador no permite el GPS (sitio no seguro). Probalo con https, con https://localhost:puerto, o accediendo desde la misma PC con localhost en lugar de la IP de la red."
+        )
+      );
+      return;
+    }
+
+    const opts = request && typeof request === "object" ? request : {};
+    const forceFresh = !!opts.forceFresh;
+    const maximumAge = typeof opts.maximumAge === "number" ? opts.maximumAge : forceFresh ? 0 : 300000;
+    const timeout = typeof opts.timeout === "number" ? opts.timeout : forceFresh ? 20000 : 10000;
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        // camelCase: el DTO C# mapea con [JsonPropertyName] (p. ej. "latitude" -> Latitude)
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy || 0
+          accuracy: position.coords.accuracy != null && !isNaN(position.coords.accuracy) ? position.coords.accuracy : 0
         });
       },
       (error) => {
-        reject(new Error(error && error.message ? error.message : "Location permission was denied."));
+        const code = error && error.code;
+        const messages = {
+          1: "Permiso de ubicación denegado. Permití el acceso al GPS en el icono de la barra de direcciones o en ajustes del sitio, y reintentá.",
+          2: "Ubicación no disponible (sin señal / sensor).",
+          3: "Se agotó el tiempo al pedir el GPS. Reintentá o comprobá la conexión."
+        };
+        const msg =
+          code && messages[code] ? messages[code] : (error && error.message ? error.message : "No se pudo obtener la ubicación.");
+        reject(new Error(msg));
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000
+        timeout: timeout,
+        maximumAge: maximumAge
       }
     );
   });
 };
 
-window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, businesses) {
+window.comunaclic.scrollToElement = function (elementId) {
+  if (!elementId) {
+    return;
+  }
+  const el = document.getElementById(elementId);
+  if (el && el.scrollIntoView) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+};
+
+window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, businesses, returnPath) {
   if (!window.L) {
     throw new Error("Leaflet is not available.");
   }
@@ -212,9 +292,7 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
     delete window.comunaclic._leafletMaps[elementId];
   }
 
-  if (window.innerWidth && window.innerWidth < 640) {
-    element.style.minHeight = "320px";
-  }
+  // No fijar minHeight aquí: compite con las clases del contenedor (mapa demasiado bajo en móvil).
 
   const map = window.L.map(elementId, {
     zoomControl: true,
@@ -265,7 +343,11 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
     const address = business.address ?? business.Address ?? "";
     const distanceKm = business.distanceKm ?? business.DistanceKm;
     const usesExactLocation = business.usesExactLocation ?? business.UsesExactLocation;
-    const href = `/buyer/detail/partner/${business.id ?? business.Id}`;
+    const returnSuffix =
+      typeof returnPath === "string" && returnPath.length > 0
+        ? `?return=${encodeURIComponent(returnPath)}`
+        : "";
+    const href = `/buyer/detail/partner/${business.id ?? business.Id}${returnSuffix}`;
     const popup = [
       `<div style="min-width:200px">`,
       `<strong>${name}</strong>`,
@@ -299,6 +381,9 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
   setTimeout(() => {
     map.invalidateSize();
   }, 150);
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 500);
 };
 
 window.comunaclic.destroyCategoryNearbyMap = function (elementId) {
@@ -306,5 +391,63 @@ window.comunaclic.destroyCategoryNearbyMap = function (elementId) {
   if (existingMap) {
     existingMap.remove();
     delete window.comunaclic._leafletMaps[elementId];
+  }
+};
+
+/** Cuando el elemento entra al viewport (o timeout), invoca el callback .NET una sola vez. */
+window.comunaclic.observeOnceVisible = function (element, dotNetHelper) {
+  if (!element || !dotNetHelper) {
+    return;
+  }
+  let fired = false;
+  let obs = null;
+  let fallbackTimer = null;
+
+  const run = function () {
+    if (fired) {
+      return;
+    }
+    fired = true;
+    try {
+      if (obs) {
+        obs.disconnect();
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      if (fallbackTimer !== null) {
+        clearTimeout(fallbackTimer);
+      }
+    } catch {
+      // ignore
+    }
+    dotNetHelper.invokeMethodAsync("OnStatsBarVisible");
+  };
+
+  if (window.IntersectionObserver) {
+    obs = new IntersectionObserver(
+      function (entries) {
+        for (let i = 0; i < entries.length; i++) {
+          if (entries[i].isIntersecting) {
+            run();
+            return;
+          }
+        }
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+    );
+    obs.observe(element);
+    fallbackTimer = window.setTimeout(run, 7000);
+  } else {
+    run();
+  }
+};
+
+window.comunaclic.prefersReducedMotion = function () {
+  try {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  } catch {
+    return false;
   }
 };
