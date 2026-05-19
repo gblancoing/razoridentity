@@ -10,32 +10,46 @@
 <PageTitle>@L.T("partner.notifications.title")</PageTitle>
 
 <div class="space-y-8">
-    <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Notificaciones editoriales</p>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Centro operativo</p>
             <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.notifications.heading")</h1>
             <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.notifications.subtitle")</p>
         </div>
-        <button class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
-            <span class="material-symbols-outlined text-[20px]">notifications_active</span>
-            @L.T("partner.notifications.primaryAction")
-        </button>
+        <div class="flex flex-wrap items-center gap-3">
+            @foreach (var filter in NotificationFilters)
+            {
+                <button type="button"
+                        class="@GetFilterClass(filter.Key)"
+                        @onclick="() => _selectedFilter = filter.Key">
+                    @filter.Label
+                </button>
+            }
+            <label class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#595c5d]">
+                <input type="checkbox" checked="@_includeArchived" @onchange="OnIncludeArchivedChanged" />
+                Ver archivadas
+            </label>
+            <button type="button" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
+                <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+                @L.T("partner.notifications.primaryAction")
+            </button>
+        </div>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ALERTAS</p>
-            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_items.Count</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Mensajes e hitos visibles para tu operación.</p>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">BANDEJA</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FilteredNotifications.Count</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Alertas visibles en la vista actual.</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ACCIONABLES</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@ActionableCountLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Pedidos, reservas o leads que probablemente requieren reacción.</p>
         </article>
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
             <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ÚLTIMO TIPO</p>
             <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@LastTypeLabel</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Referencia rápida del tipo más reciente recibido.</p>
-        </article>
-        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ESTADO</p>
-            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusLabel</h2>
             <p class="mt-2 text-xs text-[#595c5d]">@_statusMessage</p>
         </article>
     </div>
@@ -46,36 +60,77 @@
                 <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Bandeja</p>
                 <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Notificaciones recientes</h2>
             </div>
+            <span class="inline-flex items-center rounded-full bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#595c5d]">@StatusLabel</span>
         </div>
 
         <div class="space-y-4">
             @if (_isLoading)
             {
                 <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tus notificaciones." Compact="true" />
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos cargando tu bandeja operativa." Compact="true" />
                 </div>
             }
-            else if (_items.Count == 0)
+            else if (FilteredNotifications.Count == 0)
             {
-                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center">
-                    <p class="text-sm text-[#595c5d]">@_statusMessage</p>
+                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-[#eff1f2] text-[#325800] flex items-center justify-center mx-auto">
+                        <span class="material-symbols-outlined text-3xl">notifications_off</span>
+                    </div>
+                    <p class="text-lg font-bold text-[#2c2f30]">No hay notificaciones en esta vista</p>
+                    <p class="text-sm text-[#595c5d]">@EmptyStateMessage</p>
                 </div>
             }
             else
             {
-                @foreach (var note in _items)
+                @foreach (var note in FilteredNotifications)
                 {
                     <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
                         <div class="flex items-start gap-4">
-                            <div class="w-12 h-12 rounded-2xl bg-[#a7f255]/20 text-[#325800] flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined">notifications</span>
+                            <div class="@GetIconContainerClass(note)">
+                                <span class="material-symbols-outlined">@GetIconName(note)</span>
                             </div>
-                            <div class="space-y-2">
+                            <div class="space-y-3 flex-1">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@FormatType(note.Type)</p>
-                                    <span class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@note.CreatedAt.ToLocalTime().ToString("dd MMM · HH:mm")</span>
+                                    <span class="@GetTypeBadgeClass(note)">@GetTypeBadgeLabel(note)</span>
+                                    <span class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@FormatRelative(note.CreatedAt)</span>
                                 </div>
                                 <p class="text-sm text-[#595c5d]">@FormatPayload(note.Payload)</p>
+                                <div class="rounded-2xl bg-[#f5f6f7] px-4 py-3">
+                                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Acción sugerida</p>
+                                    <p class="mt-2 text-sm text-[#2c2f30]">@GetActionHint(note)</p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    @if (!note.ReadAt.HasValue)
+                                    {
+                                        <button type="button"
+                                                class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                                @onclick='() => MarkReadAsync(note.Id)'
+                                                disabled="@(_updatingNotificationId == note.Id)">
+                                            Marcar leída
+                                        </button>
+                                    }
+                                    @if (!note.ArchivedAt.HasValue)
+                                    {
+                                        <button type="button"
+                                                class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                                @onclick='() => ArchiveAsync(note.Id)'
+                                                disabled="@(_updatingNotificationId == note.Id)">
+                                            Archivar
+                                        </button>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(GetResourceHref(note)))
+                                    {
+                                        <a class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                           href="@GetResourceHref(note)">
+                                            Ir al recurso
+                                        </a>
+                                    }
+                                    @if (_updatingNotificationId == note.Id)
+                                    {
+                                        <span class="text-xs font-bold text-[#7b8081]">Actualizando...</span>
+                                    }
+                                </div>
                             </div>
                         </div>
                     </article>
@@ -89,9 +144,35 @@
     private readonly List<ComunaClick.Shared.Api.Partner.Notification> _items = new();
     private string _statusMessage = "Sin notificaciones.";
     private bool _isLoading;
+    private string _selectedFilter = "all";
+    private bool _includeArchived;
+    private Guid? _updatingNotificationId;
 
-    private string LastTypeLabel => _items.Count == 0 ? "Sin actividad" : _items.Last().Type ?? "Sin tipo";
-    private string StatusLabel => _items.Count == 0 ? "Vacío" : "Activo";
+    private IReadOnlyList<FilterOption> NotificationFilters { get; } =
+    [
+        new("all", "Todo"),
+        new("actionable", "Acción"),
+        new("finance", "Finanzas"),
+        new("system", "Sistema")
+    ];
+
+    private List<ComunaClick.Shared.Api.Partner.Notification> FilteredNotifications => _items
+        .Where(MatchesFilter)
+        .OrderByDescending(x => x.CreatedAt)
+        .ToList();
+
+    private int ActionableCount => _items.Count(IsActionable);
+    private string ActionableCountLabel => ActionableCount == 0 ? "Sin foco" : $"{ActionableCount} activas";
+    private string LastTypeLabel => _items.Count == 0 ? "Sin actividad" : FormatType(_items.OrderByDescending(x => x.CreatedAt).First().Type);
+    private string StatusLabel => _items.Count == 0 ? "Vacío" : "Con señales";
+
+    private string EmptyStateMessage => _selectedFilter switch
+    {
+        "actionable" => "No se detectan alertas de operación inmediata.",
+        "finance" => "No hay eventos financieros recientes en la bandeja.",
+        "system" => "No aparecen avisos de sistema o recordatorios generales.",
+        _ => _statusMessage
+    };
 
     protected override void OnInitialized()
     {
@@ -110,12 +191,15 @@
 
         try
         {
-            var notes = await PartnerApi.GetPartnerNotificationsAsync(AuthState.PartnerId.Value);
+            var notes = await PartnerApi.GetPartnerNotificationsAsync(AuthState.PartnerId.Value, _includeArchived);
             if (notes is not null)
             {
                 _items.AddRange(notes);
             }
-            _statusMessage = _items.Count == 0 ? L.T("partner.status.noNotifications") : "Tu bandeja de notificaciones ya está disponible para seguimiento.";
+
+            _statusMessage = _items.Count == 0
+                ? "Todavía no hay alertas o hitos operativos en esta bandeja."
+                : "La bandeja quedó agrupada para separar acción inmediata, finanzas y sistema.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -129,12 +213,129 @@
         {
             _statusMessage = $"No se pudieron cargar las notificaciones ({(int?)ex.StatusCode ?? 0}).";
         }
+
         _isLoading = false;
+    }
+
+    private async Task OnIncludeArchivedChanged(ChangeEventArgs args)
+    {
+        _includeArchived = args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        await ReloadNotificationsAsync();
+    }
+
+    private async Task ReloadNotificationsAsync()
+    {
+        if (!AuthState.IsAuthenticated || AuthState.PartnerId is null)
+        {
+            return;
+        }
+
+        _isLoading = true;
+        _items.Clear();
+        try
+        {
+            var notes = await PartnerApi.GetPartnerNotificationsAsync(AuthState.PartnerId.Value, _includeArchived);
+            if (notes is not null)
+            {
+                _items.AddRange(notes);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudieron recargar notificaciones ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task MarkReadAsync(Guid id)
+    {
+        _updatingNotificationId = id;
+        try
+        {
+            var updated = await PartnerApi.MarkNotificationReadAsync(id);
+            if (updated is null)
+            {
+                return;
+            }
+
+            ReplaceNotification(updated);
+        }
+        finally
+        {
+            _updatingNotificationId = null;
+        }
+    }
+
+    private async Task ArchiveAsync(Guid id)
+    {
+        _updatingNotificationId = id;
+        try
+        {
+            var updated = await PartnerApi.ArchiveNotificationAsync(id);
+            if (updated is null)
+            {
+                return;
+            }
+
+            ReplaceNotification(updated);
+            if (!_includeArchived)
+            {
+                _items.RemoveAll(x => x.Id == id);
+            }
+        }
+        finally
+        {
+            _updatingNotificationId = null;
+        }
+    }
+
+    private void ReplaceNotification(ComunaClick.Shared.Api.Partner.Notification updated)
+    {
+        var index = _items.FindIndex(x => x.Id == updated.Id);
+        if (index >= 0)
+        {
+            _items[index] = updated;
+            return;
+        }
+
+        _items.Add(updated);
     }
 
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private bool MatchesFilter(ComunaClick.Shared.Api.Partner.Notification note) => _selectedFilter switch
+    {
+        "actionable" => IsActionable(note),
+        "finance" => IsFinance(note),
+        "system" => !IsActionable(note) && !IsFinance(note),
+        _ => true
+    };
+
+    private string GetFilterClass(string key)
+        => key == _selectedFilter
+            ? "inline-flex items-center rounded-full bg-[#2c2f30] text-white px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]"
+            : "inline-flex items-center rounded-full bg-white text-[#595c5d] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]";
+
+    private static bool IsActionable(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        var type = note.Type?.Trim().ToLowerInvariant() ?? string.Empty;
+        return type.Contains("order", StringComparison.Ordinal)
+            || type.Contains("booking", StringComparison.Ordinal)
+            || type.Contains("lead", StringComparison.Ordinal);
+    }
+
+    private static bool IsFinance(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        var type = note.Type?.Trim().ToLowerInvariant() ?? string.Empty;
+        return type.Contains("payment", StringComparison.Ordinal)
+            || type.Contains("payout", StringComparison.Ordinal)
+            || type.Contains("refund", StringComparison.Ordinal);
     }
 
     private static string FormatType(string? type)
@@ -165,6 +366,140 @@
 
         return payload;
     }
+
+    private static string GetIconName(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        if (IsFinance(note))
+        {
+            return "payments";
+        }
+
+        if (IsActionable(note))
+        {
+            return "bolt";
+        }
+
+        return "notifications";
+    }
+
+    private static string GetIconContainerClass(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        if (IsFinance(note))
+        {
+            return "w-12 h-12 rounded-2xl bg-[#d8f0ff] text-[#0f5c8a] flex items-center justify-center flex-shrink-0";
+        }
+
+        if (IsActionable(note))
+        {
+            return "w-12 h-12 rounded-2xl bg-[#a7f255]/20 text-[#325800] flex items-center justify-center flex-shrink-0";
+        }
+
+        return "w-12 h-12 rounded-2xl bg-[#eff1f2] text-[#595c5d] flex items-center justify-center flex-shrink-0";
+    }
+
+    private static string GetTypeBadgeLabel(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        if (DateTimeOffset.Now - note.CreatedAt < TimeSpan.FromHours(24))
+        {
+            return "Reciente";
+        }
+
+        if (IsFinance(note))
+        {
+            return "Finanzas";
+        }
+
+        if (IsActionable(note))
+        {
+            return "Operación";
+        }
+
+        return "Sistema";
+    }
+
+    private static string GetTypeBadgeClass(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        if (DateTimeOffset.Now - note.CreatedAt < TimeSpan.FromHours(24))
+        {
+            return "inline-flex rounded-full bg-[#fff2d1] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#946200]";
+        }
+
+        if (IsFinance(note))
+        {
+            return "inline-flex rounded-full bg-[#d8f0ff] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0f5c8a]";
+        }
+
+        if (IsActionable(note))
+        {
+            return "inline-flex rounded-full bg-[#a7f255]/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]";
+        }
+
+        return "inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]";
+    }
+
+    private static string GetActionHint(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        if (IsFinance(note))
+        {
+            return "Contrasta este evento con payouts, cobros o conciliación antes de cerrar la revisión financiera.";
+        }
+
+        if (IsActionable(note))
+        {
+            return "Prioriza esta alerta en la operación diaria: puede impactar atención al cliente o cumplimiento.";
+        }
+
+        return "Úsala como referencia de contexto. No parece requerir acción inmediata.";
+    }
+
+    private string GetResourceHref(ComunaClick.Shared.Api.Partner.Notification note)
+    {
+        if (!note.ReferenceId.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var type = note.Type?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (type.Contains("booking", StringComparison.Ordinal))
+        {
+            return "/partner/agenda";
+        }
+
+        if (type.Contains("lead", StringComparison.Ordinal))
+        {
+            return "/partner/leads";
+        }
+
+        if (type.Contains("payout", StringComparison.Ordinal) || type.Contains("payment", StringComparison.Ordinal))
+        {
+            return "/partner/payouts";
+        }
+
+        return "/partner/notifications";
+    }
+
+    private static string FormatRelative(DateTimeOffset date)
+    {
+        var elapsed = DateTimeOffset.Now - date;
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return "Hace instantes";
+        }
+
+        if (elapsed < TimeSpan.FromHours(1))
+        {
+            return $"Hace {Math.Max(1, (int)elapsed.TotalMinutes)} min";
+        }
+
+        if (elapsed < TimeSpan.FromDays(1))
+        {
+            return $"Hace {Math.Max(1, (int)elapsed.TotalHours)} h";
+        }
+
+        return $"Hace {Math.Max(1, (int)elapsed.TotalDays)} d";
+    }
+
+    private sealed record FilterOption(string Key, string Label);
 
     public void Dispose()
     {

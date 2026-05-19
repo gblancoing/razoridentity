@@ -1,0 +1,123 @@
+{
+  "info": {
+    "name": "ComunaClic Mercado Pago Marketplace",
+    "_postman_id": "9b61d889-5c0d-46fa-8b35-f2469ac4e3c1",
+    "description": "Coleccion base para probar OAuth seller, pagos marketplace, fees y webhooks en ComunaClic.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://api.comunaclic.cl" },
+    { "key": "sellerId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "orderId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "paymentId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "jwt", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "OAuth Start",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "url": "{{baseUrl}}/api/mercadopago/oauth/start?sellerId={{sellerId}}"
+      }
+    },
+    {
+      "name": "Seller Status",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "url": "{{baseUrl}}/api/sellers/{{sellerId}}/mercadopago/status"
+      }
+    },
+    {
+      "name": "Update Fees",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fixedFeeAmount\": 500,\n  \"percentageFee\": 8.5,\n  \"isActive\": true\n}"
+        },
+        "url": "{{baseUrl}}/api/sellers/{{sellerId}}/fees"
+      }
+    },
+    {
+      "name": "Create Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sellerId\": \"{{sellerId}}\",\n  \"orderId\": null,\n  \"buyer\": {\n    \"email\": \"buyer@correo.cl\",\n    \"name\": \"María Buyer\",\n    \"identificationType\": \"RUT\",\n    \"identificationNumber\": \"11111111-1\"\n  },\n  \"items\": [\n    {\n      \"sku\": \"sku-demo\",\n      \"title\": \"Servicio demo\",\n      \"quantity\": 1,\n      \"unitPrice\": 15990\n    }\n  ],\n  \"feeOverride\": null,\n  \"paymentToken\": \"CARD_TOKEN_FROM_FRONTEND\",\n  \"paymentMethodId\": \"master\",\n  \"installments\": 1,\n  \"issuerId\": null,\n  \"description\": \"Cobro marketplace ComunaClic\",\n  \"flow\": \"checkout_api\",\n  \"idempotencyKey\": \"cc-demo-0001\"\n}"
+        },
+        "url": "{{baseUrl}}/api/payments/create"
+      }
+    },
+    {
+      "name": "Get Payment",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "url": "{{baseUrl}}/api/payments/{{paymentId}}"
+      }
+    },
+    {
+      "name": "Get Payment By Order",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "url": "{{baseUrl}}/api/payments/order/{{orderId}}"
+      }
+    },
+    {
+      "name": "List Seller Payments",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "url": "{{baseUrl}}/api/sellers/{{sellerId}}/payments"
+      }
+    },
+    {
+      "name": "Retry Sync Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "url": "{{baseUrl}}/api/payments/{{paymentId}}/sync"
+      }
+    },
+    {
+      "name": "Webhook",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-request-id", "value": "postman-test" },
+          { "key": "x-signature", "value": "ts=1710000000,v1=REPLACE_ME" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"payment\",\n  \"action\": \"payment.updated\",\n  \"data\": {\n    \"id\": \"1234567890\"\n  }\n}"
+        },
+        "url": "{{baseUrl}}/api/webhooks/mercadopago"
+      }
+    }
+  ]
+}

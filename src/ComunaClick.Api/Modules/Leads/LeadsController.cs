@@ -12,6 +12,24 @@ namespace ComunaClick.Api.Modules.Leads;
 [Route("v1/leads")]
 public sealed class LeadsController : ControllerBase
 {
+    private static readonly HashSet<string> AllowedWorkflowStatuses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "new",
+        "pending",
+        "contacted",
+        "in_follow_up",
+        "won",
+        "lost",
+        "closed"
+    };
+
+    private static readonly HashSet<string> AllowedPriorities = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "high",
+        "normal",
+        "low"
+    };
+
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
 
@@ -152,6 +170,7 @@ public sealed class LeadsController : ControllerBase
             ProfessionalId = request.ProfessionalId,
             CustomerId = request.CustomerId,
             Status = "new",
+            Priority = "normal",
             Message = request.Message,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -183,10 +202,138 @@ public sealed class LeadsController : ControllerBase
             return Forbid();
         }
 
-        lead.Status = request.Status.Trim();
+        if (!TryNormalizeStatus(request.Status, out var normalizedStatus, out var statusValidationError))
+        {
+            return BadRequest(new { message = statusValidationError });
+        }
+
+        if (normalizedStatus is "won" or "lost")
+        {
+            return BadRequest(new { message = "Use workflow endpoint to close lead as won/lost with outcome reason." });
+        }
+
+        lead.Status = normalizedStatus;
         lead.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(lead);
+    }
+
+    [Authorize(Policy = "partner.staff")]
+    [HttpPatch("{id:guid}/workflow")]
+    public async Task<ActionResult<Lead>> UpdateWorkflow(Guid id, LeadWorkflowUpdateRequest request)
+    {
+        var tenantId = _tenantContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var lead = await _db.Leads.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+        if (lead is null)
+        {
+            return NotFound();
+        }
+
+        if (!await CanAccessProfessionalAsync(lead.ProfessionalId, tenantId.Value))
+        {
+            return Forbid();
+        }
+
+        if (request.Status is not null)
+        {
+            if (!TryNormalizeStatus(request.Status, out var normalizedStatus, out var statusValidationError))
+            {
+                return BadRequest(new { message = statusValidationError });
+            }
+
+            lead.Status = normalizedStatus;
+        }
+
+        if (request.Priority is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.Priority))
+            {
+                lead.Priority = null;
+            }
+            else
+            {
+                var priority = request.Priority.Trim().ToLowerInvariant();
+                if (!AllowedPriorities.Contains(priority))
+                {
+                    return BadRequest(new { message = "Priority must be one of: high, normal, low." });
+                }
+
+                lead.Priority = priority;
+            }
+        }
+
+        if (request.Owner is not null)
+        {
+            lead.Owner = string.IsNullOrWhiteSpace(request.Owner) ? null : request.Owner.Trim()[..Math.Min(120, request.Owner.Trim().Length)];
+        }
+
+        if (request.NextFollowUpAt.HasValue)
+        {
+            lead.NextFollowUpAt = request.NextFollowUpAt.Value;
+        }
+
+        if (request.InternalNote is not null)
+        {
+            lead.InternalNote = string.IsNullOrWhiteSpace(request.InternalNote) ? null : request.InternalNote.Trim();
+        }
+
+        if (request.OutcomeReason is not null)
+        {
+            var reason = string.IsNullOrWhiteSpace(request.OutcomeReason) ? null : request.OutcomeReason.Trim();
+            if (reason is { Length: > 240 })
+            {
+                reason = reason[..240];
+            }
+
+            lead.OutcomeReason = reason;
+        }
+
+        if (lead.Status.Equals("lost", StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(lead.OutcomeReason) &&
+            (request.Status is not null || request.OutcomeReason is not null))
+        {
+            return BadRequest(new { message = "OutcomeReason is required when lead status is lost." });
+        }
+
+        lead.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(lead);
+    }
+
+    private static bool TryNormalizeStatus(string? rawStatus, out string normalizedStatus, out string validationError)
+    {
+        normalizedStatus = string.Empty;
+        validationError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rawStatus))
+        {
+            validationError = "Status is required.";
+            return false;
+        }
+
+        normalizedStatus = rawStatus.Trim().ToLowerInvariant();
+        if (normalizedStatus == "follow_up")
+        {
+            normalizedStatus = "in_follow_up";
+        }
+        else if (normalizedStatus == "closed")
+        {
+            // Keep backward compatibility with old "closed" values by mapping to "won".
+            normalizedStatus = "won";
+        }
+
+        if (!AllowedWorkflowStatuses.Contains(normalizedStatus))
+        {
+            validationError = "Status is not valid.";
+            return false;
+        }
+
+        return true;
     }
 
     private async Task<bool> CanAccessProfessionalAsync(Guid professionalId, Guid tenantId)

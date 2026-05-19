@@ -19,19 +19,22 @@ public sealed class AuthController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly RecaptchaV3Verifier _recaptchaVerifier;
     private readonly IReadOnlyDictionary<string, IExternalTokenValidator> _externalValidators;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         AclDbContext db,
         JwtTokenService tokenService,
         IConfiguration configuration,
         RecaptchaV3Verifier recaptchaVerifier,
-        IEnumerable<IExternalTokenValidator> validators)
+        IEnumerable<IExternalTokenValidator> validators,
+        ILogger<AuthController> logger)
     {
         _db = db;
         _tokenService = tokenService;
         _configuration = configuration;
         _recaptchaVerifier = recaptchaVerifier;
         _externalValidators = validators.ToDictionary(v => v.Provider, StringComparer.OrdinalIgnoreCase);
+        _logger = logger;
     }
 
     [HttpPost("login")]
@@ -422,8 +425,9 @@ public sealed class AuthController : ControllerBase
         {
             info = await validator.ValidateAsync(request.IdToken, cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "External login token validation failed for provider {Provider}", provider);
             return Unauthorized();
         }
 

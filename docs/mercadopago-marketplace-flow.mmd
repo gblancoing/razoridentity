@@ -1,0 +1,12 @@
+flowchart TD
+    A["Partner / Seller"] --> B["OAuth Start"]
+    B --> C["Mercado Pago OAuth Consent"]
+    C --> D["OAuth Callback"]
+    D --> E["Store encrypted seller tokens"]
+    F["Buyer checkout"] --> G["POST /api/payments/create"]
+    G --> H["FeeCalculator + Order persistence"]
+    H --> I["Mercado Pago seller-scoped payment"]
+    I --> J["Payments + PaymentFees + AuditLogs"]
+    K["Mercado Pago webhook"] --> L["POST /api/webhooks/mercadopago"]
+    L --> M["Idempotency + signature validation"]
+    M --> N["Payment sync + status history"]

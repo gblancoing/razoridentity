@@ -88,6 +88,87 @@ window.comunaclic.executeRecaptcha = function (action) {
   });
 };
 
+window.comunaclic.beginGoogleSignIn = function (redirectUrl) {
+  const clientId = (window.comunaclicGoogleClientId || "").trim();
+  if (!clientId) {
+    throw new Error("Google sign-in is not configured.");
+  }
+
+  const callbackUrl = (redirectUrl || window.location.href || "").split("#")[0];
+  if (!callbackUrl) {
+    throw new Error("Unable to resolve callback URL for Google sign-in.");
+  }
+
+  const random = (length) => {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const bytes = new Uint8Array(length);
+    window.crypto.getRandomValues(bytes);
+    let output = "";
+    for (let index = 0; index < bytes.length; index += 1) {
+      output += alphabet[bytes[index] % alphabet.length];
+    }
+    return output;
+  };
+
+  const state = random(32);
+  const nonce = random(32);
+
+  try {
+    sessionStorage.setItem("comunaclic.google.state", state);
+    sessionStorage.setItem("comunaclic.google.nonce", nonce);
+  } catch {
+    // Continue without session storage; callback validation will fail closed.
+  }
+
+  const query = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: callbackUrl,
+    response_type: "id_token",
+    scope: "openid email profile",
+    nonce,
+    state,
+    prompt: "select_account"
+  });
+
+  window.location.assign(`https://accounts.google.com/o/oauth2/v2/auth?${query.toString()}`);
+};
+
+window.comunaclic.consumeGoogleIdTokenFromHash = function () {
+  const hash = window.location.hash || "";
+  if (!hash || hash.length <= 1) {
+    return "";
+  }
+
+  const fragment = new URLSearchParams(hash.slice(1));
+  const idToken = fragment.get("id_token") || "";
+  const returnedState = fragment.get("state") || "";
+
+  if (!idToken) {
+    return "";
+  }
+
+  let expectedState = "";
+  try {
+    expectedState = sessionStorage.getItem("comunaclic.google.state") || "";
+    sessionStorage.removeItem("comunaclic.google.state");
+    sessionStorage.removeItem("comunaclic.google.nonce");
+  } catch {
+    // Ignore storage access errors.
+  }
+
+  if (!expectedState || expectedState !== returnedState) {
+    return "";
+  }
+
+  try {
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  } catch {
+    // Ignore history errors.
+  }
+
+  return idToken;
+};
+
 window.comunaclic.getCurrentPosition = function () {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {

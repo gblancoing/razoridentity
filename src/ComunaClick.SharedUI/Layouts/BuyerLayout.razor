@@ -15,6 +15,7 @@
             <div class="hidden md:flex items-center gap-4 text-sm">
                 <a class="hover:text-primary" href="/buyer">@L.T("buyer.nav.home")</a>
                 <a class="hover:text-primary" href="/buyer/orders">@L.T("buyer.nav.orders")</a>
+                <a class="hover:text-primary" href="/buyer/favorites">Favoritos</a>
                 <a class="hover:text-primary" href="/buyer/profile">@L.T("buyer.nav.profile")</a>
                 <LanguageToggle />
                 @if (AuthState.IsAuthenticated)
@@ -47,6 +48,7 @@
                 <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/services" @onclick="CloseMenu">Servicios</a>
                 <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/professionals" @onclick="CloseMenu">Profesionales</a>
                 <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer/orders" @onclick="CloseMenu">@L.T("buyer.nav.orders")</a>
+                <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer/favorites" @onclick="CloseMenu">Favoritos</a>
                 <a class="block rounded-lg px-3 py-2 hover:bg-primary/10" href="/buyer/profile" @onclick="CloseMenu">@L.T("buyer.nav.profile")</a>
                 @if (AuthState.IsAuthenticated)
                 {

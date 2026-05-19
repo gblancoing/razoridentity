@@ -1,0 +1,98 @@
+@page "/partner/mercadopago/payments/{PaymentId:guid}"
+@layout PartnerLayout
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+
+<PageTitle>Detalle de pago - ComunaClic</PageTitle>
+
+@if (_loading)
+{
+    <BrandedLoading Title="Detalle de pago" Message="Estamos consultando el pago marketplace." />
+}
+else if (_payment is null)
+{
+    <StatusBanner Level="warning" Message="No encontramos el pago solicitado." />
+}
+else
+{
+    <div class="space-y-8">
+        <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Marketplace</p>
+                <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">Detalle de pago</h1>
+                <p class="mt-2 text-sm text-[#595c5d]">Pago @_payment.PaymentId · vendedor @_payment.SellerName</p>
+            </div>
+            <a href="/partner/mercadopago"
+               class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-5 py-3 text-sm font-bold text-[#2c2f30]">
+                <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                Volver
+            </a>
+        </header>
+
+        <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Bruto</p>
+                <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FormatMoney(_payment.GrossAmount)</h2>
+            </article>
+            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Comisión plataforma</p>
+                <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FormatMoney(_payment.PlatformFeeAmount)</h2>
+            </article>
+            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Neto vendedor</p>
+                <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FormatMoney(_payment.NetAmount)</h2>
+            </article>
+        </section>
+
+        <section class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#595c5d]">
+                <p><span class="font-bold text-[#2c2f30]">Estado:</span> @_payment.Status</p>
+                <p><span class="font-bold text-[#2c2f30]">Detalle:</span> @(_payment.StatusDetail ?? "-")</p>
+                <p><span class="font-bold text-[#2c2f30]">Orden:</span> @_payment.OrderId</p>
+                <p><span class="font-bold text-[#2c2f30]">Comprador:</span> @_payment.BuyerEmail</p>
+                <p><span class="font-bold text-[#2c2f30]">MP payment:</span> @(_payment.MercadoPagoPaymentId ?? "-")</p>
+                <p><span class="font-bold text-[#2c2f30]">Método:</span> @(_payment.PaymentMethod ?? "-")</p>
+                <p><span class="font-bold text-[#2c2f30]">Referencia:</span> @_payment.ExternalReference</p>
+                <p><span class="font-bold text-[#2c2f30]">Fecha:</span> @_payment.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                <p><span class="font-bold text-[#2c2f30]">Aprobado:</span> @FormatDate(_payment.DateApproved)</p>
+                <p><span class="font-bold text-[#2c2f30]">Fee MP:</span> @FormatNullableMoney(_payment.MercadoPagoFeeAmount)</p>
+            </div>
+        </section>
+
+        <section class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-4">Historial de estado</p>
+            <div class="space-y-3">
+                @foreach (var item in _payment.History)
+                {
+                    <article class="rounded-2xl border border-[#eef1f2] px-4 py-3">
+                        <p class="font-bold text-[#2c2f30]">@item.NewStatus</p>
+                        <p class="text-sm text-[#595c5d]">@item.Detail</p>
+                        <p class="text-xs text-[#7b8081] mt-1">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</p>
+                    </article>
+                }
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid PaymentId { get; set; }
+
+    private bool _loading = true;
+    private MarketplacePaymentDetail? _payment;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _payment = await PartnerApi.GetMarketplacePaymentAsync(PaymentId);
+        _loading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string FormatMoney(double amount) => $"CLP {amount:N0}";
+    private static string FormatNullableMoney(double? amount) => amount.HasValue ? $"CLP {amount.Value:N0}" : "-";
+    private static string FormatDate(DateTimeOffset? value) => value.HasValue ? value.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-";
+}

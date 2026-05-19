@@ -1,5 +1,6 @@
 using ComunaClick.Api.Middleware;
 using ComunaClick.Api.Integrations.Notifications;
+using ComunaClick.Api.Modules.Marketplace;
 using ComunaClick.Api.Modules.Admin;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Jobs;
@@ -21,6 +22,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("app", policy =>
+        policy.WithOrigins(
+                "https://app.comunaclic.cl",
+                "https://admin.comunaclic.cl",
+                "https://localhost:5001",
+                "https://localhost:7221")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -40,6 +53,27 @@ builder.Services.AddScoped<SiteContentService>();
 builder.Services.Configure<OrderNotificationOptions>(builder.Configuration.GetSection("OrderNotifications"));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddSingleton<MarketplaceMetricsService>();
+builder.Services.AddScoped<FeeCalculator>();
+builder.Services.Configure<MercadoPagoMarketplaceOptions>(options =>
+{
+    var section = builder.Configuration.GetSection("Marketplace:MercadoPago");
+    section.Bind(options);
+    options.ClientId = builder.Configuration["MP_CLIENT_ID"] ?? options.ClientId;
+    options.ClientSecret = builder.Configuration["MP_CLIENT_SECRET"] ?? options.ClientSecret;
+    options.RedirectUri = builder.Configuration["MP_REDIRECT_URI"] ?? options.RedirectUri;
+    options.WebhookSecret = builder.Configuration["MP_WEBHOOK_SECRET"] ?? options.WebhookSecret;
+    options.ApiBaseUrl = builder.Configuration["MP_API_BASE_URL"] ?? options.ApiBaseUrl;
+    options.AppBaseUrl = builder.Configuration["APP_BASE_URL"] ?? options.AppBaseUrl;
+    options.EncryptionKey = builder.Configuration["ENCRYPTION_KEY"] ?? options.EncryptionKey;
+});
+builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
+builder.Services.AddScoped<MarketplaceAuditService>();
+builder.Services.AddScoped<SellerMarketplaceService>();
+builder.Services.AddScoped<MercadoPagoOAuthService>();
+builder.Services.AddScoped<MarketplacePaymentService>();
+builder.Services.AddScoped<MercadoPagoWebhookService>();
+builder.Services.AddHttpClient<MercadoPagoMarketplaceClient>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -74,8 +108,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("buyer.customer", policy =>
         policy.RequireAssertion(context =>
             context.User.Identity?.IsAuthenticated == true &&
-            !HasPartnerSession(context.User) &&
-            HasAnyRole(context.User, "customer", "tenant_admin", "platform_admin")));
+            !HasPartnerSession(context.User)));
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -112,8 +145,10 @@ else
 
 app.UseForwardedHeaders();
 app.UseHttpsRedirection();
+app.UseCors("app");
 app.UseRouting();
 app.UseRateLimiter();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";

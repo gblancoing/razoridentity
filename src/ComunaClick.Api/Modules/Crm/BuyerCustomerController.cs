@@ -26,7 +26,8 @@ public sealed class BuyerCustomerController : ControllerBase
     [HttpPost("ensure")]
     public async Task<ActionResult<Customer>> Ensure([FromBody] BuyerCustomerEnsureRequest? request)
     {
-        var tenantId = request?.TenantId ?? _tenantContext.TenantId;
+        var tenantId = request?.TenantId
+            ?? _tenantContext.TenantId;
         if (!tenantId.HasValue || tenantId.Value == Guid.Empty)
         {
             return BadRequest(new { message = "TenantId is required." });
@@ -42,6 +43,7 @@ public sealed class BuyerCustomerController : ControllerBase
         var fullName = ResolveName(User);
 
         var customer = await _db.Customers
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(x => x.TenantId == tenantId.Value && x.Email != null && x.Email.ToLower() == normalizedEmail);
 
         if (customer is null)
@@ -56,7 +58,22 @@ public sealed class BuyerCustomerController : ControllerBase
             };
 
             _db.Customers.Add(customer);
-            await _db.SaveChangesAsync();
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                _db.Entry(customer).State = EntityState.Detached;
+                customer = await _db.Customers
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(x => x.TenantId == tenantId.Value && x.Email != null && x.Email.ToLower() == normalizedEmail);
+                if (customer is null)
+                {
+                    return BadRequest(new { message = "Unable to create buyer profile for selected tenant." });
+                }
+            }
+
             return Ok(customer);
         }
 

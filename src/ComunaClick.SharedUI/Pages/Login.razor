@@ -11,7 +11,17 @@
 
 <PageTitle>@L.T("login.title")</PageTitle>
 
-<div class="flex min-h-screen flex-col lg:flex-row">
+<div class="relative flex min-h-screen flex-col lg:flex-row">
+    @if (_isSubmitting)
+    {
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-white/75 px-6 backdrop-blur-sm dark:bg-background-dark/75">
+            <BrandedLoading
+                Compact="true"
+                Title="Ingresando a ComunaClic"
+                Message="Estamos validando tu acceso." />
+        </div>
+    }
+
     <!-- Left Side: Image (Visible on Desktop) -->
     <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <div class="absolute inset-0 bg-cover bg-center" data-alt="Fotografía editorial de barrio y comercio local" style="@($"background-image: url('{LoginHeroImageUrl}');")">
@@ -80,7 +90,10 @@
                         <div class="flex-grow border-t border-[#dbe6e2] dark:border-[#2d4a41]"></div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <button class="flex items-center justify-center gap-2 h-14 border border-[#dbe6e2] dark:border-[#2d4a41] rounded-xl bg-white dark:bg-background-dark hover:bg-gray-50 transition-colors" type="button">
+                        <button class="flex items-center justify-center gap-2 h-14 border border-[#dbe6e2] dark:border-[#2d4a41] rounded-xl bg-white dark:bg-background-dark hover:bg-gray-50 transition-colors disabled:opacity-60"
+                                type="button"
+                                disabled="@_isSubmitting"
+                                @onclick="HandleGoogleSignInAsync">
                             <span class="material-symbols-outlined text-red-500">google</span>
                             <span class="text-[#111816] dark:text-white font-medium">Google</span>
                         </button>
@@ -133,6 +146,11 @@
         _checkedAuth = true;
         try
         {
+            if (await TryHandleGoogleCallbackAsync())
+            {
+                return;
+            }
+
             await AuthState.InitializeAsync();
             if (AuthState.IsAuthenticated)
             {
@@ -247,6 +265,59 @@
         catch
         {
             return null;
+        }
+    }
+
+    private async Task HandleGoogleSignInAsync()
+    {
+        _errorMessage = null;
+
+        try
+        {
+            var callbackUrl = Navigation.ToAbsoluteUri(Navigation.Uri).GetLeftPart(UriPartial.Path) + Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+            await JSRuntime.InvokeVoidAsync("comunaclic.beginGoogleSignIn", callbackUrl);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Google sign-in start failed");
+            _errorMessage = "No pudimos iniciar sesión con Google en este momento.";
+        }
+    }
+
+    private async Task<bool> TryHandleGoogleCallbackAsync()
+    {
+        var idToken = await JSRuntime.InvokeAsync<string>("comunaclic.consumeGoogleIdTokenFromHash");
+        if (string.IsNullOrWhiteSpace(idToken))
+        {
+            return false;
+        }
+
+        _isSubmitting = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var tokens = await AuthClient.LoginExternalAsync(new ComunaClick.Shared.Auth.ExternalLoginRequest(
+                ComunaClick.Shared.Auth.ExternalProvider.Google,
+                idToken,
+                TenantId: null,
+                PartnerId: null));
+            await AuthState.SetTokensAsync(tokens);
+            var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
+            var destination = isPersonalAccount ? "/buyer" : "/my-businesses";
+            Navigation.NavigateTo(destination, true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Google sign-in callback failed");
+            _errorMessage = "No se pudo completar el inicio con Google.";
+            return false;
+        }
+        finally
+        {
+            _isSubmitting = false;
         }
     }
 }

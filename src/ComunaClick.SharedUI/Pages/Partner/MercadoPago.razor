@@ -1,0 +1,287 @@
+@page "/partner/mercadopago"
+@layout PartnerLayout
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject NavigationManager Navigation
+
+<PageTitle>Mercado Pago - ComunaClic</PageTitle>
+
+<div class="space-y-8">
+    <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+            <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Marketplace</p>
+            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">Mercado Pago</h1>
+            <p class="mt-2 text-sm text-[#595c5d]">Conecta tu cuenta, configura la comisión y revisa los cobros marketplace de ComunaClic.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <button class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                    @onclick="ConnectAsync"
+                    disabled="@_busy">
+                <span class="material-symbols-outlined text-[18px]">link</span>
+                Conectar Mercado Pago
+            </button>
+            <button class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-5 py-3 text-sm font-bold text-[#2c2f30] disabled:opacity-60"
+                    @onclick="DisconnectAsync"
+                    disabled="@_busy || _status is null || _status.ConnectionStatus != "connected"">
+                <span class="material-symbols-outlined text-[18px]">link_off</span>
+                Desconectar cuenta
+            </button>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <StatusBanner Message="@_message" Level="@_messageLevel" />
+    }
+
+    @if (_loading)
+    {
+        <BrandedLoading Title="Mercado Pago" Message="Estamos consultando la configuración del marketplace." />
+    }
+    else if (_status is not null)
+    {
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <section class="xl:col-span-2 rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Estado de conexión</p>
+                        <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@_status.ConnectionStatus</h2>
+                        <p class="mt-2 text-sm text-[#595c5d]">Vendedor: @_status.SellerName</p>
+                    </div>
+                    <div class="rounded-2xl bg-[#f5f6f7] px-5 py-4 text-right">
+                        <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">MP user</p>
+                        <p class="mt-2 text-sm font-bold text-[#2c2f30]">@(_status.MpUserId ?? "Sin conectar")</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#595c5d]">
+                    <p><span class="font-bold text-[#2c2f30]">Scope:</span> @(_status.Scope ?? "-")</p>
+                    <p><span class="font-bold text-[#2c2f30]">Conectado:</span> @FormatDate(_status.ConnectedAt)</p>
+                    <p><span class="font-bold text-[#2c2f30]">Expira token:</span> @FormatDate(_status.TokenExpiresAt)</p>
+                    <p><span class="font-bold text-[#2c2f30]">SellerId:</span> @_status.SellerId</p>
+                </div>
+            </section>
+
+            <section class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Comisión plataforma</p>
+                    <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Configuración</h2>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-[#2c2f30]">Fijo CLP</label>
+                    <input class="mt-2 h-11 w-full rounded-2xl border border-[#dadddf] px-3 text-sm"
+                           type="number"
+                           @bind="_fixedFeeAmount" />
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-[#2c2f30]">Porcentaje</label>
+                    <input class="mt-2 h-11 w-full rounded-2xl border border-[#dadddf] px-3 text-sm"
+                           type="number"
+                           step="0.01"
+                           @bind="_percentageFee" />
+                </div>
+                <label class="flex items-center gap-3 rounded-2xl border border-[#dadddf] px-4 py-3 text-sm">
+                    <input type="checkbox" @bind="_feesEnabled" />
+                    Comisión activa
+                </label>
+
+                <button class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                        @onclick="SaveFeesAsync"
+                        disabled="@_busy">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Guardar comisión
+                </button>
+            </section>
+        </div>
+
+        <section class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-5">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Pagos</p>
+                    <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Últimos pagos</h2>
+                </div>
+                <button class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-4 py-2 text-sm font-bold text-[#2c2f30]"
+                        @onclick="LoadAsync"
+                        disabled="@_busy">
+                    <span class="material-symbols-outlined text-[18px]">refresh</span>
+                    Actualizar
+                </button>
+            </div>
+
+            @if (_payments.Count == 0)
+            {
+                <p class="text-sm text-[#595c5d]">Todavía no hay pagos marketplace registrados para este vendedor.</p>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-[#e3e6e8] text-left text-[#7b8081]">
+                                <th class="py-3 pr-4">Fecha</th>
+                                <th class="py-3 pr-4">Orden</th>
+                                <th class="py-3 pr-4">Bruto</th>
+                                <th class="py-3 pr-4">Comisión</th>
+                                <th class="py-3 pr-4">Neto</th>
+                                <th class="py-3 pr-4">Estado</th>
+                                <th class="py-3 pr-4">Externo</th>
+                                <th class="py-3">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var payment in _payments)
+                            {
+                                <tr class="border-b border-[#f0f2f3]">
+                                    <td class="py-3 pr-4">@payment.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="py-3 pr-4">@ShortId(payment.OrderId)</td>
+                                    <td class="py-3 pr-4">@FormatMoney(payment.GrossAmount)</td>
+                                    <td class="py-3 pr-4">@FormatMoney(payment.PlatformFeeAmount)</td>
+                                    <td class="py-3 pr-4">@FormatMoney(payment.NetAmount)</td>
+                                    <td class="py-3 pr-4">@payment.Status</td>
+                                    <td class="py-3 pr-4">@(payment.MercadoPagoPaymentId ?? payment.ExternalReference)</td>
+                                    <td class="py-3">
+                                        <div class="flex flex-wrap gap-2">
+                                            <a class="inline-flex items-center gap-1 rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                               href="@($"/partner/mercadopago/payments/{payment.PaymentId}")">
+                                                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                                                Detalle
+                                            </a>
+                                            <button class="inline-flex items-center gap-1 rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                                    @onclick="() => RetrySyncAsync(payment.PaymentId)">
+                                                <span class="material-symbols-outlined text-[16px]">sync</span>
+                                                Reintentar
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private SellerMercadoPagoStatus? _status;
+    private readonly List<MarketplacePaymentDetail> _payments = new();
+    private bool _loading = true;
+    private bool _busy;
+    private string? _message;
+    private string _messageLevel = "info";
+    private decimal _fixedFeeAmount;
+    private decimal _percentageFee;
+    private bool _feesEnabled = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private Guid CurrentSellerId => AuthState.PartnerId ?? Guid.Empty;
+
+    private async Task LoadAsync()
+    {
+        if (CurrentSellerId == Guid.Empty)
+        {
+            _message = "No encontramos un seller activo en la sesión.";
+            _messageLevel = "warning";
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _status = await PartnerApi.GetMercadoPagoStatusAsync(CurrentSellerId);
+        _payments.Clear();
+        var payments = await PartnerApi.GetMarketplacePaymentsAsync(CurrentSellerId);
+        if (payments is not null)
+        {
+            _payments.AddRange(payments);
+        }
+
+        if (_status is not null)
+        {
+            _fixedFeeAmount = _status.FeeSettings.FixedFeeAmount;
+            _percentageFee = _status.FeeSettings.PercentageFee;
+            _feesEnabled = _status.FeeSettings.IsActive;
+        }
+
+        _loading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ConnectAsync()
+    {
+        _busy = true;
+        try
+        {
+            var start = await PartnerApi.StartMercadoPagoOAuthAsync(CurrentSellerId);
+            if (!string.IsNullOrWhiteSpace(start?.AuthorizationUrl))
+            {
+                Navigation.NavigateTo(start.AuthorizationUrl, true);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DisconnectAsync()
+    {
+        _busy = true;
+        try
+        {
+            await PartnerApi.DisconnectMercadoPagoAsync(CurrentSellerId);
+            _message = "Cuenta Mercado Pago desconectada.";
+            _messageLevel = "success";
+            await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SaveFeesAsync()
+    {
+        _busy = true;
+        try
+        {
+            await PartnerApi.UpdateSellerFeesAsync(CurrentSellerId, new UpdateSellerFees(_fixedFeeAmount, _percentageFee, _feesEnabled));
+            _message = "Comisión guardada correctamente.";
+            _messageLevel = "success";
+            await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RetrySyncAsync(Guid paymentId)
+    {
+        _busy = true;
+        try
+        {
+            await PartnerApi.RetryMarketplacePaymentSyncAsync(paymentId);
+            _message = "Sincronización enviada.";
+            _messageLevel = "success";
+            await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string FormatMoney(double amount) => $"CLP {amount:N0}";
+    private static string ShortId(Guid id) => id == Guid.Empty ? "-" : id.ToString("N")[..8];
+    private static string FormatDate(DateTimeOffset? value) => value.HasValue ? value.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-";
+}

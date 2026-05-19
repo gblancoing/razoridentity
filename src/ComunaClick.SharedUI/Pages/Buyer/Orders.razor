@@ -143,7 +143,35 @@
             }
             else if (_booking is null)
             {
-                <StatusBanner Message="Ingresa un `BookingId` válido para ver el seguimiento detallado de la reserva." Level="warning" />
+                @if (_isLoadingRecentBookings)
+                {
+                    <BrandedLoading Title="Cargando reservas" Message="Estamos buscando tus reservas recientes." Compact="true" />
+                }
+                else if (_recentBookings.Count > 0)
+                {
+                    <div class="space-y-3">
+                        <p class="text-xs text-[#595c5d]">Mostrando tus reservas recientes. Selecciona una para ver el detalle completo.</p>
+                        @foreach (var booking in _recentBookings)
+                        {
+                            <button type="button"
+                                    class="block w-full rounded-3xl border border-[#dadddf] p-5 text-left hover:bg-[#f8faf8] transition-colors"
+                                    @onclick="() => SelectRecentBookingAsync(booking)">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <p class="text-base font-black tracking-[-0.02em] text-[#2c2f30]">@(booking.Service?.Name ?? "Servicio reservado")</p>
+                                        <p class="text-sm text-[#595c5d] mt-1">@(booking.Partner?.Name ?? "Negocio") · @booking.StartAt.ToLocalTime().ToString("dd MMM yyyy · HH:mm")</p>
+                                        <p class="text-sm text-[#595c5d] mt-1">@FormatBookingStatus(booking.Status)</p>
+                                    </div>
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@FormatMoney(booking.Amount, booking.Currency)</p>
+                                </div>
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <StatusBanner Message="Ingresa un `BookingId` válido para ver el seguimiento detallado de la reserva." Level="warning" />
+                }
             }
             else
             {
@@ -210,7 +238,9 @@
     private string BookingId = string.Empty;
     private BuyerOrder? _order;
     private BuyerBooking? _booking;
+    private readonly List<BuyerBooking> _recentBookings = new();
     private bool _isLoading;
+    private bool _isLoadingRecentBookings;
     private Guid? _customerId;
     private bool _browserCustomerReady;
 
@@ -253,6 +283,10 @@
             {
                 await HandleLookup();
             }
+            else
+            {
+                await LoadRecentBookingsAsync();
+            }
 
             await InvokeAsync(StateHasChanged);
         }
@@ -268,6 +302,7 @@
         _statusLevel = "info";
         _order = null;
         _booking = null;
+        _recentBookings.Clear();
         _isLoading = true;
 
         try
@@ -287,6 +322,11 @@
             if (Guid.TryParse(BookingId, out var bookingId))
             {
                 _booking = await BuyerApi.GetBookingAsync(bookingId, _customerId.Value);
+            }
+
+            if (_booking is null && string.IsNullOrWhiteSpace(BookingId))
+            {
+                await LoadRecentBookingsAsync();
             }
 
             if (_order is null && _booking is null)
@@ -309,6 +349,36 @@
         {
             _isLoading = false;
         }
+    }
+
+    private async Task LoadRecentBookingsAsync()
+    {
+        _isLoadingRecentBookings = true;
+        try
+        {
+            var recent = await BuyerApi.GetRecentBookingsAsync(8);
+            _recentBookings.Clear();
+            if (recent is not null)
+            {
+                _recentBookings.AddRange(recent);
+            }
+        }
+        catch
+        {
+            _recentBookings.Clear();
+        }
+        finally
+        {
+            _isLoadingRecentBookings = false;
+        }
+    }
+
+    private async Task SelectRecentBookingAsync(BuyerBooking booking)
+    {
+        BookingId = booking.Id.ToString();
+        OrderId = string.Empty;
+        Navigation.NavigateTo($"/buyer/orders?bookingId={booking.Id}", replace: true);
+        await HandleLookup();
     }
 
     private void HandleChange()

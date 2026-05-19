@@ -1,6 +1,7 @@
 @page "/partner/agenda"
 @layout PartnerLayout
 @using System.Net
+@using System.Globalization
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -10,32 +11,42 @@
 <PageTitle>@L.T("partner.agenda.title")</PageTitle>
 
 <div class="space-y-8">
-    <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Agenda editorial</p>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Operación diaria</p>
             <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.agenda.heading")</h1>
             <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.agenda.subtitle")</p>
         </div>
-        <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
-            <span class="material-symbols-outlined text-[20px]">calendar_add_on</span>
-            Crear primer servicio
-        </a>
+        <div class="flex flex-wrap items-center gap-3">
+            @foreach (var filter in AgendaFilters)
+            {
+                <button type="button"
+                        class="@GetFilterClass(filter.Key)"
+                        @onclick="() => _selectedFilter = filter.Key">
+                    @filter.Label
+                </button>
+            }
+            <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
+                <span class="material-symbols-outlined text-[20px]">calendar_add_on</span>
+                Crear disponibilidad
+            </a>
+        </div>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">RESERVAS</p>
-            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_bookings.Count</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Reservas visibles en la agenda actual.</p>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">VISTA ACTUAL</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FilteredBookings.Count</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Reservas visibles según el filtro seleccionado.</p>
         </article>
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">PRÓXIMA HORA</p>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">SIGUIENTE BLOQUE</p>
             <h2 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@NextBookingLabel</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Primera reserva disponible en el listado actual.</p>
+            <p class="mt-2 text-xs text-[#595c5d]">@NextBookingHint</p>
         </article>
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ESTADO</p>
-            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusLabel</h2>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ATENCIÓN</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@PendingCountLabel</h2>
             <p class="mt-2 text-xs text-[#595c5d]">@_statusMessage</p>
         </article>
     </div>
@@ -47,6 +58,10 @@
                     <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Calendario</p>
                     <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.agenda.calendar")</h2>
                 </div>
+                <span class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#595c5d]">
+                    <span class="inline-flex h-2 w-2 rounded-full bg-[#76BC21]"></span>
+                    Días con reservas
+                </span>
             </div>
             <div class="bg-white rounded-3xl min-h-[320px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] p-6">
                 <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[#7b8081] mb-4">
@@ -64,30 +79,31 @@
                         </div>
                     }
                 </div>
-                <p class="mt-6 text-xs text-[#595c5d]">Los días marcados muestran reservas registradas en tu agenda actual.</p>
+                <p class="mt-6 text-xs text-[#595c5d]">La agenda muestra reservas reales; usa los filtros para centrarte en hoy, pendientes o historial completado.</p>
             </div>
         </section>
 
         <section class="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
             <div class="flex items-center justify-between gap-4 mb-8">
                 <div>
-                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Hoy</p>
-                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.agenda.today")</h2>
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Seguimiento</p>
+                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Reservas activas</h2>
                 </div>
+                <span class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#7b8081]">@StatusLabel</span>
             </div>
 
             <div class="space-y-4">
                 @if (_isLoading)
                 {
-                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos revisando tu agenda de hoy." Compact="true" />
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos revisando tu agenda operativa." Compact="true" />
                 }
-                else if (_bookings.Count == 0)
+                else if (FilteredBookings.Count == 0)
                 {
                     <div class="space-y-4 text-center py-6">
                         <div class="w-14 h-14 rounded-full bg-[#eff1f2] text-[#325800] flex items-center justify-center mx-auto">
                             <span class="material-symbols-outlined">event_busy</span>
                         </div>
-                        <p class="text-sm text-[#595c5d]">@_statusMessage</p>
+                        <p class="text-sm text-[#595c5d]">@EmptyStateMessage</p>
                         <a href="/partner/quickstart" class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm">
                             <span class="material-symbols-outlined text-[18px]">add</span>
                             Cargar primer servicio
@@ -96,29 +112,198 @@
                 }
                 else
                 {
-                    @foreach (var booking in _bookings)
+                    @foreach (var booking in FilteredBookings)
                     {
-                        <article class="rounded-2xl bg-[#f5f6f7] px-4 py-4 flex items-center justify-between gap-4">
-                            <div>
-                                <p class="text-sm font-bold text-[#2c2f30]">@booking.StartAt.ToLocalTime().ToString("dd MMM")</p>
+                        <article class="rounded-3xl bg-[#f5f6f7] px-5 py-5 space-y-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@GetBookingHeadline(booking)</p>
+                                    <p class="mt-1 text-sm text-[#595c5d]">@booking.StartAt.ToLocalTime().ToString("dddd dd MMM · HH:mm") a @booking.EndAt.ToLocalTime().ToString("HH:mm")</p>
+                                </div>
                                 <span class="@GetBookingStatusClass(booking.Status)">@MapBookingStatus(booking.Status)</span>
                             </div>
-                            <p class="text-lg font-black tracking-[-0.03em] text-[#3b6700]">@booking.StartAt.ToLocalTime().ToString("HH:mm")</p>
+                            <div class="grid grid-cols-2 gap-3 text-xs text-[#595c5d]">
+                                <div>
+                                    <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Duración</p>
+                                    <p class="mt-1 text-sm font-bold text-[#2c2f30]">@FormatDuration(booking)</p>
+                                </div>
+                                <div>
+                                    <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Monto</p>
+                                    <p class="mt-1 text-sm font-bold text-[#2c2f30]">@FormatMoney(booking.Amount, booking.Currency)</p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#595c5d]">@GetOperationalHint(booking)</p>
+                            @if (!string.IsNullOrWhiteSpace(booking.InternalNote) || !string.IsNullOrWhiteSpace(booking.OutcomeReason))
+                            {
+                                <div class="rounded-2xl bg-white px-4 py-3 text-xs text-[#595c5d]">
+                                    @if (!string.IsNullOrWhiteSpace(booking.InternalNote))
+                                    {
+                                        <p><span class="font-bold text-[#2c2f30]">Nota:</span> @booking.InternalNote</p>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(booking.OutcomeReason))
+                                    {
+                                        <p class="mt-1"><span class="font-bold text-[#2c2f30]">Motivo:</span> @booking.OutcomeReason</p>
+                                    }
+                                </div>
+                            }
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                        @onclick='() => SetBookingStatusAsync(booking.Id, "confirmed")'
+                                        disabled="@(_updatingBookingId == booking.Id)">
+                                    Confirmar
+                                </button>
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                        @onclick='() => SetBookingStatusAsync(booking.Id, "completed")'
+                                        disabled="@(_updatingBookingId == booking.Id)">
+                                    Completar
+                                </button>
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                        @onclick='() => MarkBookingOutcome(booking, "no_show")'
+                                        disabled="@(_updatingBookingId == booking.Id || _savingBookingWorkflowId == booking.Id)">
+                                    No show
+                                </button>
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                        @onclick='() => MarkBookingOutcome(booking, "cancelled")'
+                                        disabled="@(_updatingBookingId == booking.Id || _savingBookingWorkflowId == booking.Id)">
+                                    Cancelar
+                                </button>
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                        @onclick='() => ToggleBookingWorkflow(booking)'>
+                                    @(_editingBookingIds.Contains(booking.Id) ? "Ocultar edición" : "Reprogramar / editar")
+                                </button>
+                            </div>
+                            @if (_updatingBookingId == booking.Id)
+                            {
+                                <p class="text-xs font-bold text-[#7b8081]">Actualizando...</p>
+                            }
+                            @if (_editingBookingIds.Contains(booking.Id))
+                            {
+                                var draft = GetBookingDraft(booking);
+                                <div class="rounded-2xl border border-[#dadddf] bg-white px-4 py-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Estado</label>
+                                            <select class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" @bind="draft.Status">
+                                                <option value="pending">Pendiente</option>
+                                                <option value="payment_pending">Pago pendiente</option>
+                                                <option value="confirmed">Confirmada</option>
+                                                <option value="completed">Completada</option>
+                                                <option value="no_show">No show</option>
+                                                <option value="cancelled">Cancelada</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Inicio</label>
+                                            <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" @bind="draft.StartAtLocal" />
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Fin</label>
+                                            <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" @bind="draft.EndAtLocal" />
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Motivo resultado</label>
+                                            <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" @bind="draft.OutcomeReason" />
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Nota interna</label>
+                                            <textarea rows="3" class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" @bind="draft.InternalNote"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="button"
+                                                class="inline-flex items-center rounded-xl bg-[#2c2f30] px-4 py-2 text-xs font-bold text-white"
+                                                @onclick='() => SaveBookingWorkflowAsync(booking.Id)'
+                                                disabled="@(_savingBookingWorkflowId == booking.Id)">
+                                            @(_savingBookingWorkflowId == booking.Id ? "Guardando..." : "Guardar cambios")
+                                        </button>
+                                    </div>
+                                </div>
+                            }
                         </article>
                     }
                 }
             </div>
         </section>
     </div>
+    @if (!string.IsNullOrWhiteSpace(_actionMessage))
+    {
+        <StatusBanner Message="@_actionMessage" Level="@_actionLevel" />
+    }
 </div>
 
 @code {
     private readonly List<PartnerBooking> _bookings = new();
     private string _statusMessage = "—";
     private bool _isLoading;
+    private string _selectedFilter = "all";
+    private Guid? _updatingBookingId;
+    private Guid? _savingBookingWorkflowId;
+    private string? _actionMessage;
+    private string _actionLevel = "info";
+    private readonly HashSet<Guid> _editingBookingIds = new();
+    private readonly Dictionary<Guid, BookingWorkflowDraft> _bookingDrafts = new();
 
-    private string NextBookingLabel => _bookings.Count == 0 ? "--:--" : _bookings.OrderBy(x => x.StartAt).First().StartAt.ToLocalTime().ToString("HH:mm");
-    private string StatusLabel => _bookings.Count == 0 ? "Sin agenda" : "Con movimiento";
+    private IReadOnlyList<FilterOption> AgendaFilters { get; } =
+    [
+        new("all", "Todo"),
+        new("today", "Hoy"),
+        new("pending", "Pendientes"),
+        new("completed", "Completadas")
+    ];
+
+    private List<PartnerBooking> FilteredBookings => _bookings
+        .Where(MatchesFilter)
+        .OrderBy(x => x.StartAt)
+        .ToList();
+
+    private int PendingCount => _bookings.Count(IsPendingBooking);
+    private string PendingCountLabel => PendingCount == 0 ? "Sin pendientes" : $"{PendingCount} por revisar";
+
+    private string NextBookingLabel
+    {
+        get
+        {
+            var nextBooking = _bookings
+                .Where(x => x.EndAt >= DateTimeOffset.Now)
+                .OrderBy(x => x.StartAt)
+                .FirstOrDefault();
+
+            return nextBooking is null
+                ? "Sin próximas reservas"
+                : nextBooking.StartAt.ToLocalTime().ToString("dd MMM · HH:mm");
+        }
+    }
+
+    private string NextBookingHint
+    {
+        get
+        {
+            var nextBooking = _bookings
+                .Where(x => x.EndAt >= DateTimeOffset.Now)
+                .OrderBy(x => x.StartAt)
+                .FirstOrDefault();
+
+            return nextBooking is null
+                ? "No hay una atención futura cargada en esta agenda."
+                : $"{MapBookingStatus(nextBooking.Status)} · {FormatMoney(nextBooking.Amount, nextBooking.Currency)}";
+        }
+    }
+
+    private string StatusLabel => _bookings.Count == 0 ? "Sin agenda" : "Con actividad";
+
+    private string EmptyStateMessage => _selectedFilter switch
+    {
+        "today" => "No hay reservas para hoy. Puedes abrir nuevos horarios o revisar las próximas fechas.",
+        "pending" => "No tienes reservas pendientes en este momento.",
+        "completed" => "Aún no hay reservas completadas para mostrar.",
+        _ => _statusMessage
+    };
+
     private IEnumerable<DateTime> CalendarDays
     {
         get
@@ -159,7 +344,10 @@
             {
                 _bookings.AddRange(bookings.OrderBy(x => x.StartAt));
             }
-            _statusMessage = _bookings.Count == 0 ? L.T("partner.status.noBookings") : "Tu agenda ya muestra actividad para revisar.";
+
+            _statusMessage = _bookings.Count == 0
+                ? "Todavía no hay reservas cargadas en la agenda operativa."
+                : "Tu agenda ya está ordenada para revisar próximos bloques, pendientes e historial.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -173,6 +361,7 @@
         {
             _statusMessage = $"No se pudo cargar la agenda ({(int?)ex.StatusCode ?? 0}).";
         }
+
         _isLoading = false;
     }
 
@@ -181,8 +370,186 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private async Task SetBookingStatusAsync(Guid bookingId, string status)
+    {
+        _updatingBookingId = bookingId;
+        _actionMessage = null;
+        _actionLevel = "info";
+        try
+        {
+            var updated = await PartnerApi.UpdateBookingStatusAsync(bookingId, new ComunaClick.Shared.Api.Partner.BookingStatusUpdateRequest(status));
+            if (updated is null)
+            {
+                _actionMessage = "No pudimos actualizar la reserva.";
+                _actionLevel = "error";
+                return;
+            }
+
+            ReplaceBooking(updated);
+            _actionMessage = $"Reserva actualizada a \"{MapBookingStatus(updated.Status)}\".";
+            _actionLevel = "success";
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionMessage = $"No pudimos actualizar la reserva ({(int?)ex.StatusCode ?? 0}).";
+            _actionLevel = "error";
+        }
+        finally
+        {
+            _updatingBookingId = null;
+        }
+    }
+
+    private void MarkBookingOutcome(PartnerBooking booking, string status)
+    {
+        if (!_editingBookingIds.Contains(booking.Id))
+        {
+            _editingBookingIds.Add(booking.Id);
+            _bookingDrafts[booking.Id] = BookingWorkflowDraft.FromBooking(booking);
+        }
+
+        var draft = GetBookingDraft(booking);
+        draft.Status = status;
+    }
+
+    private void ToggleBookingWorkflow(PartnerBooking booking)
+    {
+        if (_editingBookingIds.Contains(booking.Id))
+        {
+            _editingBookingIds.Remove(booking.Id);
+            return;
+        }
+
+        _editingBookingIds.Add(booking.Id);
+        _bookingDrafts[booking.Id] = BookingWorkflowDraft.FromBooking(booking);
+    }
+
+    private BookingWorkflowDraft GetBookingDraft(PartnerBooking booking)
+    {
+        if (_bookingDrafts.TryGetValue(booking.Id, out var draft))
+        {
+            return draft;
+        }
+
+        draft = BookingWorkflowDraft.FromBooking(booking);
+        _bookingDrafts[booking.Id] = draft;
+        return draft;
+    }
+
+    private async Task SaveBookingWorkflowAsync(Guid bookingId)
+    {
+        if (!_bookingDrafts.TryGetValue(bookingId, out var draft))
+        {
+            return;
+        }
+
+        if (!TryParseLocalDate(draft.StartAtLocal, out var startAt, out var dateError) ||
+            !TryParseLocalDate(draft.EndAtLocal, out var endAt, out dateError))
+        {
+            _actionMessage = dateError;
+            _actionLevel = "error";
+            return;
+        }
+
+        if ((draft.Status is "cancelled" or "no_show") && string.IsNullOrWhiteSpace(draft.OutcomeReason))
+        {
+            _actionMessage = "Debes indicar motivo para cancelada o no show.";
+            _actionLevel = "error";
+            return;
+        }
+
+        _savingBookingWorkflowId = bookingId;
+        _actionMessage = null;
+        _actionLevel = "info";
+        try
+        {
+            var updated = await PartnerApi.UpdateBookingWorkflowAsync(bookingId, new ComunaClick.Shared.Api.Partner.BookingWorkflowUpdateRequest(
+                draft.Status,
+                startAt,
+                endAt,
+                draft.InternalNote,
+                draft.OutcomeReason));
+
+            if (updated is null)
+            {
+                _actionMessage = "No pudimos guardar los cambios de agenda.";
+                _actionLevel = "error";
+                return;
+            }
+
+            ReplaceBooking(updated);
+            _editingBookingIds.Remove(bookingId);
+            _bookingDrafts.Remove(bookingId);
+            _actionMessage = "Agenda actualizada correctamente.";
+            _actionLevel = "success";
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionMessage = $"No pudimos guardar cambios de agenda ({(int?)ex.StatusCode ?? 0}).";
+            _actionLevel = "error";
+        }
+        finally
+        {
+            _savingBookingWorkflowId = null;
+        }
+    }
+
+    private void ReplaceBooking(PartnerBooking updated)
+    {
+        var index = _bookings.FindIndex(x => x.Id == updated.Id);
+        if (index >= 0)
+        {
+            _bookings[index] = updated;
+            return;
+        }
+
+        _bookings.Add(updated);
+    }
+
+    private static bool TryParseLocalDate(string? raw, out DateTimeOffset parsed, out string error)
+    {
+        parsed = default;
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            error = "Debes completar inicio y fin.";
+            return false;
+        }
+
+        if (!DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var local))
+        {
+            error = "Formato de fecha inválido en agenda.";
+            return false;
+        }
+
+        parsed = new DateTimeOffset(local);
+        return true;
+    }
+
+    private bool MatchesFilter(PartnerBooking booking) => _selectedFilter switch
+    {
+        "today" => booking.StartAt.ToLocalTime().Date == DateTime.Today,
+        "pending" => IsPendingBooking(booking),
+        "completed" => IsCompletedBooking(booking),
+        _ => true
+    };
+
     private bool HasBookingOnDay(DateTime day)
         => _bookings.Any(booking => booking.StartAt.ToLocalTime().Date == day.Date);
+
+    private static bool IsPendingBooking(PartnerBooking booking)
+        => booking.Status?.Trim().ToLowerInvariant() switch
+        {
+            "pending" or "payment_pending" or "confirmed" => true,
+            _ => false
+        };
+
+    private static bool IsCompletedBooking(PartnerBooking booking)
+        => booking.Status?.Trim().ToLowerInvariant() switch
+        {
+            "completed" => true,
+            _ => false
+        };
 
     private static string GetCalendarDayClass(DateTime day)
     {
@@ -192,11 +559,18 @@
             : "min-h-16 rounded-2xl bg-[#f5f6f7] text-[#2c2f30] flex flex-col items-center justify-center";
     }
 
+    private string GetFilterClass(string key)
+        => key == _selectedFilter
+            ? "inline-flex items-center rounded-full bg-[#2c2f30] text-white px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]"
+            : "inline-flex items-center rounded-full bg-white text-[#595c5d] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]";
+
     private static string MapBookingStatus(string? status)
         => status?.Trim().ToLowerInvariant() switch
         {
             "confirmed" => "Confirmada",
             "pending" => "Pendiente",
+            "payment_pending" => "Pago pendiente",
+            "no_show" => "No show",
             "cancelled" or "canceled" => "Cancelada",
             "completed" => "Completada",
             _ => string.IsNullOrWhiteSpace(status) ? "Sin estado" : status
@@ -205,12 +579,66 @@
     private static string GetBookingStatusClass(string? status)
         => status?.Trim().ToLowerInvariant() switch
         {
-            "confirmed" => "inline-flex mt-1 rounded-full bg-[#a7f255]/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
-            "pending" => "inline-flex mt-1 rounded-full bg-[#fcf661]/40 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#605d00]",
-            "cancelled" or "canceled" => "inline-flex mt-1 rounded-full bg-[#f95630]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#b02500]",
-            "completed" => "inline-flex mt-1 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]",
-            _ => "inline-flex mt-1 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]"
+            "confirmed" => "inline-flex rounded-full bg-[#a7f255]/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
+            "pending" or "payment_pending" => "inline-flex rounded-full bg-[#fcf661]/40 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#605d00]",
+            "cancelled" or "canceled" => "inline-flex rounded-full bg-[#f95630]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#b02500]",
+            "no_show" => "inline-flex rounded-full bg-[#ffd5cc] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8f2200]",
+            "completed" => "inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]",
+            _ => "inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]"
         };
+
+    private static string GetBookingHeadline(PartnerBooking booking)
+        => booking.Status?.Trim().ToLowerInvariant() switch
+        {
+            "completed" => "Atención realizada",
+            "no_show" => "Cliente no asistió",
+            "cancelled" or "canceled" => "Bloque cancelado",
+            _ => "Reserva de servicio"
+        };
+
+    private static string GetOperationalHint(PartnerBooking booking)
+        => booking.Status?.Trim().ToLowerInvariant() switch
+        {
+            "payment_pending" => "Revisa la confirmación de pago antes de dar por cerrada la atención.",
+            "pending" => "Conviene confirmar este bloque con el cliente y revisar disponibilidad del equipo.",
+            "confirmed" => "La reserva está lista para operación; asegúrate de tener capacidad asignada.",
+            "completed" => "Ya quedó cerrada. Puedes revisar si corresponde seguimiento post-servicio.",
+            "no_show" => "Registra motivo y decide si corresponde reprogramación o cierre.",
+            "cancelled" or "canceled" => "Bloque liberado. Si aplica, vuelve a abrir disponibilidad.",
+            _ => "Reserva operativa disponible en la agenda."
+        };
+
+    private static string FormatDuration(PartnerBooking booking)
+    {
+        var duration = booking.EndAt - booking.StartAt;
+        return duration.TotalMinutes <= 0
+            ? "Sin duración"
+            : $"{Math.Round(duration.TotalMinutes)} min";
+    }
+
+    private static string FormatMoney(double amount, string? currency)
+        => string.IsNullOrWhiteSpace(currency) ? $"${amount:N0}" : $"{currency} {amount:N0}";
+
+    private sealed record FilterOption(string Key, string Label);
+
+    private sealed class BookingWorkflowDraft
+    {
+        public string? Status { get; set; }
+        public string? StartAtLocal { get; set; }
+        public string? EndAtLocal { get; set; }
+        public string? InternalNote { get; set; }
+        public string? OutcomeReason { get; set; }
+
+        public static BookingWorkflowDraft FromBooking(PartnerBooking booking)
+            => new()
+            {
+                Status = booking.Status?.Trim().ToLowerInvariant(),
+                StartAtLocal = booking.StartAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                EndAtLocal = booking.EndAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                InternalNote = booking.InternalNote,
+                OutcomeReason = booking.OutcomeReason
+            };
+    }
 
     public void Dispose()
     {

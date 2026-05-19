@@ -1,0 +1,179 @@
+@page "/buyer/favorites"
+@layout BuyerLayout
+@using BuyerModels = ComunaClick.Shared.Api.Buyer
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+
+<PageTitle>Mis favoritos</PageTitle>
+
+<div class="space-y-6">
+    <section class="rounded-[2rem] bg-gradient-to-br from-[#f5f6f7] via-white to-[#eff1f2] border border-[#dadddf] px-8 py-8">
+        <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">Buyer</p>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">Mis favoritos</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">Guarda negocios, productos, servicios y profesionales para volver rápido cuando quieras.</p>
+    </section>
+
+    @if (!AuthState.IsAuthenticated)
+    {
+        <StatusBanner Message="Inicia sesión para usar favoritos." Level="warning" />
+    }
+    else
+    {
+        <div class="flex flex-wrap gap-2">
+            <button class="@FilterClass("all")" @onclick='() => ChangeFilter("all")'>Todo</button>
+            <button class="@FilterClass("partner")" @onclick='() => ChangeFilter("partner")'>Negocios</button>
+            <button class="@FilterClass("product")" @onclick='() => ChangeFilter("product")'>Productos</button>
+            <button class="@FilterClass("service")" @onclick='() => ChangeFilter("service")'>Servicios</button>
+            <button class="@FilterClass("professional")" @onclick='() => ChangeFilter("professional")'>Profesionales</button>
+        </div>
+
+        @if (_loading)
+        {
+            <BrandedLoading Title="Cargando favoritos" Message="Estamos trayendo tu selección guardada." Compact="true" />
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <StatusBanner Message="@_error" Level="error" />
+        }
+        else if (_items.Count == 0)
+        {
+            <StatusBanner Message="Aún no tienes favoritos guardados." Level="warning" />
+        }
+        else
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                @foreach (var item in _items)
+                {
+                    <article class="rounded-3xl bg-white border border-[#e3e6e8] p-5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@TypeLabel(item.Type)</p>
+                                <p class="mt-1 text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@(!string.IsNullOrWhiteSpace(item.Name) ? item.Name : "Sin nombre")</p>
+                                @if (!string.IsNullOrWhiteSpace(item.Summary))
+                                {
+                                    <p class="mt-1 text-sm text-[#595c5d]">@item.Summary</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(item.Category))
+                                {
+                                    <p class="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-[#7b8081]">@item.Category</p>
+                                }
+                                @if (item.Price.HasValue)
+                                {
+                                    <p class="mt-2 text-sm font-black text-[#3b6700]">@FormatMoney(item.Price.Value, item.Currency)</p>
+                                }
+                            </div>
+                            <button class="inline-flex items-center rounded-2xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                    @onclick="() => RemoveAsync(item)">
+                                Quitar
+                            </button>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between">
+                            <a class="inline-flex items-center rounded-2xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad]"
+                               href="@DetailHref(item)">
+                                Ver detalle
+                            </a>
+                            @if (!item.IsAvailable)
+                            {
+                                <span class="text-xs font-bold text-[#ad2f2f]">No disponible</span>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private readonly List<BuyerModels.BuyerFavoriteItem> _items = new();
+    private bool _loading = true;
+    private string _activeFilter = "all";
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthState.InitializeAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _items.Clear();
+
+        if (!AuthState.IsAuthenticated)
+        {
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            var apiType = _activeFilter == "all" ? null : _activeFilter;
+            var items = await BuyerApi.GetFavoritesAsync(apiType);
+            if (items is not null)
+            {
+                _items.AddRange(items.OrderByDescending(x => x.CreatedAt));
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"No pudimos cargar favoritos ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ChangeFilter(string filter)
+    {
+        _activeFilter = filter;
+        await LoadAsync();
+    }
+
+    private async Task RemoveAsync(BuyerModels.BuyerFavoriteItem item)
+    {
+        try
+        {
+            await BuyerApi.DeleteFavoriteAsync(item.Id);
+            _items.RemoveAll(x => x.Id == item.Id);
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"No pudimos quitar el favorito ({(int?)ex.StatusCode ?? 0}).";
+        }
+    }
+
+    private static string TypeLabel(string type)
+        => type switch
+        {
+            "partner" => "Negocio",
+            "product" => "Producto",
+            "service" => "Servicio",
+            "professional" => "Profesional",
+            _ => "Favorito"
+        };
+
+    private static string DetailHref(BuyerModels.BuyerFavoriteItem item)
+        => item.Type switch
+        {
+            "partner" => $"/buyer/detail/partner/{item.TargetId}",
+            "product" => $"/buyer/detail/product/{item.TargetId}",
+            "service" => $"/buyer/detail/service/{item.TargetId}",
+            "professional" => $"/buyer/detail/professional/{item.TargetId}",
+            _ => "/buyer"
+        };
+
+    private static string FormatMoney(double value, string? currency)
+    {
+        var symbol = string.IsNullOrWhiteSpace(currency) ? "CLP" : currency;
+        return $"{symbol} {value:N0}";
+    }
+
+    private string FilterClass(string filter)
+        => string.Equals(_activeFilter, filter, StringComparison.OrdinalIgnoreCase)
+            ? "inline-flex items-center rounded-full bg-[#3b6700] text-[#d9ffad] px-4 py-2 text-xs font-bold"
+            : "inline-flex items-center rounded-full border border-[#dadddf] bg-white text-[#2c2f30] px-4 py-2 text-xs font-bold hover:border-[#3b6700]/40";
+}
