@@ -194,26 +194,11 @@ else
             await ResolveCustomerIdAsync();
         }
 
-        if (string.IsNullOrWhiteSpace(CustomerId))
+        Guid customerId = Guid.Empty;
+        if (Guid.TryParse(CustomerId, out var parsedCustomerId))
         {
-            _statusMessage = "No pudimos validar tu perfil buyer para esta reserva. Recarga la página e inténtalo nuevamente.";
-            _statusLevel = "warning";
-            await TrackAsync("flow_error", "identity", "missing_customer");
-            return;
-        }
-
-        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-
-        if (!Guid.TryParse(CustomerId, out var customerId))
-        {
-            await ResolveCustomerIdAsync();
-            if (!Guid.TryParse(CustomerId, out customerId))
-            {
-                _statusMessage = "No pudimos validar tu perfil buyer para esta reserva. Cierra sesión, vuelve a ingresar e inténtalo nuevamente.";
-                _statusLevel = "warning";
-                await TrackAsync("flow_error", "validation", "invalid_customer_context");
-                return;
-            }
+            customerId = parsedCustomerId;
+            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
         }
 
         if (!TryParseDateAndTime(BookingDate, StartTime, out var startAt) ||
@@ -247,7 +232,7 @@ else
                 "CLP",
                 null);
 
-            var booking = await BuyerApi.CreateBookingAsync(request, _tenantId ?? AuthState.TenantId);
+            var booking = await BuyerApi.CreateBookingAsync(request);
             if (booking is null)
             {
                 _statusMessage = L.T("buyer.status.bookingFailed");
@@ -260,6 +245,11 @@ else
                 _statusMessage = $"{L.T("buyer.status.bookingCreated")} #{booking.Id}";
                 _statusLevel = "success";
                 _completed = true;
+                if (booking.CustomerId != Guid.Empty)
+                {
+                    CustomerId = booking.CustomerId.ToString();
+                    await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                }
                 await TrackAsync("submit_booking", "submit", "success");
             }
         }
@@ -349,17 +339,7 @@ else
 
     private async Task ResolveCustomerIdAsync()
     {
-        if (Guid.TryParse(CustomerId, out var currentId) && currentId != Guid.Empty)
-        {
-            return;
-        }
-
         await AuthState.InitializeAsync();
-
-        if (await TryUseStoredCustomerIdAsync())
-        {
-            return;
-        }
 
         var tenantCandidates = new List<Guid?>();
         if (_tenantId is Guid tenantFromService && tenantFromService != Guid.Empty)
@@ -380,6 +360,11 @@ else
             {
                 return;
             }
+        }
+
+        if (Guid.TryParse(CustomerId, out var currentId) && currentId != Guid.Empty)
+        {
+            return;
         }
 
         await TryUseStoredCustomerIdAsync();

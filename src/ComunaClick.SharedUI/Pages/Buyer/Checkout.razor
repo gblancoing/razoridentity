@@ -305,17 +305,7 @@ else
 
     private async Task ResolveCustomerIdAsync()
     {
-        if (Guid.TryParse(CustomerId, out var currentId) && currentId != Guid.Empty)
-        {
-            return;
-        }
-
         await AuthState.InitializeAsync();
-
-        if (await TryUseStoredCustomerIdAsync())
-        {
-            return;
-        }
 
         var tenantCandidates = new List<Guid?>();
         if (_tenantId is Guid tenantFromProduct && tenantFromProduct != Guid.Empty)
@@ -336,6 +326,11 @@ else
             {
                 return;
             }
+        }
+
+        if (Guid.TryParse(CustomerId, out var currentId) && currentId != Guid.Empty)
+        {
+            return;
         }
 
         await TryUseStoredCustomerIdAsync();

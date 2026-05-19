@@ -24,7 +24,7 @@ public sealed class PartnerApiPartnerNotificationService : IPartnerNotificationS
 
         try
         {
-            var rows = await _partnerApi.GetPartnerNotificationsAsync(partnerId.Value, cancellationToken) ?? Array.Empty<Notification>();
+            var rows = await _partnerApi.GetPartnerNotificationsAsync(partnerId.Value, cancellationToken: cancellationToken) ?? Array.Empty<Notification>();
             return rows
                 .OrderByDescending(n => n.CreatedAt)
                 .Select(n => new NotificationDto(

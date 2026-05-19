@@ -24,7 +24,7 @@ public sealed class PartnerApiPartnerPayoutService : IPartnerPayoutService
 
         try
         {
-            var items = await _partnerApi.GetPartnerPayoutsAsync(partnerId.Value, cancellationToken) ?? Array.Empty<PayoutItem>();
+            var items = await _partnerApi.GetPartnerPayoutsAsync(partnerId.Value, cancellationToken: cancellationToken) ?? Array.Empty<PayoutItem>();
             return items
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => new PayoutDto(

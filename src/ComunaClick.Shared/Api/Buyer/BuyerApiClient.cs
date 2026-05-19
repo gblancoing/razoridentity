@@ -102,6 +102,23 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<Customer>(message, cancellationToken);
     }
 
+    public Task<IReadOnlyList<BuyerFavoriteItem>?> GetFavoritesAsync(string? type = null, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/favorites";
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            path += $"?type={Uri.EscapeDataString(type)}";
+        }
+
+        return GetAsync<IReadOnlyList<BuyerFavoriteItem>>(path, cancellationToken);
+    }
+
+    public Task<BuyerFavoriteItem?> CreateFavoriteAsync(BuyerFavoriteCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<BuyerFavoriteItem>("/v1/buyer/favorites", request, cancellationToken);
+
+    public Task DeleteFavoriteAsync(Guid favoriteId, CancellationToken cancellationToken = default)
+        => SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/v1/buyer/favorites/{favoriteId}"), cancellationToken);
+
     public Task<Customer?> GetBuyerCustomerAsync(Guid? tenantId, CancellationToken cancellationToken = default)
     {
         var path = "/v1/buyer/customer";
@@ -148,6 +165,9 @@ public sealed class BuyerApiClient : ApiClientBase
 
     public Task<BookingTracking?> GetBookingAsync(Guid id, Guid customerId, CancellationToken cancellationToken = default)
         => GetAsync<BookingTracking>($"/v1/public/bookings/{id}?customerId={customerId}", cancellationToken);
+
+    public Task<IReadOnlyList<BookingTracking>?> GetRecentBookingsAsync(int limit = 8, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<BookingTracking>>($"/v1/buyer/bookings/recent?limit={Math.Clamp(limit, 1, 30)}", cancellationToken);
 
     public Task<Customer?> GetCustomerAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Customer>($"/v1/customers/{id}", cancellationToken);
@@ -507,6 +527,28 @@ public sealed record CustomerUpdateRequest(
     string? AvatarUrl = null
 );
 
+public sealed record BuyerFavoriteCreateRequest(
+    string Type,
+    Guid TargetId,
+    Guid? TenantId
+);
+
+public sealed record BuyerFavoriteItem(
+    Guid Id,
+    string Type,
+    Guid TargetId,
+    Guid CustomerId,
+    Guid? PartnerId,
+    string? Name,
+    string? Summary,
+    string? Category,
+    double? Price,
+    string? Currency,
+    string? ImageUrl,
+    bool IsAvailable,
+    DateTimeOffset CreatedAt
+);
+
 public sealed record Product(
     Guid Id,
     Guid TenantId,
@@ -595,7 +637,8 @@ public sealed record TenantResolution(
 public sealed record PublicCategoryItem(
     Guid Id,
     string Code,
-    string Name
+    string Name,
+    string? ImageUrl
 );
 
 public sealed record PublicSiteContentResponse(

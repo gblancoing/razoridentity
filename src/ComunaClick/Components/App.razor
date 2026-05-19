@@ -46,7 +46,7 @@
                         "surface-container-lowest": "#ffffff",
                         "inverse-primary": "#86efac",
                         "tertiary-fixed": "#fcf661",
-                        "background": "#fffdf7",
+                        "background": "#fff8eb",
                         "secondary-fixed": "#ebe7df",
                         "on-primary-fixed-variant": "#166534",
                         "on-secondary": "#f4f2f2",
@@ -75,7 +75,7 @@
                         "surface-dim": "#e7e1d6",
                         "surface-container-high": "#f0ebe2",
                         "brand-accent": "#22c55e",
-                        "background-light": "#fffdf7",
+                        "background-light": "#fff3d4",
                         "background-dark": "#0c0f10"
                     },
                     fontFamily: {
@@ -109,8 +109,13 @@
         body {
             font-family: 'Inter', sans-serif;
             min-height: max(884px, 100dvh);
+            background-color: #fff8eb;
+            background-image:
+                radial-gradient(circle at top left, rgba(253, 173, 1, 0.16) 0%, rgba(253, 173, 1, 0) 24%),
+                radial-gradient(circle at top right, rgba(162, 189, 2, 0.14) 0%, rgba(162, 189, 2, 0) 22%),
+                linear-gradient(180deg, #fffaf1 0%, #fff6e6 52%, #fdf8ea 100%);
+                background-attachment: fixed;
             max-width: 100%;
-            background-color: #fffdf7;
             color: #2c2f30;
             overflow-x: hidden;
         }
@@ -137,6 +142,7 @@
     <script>
         window.comunaclicRecaptchaEnabled = @RecaptchaEnabled.ToString().ToLowerInvariant();
         window.comunaclicRecaptchaSiteKey = "@RecaptchaSiteKey";
+        window.comunaclicGoogleClientId = "@GoogleClientId";
     </script>
     @if (RecaptchaEnabled && !string.IsNullOrWhiteSpace(RecaptchaSiteKey))
     {
@@ -163,4 +169,5 @@
 @code {
     private bool RecaptchaEnabled => Configuration.GetValue("Recaptcha:Enabled", false);
     private string RecaptchaSiteKey => Configuration["Recaptcha:SiteKey"] ?? string.Empty;
+    private string GoogleClientId => Configuration["Auth:Google:ClientId"] ?? Configuration["Auth:Google:ClientIds:0"] ?? string.Empty;
 }

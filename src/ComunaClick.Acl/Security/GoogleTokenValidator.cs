@@ -9,7 +9,8 @@ public sealed class GoogleTokenValidator : OpenIdTokenValidator
             issuer: "https://accounts.google.com",
             validAudiences: configuration.GetSection("Auth:Google:ClientIds").Get<string[]>() ??
                             (configuration["Auth:Google:ClientId"] is { Length: > 0 } single ? new[] { single } : Array.Empty<string>()),
-            httpClient: httpClient)
+            httpClient: httpClient,
+            validIssuers: new[] { "https://accounts.google.com", "accounts.google.com" })
     {
     }
 }

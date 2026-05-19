@@ -7,6 +7,11 @@ public sealed class Lead
     public Guid ProfessionalId { get; set; }
     public Guid CustomerId { get; set; }
     public string Status { get; set; } = "new";
+    public string? Priority { get; set; }
+    public string? Owner { get; set; }
+    public DateTimeOffset? NextFollowUpAt { get; set; }
+    public string? InternalNote { get; set; }
+    public string? OutcomeReason { get; set; }
     public string? Message { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

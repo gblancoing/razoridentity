@@ -475,6 +475,10 @@
     private string _primaryCtaHref = "/categorias";
     private string? _secondaryCtaLabel;
     private string? _secondaryCtaHref;
+    private bool _favoriteBusy;
+    private bool _isFavorite;
+    private Guid? _favoriteId;
+    private string? _favoriteMessage;
     private string _heroImageUrl = "_content/ComunaClick.SharedUI/logo.png";
     private string _heroLabel = "ComunaClic";
     private string _heroTitle = "Explora la oferta publicada";
@@ -485,6 +489,7 @@
     private BuyerModels.Service? _serviceDetail;
 
     private string HeroImageStyle => $"background-image: url('{_heroImageUrl}')";
+    private bool CanShowFavoriteAction => ResolveFavoriteType() is not null && Id.HasValue;
 
     private string StorefrontBannerStyle => HeroImageStyle;
 
@@ -710,6 +715,10 @@
         _primaryCtaHref = "/categorias";
         _secondaryCtaLabel = null;
         _secondaryCtaHref = null;
+        _favoriteBusy = false;
+        _isFavorite = false;
+        _favoriteId = null;
+        _favoriteMessage = null;
         _eyebrow = "Detalle";
         _heroImageUrl = "_content/ComunaClick.SharedUI/logo.png";
         _heroLabel = "ComunaClic";
@@ -750,6 +759,8 @@
         {
             _isLoading = false;
         }
+
+        await RefreshFavoriteStateAsync();
     }
 
     private async Task LoadProductAsync(Guid id)
@@ -989,6 +1000,92 @@
     private void HandleChange()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private string? ResolveFavoriteType()
+    {
+        if (!Id.HasValue || string.IsNullOrWhiteSpace(Type))
+        {
+            return null;
+        }
+
+        return Type.Trim().ToLowerInvariant() switch
+        {
+            "partner" => "partner",
+            "product" => "product",
+            "service" => "service",
+            "professional" => "professional",
+            _ => null
+        };
+    }
+
+    private async Task RefreshFavoriteStateAsync()
+    {
+        var favoriteType = ResolveFavoriteType();
+        if (!Id.HasValue || favoriteType is null || !AuthState.IsPersonalAccount)
+        {
+            _isFavorite = false;
+            _favoriteId = null;
+            return;
+        }
+
+        try
+        {
+            var favorites = await BuyerApi.GetFavoritesAsync(favoriteType);
+            var item = favorites?.FirstOrDefault(x => x.TargetId == Id.Value);
+            _isFavorite = item is not null;
+            _favoriteId = item?.Id;
+        }
+        catch
+        {
+            _isFavorite = false;
+            _favoriteId = null;
+        }
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (!AuthState.IsPersonalAccount)
+        {
+            _favoriteMessage = "Inicia sesión con cuenta personal para usar favoritos.";
+            return;
+        }
+
+        if (!Id.HasValue || ResolveFavoriteType() is not { } favoriteType)
+        {
+            return;
+        }
+
+        _favoriteBusy = true;
+        _favoriteMessage = null;
+        try
+        {
+            if (_isFavorite && _favoriteId.HasValue)
+            {
+                await BuyerApi.DeleteFavoriteAsync(_favoriteId.Value);
+                _isFavorite = false;
+                _favoriteId = null;
+                _favoriteMessage = "Quitado de favoritos.";
+                return;
+            }
+
+            var created = await BuyerApi.CreateFavoriteAsync(new BuyerModels.BuyerFavoriteCreateRequest(
+                favoriteType,
+                Id.Value,
+                AuthState.TenantId));
+
+            _isFavorite = created is not null;
+            _favoriteId = created?.Id;
+            _favoriteMessage = created is null ? "No pudimos guardar este favorito." : "Guardado en favoritos.";
+        }
+        catch
+        {
+            _favoriteMessage = "No pudimos actualizar favoritos en este momento.";
+        }
+        finally
+        {
+            _favoriteBusy = false;
+        }
     }
 
     public void Dispose()

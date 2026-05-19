@@ -7,6 +7,7 @@
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @implements IDisposable
 
 <PageTitle>@L.T("registerAccount.pageTitle")</PageTitle>
@@ -129,6 +130,20 @@
                                     }
                                 </button>
                             </div>
+
+                            <div class="relative flex py-2 items-center">
+                                <div class="flex-grow border-t border-[#dbe6e2] dark:border-white/10"></div>
+                                <span class="flex-shrink mx-4 text-[#61897c] text-xs uppercase">o continuar con</span>
+                                <div class="flex-grow border-t border-[#dbe6e2] dark:border-white/10"></div>
+                            </div>
+
+                            <button type="button"
+                                    class="w-full inline-flex items-center justify-center gap-2 h-12 border border-[#dbe6e2] dark:border-white/10 rounded-xl bg-white dark:bg-[#10221c] hover:bg-gray-50 dark:hover:bg-[#123028] transition-colors disabled:opacity-60"
+                                    disabled="@_isSubmitting"
+                                    @onclick="HandleGoogleSignInAsync">
+                                <span class="material-symbols-outlined text-red-500">google</span>
+                                <span class="font-semibold text-[#111816] dark:text-white">Registrarme con Google</span>
+                            </button>
                         </div>
                     </EditForm>
                 }
@@ -345,6 +360,11 @@
         _checkedAuth = true;
         try
         {
+            if (await TryHandleGoogleCallbackAsync())
+            {
+                return;
+            }
+
             await AuthState.InitializeAsync();
             if (AuthState.IsAuthenticated)
             {
@@ -554,6 +574,62 @@
         catch
         {
             return null;
+        }
+    }
+
+    private async Task HandleGoogleSignInAsync()
+    {
+        _statusLevel = "info";
+        _statusMessage = null;
+
+        try
+        {
+            var callbackUrl = Navigation.ToAbsoluteUri(Navigation.Uri).GetLeftPart(UriPartial.Path) + Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+            await JSRuntime.InvokeVoidAsync("comunaclic.beginGoogleSignIn", callbackUrl);
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = ex.Message;
+        }
+    }
+
+    private async Task<bool> TryHandleGoogleCallbackAsync()
+    {
+        var idToken = await JSRuntime.InvokeAsync<string>("comunaclic.consumeGoogleIdTokenFromHash");
+        if (string.IsNullOrWhiteSpace(idToken))
+        {
+            return false;
+        }
+
+        _isSubmitting = true;
+        _statusLevel = "info";
+        _statusMessage = "Completando registro con Google...";
+        StateHasChanged();
+
+        try
+        {
+            var tokens = await AuthClient.LoginExternalAsync(new ComunaClick.Shared.Auth.ExternalLoginRequest(
+                ComunaClick.Shared.Auth.ExternalProvider.Google,
+                idToken,
+                TenantId: null,
+                PartnerId: null));
+            await AuthState.SetTokensAsync(tokens);
+            var destination = IsPartnerPath
+                ? "/register/business"
+                : "/buyer";
+            Navigation.NavigateTo(destination, true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _statusLevel = "error";
+            _statusMessage = $"No se pudo completar el registro con Google: {ex.Message}";
+            return false;
+        }
+        finally
+        {
+            _isSubmitting = false;
         }
     }
 

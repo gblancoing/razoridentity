@@ -756,7 +756,7 @@ else if (_nearby is not null)
 
     private static CategoryNearbyResponse BuildEmptyMapView(string categoryCode, double lat, double lng)
         => new(
-            new PublicCategoryItem(Guid.Empty, categoryCode, categoryCode),
+            new PublicCategoryItem(Guid.Empty, categoryCode, categoryCode, null),
             new NearbyPoint(lat, lng),
             Array.Empty<CategoryNearbyBusinessItem>());
 

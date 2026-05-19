@@ -42,6 +42,15 @@ public abstract class ApiClientBase
         return await SendAsync<T>(request, cancellationToken);
     }
 
+    protected async Task<T?> SendPutAsync<T>(string path, object body, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, path)
+        {
+            Content = JsonContent.Create(body)
+        };
+        return await SendAsync<T>(request, cancellationToken);
+    }
+
     protected async Task PostNoContentAsync(string path, object body, CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path)

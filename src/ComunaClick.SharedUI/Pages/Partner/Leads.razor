@@ -1,6 +1,7 @@
 @page "/partner/leads"
 @layout PartnerLayout
 @using System.Net
+@using System.Globalization
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
@@ -9,32 +10,42 @@
 <PageTitle>@L.T("partner.leads.title")</PageTitle>
 
 <div class="space-y-8">
-    <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Leads editoriales</p>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">Seguimiento comercial</p>
             <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.leads.heading")</h1>
             <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.leads.subtitle")</p>
         </div>
-        <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
-            <span class="material-symbols-outlined text-[20px]">group_add</span>
-            Registrar primer profesional
-        </a>
+        <div class="flex flex-wrap items-center gap-3">
+            @foreach (var filter in LeadFilters)
+            {
+                <button type="button"
+                        class="@GetFilterClass(filter.Key)"
+                        @onclick="() => _selectedFilter = filter.Key">
+                    @filter.Label
+                </button>
+            }
+            <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
+                <span class="material-symbols-outlined text-[20px]">group_add</span>
+                Activar más oferta
+            </a>
+        </div>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">LEADS</p>
-            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_items.Count</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Contactos entrantes disponibles para seguimiento.</p>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">BANDEJA ACTUAL</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FilteredLeads.Count</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Leads visibles en la vista seleccionada.</p>
         </article>
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ÚLTIMO ESTADO</p>
-            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@LastLeadStatus</h2>
-            <p class="mt-2 text-xs text-[#595c5d]">Lectura rápida del estado más reciente.</p>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">POR ATENDER</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@AttentionNeededCountLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">Nuevos o pendientes que todavía requieren contacto inicial.</p>
         </article>
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">ESTADO</p>
-            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StatusLabel</h2>
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">RIESGO DE FRÍO</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@StaleLeadCountLabel</h2>
             <p class="mt-2 text-xs text-[#595c5d]">@_statusMessage</p>
         </article>
     </div>
@@ -42,26 +53,27 @@
     <section class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
         <div class="flex items-center justify-between gap-4 mb-8">
             <div>
-                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">@L.T("partner.leads.table.count")</p>
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Pipeline</p>
                 <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.leads.table.title")</h2>
             </div>
+            <span class="inline-flex items-center rounded-full bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#595c5d]">@StatusLabel</span>
         </div>
 
         <div class="space-y-4">
             @if (_isLoading)
             {
                 <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos trayendo tus leads mas recientes." Compact="true" />
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="Estamos trayendo tu pipeline comercial." Compact="true" />
                 </div>
             }
-            else if (_items.Count == 0)
+            else if (FilteredLeads.Count == 0)
             {
                 <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center space-y-4">
                     <div class="w-16 h-16 rounded-full bg-[#a7f255]/20 text-[#325800] flex items-center justify-center mx-auto">
                         <span class="material-symbols-outlined text-3xl">contact_support</span>
                     </div>
-                    <p class="text-lg font-bold text-[#2c2f30]">Aún no tienes leads</p>
-                    <p class="text-sm text-[#595c5d] max-w-xl mx-auto">@_statusMessage</p>
+                    <p class="text-lg font-bold text-[#2c2f30]">No hay leads en esta vista</p>
+                    <p class="text-sm text-[#595c5d] max-w-xl mx-auto">@EmptyStateMessage</p>
                     <a href="/partner/quickstart" class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm">
                         <span class="material-symbols-outlined text-[18px]">add</span>
                         Registrar primer profesional
@@ -70,33 +82,204 @@
             }
             else
             {
-                @foreach (var lead in _items)
+                @foreach (var lead in FilteredLeads)
                 {
                     <article class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                            <div class="space-y-2">
-                                <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">Lead #@lead.Id.ToString()[..8]</p>
-                                <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(lead.Message) ? "Sin mensaje adicional." : lead.Message)</p>
+                        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">Lead #@lead.Id.ToString()[..8]</p>
+                                    <span class="@GetLeadStatusClass(lead.Status)">@MapLeadStatus(lead.Status)</span>
+                                    <span class="@GetPriorityClass(lead)">@GetPriorityLabel(lead)</span>
+                                </div>
+                                <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(lead.Message) ? "Sin mensaje adicional. Conviene revisar el canal de origen o contactar al cliente para obtener contexto." : lead.Message)</p>
                             </div>
-                            <div class="text-left md:text-right">
-                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Estado</p>
-                                <span class="@GetLeadStatusClass(lead.Status)">@MapLeadStatus(lead.Status)</span>
+                            <div class="grid grid-cols-2 gap-4 text-left lg:text-right text-xs text-[#595c5d]">
+                                <div>
+                                    <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Creado</p>
+                                    <p class="mt-1 text-sm font-bold text-[#2c2f30]">@FormatRelative(lead.CreatedAt)</p>
+                                </div>
+                                <div>
+                                    <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Último movimiento</p>
+                                    <p class="mt-1 text-sm font-bold text-[#2c2f30]">@FormatRelative(lead.UpdatedAt)</p>
+                                </div>
                             </div>
                         </div>
+                        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-[#595c5d]">
+                            <div class="rounded-2xl bg-[#f5f6f7] px-4 py-3">
+                                <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Siguiente paso sugerido</p>
+                                <p class="mt-2 text-sm text-[#2c2f30]">@GetActionHint(lead)</p>
+                            </div>
+                            <div class="rounded-2xl bg-[#f5f6f7] px-4 py-3">
+                                <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Salud del lead</p>
+                                <p class="mt-2 text-sm text-[#2c2f30]">@GetHealthHint(lead)</p>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(lead.Owner) || lead.NextFollowUpAt.HasValue || !string.IsNullOrWhiteSpace(lead.InternalNote))
+                        {
+                            <div class="mt-3 rounded-2xl bg-[#f5f6f7] px-4 py-3 text-xs text-[#595c5d]">
+                                <p class="font-bold uppercase tracking-[0.12em] text-[#7b8081]">Seguimiento operativo</p>
+                                @if (!string.IsNullOrWhiteSpace(lead.Owner))
+                                {
+                                    <p class="mt-2"><span class="font-bold text-[#2c2f30]">Responsable:</span> @lead.Owner</p>
+                                }
+                                @if (lead.NextFollowUpAt.HasValue)
+                                {
+                                    <p class="mt-1"><span class="font-bold text-[#2c2f30]">Próximo contacto:</span> @lead.NextFollowUpAt.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm")</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(lead.InternalNote))
+                                {
+                                    <p class="mt-1"><span class="font-bold text-[#2c2f30]">Nota:</span> @lead.InternalNote</p>
+                                }
+                            </div>
+                        }
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <button type="button"
+                                    class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                    @onclick='() => SetLeadStatusAsync(lead.Id, "contacted")'
+                                    disabled="@(_updatingLeadId == lead.Id)">
+                                Contactado
+                            </button>
+                            <button type="button"
+                                    class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                    @onclick='() => SetLeadStatusAsync(lead.Id, "in_follow_up")'
+                                    disabled="@(_updatingLeadId == lead.Id)">
+                                Seguimiento
+                            </button>
+                            <button type="button"
+                                    class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                    @onclick='() => SetLeadOutcomeAsync(lead.Id, "won", "cerrado como ganado")'
+                                    disabled="@(_updatingLeadId == lead.Id)">
+                                Ganado
+                            </button>
+                            <button type="button"
+                                    class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                    @onclick='() => MarkAsLost(lead)'
+                                    disabled="@(_updatingLeadId == lead.Id || _savingWorkflowLeadId == lead.Id)">
+                                Perdido (motivo)
+                            </button>
+                            @if (_updatingLeadId == lead.Id)
+                            {
+                                <span class="text-xs font-bold text-[#7b8081]">Actualizando...</span>
+                            }
+                            <button type="button"
+                                    class="inline-flex items-center rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                    @onclick='() => ToggleEditWorkflow(lead)'>
+                                @(_editingWorkflowLeadIds.Contains(lead.Id) ? "Ocultar edición" : "Editar seguimiento")
+                            </button>
+                        </div>
+                        @if (_editingWorkflowLeadIds.Contains(lead.Id))
+                        {
+                            var draft = GetDraft(lead);
+                            <div class="mt-4 rounded-2xl border border-[#dadddf] bg-white px-4 py-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Estado comercial</label>
+                                        <select class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                                                @bind="draft.Status">
+                                            <option value="new">Nuevo</option>
+                                            <option value="pending">Pendiente</option>
+                                            <option value="contacted">Contactado</option>
+                                            <option value="in_follow_up">En seguimiento</option>
+                                            <option value="won">Ganado</option>
+                                            <option value="lost">Perdido</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Prioridad</label>
+                                        <select class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                                                @bind="draft.Priority">
+                                            <option value="">Sin prioridad</option>
+                                            <option value="high">Alta</option>
+                                            <option value="normal">Media</option>
+                                            <option value="low">Baja</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Responsable</label>
+                                        <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                                               @bind="draft.Owner" />
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Próximo seguimiento</label>
+                                        <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                                               placeholder="2026-04-19 14:30"
+                                               @bind="draft.NextFollowUpAtLocal" />
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Motivo resultado</label>
+                                        <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                                               @bind="draft.OutcomeReason" />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-[10px] uppercase tracking-[0.12em] font-bold text-[#7b8081]">Nota interna</label>
+                                        <textarea rows="3"
+                                                  class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                                                  @bind="draft.InternalNote"></textarea>
+                                    </div>
+                                </div>
+                                <div class="mt-3 flex items-center gap-2">
+                                    <button type="button"
+                                            class="inline-flex items-center rounded-xl bg-[#2c2f30] px-4 py-2 text-xs font-bold text-white"
+                                            @onclick='() => SaveWorkflowAsync(lead.Id)'
+                                            disabled="@(_savingWorkflowLeadId == lead.Id)">
+                                        @(_savingWorkflowLeadId == lead.Id ? "Guardando..." : "Guardar seguimiento")
+                                    </button>
+                                </div>
+                            </div>
+                        }
                     </article>
                 }
             }
         </div>
     </section>
+
+    @if (!string.IsNullOrWhiteSpace(_actionMessage))
+    {
+        <StatusBanner Message="@_actionMessage" Level="@_actionLevel" />
+    }
 </div>
 
 @code {
     private readonly List<ComunaClick.Shared.Api.Partner.Lead> _items = new();
     private string _statusMessage = "Sin leads.";
     private bool _isLoading;
+    private string _selectedFilter = "all";
+    private Guid? _updatingLeadId;
+    private Guid? _savingWorkflowLeadId;
+    private string? _actionMessage;
+    private string _actionLevel = "info";
+    private readonly HashSet<Guid> _editingWorkflowLeadIds = new();
+    private readonly Dictionary<Guid, LeadWorkflowDraft> _workflowDrafts = new();
 
-    private string LastLeadStatus => _items.Count == 0 ? "Sin actividad" : MapLeadStatus(_items.Last().Status);
-    private string StatusLabel => _items.Count == 0 ? "Vacío" : "Con oportunidades";
+    private IReadOnlyList<FilterOption> LeadFilters { get; } =
+    [
+        new("all", "Todo"),
+        new("attention", "Por atender"),
+        new("followup", "Seguimiento"),
+        new("closed", "Cerrados (ganado/perdido)")
+    ];
+
+    private List<ComunaClick.Shared.Api.Partner.Lead> FilteredLeads => _items
+        .Where(MatchesFilter)
+        .OrderByDescending(x => x.UpdatedAt)
+        .ToList();
+
+    private int AttentionNeededCount => _items.Count(IsAttentionNeeded);
+    private string AttentionNeededCountLabel => AttentionNeededCount == 0 ? "Controlado" : $"{AttentionNeededCount} activos";
+
+    private int StaleLeadCount => _items.Count(IsStaleLead);
+    private string StaleLeadCountLabel => StaleLeadCount == 0 ? "Sin rezagos" : $"{StaleLeadCount} fríos";
+
+    private string StatusLabel => _items.Count == 0 ? "Sin leads" : "Con oportunidades";
+
+    private string EmptyStateMessage => _selectedFilter switch
+    {
+        "attention" => "No hay leads nuevos o pendientes. Buen momento para revisar seguimiento y cierre.",
+        "followup" => "Todavía no hay leads en seguimiento.",
+        "closed" => "Aún no hay leads ganados o perdidos en el período visible.",
+        _ => _statusMessage
+    };
 
     protected override void OnInitialized()
     {
@@ -128,11 +311,14 @@
             {
                 _items.AddRange(leads);
             }
-            _statusMessage = _items.Count == 0 ? L.T("partner.status.noLeads") : "Tus leads más recientes ya están organizados para seguimiento.";
+
+            _statusMessage = _items.Count == 0
+                ? "Todavía no llegaron solicitudes nuevas al panel."
+                : "Tus leads quedaron ordenados por prioridad operativa y seguimiento.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
-            _statusMessage = "No tienes permisos para ver los leads de este profesional.";
+            _statusMessage = "No tienes permisos para ver los leads de este partner.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -142,6 +328,7 @@
         {
             _statusMessage = $"No se pudieron cargar los leads ({(int?)ex.StatusCode ?? 0}).";
         }
+
         _isLoading = false;
     }
 
@@ -150,26 +337,377 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private async Task SetLeadStatusAsync(Guid leadId, string status)
+    {
+        _updatingLeadId = leadId;
+        _actionMessage = null;
+        _actionLevel = "info";
+        try
+        {
+            var updated = await PartnerApi.UpdateLeadStatusAsync(leadId, new ComunaClick.Shared.Api.Partner.LeadStatusUpdateRequest(status));
+            if (updated is null)
+            {
+                _actionMessage = "No pudimos actualizar el estado del lead.";
+                _actionLevel = "error";
+                return;
+            }
+
+            var index = _items.FindIndex(x => x.Id == leadId);
+            if (index >= 0)
+            {
+                _items[index] = updated;
+            }
+
+            _actionMessage = $"Lead actualizado a \"{MapLeadStatus(updated.Status)}\".";
+            _actionLevel = "success";
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionMessage = $"No pudimos actualizar el lead ({(int?)ex.StatusCode ?? 0}).";
+            _actionLevel = "error";
+        }
+        finally
+        {
+            _updatingLeadId = null;
+        }
+    }
+
+    private async Task SetLeadOutcomeAsync(Guid leadId, string status, string successLabel)
+    {
+        _updatingLeadId = leadId;
+        _actionMessage = null;
+        _actionLevel = "info";
+        try
+        {
+            var updated = await PartnerApi.UpdateLeadWorkflowAsync(leadId, new ComunaClick.Shared.Api.Partner.LeadWorkflowUpdateRequest(
+                status,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+            if (updated is null)
+            {
+                _actionMessage = "No pudimos actualizar el resultado del lead.";
+                _actionLevel = "error";
+                return;
+            }
+
+            var index = _items.FindIndex(x => x.Id == leadId);
+            if (index >= 0)
+            {
+                _items[index] = updated;
+            }
+
+            _actionMessage = $"Lead {successLabel}.";
+            _actionLevel = "success";
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionMessage = $"No pudimos actualizar el resultado ({(int?)ex.StatusCode ?? 0}).";
+            _actionLevel = "error";
+        }
+        finally
+        {
+            _updatingLeadId = null;
+        }
+    }
+
+    private void MarkAsLost(ComunaClick.Shared.Api.Partner.Lead lead)
+    {
+        if (!_editingWorkflowLeadIds.Contains(lead.Id))
+        {
+            _editingWorkflowLeadIds.Add(lead.Id);
+            _workflowDrafts[lead.Id] = LeadWorkflowDraft.FromLead(lead);
+        }
+
+        var draft = GetDraft(lead);
+        draft.Status = "lost";
+    }
+
+    private void ToggleEditWorkflow(ComunaClick.Shared.Api.Partner.Lead lead)
+    {
+        if (_editingWorkflowLeadIds.Contains(lead.Id))
+        {
+            _editingWorkflowLeadIds.Remove(lead.Id);
+            return;
+        }
+
+        _editingWorkflowLeadIds.Add(lead.Id);
+        _workflowDrafts[lead.Id] = LeadWorkflowDraft.FromLead(lead);
+    }
+
+    private LeadWorkflowDraft GetDraft(ComunaClick.Shared.Api.Partner.Lead lead)
+    {
+        if (_workflowDrafts.TryGetValue(lead.Id, out var draft))
+        {
+            return draft;
+        }
+
+        draft = LeadWorkflowDraft.FromLead(lead);
+        _workflowDrafts[lead.Id] = draft;
+        return draft;
+    }
+
+    private async Task SaveWorkflowAsync(Guid leadId)
+    {
+        if (!_workflowDrafts.TryGetValue(leadId, out var draft))
+        {
+            return;
+        }
+
+        DateTimeOffset? nextFollowUpAt = null;
+        if (!string.IsNullOrWhiteSpace(draft.NextFollowUpAtLocal))
+        {
+            if (!DateTime.TryParse(draft.NextFollowUpAtLocal, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var parsedLocal))
+            {
+                _actionMessage = "Formato de fecha inválido para próximo seguimiento.";
+                _actionLevel = "error";
+                return;
+            }
+
+            nextFollowUpAt = new DateTimeOffset(parsedLocal);
+        }
+
+        _savingWorkflowLeadId = leadId;
+        _actionMessage = null;
+        _actionLevel = "info";
+
+        if (string.Equals(draft.Status, "lost", StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(draft.OutcomeReason))
+        {
+            _actionMessage = "Debes indicar un motivo para cerrar el lead como perdido.";
+            _actionLevel = "error";
+            _savingWorkflowLeadId = null;
+            return;
+        }
+
+        try
+        {
+            var updated = await PartnerApi.UpdateLeadWorkflowAsync(leadId, new ComunaClick.Shared.Api.Partner.LeadWorkflowUpdateRequest(
+                draft.Status,
+                draft.Priority,
+                draft.Owner,
+                nextFollowUpAt,
+                draft.InternalNote,
+                draft.OutcomeReason));
+
+            if (updated is null)
+            {
+                _actionMessage = "No pudimos guardar el seguimiento.";
+                _actionLevel = "error";
+                return;
+            }
+
+            var index = _items.FindIndex(x => x.Id == leadId);
+            if (index >= 0)
+            {
+                _items[index] = updated;
+            }
+
+            _editingWorkflowLeadIds.Remove(leadId);
+            _workflowDrafts.Remove(leadId);
+            _actionMessage = "Seguimiento guardado correctamente.";
+            _actionLevel = "success";
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionMessage = $"No pudimos guardar seguimiento ({(int?)ex.StatusCode ?? 0}).";
+            _actionLevel = "error";
+        }
+        finally
+        {
+            _savingWorkflowLeadId = null;
+        }
+    }
+
+    private sealed class LeadWorkflowDraft
+    {
+        public string? Status { get; set; }
+        public string? Priority { get; set; }
+        public string? Owner { get; set; }
+        public string? NextFollowUpAtLocal { get; set; }
+        public string? InternalNote { get; set; }
+        public string? OutcomeReason { get; set; }
+
+        public static LeadWorkflowDraft FromLead(ComunaClick.Shared.Api.Partner.Lead lead)
+            => new()
+            {
+                Status = NormalizeStatus(lead.Status),
+                Priority = lead.Priority,
+                Owner = lead.Owner,
+                NextFollowUpAtLocal = lead.NextFollowUpAt?.ToLocalTime().ToString("yyyy-MM-ddTHH:mm"),
+                InternalNote = lead.InternalNote,
+                OutcomeReason = lead.OutcomeReason
+            };
+    }
+
+    private bool MatchesFilter(ComunaClick.Shared.Api.Partner.Lead lead) => _selectedFilter switch
+    {
+        "attention" => IsAttentionNeeded(lead),
+        "followup" => IsFollowUpLead(lead),
+        "closed" => IsClosedLead(lead),
+        _ => true
+    };
+
+    private string GetFilterClass(string key)
+        => key == _selectedFilter
+            ? "inline-flex items-center rounded-full bg-[#2c2f30] text-white px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]"
+            : "inline-flex items-center rounded-full bg-white text-[#595c5d] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]";
+
+    private static bool IsAttentionNeeded(ComunaClick.Shared.Api.Partner.Lead lead)
+        => lead.Status?.Trim().ToLowerInvariant() switch
+        {
+            "new" or "pending" => true,
+            _ => false
+        };
+
+    private static bool IsFollowUpLead(ComunaClick.Shared.Api.Partner.Lead lead)
+        => NormalizeStatus(lead.Status) switch
+        {
+            "contacted" or "in_follow_up" or "follow_up" => true,
+            _ => false
+        };
+
+    private static bool IsClosedLead(ComunaClick.Shared.Api.Partner.Lead lead)
+        => NormalizeStatus(lead.Status) switch
+        {
+            "won" or "lost" or "closed" => true,
+            _ => false
+        };
+
+    private static bool IsStaleLead(ComunaClick.Shared.Api.Partner.Lead lead)
+        => !IsClosedLead(lead) && DateTimeOffset.Now - lead.UpdatedAt > TimeSpan.FromHours(48);
+
     private static string MapLeadStatus(string? status)
-        => status?.Trim().ToLowerInvariant() switch
+        => NormalizeStatus(status) switch
         {
             "new" => "Nuevo",
             "pending" => "Pendiente",
             "contacted" => "Contactado",
             "in_follow_up" or "follow_up" => "En seguimiento",
-            "closed" => "Cerrado",
+            "won" => "Ganado",
+            "lost" => "Perdido",
+            "closed" => "Ganado",
             _ => string.IsNullOrWhiteSpace(status) ? "Sin estado" : status
         };
 
     private static string GetLeadStatusClass(string? status)
-        => status?.Trim().ToLowerInvariant() switch
+        => NormalizeStatus(status) switch
         {
-            "new" => "inline-flex mt-2 rounded-full bg-[#a7f255]/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
-            "pending" => "inline-flex mt-2 rounded-full bg-[#fcf661]/40 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#605d00]",
-            "contacted" or "in_follow_up" or "follow_up" => "inline-flex mt-2 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]",
-            "closed" => "inline-flex mt-2 rounded-full bg-[#dadddf] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#2c2f30]",
-            _ => "inline-flex mt-2 rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]"
+            "new" => "inline-flex rounded-full bg-[#a7f255]/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
+            "pending" => "inline-flex rounded-full bg-[#fcf661]/40 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#605d00]",
+            "contacted" or "in_follow_up" or "follow_up" => "inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]",
+            "won" or "closed" => "inline-flex rounded-full bg-[#d9ffad]/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
+            "lost" => "inline-flex rounded-full bg-[#ffd5cc] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8f2200]",
+            _ => "inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]"
         };
+
+    private static string GetPriorityLabel(ComunaClick.Shared.Api.Partner.Lead lead)
+        => lead.Priority?.Trim().ToLowerInvariant() switch
+        {
+            "high" => "Prioridad alta",
+            "normal" => "Prioridad media",
+            "low" => "Prioridad baja",
+            _ => GetDerivedPriorityLabel(lead)
+        };
+
+    private static string GetDerivedPriorityLabel(ComunaClick.Shared.Api.Partner.Lead lead)
+        => NormalizeStatus(lead.Status) switch
+        {
+            "new" when DateTimeOffset.Now - lead.CreatedAt < TimeSpan.FromHours(24) => "Prioridad alta",
+            "pending" or "contacted" or "in_follow_up" or "follow_up" => "Seguimiento medio",
+            "won" => "Ganado",
+            "lost" => "Perdido",
+            "closed" => "Ganado",
+            _ => "Revisión baja"
+        };
+
+    private static string GetPriorityClass(ComunaClick.Shared.Api.Partner.Lead lead)
+        => lead.Priority?.Trim().ToLowerInvariant() switch
+        {
+            "high" => "inline-flex rounded-full bg-[#f95630]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#b02500]",
+            "normal" => "inline-flex rounded-full bg-[#fff2d1] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#946200]",
+            "low" => "inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]",
+            _ => GetDerivedPriorityClass(lead)
+        };
+
+    private static string GetDerivedPriorityClass(ComunaClick.Shared.Api.Partner.Lead lead)
+        => NormalizeStatus(lead.Status) switch
+        {
+            "new" when DateTimeOffset.Now - lead.CreatedAt < TimeSpan.FromHours(24) => "inline-flex rounded-full bg-[#f95630]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#b02500]",
+            "pending" or "contacted" or "in_follow_up" or "follow_up" => "inline-flex rounded-full bg-[#fff2d1] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#946200]",
+            "won" or "closed" => "inline-flex rounded-full bg-[#d9ffad]/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#325800]",
+            "lost" => "inline-flex rounded-full bg-[#ffd5cc] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8f2200]",
+            _ => "inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#595c5d]"
+        };
+
+    private static string GetActionHint(ComunaClick.Shared.Api.Partner.Lead lead)
+        => NormalizeStatus(lead.Status) switch
+        {
+            "new" => "Responder el primer contacto y confirmar necesidad, horario o presupuesto.",
+            "pending" => "Retomar conversación y moverlo a seguimiento con siguiente fecha clara.",
+            "contacted" or "in_follow_up" or "follow_up" => "Mantener cadencia comercial hasta cerrar o descartar.",
+            "won" or "closed" => "Lead ganado. Úsalo como referencia de oferta/comunicación efectiva.",
+            "lost" => "Lead perdido. Revisa el motivo para ajustar precio, timing o propuesta.",
+            _ => "Revisar el origen del lead y definir próximo paso manual."
+        };
+
+    private static string GetHealthHint(ComunaClick.Shared.Api.Partner.Lead lead)
+    {
+        var age = DateTimeOffset.Now - lead.UpdatedAt;
+        if (IsClosedLead(lead))
+        {
+            return "Sin riesgo inmediato: ya no requiere atención operativa.";
+        }
+
+        if (age > TimeSpan.FromHours(48))
+        {
+            return "Lleva más de 48 horas sin movimiento. Riesgo alto de enfriamiento.";
+        }
+
+        if (age > TimeSpan.FromHours(24))
+        {
+            return "Conviene reactivar este lead durante el día para no perder conversión.";
+        }
+
+        return "Movimiento reciente. Mantén el seguimiento hasta definir resultado.";
+    }
+
+    private static string? NormalizeStatus(string? status)
+    {
+        var normalized = status?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "follow_up" => "in_follow_up",
+            "closed" => "won",
+            _ => normalized
+        };
+    }
+
+    private static string FormatRelative(DateTimeOffset date)
+    {
+        var elapsed = DateTimeOffset.Now - date;
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return "Hace instantes";
+        }
+
+        if (elapsed < TimeSpan.FromHours(1))
+        {
+            return $"Hace {Math.Max(1, (int)elapsed.TotalMinutes)} min";
+        }
+
+        if (elapsed < TimeSpan.FromDays(1))
+        {
+            return $"Hace {Math.Max(1, (int)elapsed.TotalHours)} h";
+        }
+
+        return $"Hace {Math.Max(1, (int)elapsed.TotalDays)} d";
+    }
+
+    private sealed record FilterOption(string Key, string Label);
 
     public void Dispose()
     {

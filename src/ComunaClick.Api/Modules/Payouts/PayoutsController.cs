@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using ComunaClick.Api.Modules.Payouts.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -108,7 +109,11 @@ public sealed class PayoutsController : ControllerBase
 
     [HttpGet("/v1/partners/{partnerId:guid}/payouts")]
     [Authorize(Policy = "partner.staff")]
-    public async Task<ActionResult<IEnumerable<PayoutItem>>> ListByPartner(Guid partnerId)
+    public async Task<ActionResult<IEnumerable<PartnerPayoutItemResponse>>> ListByPartner(
+        Guid partnerId,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        [FromQuery] string? batchStatus)
     {
         var tenantId = _tenantContext.TenantId ?? ResolveGuidClaim(AuthConstants.ClaimTenantId, "tenantId", "tenant_id");
         if (!tenantId.HasValue)
@@ -147,11 +152,80 @@ public sealed class PayoutsController : ControllerBase
             }
         }
 
-        var items = await _db.PayoutItems.AsNoTracking()
+        var query = _db.PayoutItems.AsNoTracking()
+            .Join(_db.PayoutBatches.AsNoTracking(),
+                item => item.BatchId,
+                batch => batch.Id,
+                (item, batch) => new PartnerPayoutItemResponse(
+                    item.Id,
+                    item.BatchId,
+                    item.PartnerId,
+                    item.GrossAmount,
+                    item.CommissionAmount,
+                    item.SubscriptionDeduction,
+                    item.NetAmount,
+                    item.Currency,
+                    item.CreatedAt,
+                    batch.Status))
             .Where(x => x.PartnerId == partnerId)
+            .AsQueryable();
+
+        if (from.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt <= to.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(batchStatus))
+        {
+            var normalizedStatus = batchStatus.Trim().ToLowerInvariant();
+            query = query.Where(x => x.BatchStatus != null && x.BatchStatus.ToLower() == normalizedStatus);
+        }
+
+        var items = await query
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
         return Ok(items);
+    }
+
+    [HttpGet("/v1/partners/{partnerId:guid}/payouts/export.csv")]
+    [Authorize(Policy = "partner.staff")]
+    public async Task<IActionResult> ExportByPartnerCsv(
+        Guid partnerId,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        [FromQuery] string? batchStatus)
+    {
+        var result = await ListByPartner(partnerId, from, to, batchStatus);
+        if (result.Result is not null)
+        {
+            return result.Result;
+        }
+
+        var rows = result.Value?.ToList() ?? [];
+        var csv = new StringBuilder();
+        csv.AppendLine("payout_id,batch_id,batch_status,created_at,gross,commission,subscription,net,currency");
+        foreach (var row in rows)
+        {
+            csv.AppendLine(string.Join(",",
+                row.Id,
+                row.BatchId,
+                EscapeCsv(row.BatchStatus),
+                row.CreatedAt.UtcDateTime.ToString("O"),
+                row.GrossAmount,
+                row.CommissionAmount,
+                row.SubscriptionDeduction,
+                row.NetAmount,
+                EscapeCsv(row.Currency)));
+        }
+
+        var fileName = $"payouts_partner_{partnerId}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv";
+        return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv; charset=utf-8", fileName);
     }
 
     private Guid? ResolveGuidClaim(params string[] claimTypes)
@@ -166,5 +240,20 @@ public sealed class PayoutsController : ControllerBase
         }
 
         return null;
+    }
+
+    private static string EscapeCsv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (!value.Contains(',') && !value.Contains('"') && !value.Contains('\n'))
+        {
+            return value;
+        }
+
+        return "\"" + value.Replace("\"", "\"\"") + "\"";
     }
 }

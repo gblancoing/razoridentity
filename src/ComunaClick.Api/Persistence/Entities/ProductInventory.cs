@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ComunaClick.Api.Persistence.Entities;
 
 public sealed class ProductInventory
@@ -6,5 +8,6 @@ public sealed class ProductInventory
     public int Quantity { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
+    [JsonIgnore]
     public Product Product { get; set; } = null!;
 }

@@ -98,6 +98,21 @@
                         <input type="number" step="1" min="0" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.Price" />
                         <ValidationMessage For="@(() => _product.Price)" class="text-xs text-red-500" />
                     </div>
+                    <div>
+                        <label class="text-sm font-semibold">Stock inicial</label>
+                        <input type="number" step="1" min="0" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.StockQuantity" />
+                        <ValidationMessage For="@(() => _product.StockQuantity)" class="text-xs text-red-500" />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-semibold">Foto del producto (URL)</label>
+                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.ImageUrl" placeholder="https://..." />
+                        @if (!string.IsNullOrWhiteSpace(_product.ImageUrl))
+                        {
+                            <div class="mt-3 w-28 h-28 rounded-2xl overflow-hidden border border-[#dbe6e2] bg-white">
+                                <img src="@_product.ImageUrl" alt="Vista previa del producto" class="w-full h-full object-cover" />
+                            </div>
+                        }
+                    </div>
                 </div>
                 <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" disabled="@_submitting">@(_submitting ? "Guardando..." : "Crear primer producto")</button>
             </div>
@@ -233,14 +248,21 @@
         try
         {
             var visibleCategory = SelectedProductSubcategoryName ?? SelectedProductCategoryName;
-            await PartnerApi.CreateProductAsync(new ComunaClick.Shared.Api.Partner.ProductCreateRequest(
+            var created = await PartnerApi.CreateProductAsync(new ComunaClick.Shared.Api.Partner.ProductCreateRequest(
                 _partner.Id,
                 _product.Name.Trim(),
                 NullIfWhiteSpace(_product.Description),
                 visibleCategory,
+                NullIfWhiteSpace(_product.ImageUrl),
                 _product.Price,
                 "CLP",
                 true));
+
+            if (created is not null)
+            {
+                await PartnerApi.UpdateProductInventoryAsync(created.Id, new ComunaClick.Shared.Api.Partner.ProductInventoryUpdateRequest(_product.StockQuantity));
+            }
+
             await ReloadAsync();
             _statusLevel = "success";
             _statusMessage = "Primer producto creado. Ya puedes seguir completando tu catálogo.";
@@ -403,6 +425,8 @@
         public Guid? CategoryId { get; set; }
         [Required(ErrorMessage = "Selecciona una subcategoría.")]
         public Guid? SubcategoryId { get; set; }
+        public string? ImageUrl { get; set; }
+        [Range(0, int.MaxValue)] public int StockQuantity { get; set; }
         [Range(0.01, 999999999)] public double Price { get; set; }
     }
 

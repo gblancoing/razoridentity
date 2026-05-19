@@ -31,6 +31,7 @@ public sealed class AdminCatalogController : ControllerBase
                     category.Id,
                     category.Code,
                     category.Name,
+                    category.ImageUrl,
                     category.SortOrder,
                     category.IsActive,
                     subs.Count()))
@@ -78,6 +79,7 @@ public sealed class AdminCatalogController : ControllerBase
             entity.Id,
             entity.Code,
             entity.Name,
+            entity.ImageUrl,
             entity.SortOrder,
             entity.IsActive,
             subcategoryCount));

@@ -89,8 +89,8 @@ app.Use(async (context, next) =>
         "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; " +
         "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.google.com https://www.gstatic.com https://unpkg.com; " +
-        "connect-src 'self' https://api.comunaclic.cl https://acl.comunaclic.cl https://payments.comunaclic.cl wss:; " +
-        "frame-src 'self' https://www.google.com https://recaptcha.google.com; " +
+        "connect-src 'self' https://api.comunaclic.cl https://acl.comunaclic.cl https://payments.comunaclic.cl https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://www.recaptcha.net wss:; " +
+        "frame-src 'self' https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; " +
         "upgrade-insecure-requests";
     await next();
 });

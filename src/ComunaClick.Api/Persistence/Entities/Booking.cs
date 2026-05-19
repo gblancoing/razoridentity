@@ -14,6 +14,8 @@ public sealed class Booking
     public decimal Amount { get; set; }
     public string Currency { get; set; } = "CLP";
     public string CancellationPolicy { get; set; } = "{}";
+    public string? InternalNote { get; set; }
+    public string? OutcomeReason { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

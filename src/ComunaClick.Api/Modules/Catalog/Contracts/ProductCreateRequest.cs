@@ -5,6 +5,7 @@ public sealed record ProductCreateRequest(
     string Name,
     string? Description,
     string? Category,
+    string? ImageUrl,
     decimal Price,
     string? Currency,
     bool? IsActive);

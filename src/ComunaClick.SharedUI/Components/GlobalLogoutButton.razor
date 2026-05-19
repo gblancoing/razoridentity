@@ -1,0 +1,59 @@
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@if (_authInitialized && AuthState.IsAuthenticated)
+{
+    <button type="button"
+            class="fixed bottom-4 right-4 z-[60] inline-flex items-center gap-2 rounded-full border border-[#dbe6e2] bg-white/95 px-4 py-2 text-sm font-bold text-[#111816] shadow-[0_16px_40px_-24px_rgba(12,15,16,0.7)] backdrop-blur transition-colors hover:border-primary hover:text-primary dark:border-white/10 dark:bg-[#10221c]/95 dark:text-white"
+            @onclick="HandleLogoutAsync"
+            aria-label="Salir de ComunaClic">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span>Salir</span>
+    </button>
+}
+
+@code {
+    private bool _authInitialized;
+
+    protected override void OnInitialized()
+    {
+        AuthState.OnChange += HandleAuthChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_authInitialized)
+        {
+            return;
+        }
+
+        try
+        {
+            await AuthState.InitializeAsync();
+            _authInitialized = true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop unavailable during prerender.
+        }
+    }
+
+    private void HandleAuthChanged()
+    {
+        _authInitialized = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleLogoutAsync()
+    {
+        await AuthState.ClearAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+
+    public void Dispose()
+    {
+        AuthState.OnChange -= HandleAuthChanged;
+    }
+}

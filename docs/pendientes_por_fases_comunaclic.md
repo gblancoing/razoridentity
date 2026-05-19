@@ -82,11 +82,11 @@ El panel partner deja de ser solo visualización segura y pasa a ser una herrami
 
 ### Pendientes
 
-- [ ] Agregar pruebas automáticas mínimas para login, registro, publicación, categorías, tracking y ownership.
-- [ ] Crear smoke test post-deploy reproducible para `app`, `api` y `acl`.
-- [ ] Investigar y corregir la lentitud o cuelgues intermitentes de `dotnet build` / `dotnet publish` en entorno local.
+- [x] Agregar pruebas automáticas mínimas para login, registro, publicación, categorías, tracking y ownership.
+- [x] Crear smoke test post-deploy reproducible para `app`, `api` y `acl`.
+- [x] Investigar y corregir la lentitud o cuelgues intermitentes de `dotnet build` / `dotnet publish` en entorno local.
 - [ ] Revisar warnings restantes y deuda de nullability.
-- [ ] Documentar checklist de release y rollback por servicio.
+- [x] Documentar checklist de release y rollback por servicio.
 
 ### Criterio De Cierre
 

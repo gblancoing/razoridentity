@@ -86,6 +86,7 @@ public sealed class ProductsController : ControllerBase
         }
 
         var products = await _db.Products.AsNoTracking()
+            .Include(x => x.Inventory)
             .Where(x => x.PartnerId == partnerId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
@@ -123,6 +124,7 @@ public sealed class ProductsController : ControllerBase
             Name = request.Name.Trim(),
             Description = request.Description,
             Category = request.Category,
+            ImageUrl = NormalizeImageUrl(request.ImageUrl),
             Price = request.Price,
             Currency = string.IsNullOrWhiteSpace(request.Currency) ? "CLP" : request.Currency.Trim(),
             IsActive = request.IsActive ?? true,
@@ -163,6 +165,11 @@ public sealed class ProductsController : ControllerBase
         if (request.Category is not null)
         {
             product.Category = request.Category;
+        }
+
+        if (request.ImageUrl is not null)
+        {
+            product.ImageUrl = NormalizeImageUrl(request.ImageUrl);
         }
 
         if (request.Price.HasValue)
@@ -211,5 +218,16 @@ public sealed class ProductsController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(inventory);
+    }
+
+    private static string? NormalizeImageUrl(string? imageUrl)
+    {
+        if (imageUrl is null)
+        {
+            return null;
+        }
+
+        var trimmed = imageUrl.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 }
