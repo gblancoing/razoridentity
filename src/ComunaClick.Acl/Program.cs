@@ -36,6 +36,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         var audience = builder.Configuration["Jwt:Audience"];
         var signingKey = builder.Configuration["Jwt:SigningKey"];
 
+        options.MapInboundClaims = false;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = !string.IsNullOrWhiteSpace(issuer),
@@ -114,7 +116,8 @@ static bool HasAnyRole(ClaimsPrincipal user, params string[] roles)
 static bool HasRole(ClaimsPrincipal user, string role)
 {
     var roleClaims = user.FindAll(AuthConstants.ClaimRole).Select(c => c.Value)
-        .Concat(user.FindAll(AuthConstants.ClaimRoles).Select(c => c.Value));
+        .Concat(user.FindAll(AuthConstants.ClaimRoles).Select(c => c.Value))
+        .Concat(user.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value));
     return roleClaims.Contains(role, StringComparer.OrdinalIgnoreCase);
 }
 

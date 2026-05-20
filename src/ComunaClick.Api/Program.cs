@@ -31,7 +31,9 @@ builder.Services.AddCors(options =>
                 "https://app.comunaclic.cl",
                 "https://admin.comunaclic.cl",
                 "https://localhost:5001",
-                "https://localhost:7221")
+                "https://localhost:7221",
+                "https://localhost:7224",
+                "http://localhost:7224")
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -76,12 +78,16 @@ builder.Services.AddScoped<MercadoPagoOAuthService>();
 builder.Services.AddScoped<MarketplacePaymentService>();
 builder.Services.AddScoped<MercadoPagoWebhookService>();
 builder.Services.AddHttpClient<MercadoPagoMarketplaceClient>();
+builder.Services.AddSingleton<ComunaClick.Api.Modules.Crm.CustomerAvatarStorage>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         var issuer = builder.Configuration["Jwt:Issuer"];
         var audience = builder.Configuration["Jwt:Audience"];
         var signingKey = builder.Configuration["Jwt:SigningKey"];
+
+        // Mantener claim types del token (role, sub, email) para políticas buyer.profile.
+        options.MapInboundClaims = false;
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -112,11 +118,9 @@ builder.Services.AddAuthorization(options =>
             context.User.Identity?.IsAuthenticated == true &&
             !HasPartnerSession(context.User) &&
             HasAnyRole(context.User, "customer", "buyer", "tenant_admin", "platform_admin")));
-    // Perfil CRM del comprador: socios autenticados también pueden tener fila en core.customers (misma cuenta).
+    // Perfil CRM: cualquier usuario autenticado (el controlador limita por email del token).
     options.AddPolicy("buyer.profile", policy =>
-        policy.RequireAssertion(context =>
-            context.User.Identity?.IsAuthenticated == true &&
-            HasAnyRole(context.User, "customer", "buyer", "tenant_admin", "platform_admin", "partner_owner", "partner_staff")));
+        policy.RequireAuthenticatedUser());
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -153,6 +157,13 @@ else
 
 app.UseForwardedHeaders();
 app.UseHttpsRedirection();
+var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "uploads");
+Directory.CreateDirectory(uploadsRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsRoot),
+    RequestPath = "/uploads"
+});
 app.UseCors("app");
 app.UseRouting();
 app.UseRateLimiter();
@@ -180,9 +191,16 @@ static bool HasAnyRole(ClaimsPrincipal user, params string[] roles)
 
 static bool HasRole(ClaimsPrincipal user, string role)
 {
-    var roleClaims = user.FindAll(AuthConstants.ClaimRole).Select(c => c.Value)
-        .Concat(user.FindAll(AuthConstants.ClaimRoles).Select(c => c.Value));
+    var roleClaims = GetRoleClaimValues(user);
     return roleClaims.Contains(role, StringComparer.OrdinalIgnoreCase);
+}
+
+static IEnumerable<string> GetRoleClaimValues(ClaimsPrincipal user)
+{
+    return user.FindAll(AuthConstants.ClaimRole).Select(c => c.Value)
+        .Concat(user.FindAll(AuthConstants.ClaimRoles).Select(c => c.Value))
+        .Concat(user.FindAll(ClaimTypes.Role).Select(c => c.Value))
+        .Concat(user.FindAll("roles").Select(c => c.Value));
 }
 
 static bool HasPartnerSession(ClaimsPrincipal user)

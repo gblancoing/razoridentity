@@ -1,22 +1,26 @@
-@page "/buyer/profile"
+﻿@page "/buyer/profile"
 @layout BuyerLayout
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
-@implements IDisposable
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@using System.Net
+@using System.Text.Json.Serialization
 
 <PageTitle>@L.T("buyer.profile.title")</PageTitle>
 
 <div class="space-y-6">
     <section class="rounded-[2rem] bg-gradient-to-br from-[#3b6700] to-[#76BC21] p-8 text-[#f8ffef] shadow-[0_24px_48px_-24px_rgba(59,103,0,0.65)]">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div class="flex items-center gap-5">
                 <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-white/50 bg-white/20 text-3xl font-black shadow-[0_8px_24px_rgba(0,0,0,0.15)] ring-2 ring-white/25">
                     @if (ShowAvatarImage)
                     {
-                        <img src="@AvatarUrl.Trim()" alt="" class="h-full w-full object-cover" @onerror="HandleAvatarError" />
+                        <img src="@AvatarImageSrc" alt="" class="h-full w-full object-cover" @onerror="HandleAvatarError" />
                     }
                     else
                     {
@@ -24,99 +28,328 @@
                     }
                 </div>
                 <div>
-                    <p class="text-[10px] uppercase tracking-[0.24em] text-white/80 font-bold">Cuenta personal</p>
+                    <p class="text-[10px] uppercase tracking-[0.24em] text-white/80 font-bold">@L.T("buyer.profile.hubTitle")</p>
                     <h1 class="mt-2 text-4xl font-black tracking-[-0.05em]">@(string.IsNullOrWhiteSpace(FullName) ? L.T("buyer.profile.heading") : FullName)</h1>
-                    <p class="mt-2 text-sm text-white/85">@L.T("buyer.profile.subtitle")</p>
+                    <p class="mt-2 max-w-xl text-sm text-white/85">@L.T("buyer.profile.hubSubtitle")</p>
                 </div>
             </div>
-            <div class="rounded-3xl bg-white/12 px-5 py-4">
-                <p class="text-[10px] uppercase tracking-[0.18em] text-white/70 font-bold">Identificador interno</p>
+            <div class="rounded-3xl bg-white/12 px-5 py-4 min-w-[200px]">
+                <p class="text-[10px] uppercase tracking-[0.18em] text-white/70 font-bold">@L.T("buyer.profile.accountId")</p>
                 <p class="mt-2 text-sm font-semibold break-all">@MaskedCustomerId</p>
             </div>
         </div>
     </section>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
-        <section class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-[2rem] p-6 md:p-8">
+    <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <button type="button" @onclick="() => SelectTab(ProfileTab.Account)"
+                class="@RoleCardClass(ProfileTab.Account, true)">
+            <span class="material-symbols-outlined text-[22px]">person</span>
+            <div class="text-left">
+                <p class="text-sm font-black">@L.T("buyer.profile.tab.account")</p>
+                <p class="text-[11px] opacity-80">@L.T("buyer.profile.subtitle")</p>
+            </div>
+        </button>
+        <button type="button" @onclick="() => SelectTab(ProfileTab.Buyer)"
+                class="@RoleCardClass(ProfileTab.Buyer, _hasBuyerRole)">
+            <span class="material-symbols-outlined text-[22px]">shopping_bag</span>
+            <div class="text-left">
+                <p class="text-sm font-black">@L.T("buyer.profile.role.buyer")</p>
+                <p class="text-[11px] opacity-80">@L.T("buyer.profile.role.buyer.desc")</p>
+            </div>
+        </button>
+        <button type="button" @onclick="() => SelectTab(ProfileTab.Professional)"
+                class="@RoleCardClass(ProfileTab.Professional, _hasProfessionalRole || _professionalActivate)">
+            <span class="material-symbols-outlined text-[22px]">work</span>
+            <div class="text-left">
+                <p class="text-sm font-black">@L.T("buyer.profile.role.professional")</p>
+                <p class="text-[11px] opacity-80">@L.T("buyer.profile.role.professional.desc")</p>
+            </div>
+        </button>
+    </section>
+
+    @if (AuthState.IsPartnerAccount)
+    {
+        <div class="rounded-2xl border border-[#dbe6e2] bg-[#f0fdf4] px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-[#3b6700]">storefront</span>
+                <div>
+                    <p class="text-sm font-bold text-[#2c2f30]">@L.T("buyer.profile.role.partner")</p>
+                    <p class="text-xs text-[#61897c]">@L.T("buyer.profile.role.partner.desc")</p>
+                </div>
+            </div>
+            <a href="/partner/dashboard" class="inline-flex items-center gap-2 rounded-xl bg-[#3b6700] px-4 py-2 text-sm font-bold text-white">
+                @L.T("buyer.profile.partner.panel")
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+            </a>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_bannerMessage))
+    {
+        <StatusBanner Message="@_bannerMessage" Level="@_bannerLevel" />
+    }
+
+    @if (_activeTab == ProfileTab.Account)
+    {
+        <section class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
             <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30] dark:text-white">@L.T("buyer.profile.heading")</h2>
             <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.subtitle")</p>
 
-            @if (!string.IsNullOrWhiteSpace(_bannerMessage))
-            {
-                <div class="mt-6">
-                    <StatusBanner Message="@_bannerMessage" Level="@_bannerLevel" />
+            <div class="mt-8 rounded-2xl border border-[#e8e5dc] bg-[#faf4ea] p-5">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">@L.T("buyer.profile.roles.title")</p>
+                <p class="mt-1 text-sm text-[#61897c]">@L.T("buyer.profile.roles.subtitle")</p>
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button type="button" @onclick="() => SelectTab(ProfileTab.Buyer)" class="rounded-2xl border border-[#dbe6e2] bg-white p-4 text-left hover:border-primary/40 transition-colors">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="material-symbols-outlined text-[#3b6700]">shopping_bag</span>
+                            <span class="text-[10px] font-bold uppercase @(_hasBuyerRole ? "text-[#14532d]" : "text-[#9ca3af]")">@(_hasBuyerRole ? L.T("buyer.profile.role.buyer.active") : L.T("buyer.profile.role.buyer.inactive"))</span>
+                        </div>
+                        <p class="mt-2 text-sm font-bold text-[#2c2f30]">@L.T("buyer.profile.role.buyer")</p>
+                        <p class="mt-1 text-xs text-[#61897c]">@L.T("buyer.profile.role.buyer.desc")</p>
+                    </button>
+                    <button type="button" @onclick="() => SelectTab(ProfileTab.Professional)" class="rounded-2xl border border-[#dbe6e2] bg-white p-4 text-left hover:border-primary/40 transition-colors">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="material-symbols-outlined text-[#3b6700]">work</span>
+                            <span class="text-[10px] font-bold uppercase @ProfessionalStatusClass">@ProfessionalStatusLabel</span>
+                        </div>
+                        <p class="mt-2 text-sm font-bold text-[#2c2f30]">@L.T("buyer.profile.role.professional")</p>
+                        <p class="mt-1 text-xs text-[#61897c]">@L.T("buyer.profile.role.professional.desc")</p>
+                    </button>
                 </div>
-            }
+            </div>
 
-            <div class="mt-8 space-y-5">
-                <div>
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="md:col-span-2">
                     <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.name")</label>
                     <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="FullName" />
                 </div>
                 <div>
                     <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.email")</label>
-                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="Email" type="email" />
+                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#eef1f2] px-5 h-14 text-[#595c5d]" @bind="Email" type="email" readonly />
                 </div>
                 <div>
                     <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.phone")</label>
                     <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="Phone" type="tel" autocomplete="tel" />
                 </div>
-                <div>
-                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.avatarUrl")</label>
-                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary"
-                           @bind="AvatarUrl"
-                           @bind:after="ResetAvatarPreview"
-                           type="url"
-                           inputmode="url"
-                           placeholder="https://…" />
-                    <p class="mt-2 text-xs text-[#61897c]">@L.T("buyer.profile.avatarHint")</p>
+                <div class="md:col-span-2">
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.avatarPhoto")</label>
+                    <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4]">
+                            @if (ShowAvatarImage)
+                            {
+                                <img src="@AvatarImageSrc" alt="" class="h-full w-full object-cover" @onerror="HandleAvatarError" />
+                            }
+                            else
+                            {
+                                <span class="text-2xl font-black text-[#3b6700]">@UserInitial</span>
+                            }
+                        </div>
+                        <div class="flex-1 space-y-2">
+                            <label class="relative inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-[#3b6700] bg-white px-5 py-3 text-sm font-bold text-[#3b6700] hover:bg-[#f0fdf4] transition-colors">
+                                <span class="material-symbols-outlined text-[20px]">photo_library</span>
+                                @(_isUploadingAvatar ? L.T("ui.loading") : L.T("buyer.profile.avatarChoose"))
+                                <InputFile OnChange="OnAvatarFileSelected" accept="image/jpeg,image/png,image/webp,image/gif" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                            </label>
+                            <p class="text-xs text-[#61897c]">@L.T("buyer.profile.avatarHint")</p>
+                            @if (!string.IsNullOrWhiteSpace(_avatarUploadMessage))
+                            {
+                                <p class="text-xs font-semibold @(_avatarUploadOk ? "text-[#14532d]" : "text-[#b91c1c]")">@_avatarUploadMessage</p>
+                            }
+                        </div>
+                    </div>
                 </div>
+            </div>
 
-                <button class="inline-flex items-center gap-2 bg-primary text-[#111816] px-6 py-3 rounded-2xl font-bold disabled:opacity-60"
-                        type="button"
-                        @onclick="HandleSave"
-                        disabled="@_isSaving">
-                    <span class="material-symbols-outlined text-[20px]">save</span>
-                    @(_isSaving ? L.T("ui.loading") : L.T("buyer.profile.save"))
-                </button>
+            <div class="mt-6 rounded-2xl border border-[#e8e5dc] bg-[#faf4ea] p-5">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">@L.T("buyer.profile.address.title")</p>
+                <p class="mt-1 text-sm text-[#61897c]">@L.T("buyer.profile.address.subtitle")</p>
+                <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.country")</label>
+                        <select class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-white px-4 h-14" value="@CountrySelectValue" @onchange="OnCountryChanged">
+                            <option value="">@L.T("buyer.profile.country.placeholder")</option>
+                            @foreach (var country in _countries) { <option value="@country.Id">@country.Name</option> }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.region")</label>
+                        <select class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-white px-4 h-14 disabled:opacity-50" value="@RegionSelectValue" @onchange="OnRegionChanged" disabled="@(!_countryId.HasValue)">
+                            <option value="">@L.T("buyer.profile.region.placeholder")</option>
+                            @foreach (var region in _regions) { <option value="@region.Id">@region.Name</option> }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.comuna")</label>
+                        <select class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-white px-4 h-14 disabled:opacity-50" value="@ComunaSelectValue" @onchange="OnComunaChanged" disabled="@(!_regionId.HasValue)">
+                            <option value="">@L.T("buyer.profile.comuna.placeholder")</option>
+                            @foreach (var comuna in _comunas) { <option value="@comuna.Id">@comuna.Name</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.line")</label>
+                    <textarea class="mt-2 w-full min-h-[88px] rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 py-4" @bind="AddressLine" placeholder="@L.T("buyer.profile.address.line.placeholder")"></textarea>
+                </div>
+                <div class="mt-5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.map")</label>
+                        <button type="button" @onclick="UseMyLocationAsync" disabled="@_isLocating"
+                                class="inline-flex items-center gap-1.5 rounded-xl border border-[#3b6700] bg-white px-3 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f0fdf4] disabled:opacity-60">
+                            <span class="material-symbols-outlined text-[18px]">my_location</span>
+                            @(_isLocating ? L.T("ui.loading") : L.T("buyer.profile.address.useMyLocation"))
+                        </button>
+                    </div>
+                    <p class="mt-1 text-xs text-[#61897c]">@L.T("buyer.profile.address.mapHint")</p>
+                    @if (!string.IsNullOrWhiteSpace(_geoStatusMessage))
+                    {
+                        <p class="mt-2 text-xs font-semibold @(_geoStatusOk ? "text-[#14532d]" : "text-[#b91c1c]")">@_geoStatusMessage</p>
+                    }
+                    <div id="profile-address-map" class="mt-3 h-[280px] w-full rounded-2xl border border-[#dbe6e2] overflow-hidden z-0"></div>
+                </div>
+            </div>
 
-                @if (!string.IsNullOrWhiteSpace(_statusMessage))
+            <button class="mt-8 inline-flex items-center gap-2 bg-primary text-[#111816] px-6 py-3 rounded-2xl font-bold disabled:opacity-60"
+                    type="button" @onclick="HandleSaveAccount" disabled="@_isSavingAccount">
+                <span class="material-symbols-outlined text-[20px]">save</span>
+                @(_isSavingAccount ? L.T("ui.loading") : L.T("buyer.profile.save"))
+            </button>
+            @AccountStatusBanner()
+        </section>
+    }
+    else if (_activeTab == ProfileTab.Buyer)
+    {
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <a href="/buyer/orders" class="group rounded-[2rem] border border-[#dbe6e2] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-[#3b6700] text-[28px]">receipt_long</span>
+                <h3 class="mt-4 text-xl font-black text-[#2c2f30]">@L.T("buyer.profile.buyer.orders")</h3>
+                <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.buyer.orders.desc")</p>
+            </a>
+            <a href="/buyer/favorites" class="group rounded-[2rem] border border-[#dbe6e2] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-[#3b6700] text-[28px]">favorite</span>
+                <h3 class="mt-4 text-xl font-black text-[#2c2f30]">@L.T("buyer.profile.buyer.favorites")</h3>
+                <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.buyer.favorites.desc")</p>
+            </a>
+            <a href="/categorias" class="group rounded-[2rem] border border-[#dbe6e2] bg-[#f6f1e8] p-6 lg:col-span-2 hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-[#3b6700] text-[28px]">explore</span>
+                <h3 class="mt-4 text-xl font-black text-[#2c2f30]">@L.T("buyer.profile.buyer.discover")</h3>
+                <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.buyer.orders.desc")</p>
+            </a>
+        </section>
+    }
+    else
+    {
+        <section class="bg-white border border-gray-200 rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.profile.pro.title")</h2>
+                    <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.pro.subtitle")</p>
+                </div>
+                @if (_hasProfessionalRole)
                 {
-                    <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
+                    <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold @(_professionalVerified ? "bg-[#dcfce7] text-[#14532d]" : "bg-[#fef9c3] text-[#854d0e]")">
+                        <span class="material-symbols-outlined text-[16px]">@(_professionalVerified ? "verified" : "schedule")</span>
+                        @(_professionalVerified ? L.T("buyer.profile.pro.verified") : L.T("buyer.profile.pro.pending"))
+                    </span>
                 }
             </div>
-        </section>
 
-        <aside class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
-            <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">Preferencias</p>
-            <h3 class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">Tu experiencia buyer</h3>
-            <div class="mt-6 space-y-4">
-                <div class="rounded-3xl bg-white p-5">
-                    <p class="text-sm font-bold text-[#2c2f30]">Reservas y compras</p>
-                    <p class="mt-2 text-xs text-[#595c5d]">Usaremos tu cuenta personal para mantener seguimiento de órdenes, reservas y contactos con profesionales.</p>
-                </div>
-                <div class="rounded-3xl bg-white p-5">
-                    <p class="text-sm font-bold text-[#2c2f30]">Privacidad</p>
-                    <p class="mt-2 text-xs text-[#595c5d]">Tu identificador interno no se edita manualmente; se usa solo para asociar operaciones de seguimiento.</p>
-                </div>
-            </div>
-        </aside>
-    </div>
+            @if (!AuthState.IsAuthenticated)
+            {
+                <p class="mt-6 text-sm text-[#61897c]">@L.T("buyer.profile.loginRequired")</p>
+            }
+            else
+            {
+                <label class="mt-6 flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" class="h-5 w-5 rounded border-[#dbe6e2] text-primary focus:ring-primary" @bind="_professionalActivate" />
+                    <span class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.profile.pro.activate")</span>
+                </label>
+
+                @if (_professionalActivate || _hasProfessionalRole)
+                {
+                    <div class="mt-8 space-y-5">
+                        <div>
+                            <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.pro.specialty")</label>
+                            <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14" @bind="ProSpecialty" />
+                        </div>
+                        <div>
+                            <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.pro.bio")</label>
+                            <textarea class="mt-2 w-full min-h-[120px] rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 py-4 text-[#111816] focus:ring-2 focus:ring-primary" @bind="ProBio"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.phone")</label>
+                            <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14" @bind="ProPhone" type="tel" />
+                        </div>
+                    </div>
+
+                    <button type="button" @onclick="HandleSaveProfessional" disabled="@_isSavingProfessional"
+                            class="mt-8 inline-flex items-center gap-2 bg-[#3b6700] text-white px-6 py-3 rounded-2xl font-bold disabled:opacity-60">
+                        <span class="material-symbols-outlined text-[20px]">badge</span>
+                        @(_isSavingProfessional ? L.T("ui.loading") : L.T("buyer.profile.pro.save"))
+                    </button>
+                    @ProfessionalStatusBanner()
+                }
+                else
+                {
+                    <p class="mt-6 text-sm text-[#61897c]">@L.T("buyer.profile.pro.empty")</p>
+                    <a href="/register?role=professional" class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#3b6700] hover:underline">
+                        @L.T("buyer.profile.pro.register")
+                        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    </a>
+                }
+            }
+        </section>
+    }
 </div>
 
 @code {
+    private enum ProfileTab { Account, Buyer, Professional }
+
+    private ProfileTab _activeTab = ProfileTab.Account;
     private string CustomerId = string.Empty;
     private string FullName = string.Empty;
     private string Email = string.Empty;
     private string Phone = string.Empty;
     private string AvatarUrl = string.Empty;
-    private string _statusMessage = string.Empty;
-    private string _statusLevel = "info";
+    private string AddressLine = string.Empty;
+    private Guid? _countryId;
+    private Guid? _regionId;
+    private Guid? _comunaId;
+    private double? Latitude;
+    private double? Longitude;
+    private IReadOnlyList<PublicCountryItem> _countries = Array.Empty<PublicCountryItem>();
+    private IReadOnlyList<PublicRegionItem> _regions = Array.Empty<PublicRegionItem>();
+    private IReadOnlyList<PublicComunaItem> _comunas = Array.Empty<PublicComunaItem>();
+    private bool _mapInitialized;
+    private bool _isLocating;
+    private bool _geoStatusOk;
+    private string _geoStatusMessage = string.Empty;
+    private DotNetObjectReference<Profile>? _mapRef;
+    private const string AddressMapElementId = "profile-address-map";
+
+    private string ProSpecialty = string.Empty;
+    private string ProBio = string.Empty;
+    private string ProPhone = string.Empty;
+    private bool _professionalActivate;
+    private bool _hasProfessionalRole;
+    private bool _professionalVerified;
+
+    private string _accountStatus = string.Empty;
+    private string _accountStatusLevel = "info";
+    private string _proStatus = string.Empty;
+    private string _proStatusLevel = "info";
     private string _bannerMessage = string.Empty;
     private string _bannerLevel = "warning";
-    private bool _isSaving;
+
+    private bool _isSavingAccount;
+    private bool _isSavingProfessional;
+    private bool _isUploadingAvatar;
     private bool _profileInitialized;
     private bool _avatarFailed;
+    private bool _avatarUploadOk;
+    private bool _hasBuyerRole = true;
+    private string? _avatarPreviewDataUrl;
+    private string _avatarUploadMessage = string.Empty;
+    private const long MaxAvatarBytes = 4 * 1024 * 1024;
 
     private Guid? ResolveTenantId()
     {
@@ -124,204 +357,664 @@
         return tid is { } g && g != Guid.Empty ? g : null;
     }
 
-    private bool ShowAvatarImage
-        => !_avatarFailed
-           && !string.IsNullOrWhiteSpace(AvatarUrl)
-           && AvatarUrl.Trim().StartsWith("https://", StringComparison.OrdinalIgnoreCase);
-
-    private string UserInitial
-        => string.IsNullOrWhiteSpace(FullName)
-            ? (string.IsNullOrWhiteSpace(AuthState.DisplayName) ? "C" : AuthState.DisplayName.Trim()[0].ToString().ToUpperInvariant())
-            : FullName.Trim()[0].ToString().ToUpperInvariant();
-
-    private string MaskedCustomerId
-        => Guid.TryParse(CustomerId, out var customerId)
-            ? $"{customerId.ToString()[..8]}•••{customerId.ToString()[^4..]}"
-            : "Se asignará automáticamente al guardar o iniciar sesión.";
-
-    protected override void OnInitialized()
+    private string AvatarImageSrc
     {
-        L.OnChange += HandleChange;
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(_avatarPreviewDataUrl))
+                return _avatarPreviewDataUrl;
+            return ResolveAvatarUrl(AvatarUrl);
+        }
     }
+
+    private bool ShowAvatarImage => !_avatarFailed && !string.IsNullOrWhiteSpace(AvatarImageSrc);
+
+    private string ResolveAvatarUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return string.Empty;
+
+        var trimmed = url.Trim();
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        if (trimmed.StartsWith('/'))
+        {
+            return $"{ApiOptions.Value.ApiBaseUrl.TrimEnd('/')}{trimmed}";
+        }
+
+        return trimmed;
+    }
+
+    private string UserInitial => string.IsNullOrWhiteSpace(FullName)
+        ? (string.IsNullOrWhiteSpace(AuthState.DisplayName) ? "C" : AuthState.DisplayName.Trim()[0].ToString().ToUpperInvariant())
+        : FullName.Trim()[0].ToString().ToUpperInvariant();
+
+    private string MaskedCustomerId => Guid.TryParse(CustomerId, out var customerId)
+        ? $"{customerId.ToString()[..8]}...{customerId.ToString()[^4..]}"
+        : L.T("buyer.profile.accountId.pending");
+
+    private string ProfessionalStatusLabel => !_hasProfessionalRole && !_professionalActivate
+        ? L.T("buyer.profile.role.pro.inactive")
+        : _professionalActivate && _professionalVerified
+            ? L.T("buyer.profile.pro.verified")
+            : _hasProfessionalRole
+                ? L.T("buyer.profile.role.pro.configured")
+                : L.T("buyer.profile.role.pro.active");
+
+    private string ProfessionalStatusClass => !_hasProfessionalRole && !_professionalActivate
+        ? "text-[#9ca3af]"
+        : _professionalVerified
+            ? "text-[#14532d]"
+            : "text-[#854d0e]";
+
+    protected override void OnInitialized() => L.OnChange += HandleChange;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_profileInitialized)
+        if (!_profileInitialized)
         {
-            return;
-        }
+            if (!string.IsNullOrWhiteSpace(AuthState.DisplayName)) FullName = AuthState.DisplayName!;
+            if (!string.IsNullOrWhiteSpace(AuthState.Email)) Email = AuthState.Email!;
 
-        if (!string.IsNullOrWhiteSpace(AuthState.DisplayName))
-        {
-            FullName = AuthState.DisplayName!;
-        }
-
-        if (!string.IsNullOrWhiteSpace(AuthState.Email))
-        {
-            Email = AuthState.Email!;
-        }
-
-        try
-        {
-            var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-            if (!string.IsNullOrWhiteSpace(storedCustomerId))
+            try
             {
-                CustomerId = storedCustomerId;
-            }
+                await LoadCountriesAsync();
+                var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+                if (!string.IsNullOrWhiteSpace(storedCustomerId)) CustomerId = storedCustomerId;
 
-            if (AuthState.IsAuthenticated)
-            {
-                var tenantId = ResolveTenantId();
-                if (!tenantId.HasValue)
+                if (AuthState.IsAuthenticated)
                 {
-                    _bannerMessage = L.T("buyer.profile.tenantRequired");
-                    _bannerLevel = "warning";
+                    var tenantId = ResolveTenantId();
+                    if (!tenantId.HasValue)
+                    {
+                        _bannerMessage = L.T("buyer.profile.tenantRequired");
+                        _bannerLevel = "warning";
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
+                            if (ensured is not null) ApplyCustomer(ensured);
+                            var fresh = await BuyerApi.GetBuyerCustomerAsync(tenantId);
+                            if (fresh is not null) ApplyCustomer(fresh);
+                            await LoadGeoListsForCustomerAsync();
+
+                            try
+                            {
+                                var pro = await BuyerApi.GetBuyerProfessionalProfileAsync(tenantId);
+                                if (pro is not null) ApplyProfessional(pro);
+                            }
+                            catch (HttpRequestException)
+                            {
+                                // API antigua sin professional-profile: no bloquear cuenta comprador
+                            }
+                        }
+                        catch (HttpRequestException ex)
+                        {
+                            _bannerMessage = ex.StatusCode == HttpStatusCode.Forbidden
+                                ? L.T("buyer.profile.forbidden")
+                                : ex.StatusCode == HttpStatusCode.Unauthorized
+                                    ? L.T("buyer.profile.loginRequired")
+                                    : L.T("buyer.status.profileFailed");
+                            _bannerLevel = "error";
+                        }
+                    }
                 }
                 else
                 {
-                    try
-                    {
-                        var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
-                        if (ensured is not null)
-                        {
-                            ApplyCustomer(ensured);
-                        }
-
-                        var fresh = await BuyerApi.GetBuyerCustomerAsync(tenantId);
-                        if (fresh is not null)
-                        {
-                            ApplyCustomer(fresh);
-                        }
-                    }
-                    catch (HttpRequestException)
-                    {
-                        _bannerMessage = L.T("buyer.status.profileFailed");
-                        _bannerLevel = "error";
-                    }
+                    _bannerMessage = L.T("buyer.profile.loginRequired");
+                    _bannerLevel = "info";
                 }
-            }
-            else
-            {
-                _bannerMessage = L.T("buyer.profile.loginRequired");
-                _bannerLevel = "info";
-            }
 
-            _profileInitialized = true;
-            StateHasChanged();
+                _profileInitialized = true;
+                StateHasChanged();
+            }
+            catch (InvalidOperationException) { }
+
+            return;
         }
-        catch (InvalidOperationException)
+
+        if (_activeTab == ProfileTab.Account)
         {
-            // JS interop is unavailable during prerender; retry after hydration.
+            await TryInitAddressMapAsync();
         }
+    }
+
+    private string CountrySelectValue => _countryId?.ToString() ?? string.Empty;
+    private string RegionSelectValue => _regionId?.ToString() ?? string.Empty;
+    private string ComunaSelectValue => _comunaId?.ToString() ?? string.Empty;
+
+    private void SelectTab(ProfileTab tab)
+    {
+        if (_activeTab == ProfileTab.Account && tab != ProfileTab.Account)
+        {
+            _ = DestroyAddressMapAsync();
+        }
+
+        _activeTab = tab;
+        if (tab == ProfileTab.Account)
+        {
+            _mapInitialized = false;
+            _ = TryInitAddressMapAsync();
+        }
+    }
+
+    private string RoleCardClass(ProfileTab tab, bool active)
+    {
+        var selected = _activeTab == tab;
+        var baseCls = "flex items-center gap-3 rounded-2xl border px-4 py-4 transition-all text-left ";
+        if (!active) return baseCls + "border-[#e5e7eb] bg-[#f9fafb] opacity-60";
+        return selected
+            ? baseCls + "border-[#3b6700] bg-[#f0fdf4] ring-2 ring-[#86efac]/50 text-[#14532d]"
+            : baseCls + "border-[#dbe6e2] bg-white hover:border-primary/30 text-[#2c2f30]";
     }
 
     private void ApplyCustomer(Customer c)
     {
         CustomerId = c.Id.ToString();
-        if (!string.IsNullOrWhiteSpace(c.FullName))
-        {
-            FullName = c.FullName;
-        }
-
-        if (!string.IsNullOrWhiteSpace(c.Email))
-        {
-            Email = c.Email;
-        }
-
+        FullName = c.FullName ?? string.Empty;
+        Email = c.Email ?? Email;
         Phone = c.Phone ?? string.Empty;
         AvatarUrl = c.AvatarUrl ?? string.Empty;
         _avatarFailed = false;
+        if (string.IsNullOrWhiteSpace(ProPhone)) ProPhone = Phone;
+        _countryId = c.CountryId;
+        _regionId = c.RegionId;
+        _comunaId = c.ComunaId;
+        AddressLine = c.Address ?? string.Empty;
+        Latitude = c.Latitude;
+        Longitude = c.Longitude;
     }
 
-    private void ResetAvatarPreview()
+    private async Task LoadGeoListsForCustomerAsync()
     {
-        _avatarFailed = false;
-    }
-
-    private void HandleAvatarError()
-    {
-        _avatarFailed = true;
-    }
-
-    private async Task HandleSave()
-    {
-        _isSaving = true;
-        _statusMessage = string.Empty;
-        _statusLevel = "info";
-
-        if (!AuthState.IsAuthenticated)
+        if (_countryId is Guid countryId && countryId != Guid.Empty)
         {
-            _statusMessage = L.T("buyer.profile.loginRequired");
-            _statusLevel = "warning";
-            _isSaving = false;
+            _regions = await BuyerApi.GetRegionsAsync(countryId) ?? Array.Empty<PublicRegionItem>();
+        }
+
+        if (_regionId is Guid regionId && regionId != Guid.Empty)
+        {
+            _comunas = await BuyerApi.GetComunasAsync(regionId) ?? Array.Empty<PublicComunaItem>();
+        }
+    }
+
+    private async Task LoadCountriesAsync()
+    {
+        _countries = await BuyerApi.GetCountriesAsync() ?? Array.Empty<PublicCountryItem>();
+    }
+
+    private async Task OnCountryChanged(ChangeEventArgs e)
+    {
+        _countryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _regionId = null;
+        _comunaId = null;
+        _regions = _countryId.HasValue
+            ? await BuyerApi.GetRegionsAsync(_countryId.Value) ?? Array.Empty<PublicRegionItem>()
+            : Array.Empty<PublicRegionItem>();
+        _comunas = Array.Empty<PublicComunaItem>();
+    }
+
+    private async Task OnRegionChanged(ChangeEventArgs e)
+    {
+        _regionId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _comunaId = null;
+        _comunas = _regionId.HasValue
+            ? await BuyerApi.GetComunasAsync(_regionId.Value) ?? Array.Empty<PublicComunaItem>()
+            : Array.Empty<PublicComunaItem>();
+    }
+
+    private Task OnComunaChanged(ChangeEventArgs e)
+    {
+        _comunaId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public async Task OnMapLocationPicked(
+        double latitude,
+        double longitude,
+        string? displayName,
+        string? country,
+        string? state,
+        string? city,
+        string? municipality,
+        string? suburb,
+        string? road,
+        string? houseNumber)
+    {
+        Latitude = latitude;
+        Longitude = longitude;
+        await ApplyGeoFromReverseAsync(displayName, country, state, city, municipality, suburb, road, houseNumber);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplyGeoFromReverseAsync(
+        string? displayName,
+        string? country,
+        string? state,
+        string? city,
+        string? municipality,
+        string? suburb,
+        string? road,
+        string? houseNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            AddressLine = displayName.Trim();
+        }
+        else
+        {
+            var streetLine = BuildStreetLine(houseNumber, road, suburb);
+            if (!string.IsNullOrWhiteSpace(streetLine))
+            {
+                AddressLine = streetLine;
+            }
+        }
+
+        if (_countries.Count == 0)
+        {
+            await LoadCountriesAsync();
+        }
+
+        var countryItem = _countries.FirstOrDefault(c =>
+            GeoNamesMatch(c.Name, country) || GeoNamesMatch(c.Code, country));
+        if (countryItem is null)
+        {
             return;
         }
 
+        _countryId = countryItem.Id;
+        _regions = await BuyerApi.GetRegionsAsync(countryItem.Id) ?? Array.Empty<PublicRegionItem>();
+        _regionId = null;
+        _comunaId = null;
+        _comunas = Array.Empty<PublicComunaItem>();
+
+        if (string.IsNullOrWhiteSpace(state))
+        {
+            return;
+        }
+
+        var regionItem = _regions.FirstOrDefault(r => GeoNamesMatch(r.Name, state))
+            ?? _regions.FirstOrDefault(r => GeoNamesContain(r.Name, state));
+        if (regionItem is null)
+        {
+            return;
+        }
+
+        _regionId = regionItem.Id;
+        _comunas = await BuyerApi.GetComunasAsync(regionItem.Id) ?? Array.Empty<PublicComunaItem>();
+
+        var comunaCandidates = new[] { city, municipality, suburb, ExtractComunaFromDisplayName(displayName) }
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in comunaCandidates)
+        {
+            var comunaItem = _comunas.FirstOrDefault(c => GeoNamesMatch(c.Name, candidate))
+                ?? _comunas.FirstOrDefault(c => GeoNamesContain(c.Name, candidate));
+            if (comunaItem is not null)
+            {
+                _comunaId = comunaItem.Id;
+                break;
+            }
+        }
+    }
+
+    private static string BuildStreetLine(string? houseNumber, string? road, string? suburb)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(road))
+        {
+            var street = string.IsNullOrWhiteSpace(houseNumber)
+                ? road.Trim()
+                : $"{houseNumber.Trim()} {road.Trim()}";
+            parts.Add(street);
+        }
+
+        if (!string.IsNullOrWhiteSpace(suburb))
+        {
+            parts.Add(suburb.Trim());
+        }
+
+        return parts.Count == 0 ? string.Empty : string.Join(", ", parts);
+    }
+
+    private static string? ExtractComunaFromDisplayName(string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return null;
+        }
+
+        var segments = displayName.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 4 ? segments[3] : null;
+    }
+
+    private static bool GeoNamesMatch(string? left, string? right)
+    {
+        var a = NormalizeGeoName(left);
+        var b = NormalizeGeoName(right);
+        return a.Length > 0 && b.Length > 0 && string.Equals(a, b, StringComparison.Ordinal);
+    }
+
+    private static bool GeoNamesContain(string? haystack, string? needle)
+    {
+        var h = NormalizeGeoName(haystack);
+        var n = NormalizeGeoName(needle);
+        return h.Length > 0 && n.Length > 0 && (h.Contains(n, StringComparison.Ordinal) || n.Contains(h, StringComparison.Ordinal));
+    }
+
+    private static string NormalizeGeoName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant();
+        normalized = normalized.Replace("región ", "", StringComparison.Ordinal)
+            .Replace("region ", "", StringComparison.Ordinal);
+        return string.Concat(normalized.Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray());
+    }
+
+    private async Task TryInitAddressMapAsync()
+    {
+        if (_mapInitialized || _activeTab != ProfileTab.Account || !_profileInitialized)
+        {
+            return;
+        }
+
+        try
+        {
+            _mapRef ??= DotNetObjectReference.Create(this);
+            var hasSavedCoords = Latitude.HasValue && Longitude.HasValue;
+            await JSRuntime.InvokeVoidAsync(
+                "comunaclic.initProfileAddressPicker",
+                AddressMapElementId,
+                _mapRef,
+                Latitude,
+                Longitude,
+                !hasSavedCoords);
+            _mapInitialized = true;
+            _geoStatusMessage = string.Empty;
+        }
+        catch (JSException ex)
+        {
+            _mapInitialized = false;
+            _geoStatusOk = false;
+            _geoStatusMessage = ex.Message.Contains("profileAddress", StringComparison.OrdinalIgnoreCase)
+                || ex.Message.Contains("initProfileAddressPicker", StringComparison.OrdinalIgnoreCase)
+                ? L.T("buyer.profile.address.mapScriptStale")
+                : ex.Message;
+        }
+    }
+
+    private async Task UseMyLocationAsync()
+    {
+        if (!_mapInitialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+
+        _geoStatusMessage = string.Empty;
+        _isLocating = true;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.profileAddressUseCurrentLocation", AddressMapElementId);
+        }
+        catch (JSException ex)
+        {
+            _geoStatusOk = false;
+            _geoStatusMessage = ex.Message;
+            _isLocating = false;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnGeolocationStarted()
+    {
+        _isLocating = true;
+        _geoStatusMessage = L.T("buyer.profile.address.locating");
+        _geoStatusOk = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnGeolocationFinished(bool success, string? message)
+    {
+        _isLocating = false;
+        if (success)
+        {
+            _geoStatusOk = true;
+            _geoStatusMessage = L.T("buyer.profile.address.located");
+        }
+        else
+        {
+            _geoStatusOk = false;
+            _geoStatusMessage = string.IsNullOrWhiteSpace(message)
+                ? L.T("buyer.profile.address.locationFailed")
+                : message;
+        }
+
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DestroyAddressMapAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.destroyProfileAddressPicker", AddressMapElementId);
+        }
+        catch (JSException)
+        {
+        }
+
+        _mapInitialized = false;
+    }
+
+    private void ApplyProfessional(BuyerProfessionalProfile pro)
+    {
+        _hasProfessionalRole = pro.HasProfile;
+        _professionalVerified = pro.IsVerified;
+        _professionalActivate = pro.HasProfile && pro.IsActive;
+        if (!string.IsNullOrWhiteSpace(pro.Specialty)) ProSpecialty = pro.Specialty;
+        if (!string.IsNullOrWhiteSpace(pro.Bio)) ProBio = pro.Bio;
+        if (!string.IsNullOrWhiteSpace(pro.Phone)) ProPhone = pro.Phone;
+    }
+
+    private RenderFragment AccountStatusBanner() => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(_accountStatus)) return;
+        builder.OpenComponent<StatusBanner>(0);
+        builder.AddAttribute(1, "Message", _accountStatus);
+        builder.AddAttribute(2, "Level", _accountStatusLevel);
+        builder.CloseComponent();
+    };
+
+    private RenderFragment ProfessionalStatusBanner() => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(_proStatus)) return;
+        builder.OpenComponent<StatusBanner>(0);
+        builder.AddAttribute(1, "Message", _proStatus);
+        builder.AddAttribute(2, "Level", _proStatusLevel);
+        builder.CloseComponent();
+    };
+
+    private async Task HandleSaveAccount()
+    {
+        _isSavingAccount = true;
+        _accountStatus = string.Empty;
+        if (!AuthState.IsAuthenticated) { _accountStatus = L.T("buyer.profile.loginRequired"); _accountStatusLevel = "warning"; _isSavingAccount = false; return; }
         var tenantId = ResolveTenantId();
-        if (!tenantId.HasValue)
-        {
-            _statusMessage = L.T("buyer.profile.tenantRequired");
-            _statusLevel = "error";
-            _isSaving = false;
-            return;
-        }
+        if (!tenantId.HasValue) { _accountStatus = L.T("buyer.profile.tenantRequired"); _accountStatusLevel = "error"; _isSavingAccount = false; return; }
 
         try
         {
             if (!Guid.TryParse(CustomerId, out _))
             {
                 var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
-                if (ensured is null)
-                {
-                    _statusMessage = L.T("buyer.status.profileFailed");
-                    _statusLevel = "error";
-                    _isSaving = false;
-                    return;
-                }
-
+                if (ensured is null) { _accountStatus = L.T("buyer.status.profileFailed"); _accountStatusLevel = "error"; _isSavingAccount = false; return; }
                 ApplyCustomer(ensured);
             }
 
-            var avatarPayload = string.IsNullOrWhiteSpace(AvatarUrl) ? string.Empty : AvatarUrl.Trim();
             var updated = await BuyerApi.UpdateBuyerCustomerAsync(
                 new CustomerUpdateRequest(
                     Email.Trim(),
                     string.IsNullOrWhiteSpace(Phone) ? string.Empty : Phone.Trim(),
                     string.IsNullOrWhiteSpace(FullName) ? string.Empty : FullName.Trim(),
-                    avatarPayload),
+                    CountryId: _countryId,
+                    RegionId: _regionId,
+                    ComunaId: _comunaId,
+                    Address: string.IsNullOrWhiteSpace(AddressLine) ? null : AddressLine.Trim(),
+                    Latitude: Latitude,
+                    Longitude: Longitude,
+                    UpdateDeliveryAddress: true),
+                tenantId);
+
+            if (updated is null) { _accountStatus = L.T("buyer.status.profileFailed"); _accountStatusLevel = "error"; }
+            else
+            {
+                ApplyCustomer(updated);
+                await LoadGeoListsForCustomerAsync();
+                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                _accountStatus = L.T("buyer.status.profileUpdated");
+                _accountStatusLevel = "success";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _accountStatus = ex.StatusCode switch
+            {
+                HttpStatusCode.BadRequest => L.T("buyer.profile.address.invalidGeo"),
+                HttpStatusCode.Unauthorized => L.T("buyer.profile.loginRequired"),
+                HttpStatusCode.Forbidden => L.T("buyer.profile.forbidden"),
+                HttpStatusCode.NotFound => L.T("buyer.profile.accountNotFound"),
+                _ => L.T("buyer.status.profileFailed")
+            };
+            _accountStatusLevel = "error";
+        }
+        finally { _isSavingAccount = false; }
+    }
+
+    private async Task HandleSaveProfessional()
+    {
+        _isSavingProfessional = true;
+        _proStatus = string.Empty;
+        if (!AuthState.IsAuthenticated) { _proStatus = L.T("buyer.profile.loginRequired"); _proStatusLevel = "warning"; _isSavingProfessional = false; return; }
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue) { _proStatus = L.T("buyer.profile.tenantRequired"); _proStatusLevel = "error"; _isSavingProfessional = false; return; }
+
+        try
+        {
+            var result = await BuyerApi.UpsertBuyerProfessionalProfileAsync(
+                new BuyerProfessionalProfileUpsertRequest(
+                    tenantId,
+                    string.IsNullOrWhiteSpace(FullName) ? null : FullName.Trim(),
+                    string.IsNullOrWhiteSpace(ProPhone) ? Phone.Trim() : ProPhone.Trim(),
+                    string.IsNullOrWhiteSpace(ProSpecialty) ? null : ProSpecialty.Trim(),
+                    string.IsNullOrWhiteSpace(ProBio) ? null : ProBio.Trim(),
+                    _professionalActivate),
+                CancellationToken.None);
+
+            if (result is null) { _proStatus = L.T("buyer.profile.pro.failed"); _proStatusLevel = "error"; }
+            else
+            {
+                ApplyProfessional(result);
+                _proStatus = L.T("buyer.profile.pro.saved");
+                _proStatusLevel = "success";
+            }
+        }
+        catch (HttpRequestException) { _proStatus = L.T("buyer.profile.pro.failed"); _proStatusLevel = "error"; }
+        finally { _isSavingProfessional = false; }
+    }
+
+    private async Task OnAvatarFileSelected(InputFileChangeEventArgs e)
+    {
+        _avatarUploadMessage = string.Empty;
+        _avatarUploadOk = false;
+        var file = e.File;
+        if (file.Size > MaxAvatarBytes)
+        {
+            _avatarUploadMessage = L.T("buyer.profile.avatarTooLarge");
+            return;
+        }
+
+        if (!AuthState.IsAuthenticated)
+        {
+            _avatarUploadMessage = L.T("buyer.profile.loginRequired");
+            return;
+        }
+
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue)
+        {
+            _avatarUploadMessage = L.T("buyer.profile.tenantRequired");
+            return;
+        }
+
+        _isUploadingAvatar = true;
+        try
+        {
+            await using var readStream = file.OpenReadStream(MaxAvatarBytes);
+            using var buffer = new MemoryStream();
+            await readStream.CopyToAsync(buffer);
+            var bytes = buffer.ToArray();
+            _avatarPreviewDataUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+            _avatarFailed = false;
+            StateHasChanged();
+
+            await using var uploadStream = new MemoryStream(bytes);
+            var updated = await BuyerApi.UploadBuyerCustomerAvatarAsync(
+                uploadStream,
+                file.Name,
+                file.ContentType,
                 tenantId);
 
             if (updated is null)
             {
-                _statusMessage = L.T("buyer.status.profileFailed");
-                _statusLevel = "error";
+                _avatarUploadMessage = L.T("buyer.profile.avatarFailed");
+                return;
             }
-            else
-            {
-                ApplyCustomer(updated);
-                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-                _statusMessage = L.T("buyer.status.profileUpdated");
-                _statusLevel = "success";
-            }
+
+            ApplyCustomer(updated);
+            _avatarPreviewDataUrl = null;
+            _avatarUploadMessage = L.T("buyer.profile.avatarUploaded");
+            _avatarUploadOk = true;
         }
         catch (HttpRequestException)
         {
-            _statusMessage = L.T("buyer.status.profileFailed");
-            _statusLevel = "error";
+            _avatarUploadMessage = L.T("buyer.profile.avatarFailed");
         }
         finally
         {
-            _isSaving = false;
+            _isUploadingAvatar = false;
         }
     }
 
-    private void HandleChange()
+    private void HandleAvatarError() => _avatarFailed = true;
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+    public async ValueTask DisposeAsync()
     {
-        InvokeAsync(StateHasChanged);
-    }
-
-    public void Dispose()
-    {
+        await DestroyAddressMapAsync();
+        _mapRef?.Dispose();
         L.OnChange -= HandleChange;
     }
+
+    private sealed class BrowserLocationDto
+    {
+        [JsonPropertyName("latitude")]
+        public double Latitude { get; set; }
+        [JsonPropertyName("longitude")]
+        public double Longitude { get; set; }
+    }
 }
+

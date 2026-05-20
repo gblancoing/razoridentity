@@ -16,11 +16,19 @@ public sealed class BuyerCustomerController : ControllerBase
 {
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly CustomerAvatarStorage _avatarStorage;
+    private readonly IConfiguration _configuration;
 
-    public BuyerCustomerController(CoreDbContext db, ITenantContext tenantContext)
+    public BuyerCustomerController(
+        CoreDbContext db,
+        ITenantContext tenantContext,
+        CustomerAvatarStorage avatarStorage,
+        IConfiguration configuration)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _avatarStorage = avatarStorage;
+        _configuration = configuration;
     }
 
     [HttpPost("ensure")]
@@ -116,7 +124,10 @@ public sealed class BuyerCustomerController : ControllerBase
     }
 
     [HttpPatch]
-    public async Task<ActionResult<Customer>> UpdateProfile([FromBody] CustomerUpdateRequest request, [FromQuery] Guid? tenantId)
+    public async Task<ActionResult<Customer>> UpdateProfile(
+        [FromBody] CustomerUpdateRequest request,
+        [FromQuery] Guid? tenantId,
+        CancellationToken cancellationToken)
     {
         var tid = tenantId ?? _tenantContext.TenantId;
         if (!tid.HasValue || tid.Value == Guid.Empty)
@@ -159,15 +170,98 @@ public sealed class BuyerCustomerController : ControllerBase
             customer.AvatarUrl = CustomerProfileHelper.SanitizeAvatarUrl(request.AvatarUrl);
         }
 
+        if (request.UpdateDeliveryAddress)
+        {
+            var (countryId, regionId, comunaId) = await CustomerAddressHelper.NormalizeGeoAsync(
+                _db, request.CountryId, request.RegionId, request.ComunaId, cancellationToken);
+
+            if (!await CustomerAddressHelper.ValidateGeoAsync(
+                    _db, countryId, regionId, comunaId, cancellationToken))
+            {
+                return BadRequest(new { message = "Invalid country, region or comuna." });
+            }
+
+            customer.CountryId = countryId is Guid c && c != Guid.Empty ? c : null;
+            customer.RegionId = regionId is Guid r && r != Guid.Empty ? r : null;
+            customer.ComunaId = comunaId is Guid co && co != Guid.Empty ? co : null;
+            customer.Address = CustomerAddressHelper.NormalizeAddress(request.Address);
+            customer.Latitude = NormalizeCoordinate(request.Latitude);
+            customer.Longitude = NormalizeCoordinate(request.Longitude);
+        }
+
         customer.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(customer);
+    }
+
+    private static double? NormalizeCoordinate(double? value)
+    {
+        if (!value.HasValue || double.IsNaN(value.Value) || double.IsInfinity(value.Value))
+            return null;
+        return Math.Round(value.Value, 6);
+    }
+
+    [HttpPost("avatar")]
+    [RequestSizeLimit(5_242_880)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 5_242_880)]
+    public async Task<ActionResult<Customer>> UploadAvatar(
+        IFormFile file,
+        [FromQuery] Guid? tenantId,
+        CancellationToken cancellationToken)
+    {
+        if (file.Length == 0)
+        {
+            return BadRequest(new { message = "Image file is required." });
+        }
+
+        var tid = tenantId ?? _tenantContext.TenantId;
+        if (!tid.HasValue || tid.Value == Guid.Empty)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        var email = ResolveEmail(User);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { message = "Authenticated email claim is required." });
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var customer = await _db.Customers.FirstOrDefaultAsync(x =>
+            x.TenantId == tid.Value && x.Email != null && x.Email.ToLower() == normalizedEmail, cancellationToken);
+
+        if (customer is null)
+        {
+            return NotFound();
+        }
+
+        var avatarUrl = await _avatarStorage.SaveAsync(tid.Value, customer.Id, file, cancellationToken);
+        if (avatarUrl is null)
+        {
+            return BadRequest(new { message = "Invalid image. Use JPG, PNG, WEBP or GIF up to 4 MB." });
+        }
+
+        if (avatarUrl.StartsWith('/'))
+        {
+            var publicBase = _configuration["PublicApi:BaseUrl"]?.TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(publicBase))
+            {
+                publicBase = $"{Request.Scheme}://{Request.Host}";
+            }
+
+            avatarUrl = $"{publicBase}{avatarUrl}";
+        }
+
+        customer.AvatarUrl = CustomerProfileHelper.SanitizeAvatarUrl(avatarUrl);
+        customer.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
         return Ok(customer);
     }
 
     private static string? ResolveEmail(ClaimsPrincipal user)
     {
-        return user.FindFirst(ClaimTypes.Email)?.Value
-            ?? user.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+        return user.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+            ?? user.FindFirst(ClaimTypes.Email)?.Value
             ?? user.FindFirst("email")?.Value;
     }
 

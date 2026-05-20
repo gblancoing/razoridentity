@@ -75,7 +75,17 @@ public abstract class ApiClientBase
             }
         }
 
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                string.IsNullOrWhiteSpace(errorBody)
+                    ? $"HTTP {(int)response.StatusCode} ({response.StatusCode})"
+                    : $"HTTP {(int)response.StatusCode}: {errorBody}",
+                null,
+                response.StatusCode);
+        }
+
         return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken);
     }
 

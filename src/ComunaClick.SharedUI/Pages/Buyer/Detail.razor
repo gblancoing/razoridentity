@@ -475,7 +475,6 @@
     private string _primaryCtaHref = "/categorias";
     private string? _secondaryCtaLabel;
     private string? _secondaryCtaHref;
-    private bool _favoriteBusy;
     private bool _isFavorite;
     private Guid? _favoriteId;
     private string? _favoriteMessage;
@@ -715,7 +714,6 @@
         _primaryCtaHref = "/categorias";
         _secondaryCtaLabel = null;
         _secondaryCtaHref = null;
-        _favoriteBusy = false;
         _isFavorite = false;
         _favoriteId = null;
         _favoriteMessage = null;
@@ -1056,7 +1054,6 @@
             return;
         }
 
-        _favoriteBusy = true;
         _favoriteMessage = null;
         try
         {
@@ -1081,10 +1078,6 @@
         catch
         {
             _favoriteMessage = "No pudimos actualizar favoritos en este momento.";
-        }
-        finally
-        {
-            _favoriteBusy = false;
         }
     }
 

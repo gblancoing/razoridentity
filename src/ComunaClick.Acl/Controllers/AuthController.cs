@@ -69,7 +69,7 @@ public sealed class AuthController : ControllerBase
             return Unauthorized();
         }
 
-        var roles = user.UserRoles.Select(x => x.Role.Name).ToList();
+        var roles = await ResolveRolesAsync(user, HttpContext.RequestAborted);
         if (!TryResolveScope(user, roles, request.TenantId, request.PartnerId, out var tenantId, out var partnerId, out var error))
         {
             return error!;
@@ -204,7 +204,7 @@ public sealed class AuthController : ControllerBase
             return Unauthorized();
         }
 
-        var roles = user.UserRoles.Select(x => x.Role.Name).ToList();
+        var roles = await ResolveRolesAsync(user, HttpContext.RequestAborted);
         if (!TryResolveScope(user, roles, request.TenantId, request.PartnerId, out var tenantId, out var partnerId, out var error))
         {
             return error!;
@@ -476,7 +476,7 @@ public sealed class AuthController : ControllerBase
             return Unauthorized();
         }
 
-        var roles = user.UserRoles.Select(x => x.Role.Name).ToList();
+        var roles = await ResolveRolesAsync(user, cancellationToken);
         if (!TryResolveScope(user, roles, request.TenantId, request.PartnerId, out var tenantId, out var partnerId, out var error))
         {
             return error!;
@@ -494,5 +494,34 @@ public sealed class AuthController : ControllerBase
             User: new AuthUserDto(user.Id, user.Email, user.DisplayName, roles, tenantId, partnerId));
 
         return Ok(response);
+    }
+
+    private async Task<List<string>> ResolveRolesAsync(User user, CancellationToken cancellationToken)
+    {
+        var roles = user.UserRoles
+            .Where(x => x.Role is not null && !string.IsNullOrWhiteSpace(x.Role.Name))
+            .Select(x => x.Role!.Name)
+            .ToList();
+
+        if (roles.Count > 0)
+        {
+            return roles;
+        }
+
+        var defaultRoleName = _configuration["Auth:RegisterDefaultRole"]
+            ?? _configuration["Auth:ExternalDefaultRole"]
+            ?? "customer";
+        var roleEntity = await _db.Roles.FirstOrDefaultAsync(x => x.Name == defaultRoleName, cancellationToken);
+        if (roleEntity is null)
+        {
+            _logger.LogWarning("Default role {Role} not found in ACL database for user {UserId}", defaultRoleName, user.Id);
+            return roles;
+        }
+
+        _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = roleEntity.Id });
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        roles.Add(roleEntity.Name);
+        return roles;
     }
 }

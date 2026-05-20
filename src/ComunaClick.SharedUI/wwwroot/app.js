@@ -1,6 +1,23 @@
 window.comunaclic = window.comunaclic || {};
 window.comunaclic._leafletMaps = window.comunaclic._leafletMaps || {};
 
+window.comunaclic.configureLeafletIcons = function () {
+  if (!window.L || !window.L.Icon || !window.L.Icon.Default) {
+    return;
+  }
+
+  var iconBase =
+    "_content/ComunaClick.SharedUI/lib/leaflet/images/";
+  delete window.L.Icon.Default.prototype._getIconUrl;
+  window.L.Icon.Default.mergeOptions({
+    iconRetinaUrl: iconBase + "marker-icon-2x.png",
+    iconUrl: iconBase + "marker-icon.png",
+    shadowUrl: iconBase + "marker-shadow.png"
+  });
+};
+
+window.comunaclic.configureLeafletIcons();
+
 window.comunaclic.getLang = function () {
   try {
     return localStorage.getItem("comunaclic.lang") || "";
@@ -449,5 +466,194 @@ window.comunaclic.prefersReducedMotion = function () {
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   } catch {
     return false;
+  }
+};
+
+window.comunaclic._profileAddressPickers = window.comunaclic._profileAddressPickers || {};
+
+window.comunaclic.initProfileAddressPicker = function (elementId, dotNetHelper, latitude, longitude, autoLocate) {
+  if (!window.L) {
+    throw new Error("Leaflet is not available.");
+  }
+
+  const element = document.getElementById(elementId);
+  if (!element) {
+    return;
+  }
+
+  window.comunaclic.destroyProfileAddressPicker(elementId);
+
+  const defaultLat = -33.4489;
+  const defaultLng = -70.6693;
+  const hasSaved =
+    typeof latitude === "number" &&
+    !isNaN(latitude) &&
+    typeof longitude === "number" &&
+    !isNaN(longitude);
+
+  const map = window.L.map(elementId, {
+    zoomControl: true,
+    scrollWheelZoom: true
+  });
+
+  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  let marker = null;
+  const setMarker = function (coords) {
+    if (marker) {
+      marker.setLatLng(coords);
+    } else {
+      marker = window.L.marker(coords, { draggable: true }).addTo(map);
+      marker.on("dragend", function () {
+        const pos = marker.getLatLng();
+        notify(pos.lat, pos.lng);
+      });
+    }
+  };
+
+  const notify = function (pickedLat, pickedLng) {
+    if (!dotNetHelper) {
+      return Promise.resolve();
+    }
+
+    return fetch(
+      "https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=" +
+        pickedLat +
+        "&lon=" +
+        pickedLng,
+      { headers: { "Accept-Language": "es" } }
+    )
+      .then(function (response) {
+        return response.ok ? response.json() : null;
+      })
+      .then(function (data) {
+        const addr = data && data.address ? data.address : {};
+        const label = data && data.display_name ? data.display_name : "";
+        return dotNetHelper.invokeMethodAsync(
+          "OnMapLocationPicked",
+          pickedLat,
+          pickedLng,
+          label,
+          addr.country || "",
+          addr.state || "",
+          addr.city || addr.town || "",
+          addr.municipality || "",
+          addr.suburb || addr.neighbourhood || "",
+          addr.road || "",
+          addr.house_number || ""
+        );
+      })
+      .catch(function () {
+        return dotNetHelper.invokeMethodAsync(
+          "OnMapLocationPicked",
+          pickedLat,
+          pickedLng,
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        );
+      });
+  };
+
+  const applyCoords = function (pickedLat, pickedLng, zoom) {
+    setMarker([pickedLat, pickedLng]);
+    map.setView([pickedLat, pickedLng], zoom || 16);
+  };
+
+  map.on("click", function (event) {
+    setMarker(event.latlng);
+    notify(event.latlng.lat, event.latlng.lng);
+  });
+
+  const pickerState = {
+    map: map,
+    dotNetHelper: dotNetHelper,
+    setMarker: setMarker,
+    notify: notify,
+    applyCoords: applyCoords
+  };
+  window.comunaclic._profileAddressPickers[elementId] = pickerState;
+
+  if (hasSaved) {
+    applyCoords(latitude, longitude, 16);
+  } else {
+    map.setView([defaultLat, defaultLng], 12);
+    if (autoLocate !== false) {
+      if (dotNetHelper) {
+        dotNetHelper.invokeMethodAsync("OnGeolocationStarted");
+      }
+      window.comunaclic
+        .getCurrentPosition({ maximumAge: 120000, timeout: 15000 })
+        .then(function (pos) {
+          applyCoords(pos.latitude, pos.longitude, 16);
+          return notify(pos.latitude, pos.longitude);
+        })
+        .then(function () {
+          if (dotNetHelper) {
+            return dotNetHelper.invokeMethodAsync("OnGeolocationFinished", true, "");
+          }
+        })
+        .catch(function (err) {
+          const msg = err && err.message ? err.message : "No se pudo obtener la ubicación.";
+          if (dotNetHelper) {
+            return dotNetHelper.invokeMethodAsync("OnGeolocationFinished", false, msg);
+          }
+        });
+    }
+  }
+
+  setTimeout(function () {
+    map.invalidateSize();
+  }, 200);
+};
+
+window.comunaclic.profileAddressUseCurrentLocation = function (elementId) {
+  const picker = window.comunaclic._profileAddressPickers[elementId];
+  if (!picker) {
+    return Promise.reject(new Error("El mapa aún no está listo."));
+  }
+
+  const dotNetHelper = picker.dotNetHelper;
+  if (dotNetHelper) {
+    dotNetHelper.invokeMethodAsync("OnGeolocationStarted");
+  }
+
+  return window.comunaclic
+    .getCurrentPosition({ forceFresh: true, timeout: 15000 })
+    .then(function (pos) {
+      picker.applyCoords(pos.latitude, pos.longitude, 16);
+      return picker.notify(pos.latitude, pos.longitude).then(function () {
+        if (dotNetHelper) {
+          return dotNetHelper.invokeMethodAsync("OnGeolocationFinished", true, "");
+        }
+      });
+    })
+    .catch(function (err) {
+      const msg = err && err.message ? err.message : "No se pudo obtener la ubicación.";
+      if (dotNetHelper) {
+        return dotNetHelper.invokeMethodAsync("OnGeolocationFinished", false, msg);
+      }
+      throw err;
+    });
+};
+
+window.comunaclic.destroyProfileAddressPicker = function (elementId) {
+  const existing = window.comunaclic._profileAddressPickers[elementId];
+  if (existing && existing.map) {
+    existing.map.remove();
+  }
+  delete window.comunaclic._profileAddressPickers[elementId];
+  const legacy = window.comunaclic._leafletMaps[elementId];
+  if (legacy) {
+    legacy.remove();
+    delete window.comunaclic._leafletMaps[elementId];
   }
 };

@@ -395,9 +395,16 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Phone).HasColumnName("phone");
             entity.Property(x => x.FullName).HasColumnName("full_name");
             entity.Property(x => x.AvatarUrl).HasColumnName("avatar_url");
+            entity.Property(x => x.CountryId).HasColumnName("country_id");
+            entity.Property(x => x.RegionId).HasColumnName("region_id");
+            entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
+            entity.Property(x => x.Address).HasColumnName("address");
+            entity.Property(x => x.Latitude).HasColumnName("latitude").HasColumnType("double precision");
+            entity.Property(x => x.Longitude).HasColumnName("longitude").HasColumnType("double precision");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            entity.HasIndex(x => x.ComunaId);
         });
 
         modelBuilder.Entity<BuyerFavorite>(entity =>

@@ -29,3 +29,6 @@ tmp_deploy_scripts/*.ppk
 tmp_deploy_scripts/*accessKeys*.csv
 tmp_deploy_scripts/deploy.env
 .publish/
+
+# Avatares subidos en desarrollo / servidor
+**/uploads/

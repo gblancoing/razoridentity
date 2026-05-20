@@ -1,5 +1,6 @@
 using ComunaClick.Common.Funnel;
 using ComunaClick.Shared.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
 namespace ComunaClick.Shared.Api.Buyer;
@@ -155,6 +156,71 @@ public sealed class BuyerApiClient : ApiClientBase
         }
 
         return SendAsync<Customer>(message, cancellationToken);
+    }
+
+    public Task<Customer?> UploadBuyerCustomerAvatarAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        Guid? tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/customer/avatar";
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            path += $"?tenantId={tenantId.Value}";
+        }
+
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(streamContent, "file", fileName);
+
+        var message = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = multipart
+        };
+
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        }
+
+        return SendAsync<Customer>(message, cancellationToken);
+    }
+
+    public Task<BuyerProfessionalProfile?> GetBuyerProfessionalProfileAsync(Guid? tenantId, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile";
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            path += $"?tenantId={tenantId.Value}";
+        }
+
+        var message = new HttpRequestMessage(HttpMethod.Get, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        }
+
+        return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public Task<BuyerProfessionalProfile?> UpsertBuyerProfessionalProfileAsync(
+        BuyerProfessionalProfileUpsertRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var message = new HttpRequestMessage(HttpMethod.Put, "/v1/buyer/professional-profile")
+        {
+            Content = JsonContent.Create(request)
+        };
+
+        if (request.TenantId is not null && request.TenantId != Guid.Empty)
+        {
+            message.Headers.Add("X-Tenant-Id", request.TenantId.Value.ToString());
+        }
+
+        return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
     }
 
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
@@ -517,15 +583,47 @@ public sealed record Customer(
     string? FullName,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    string? AvatarUrl = null
+    string? AvatarUrl = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    string? Address = null,
+    double? Latitude = null,
+    double? Longitude = null
 );
 
 public sealed record CustomerUpdateRequest(
     string? Email,
     string? Phone,
     string? FullName,
-    string? AvatarUrl = null
+    string? AvatarUrl = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    string? Address = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    bool UpdateDeliveryAddress = false
 );
+
+public sealed record BuyerProfessionalProfile(
+    bool HasProfile,
+    Guid? ProfessionalId,
+    string? Name,
+    string? Email,
+    string? Phone,
+    string? Specialty,
+    string? Bio,
+    bool IsVerified,
+    bool IsActive);
+
+public sealed record BuyerProfessionalProfileUpsertRequest(
+    Guid? TenantId,
+    string? Name,
+    string? Phone,
+    string? Specialty,
+    string? Bio,
+    bool? Activate);
 
 public sealed record BuyerFavoriteCreateRequest(
     string Type,

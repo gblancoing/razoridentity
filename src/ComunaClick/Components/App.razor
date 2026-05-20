@@ -1,4 +1,5 @@
 ﻿@inject IConfiguration Configuration
+@using ComunaClick.SharedUI
 
 <!DOCTYPE html>
 <html class="light" lang="es">
@@ -11,9 +12,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="_content/ComunaClick.SharedUI/lib/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="_content/ComunaClick.SharedUI/lib/leaflet/MarkerCluster.css" />
+    <link rel="stylesheet" href="_content/ComunaClick.SharedUI/lib/leaflet/MarkerCluster.Default.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
@@ -143,9 +144,9 @@
     {
         <script src="@($"https://www.google.com/recaptcha/api.js?render={Uri.EscapeDataString(RecaptchaSiteKey)}")"></script>
     }
-    <script src="_content/ComunaClick.SharedUI/app.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="_content/ComunaClick.SharedUI/lib/leaflet/leaflet.js"></script>
+    <script src="_content/ComunaClick.SharedUI/lib/leaflet/leaflet.markercluster.js"></script>
+    <script src="@($"_content/ComunaClick.SharedUI/app.js?v={AssetVersions.AppJs}")"></script>
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="ComunaClick.App.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />

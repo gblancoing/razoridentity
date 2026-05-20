@@ -8,6 +8,7 @@ builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 6 * 1024 * 1024);
 builder.Services.AddAntiforgery(options =>
 {
     options.Cookie.Name = "__Host-comunaclic-antiforgery";
@@ -76,7 +77,7 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)";
     context.Response.Headers["X-Permitted-Cross-Domain-Policies"] = "none";
     context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
     context.Response.Headers["Cross-Origin-Resource-Policy"] = "same-site";
@@ -85,11 +86,15 @@ app.Use(async (context, next) =>
         "base-uri 'self'; " +
         "frame-ancestors 'self'; " +
         "object-src 'none'; " +
-        "img-src 'self' data: https:; " +
+        (app.Environment.IsDevelopment()
+            ? "img-src 'self' data: https: http://localhost:5277 http://127.0.0.1:5277; "
+            : "img-src 'self' data: https:; ") +
         "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; " +
         "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.google.com https://www.gstatic.com https://unpkg.com; " +
-        "connect-src 'self' https://api.comunaclic.cl https://acl.comunaclic.cl https://payments.comunaclic.cl https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://www.recaptcha.net wss:; " +
+        (app.Environment.IsDevelopment()
+            ? "connect-src 'self' http://localhost:5277 http://localhost:5135 https://nominatim.openstreetmap.org https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://www.recaptcha.net wss:; "
+            : "connect-src 'self' https://api.comunaclic.cl https://acl.comunaclic.cl https://payments.comunaclic.cl https://nominatim.openstreetmap.org https://unpkg.com https://*.tile.openstreetmap.org https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://www.recaptcha.net wss:; ") +
         "frame-src 'self' https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; " +
         "upgrade-insecure-requests";
     await next();
