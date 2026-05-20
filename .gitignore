@@ -22,3 +22,10 @@
 
 # Logs
 *.log
+
+# Deploy keys y secretos AWS (nunca commitear)
+tmp_deploy_scripts/*.pem
+tmp_deploy_scripts/*.ppk
+tmp_deploy_scripts/*accessKeys*.csv
+tmp_deploy_scripts/deploy.env
+.publish/

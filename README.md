@@ -29,12 +29,82 @@ Marketplace y panel de gestión para negocios locales. Stack principal: .NET 8 +
    - Importar y confiar en macOS:
      `sudo security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db infra/certs/localhost.crt`
 
-3) Ejecutar
+3) Ejecutar (terminal) o depurar en Visual Studio (ver sección siguiente)
+
 ```bash
 dotnet run --project src/ComunaClick.Acl
 dotnet run --project src/ComunaClick.Api
-dotnet run --project src/ComunaClick
+dotnet run --project src/ComunaClick/ComunaClick.App.csproj
 ```
+
+## Depurar en Visual Studio 2022 / 2026
+
+Abre **`ComunaClick.sln`** (carpeta `ComunaCLick`, no mezcles dos copias del repo depurando a la vez: comparten puertos).
+
+### Requisitos en VS
+
+- Carga de trabajo **ASP.NET y desarrollo web**.
+- **.NET 8 SDK** (el repo fija `8.0.418` en `global.json`; instala [.NET 8](https://dotnet.microsoft.com/download/dotnet/8.0) si VS no compila).
+- **PostgreSQL** en ejecución con la base `comunaclick_db` y seeds ACL aplicados (ver más abajo).
+
+### Perfil de inicio múltiple (recomendado)
+
+El repo incluye **`ComunaClick.slnLaunch`** con dos perfiles:
+
+| Perfil | Qué levanta |
+|--------|-------------|
+| **ComunaClic — local (ACL + API + App)** | Login, favoritos, catálogo y UI Blazor contra APIs locales |
+| **ComunaClic — local (+ Payments Gateway)** | Lo anterior + `Payments.Gateway.Api` (útil para flujos Mercado Pago en local) |
+
+**Pasos:**
+
+1. En el Explorador de soluciones, clic derecho en la solución → **Configurar proyectos de inicio…**
+2. Elige **Perfil de inicio de la solución** (no “Proyecto de inicio único”).
+3. Selecciona **ComunaClic — local (ACL + API + App)**.
+4. Pulsa **F5** (depurar).
+
+Si no ves los perfiles, cierra y vuelve a abrir la solución o actualiza VS; el archivo debe estar junto a `ComunaClick.sln`.
+
+### URLs al depurar en local
+
+| Servicio | URL |
+|----------|-----|
+| App (Blazor) | https://localhost:7224 |
+| ACL (Swagger) | http://localhost:5135/swagger |
+| API (Swagger) | http://localhost:5277/swagger |
+| Payments Gateway (perfil extendido) | http://localhost:5207/swagger |
+
+`appsettings.Development.json` de **ComunaClick.App** apunta a `http://localhost:5135` y `http://localhost:5277`, así Google / favoritos / Mercado Pago usan tus APIs locales y no producción.
+
+### Google Sign-In en local (opcional)
+
+Sin `ClientId`, el botón Google no hace nada; el login por email sigue funcionando.
+
+En **ComunaClick.App** y **ComunaClick.Acl**, configura el mismo Client ID de Google OAuth (User Secrets o `appsettings.Development.json`):
+
+```json
+"Auth": {
+  "Google": {
+    "ClientId": "TU_CLIENT_ID.apps.googleusercontent.com",
+    "ClientIds": [ "TU_CLIENT_ID.apps.googleusercontent.com" ]
+  }
+}
+```
+
+En la consola de Google Cloud, agrega como **Authorized JavaScript origins**: `https://localhost:7224`.
+
+User Secrets desde VS: clic derecho en **ComunaClick.App** → **Administrar secretos de usuario** (idem en **ComunaClick.Acl** con los mismos valores).
+
+### Dos carpetas abiertas en paralelo (workspace)
+
+Si tienes **ComunaClic** (gblancoing) y **ComunaCLick** (damj3t) a la vez:
+
+- Depura **solo una** solución con F5, o cambia puertos en `launchSettings.json` de la segunda.
+- Los puertos por defecto (`5135`, `5277`, `7224`) chocan si ambas instancias arrancan.
+
+### Depurar solo la web (sin ACL/API locales)
+
+Puedes poner en `appsettings.Development.json` las URLs de producción (`https://acl.comunaclic.cl`, `https://api.comunaclic.cl`) y ejecutar solo **ComunaClick.App**; no pierdes código de Google/Mercado Pago/favoritos, pero depuras contra el entorno remoto.
 
 ## Endpoints locales
 - App: `https://localhost:7224`
@@ -150,9 +220,9 @@ Si omites los dos archivos al final, la herramienta ejecuta por defecto esos mis
 
 Orden: primero `acl_seed.sql` (roles y usuarios base), después `acl_seed_test_users_all_roles.sql` (usuarios extra). El esquema `acl` y tablas deben existir (scripts de init del repo, p. ej. `infra/comunaclick_db__01_init.sql`, si es base nueva).
 
-### Visual Studio / NuGet (opcional, no carga la base)
+### Visual Studio / NuGet (EF, no carga la base)
 
-Si en el futuro usas EF migrations desde Visual Studio:
+Si usas EF migrations desde Visual Studio:
 
 ```powershell
 # Solo dentro de: Visual Studio → Consola del Administrador de Paquetes
