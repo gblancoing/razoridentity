@@ -8,5 +8,8 @@ public sealed record PartnerCreateRequest(
     string? Phone,
     string? Email,
     Guid? SubcategoryId,
+    Guid? CountryId,
+    Guid? RegionId,
+    Guid? ComunaId,
     double? Latitude,
     double? Longitude);

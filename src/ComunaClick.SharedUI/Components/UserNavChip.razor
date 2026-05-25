@@ -1,0 +1,150 @@
+@using ComunaClick.SharedUI.Services
+@inject AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@implements IDisposable
+
+@if (AuthState.IsAuthenticated)
+{
+    <a href="@AccountHref"
+       class="@ChipClass"
+       title="@DisplayName">
+        <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#e8f5d6] text-sm font-black text-[#3b6700]">
+            @if (ShowAvatarImage)
+            {
+                <img src="@AvatarImageSrc" alt="" class="h-full w-full object-cover" @onerror="HandleAvatarError" />
+            }
+            else
+            {
+                <span>@UserInitial</span>
+            }
+        </div>
+        <span class="truncate text-[11px] font-bold text-[#2c2f30] xl:text-xs">@DisplayName</span>
+    </a>
+}
+
+@code {
+    [Parameter] public bool Compact { get; set; }
+
+    private string ChipClass => Compact
+        ? "inline-flex max-w-full items-center gap-2 rounded-full border border-[#dbe6e2] bg-[#f8faf8] py-1 pl-1 pr-3"
+        : "hidden max-w-[11rem] items-center gap-2 rounded-full border border-[#dbe6e2] bg-[#f8faf8] py-1 pl-1 pr-3 hover:border-[#3b6700] hover:bg-[#f0fdf4] transition-colors lg:inline-flex xl:max-w-[14rem]";
+
+    private bool _loaded;
+    private bool _avatarFailed;
+    private string _displayName = string.Empty;
+    private string _avatarUrl = string.Empty;
+
+    private string AccountHref => AccountRoutes.MyAccountLink(AuthState.IsPartnerAccount);
+
+    private string DisplayName => string.IsNullOrWhiteSpace(_displayName)
+        ? (AuthState.DisplayName ?? AuthState.Email ?? string.Empty)
+        : _displayName;
+
+    private string UserInitial
+    {
+        get
+        {
+            var label = DisplayName;
+            return string.IsNullOrWhiteSpace(label) ? "C" : label.Trim()[0].ToString().ToUpperInvariant();
+        }
+    }
+
+    private bool ShowAvatarImage => !_avatarFailed && !string.IsNullOrWhiteSpace(AvatarImageSrc);
+
+    private string AvatarImageSrc => ResolveAvatarUrl(_avatarUrl);
+
+    protected override void OnInitialized()
+    {
+        AuthState.OnChange += HandleAuthChange;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_loaded || !AuthState.IsAuthenticated)
+        {
+            return;
+        }
+
+        try
+        {
+            await AuthState.InitializeAsync();
+            await LoadProfileAsync();
+            _loaded = true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async void HandleAuthChange()
+    {
+        _loaded = false;
+        await LoadProfileAsync();
+        _loaded = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _displayName = AuthState.DisplayName ?? AuthState.Email ?? string.Empty;
+        _avatarUrl = string.Empty;
+        _avatarFailed = false;
+
+        if (!AuthState.IsAuthenticated)
+        {
+            return;
+        }
+
+        var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
+        if (tenantId is not { } tid || tid == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var customer = await BuyerApi.GetBuyerCustomerAsync(tid);
+            if (customer is not null)
+            {
+                if (!string.IsNullOrWhiteSpace(customer.FullName))
+                {
+                    _displayName = customer.FullName.Trim();
+                }
+
+                _avatarUrl = customer.AvatarUrl ?? string.Empty;
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private string ResolveAvatarUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = url.Trim();
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        if (trimmed.StartsWith('/'))
+        {
+            return $"{ApiOptions.Value.ApiBaseUrl.TrimEnd('/')}{trimmed}";
+        }
+
+        return trimmed;
+    }
+
+    private void HandleAvatarError() => _avatarFailed = true;
+
+    public void Dispose() => AuthState.OnChange -= HandleAuthChange;
+}

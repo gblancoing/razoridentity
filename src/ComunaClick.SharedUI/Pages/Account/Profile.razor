@@ -1,0 +1,54 @@
+@page "/account"
+@page "/account/profile"
+@layout AccountHubLayout
+@inject LocaleService L
+@inject NavigationManager Navigation
+
+<PageTitle>@L.T("account.profile.title")</PageTitle>
+
+<div class="space-y-6">
+    <header>
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("account.hub.badge")</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("account.profile.heading")</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("account.profile.subtitle")</p>
+    </header>
+
+    @if (_showWizardBanner)
+    {
+        <RegistrationWizardProgress Flow="@_wizardFlow" CurrentStep="@_wizardStep" TotalSteps="3" />
+        @if (!string.IsNullOrWhiteSpace(_wizardMessage))
+        {
+            <StatusBanner Level="warning" Message="@_wizardMessage" />
+        }
+    }
+
+    <BuyerProfileAccountSection MapElementId="account-hub-address-map"
+                              ShowHeading="false"
+                              Active="true"
+                              OnProfileChanged="OnProfileChangedAsync" />
+</div>
+
+@code {
+    private bool _showWizardBanner;
+    private string _wizardFlow = RegistrationFlow.RoleNatural;
+    private int _wizardStep = 2;
+    private string _wizardMessage = string.Empty;
+    private Guid? _comunaId;
+
+    protected override void OnInitialized()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        _showWizardBanner = uri.Query.Contains("wizard=1", StringComparison.OrdinalIgnoreCase)
+            || uri.Query.Contains("wizard=true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private Task OnProfileChangedAsync(BuyerProfileAccountSection.BuyerProfileAccountSnapshot snapshot)
+    {
+        _comunaId = snapshot.ComunaId;
+        _wizardStep = _comunaId.HasValue ? 3 : 2;
+        _wizardMessage = _showWizardBanner && !_comunaId.HasValue
+            ? L.T("register.wizard.incomplete.banner.natural")
+            : string.Empty;
+        return Task.CompletedTask;
+    }
+}

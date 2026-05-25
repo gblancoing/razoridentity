@@ -5,5 +5,5 @@ namespace ComunaClick.SharedUI;
 /// </summary>
 public static class AssetVersions
 {
-    public const string AppJs = "20260520-leaflet-local";
+    public const string AppJs = "20260523-map-resize-fix";
 }

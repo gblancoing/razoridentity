@@ -1,29 +1,33 @@
 @page "/my-businesses"
 @using System.ComponentModel.DataAnnotations
+@inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.SharedUI.Services.ApiSessionService ApiSession
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@using System.Net
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject ILogger<MyBusinesses> Logger
+@implements IDisposable
 
-<PageTitle>Mis negocios - ComunaClic</PageTitle>
+<PageTitle>@L.T("myBusinesses.title") - ComunaClic</PageTitle>
 
 <div class="min-h-screen bg-background-light dark:bg-background-dark text-[#111816] dark:text-white">
     <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold">Mis negocios</h1>
-                <p class="text-sm text-[#61897c]">Elige qué negocio quieres administrar o crea el primero.</p>
+                <h1 class="text-3xl font-bold">@L.T("myBusinesses.title")</h1>
+                <p class="text-sm text-[#61897c]">@L.T("myBusinesses.subtitle")</p>
             </div>
             <div class="flex flex-wrap gap-3">
-                <a href="/" class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm">Volver al inicio</a>
+                <a href="/" class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm">@L.T("myBusinesses.backHome")</a>
                 <button type="button"
                         class="border border-[#dadddf] text-[#2c2f30] px-4 py-2 rounded-lg font-semibold text-sm"
                         @onclick="HandleLogoutAsync">
-                    Cerrar sesión
+                    @L.T("myBusinesses.logout")
                 </button>
-                <a href="/register/business" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Crear nuevo negocio</a>
+                <a href="/register/business" class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("myBusinesses.create")</a>
             </div>
         </div>
 
@@ -34,15 +38,15 @@
 
         @if (_isLoading)
         {
-            <BrandedLoading Title="Cargando negocios" Message="Estamos revisando los negocios asociados a tu cuenta." />
+            <BrandedLoading Title="@L.T("myBusinesses.loading.title")" Message="@L.T("myBusinesses.loading.message")" />
         }
         else if (_items.Count == 0)
         {
             <div class="bg-white dark:bg-[#1a2e28] rounded-xl border border-gray-200 dark:border-gray-800 p-8 space-y-4">
-                <h2 class="text-xl font-bold">Aún no tienes negocios</h2>
-                <p class="text-sm text-[#61897c]">Crea tu primer negocio para activar catálogo, agenda o leads.</p>
+                <h2 class="text-xl font-bold">@L.T("myBusinesses.empty.title")</h2>
+                <p class="text-sm text-[#61897c]">@L.T("myBusinesses.empty.desc")</p>
                 <div>
-                    <a href="/register/business" class="inline-flex bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">Crear mi primer negocio</a>
+                    <a href="/register/business" class="inline-flex bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm">@L.T("myBusinesses.empty.cta")</a>
                 </div>
             </div>
         }
@@ -51,46 +55,59 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 @foreach (var item in _items)
                 {
-                    <div class="bg-white dark:bg-[#1a2e28] rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-4">
+                    <div class="bg-white dark:bg-[#1a2e28] rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-4 @PartnerCardBorderClass(item)">
                         <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <h2 class="text-xl font-bold">@item.Name</h2>
-                                <p class="text-sm text-[#61897c]">Tipo @item.Type · @VisibilityLabel(item)</p>
+                            <div class="min-w-0 flex-1 space-y-3">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="@PartnerTypeBadgeClass(item)">
+                                        <span class="material-symbols-outlined text-[18px]">@PartnerTypeIcon(item)</span>
+                                        @PartnerTypeLabel(item)
+                                    </span>
+                                    @if (!string.IsNullOrWhiteSpace(PartnerCategoryLine(item)))
+                                    {
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-[#f5f6f7] px-3 py-1 text-[11px] font-semibold text-[#2c2f30] ring-1 ring-[#e8e5dc]">
+                                            <span class="material-symbols-outlined text-[16px] text-[#61897c]">category</span>
+                                            @PartnerCategoryLine(item)
+                                        </span>
+                                    }
+                                    <span class="@VisibilityBadgeClass(item)">@VisibilityLabel(item)</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-[#2c2f30] dark:text-white">@item.Name</h2>
                             </div>
-                            <div class="flex flex-col items-end gap-2">
+                            <div class="flex shrink-0 flex-col items-end gap-2">
                                 <span class="@ActivationBadgeClass(item)">@(item.Activation?.StatusLabel ?? "Sin estado")</span>
                                 <span class="@LocationBadgeClass(item)">@LocationLabel(item)</span>
                             </div>
                         </div>
 
                         <div class="text-sm text-[#61897c] space-y-1">
-                            <div>@(item.Address ?? "Sin dirección")</div>
-                            <div>@(item.Email ?? item.Phone ?? "Sin contacto")</div>
+                            <div>@(item.Address ?? L.T("myBusinesses.noAddress"))</div>
+                            <div>@(item.Email ?? item.Phone ?? L.T("myBusinesses.noContact"))</div>
                             @if (item.Latitude is not null && item.Longitude is not null)
                             {
                                 <div>Coordenadas: @item.Latitude.Value.ToString("N6"), @item.Longitude.Value.ToString("N6")</div>
                             }
                             @if (item.Activation is not null)
                             {
-                                <div>Completitud: @item.Activation.CompletionPercent%</div>
+                                <div>@L.T("myBusinesses.completeness"): @item.Activation.CompletionPercent%</div>
                                 <div>@item.Activation.NextStep</div>
                             }
                         </div>
 
                         <div class="flex flex-wrap gap-3">
-                            <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm" @onclick="() => EnterPartnerAsync(item)" disabled="@_isSwitching">Entrar</button>
+                            <button class="bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold text-sm" @onclick="() => EnterPartnerAsync(item)" disabled="@_isSwitching">@L.T("myBusinesses.enter")</button>
                             <button class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm"
                                     @onclick="() => BeginEditPartner(item)"
                                     disabled="@(_isSwitching || _isSavingPartner)">
-                                Editar datos
+                                @L.T("myBusinesses.edit")
                             </button>
-                            <a href="@PublicPreviewHref(item)" class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm">Ver en público</a>
+                            <a href="@PublicPreviewHref(item)" class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm">@L.T("myBusinesses.viewPublic")</a>
                             @if (item.IsVisible)
                             {
                                 <button class="border border-red-200 text-red-700 px-4 py-2 rounded-lg font-semibold text-sm"
                                         @onclick="() => ToggleVisibilityAsync(item, false)"
                                         disabled="@_isTogglingVisibility">
-                                    Despublicar
+                                    @L.T("myBusinesses.unpublish")
                                 </button>
                             }
                             else if (item.Activation?.CanPublish == true)
@@ -98,19 +115,19 @@
                                 <button class="border border-[#3b6700] text-[#3b6700] px-4 py-2 rounded-lg font-semibold text-sm"
                                         @onclick="() => ToggleVisibilityAsync(item, true)"
                                         disabled="@_isTogglingVisibility">
-                                    Publicar
+                                    @L.T("myBusinesses.publish")
                                 </button>
                             }
                             else
                             {
-                                <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">Completar negocio</a>
+                                <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">@L.T("myBusinesses.complete")</a>
                             }
                             <button class="border border-[#dadddf] text-[#2c2f30] px-4 py-2 rounded-lg font-semibold text-sm"
                                     @onclick="() => UpdateLocationAsync(item)"
                                     disabled="@(_isUpdatingLocation || _isSwitching)">
-                                Actualizar ubicación
+                                @L.T("myBusinesses.updateLocation")
                             </button>
-                            <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">Crear nuevo negocio</a>
+                            <a href="/register/business" class="border border-gray-300 dark:border-gray-700 px-4 py-2 rounded-lg font-semibold text-sm">@L.T("myBusinesses.create")</a>
                         </div>
 
                         @if (_editingPartnerId == item.Id)
@@ -173,7 +190,15 @@
 
     protected override Task OnInitializedAsync()
     {
+        L.OnChange += HandleLocaleChange;
         return Task.CompletedTask;
+    }
+
+    private void HandleLocaleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleLocaleChange;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -186,8 +211,7 @@
         _checkedAuth = true;
         try
         {
-            await AuthState.InitializeAsync();
-            if (!AuthState.IsAuthenticated)
+            if (!await ApiSession.EnsureReadyAsync())
             {
                 Logger.LogInformation("No authenticated session found on /my-businesses. Redirecting to /login");
                 Navigation.NavigateTo("/login", true);
@@ -204,12 +228,17 @@
         }
     }
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(bool isRetry = false)
     {
         _isLoading = true;
         _items.Clear();
         try
         {
+            if (await TryEnterSessionPartnerAsync())
+            {
+                return;
+            }
+
             var partners = await PartnerApi.ListMyPartnersAsync();
             if (partners is not null)
             {
@@ -222,8 +251,24 @@
                 return;
             }
 
-            _statusMessage = _items.Count == 0 ? "No tienes negocios asociados todavía." : null;
+            _statusMessage = _items.Count == 0 ? L.T("myBusinesses.empty.desc") : null;
             _statusLevel = _items.Count == 0 ? "warning" : "info";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized && !isRetry)
+        {
+            if (await ApiSession.TryRefreshAsync())
+            {
+                await LoadAsync(isRetry: true);
+                return;
+            }
+
+            _statusMessage = L.T("myBusinesses.error.session");
+            _statusLevel = "error";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            _statusMessage = L.T("myBusinesses.error.session");
+            _statusLevel = "error";
         }
         catch (Exception ex)
         {
@@ -233,6 +278,30 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task<bool> TryEnterSessionPartnerAsync()
+    {
+        if (AuthState.PartnerId is not Guid partnerId || partnerId == Guid.Empty)
+        {
+            return false;
+        }
+
+        try
+        {
+            var partner = await PartnerApi.GetPartnerAsync(partnerId);
+            if (partner is null)
+            {
+                return false;
+            }
+
+            await EnterPartnerAsync(partner, auto: true);
+            return true;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            return false;
         }
     }
 
@@ -436,8 +505,58 @@
     private static string? Clean(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string VisibilityLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
-        => item.IsVisible ? "Publicado" : "No publicado";
+    private string PartnerTypeLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => (item.Type ?? string.Empty).ToUpperInvariant() switch
+        {
+            "A" => L.T("myBusinesses.partnerType.commerce"),
+            "B" => L.T("myBusinesses.partnerType.serviceCompany"),
+            "C" => L.T("myBusinesses.partnerType.professional"),
+            _ => L.T("myBusinesses.partnerType.unknown")
+        };
+
+    private static string PartnerTypeIcon(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => (item.Type ?? string.Empty).ToUpperInvariant() switch
+        {
+            "A" => "storefront",
+            "B" => "domain",
+            "C" => "engineering",
+            _ => "store"
+        };
+
+    private static string PartnerTypeBadgeClass(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => (item.Type ?? string.Empty).ToUpperInvariant() switch
+        {
+            "A" => "inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-950 ring-2 ring-amber-200",
+            "B" => "inline-flex items-center gap-1.5 rounded-full bg-[#e8f5d6] px-3 py-1.5 text-xs font-bold text-[#2d4d00] ring-2 ring-[#b8d88a]",
+            "C" => "inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-950 ring-2 ring-sky-200",
+            _ => "inline-flex items-center gap-1.5 rounded-full bg-[#f5f6f7] px-3 py-1.5 text-xs font-bold text-[#2c2f30] ring-1 ring-[#dadddf]"
+        };
+
+    private static string PartnerCardBorderClass(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => (item.Type ?? string.Empty).ToUpperInvariant() switch
+        {
+            "A" => "border-l-4 border-l-amber-400",
+            "B" => "border-l-4 border-l-[#76BC21]",
+            "C" => "border-l-4 border-l-sky-400",
+            _ => string.Empty
+        };
+
+    private static string? PartnerCategoryLine(ComunaClick.Shared.Api.Partner.PartnerDto item)
+    {
+        var parts = new[] { item.SubcategoryName, item.CategoryName }
+            .Where(static s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
+    private string VisibilityLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => item.IsVisible ? L.T("myBusinesses.visibility.published") : L.T("myBusinesses.visibility.draft");
+
+    private static string VisibilityBadgeClass(ComunaClick.Shared.Api.Partner.PartnerDto item)
+        => item.IsVisible
+            ? "inline-flex rounded-full bg-[#eff7e5] px-2.5 py-1 text-[11px] font-semibold text-[#3b6700]"
+            : "inline-flex rounded-full bg-[#f5f6f7] px-2.5 py-1 text-[11px] font-semibold text-[#595c5d]";
 
     private static string ActivationBadgeClass(ComunaClick.Shared.Api.Partner.PartnerDto item)
     {
@@ -455,10 +574,10 @@
     private static string PublicPreviewHref(ComunaClick.Shared.Api.Partner.PartnerDto item)
         => $"/buyer/detail/partner/{item.Id}";
 
-    private static string LocationLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
+    private string LocationLabel(ComunaClick.Shared.Api.Partner.PartnerDto item)
         => item.Latitude is not null && item.Longitude is not null
-            ? "Ubicación exacta"
-            : "Referencia por comuna";
+            ? L.T("myBusinesses.location.exact")
+            : L.T("myBusinesses.location.comuna");
 
     private static string LocationBadgeClass(ComunaClick.Shared.Api.Partner.PartnerDto item)
         => item.Latitude is not null && item.Longitude is not null

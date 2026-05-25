@@ -147,6 +147,60 @@ window.comunaclic.executeRecaptcha = function (action) {
   });
 };
 
+window.comunaclic.setAccountRole = function (role) {
+  try {
+    const normalized = (role || "natural").toLowerCase();
+    if (normalized === "commerce" || normalized === "professional" || normalized === "natural") {
+      localStorage.setItem("comunaclic.accountRole", normalized);
+    }
+  } catch {
+    // Ignore storage errors.
+  }
+};
+
+window.comunaclic.getAccountRole = function () {
+  try {
+    return localStorage.getItem("comunaclic.accountRole") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setRegisterIntent = function (role, returnUrl) {
+  try {
+    const normalized = (role || "natural").toLowerCase();
+    window.comunaclic.setAccountRole(normalized);
+    sessionStorage.setItem(
+      "comunaclic.registerIntent",
+      JSON.stringify({
+        role: normalized,
+        returnUrl: returnUrl || "",
+        savedAt: Date.now()
+      })
+    );
+  } catch {
+    // Ignore storage errors; callback will fall back to URL query role.
+  }
+};
+
+window.comunaclic.consumeRegisterIntent = function () {
+  try {
+    const raw = sessionStorage.getItem("comunaclic.registerIntent");
+    sessionStorage.removeItem("comunaclic.registerIntent");
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return {
+      role: (parsed.role || "natural").toLowerCase(),
+      returnUrl: parsed.returnUrl || ""
+    };
+  } catch {
+    return null;
+  }
+};
+
 window.comunaclic.beginGoogleSignIn = function (redirectUrl) {
   const clientId = (window.comunaclicGoogleClientId || "").trim();
   if (!clientId) {
@@ -502,16 +556,62 @@ window.comunaclic.initProfileAddressPicker = function (elementId, dotNetHelper, 
   }).addTo(map);
 
   let marker = null;
+  const pickerState = {
+    map: map,
+    dotNetHelper: dotNetHelper,
+    userAdjusted: false
+  };
+
+  const notifyCoordsOnly = function (pickedLat, pickedLng) {
+    if (!dotNetHelper) {
+      return Promise.resolve();
+    }
+
+    return dotNetHelper.invokeMethodAsync("OnMapMarkerDragged", pickedLat, pickedLng);
+  };
+
+  const attachMarkerDrag = function () {
+    if (!marker) {
+      return;
+    }
+
+    marker.off("dragstart");
+    marker.off("dragend");
+    marker.on("dragstart", function () {
+      pickerState.userAdjusted = true;
+      if (dotNetHelper) {
+        dotNetHelper.invokeMethodAsync("OnMapMarkerAdjustStarted");
+      }
+    });
+    marker.on("dragend", function () {
+      const pos = marker.getLatLng();
+      pickerState.userAdjusted = true;
+      notifyCoordsOnly(pos.lat, pos.lng);
+    });
+    if (marker.dragging) {
+      marker.dragging.enable();
+    }
+    if (marker._icon) {
+      marker._icon.style.cursor = "grab";
+    }
+  };
+
   const setMarker = function (coords) {
     if (marker) {
       marker.setLatLng(coords);
+      attachMarkerDrag();
     } else {
-      marker = window.L.marker(coords, { draggable: true }).addTo(map);
-      marker.on("dragend", function () {
-        const pos = marker.getLatLng();
-        notify(pos.lat, pos.lng);
-      });
+      marker = window.L.marker(coords, {
+        draggable: true,
+        autoPan: true,
+        title: "Arrastra el marcador para afinar la ubicación"
+      }).addTo(map);
+      attachMarkerDrag();
+      if (marker._icon) {
+        marker._icon.style.cursor = "grab";
+      }
     }
+    pickerState.marker = marker;
   };
 
   const notify = function (pickedLat, pickedLng) {
@@ -563,22 +663,47 @@ window.comunaclic.initProfileAddressPicker = function (elementId, dotNetHelper, 
       });
   };
 
-  const applyCoords = function (pickedLat, pickedLng, zoom) {
+  const applyCoords = function (pickedLat, pickedLng, zoom, forceMove) {
+    if (pickerState.userAdjusted && forceMove !== true) {
+      map.setView([pickedLat, pickedLng], zoom || map.getZoom());
+      return;
+    }
+
     setMarker([pickedLat, pickedLng]);
     map.setView([pickedLat, pickedLng], zoom || 16);
   };
 
   map.on("click", function (event) {
+    pickerState.userAdjusted = true;
     setMarker(event.latlng);
-    notify(event.latlng.lat, event.latlng.lng);
+    notifyCoordsOnly(event.latlng.lat, event.latlng.lng);
   });
 
-  const pickerState = {
-    map: map,
-    dotNetHelper: dotNetHelper,
-    setMarker: setMarker,
-    notify: notify,
-    applyCoords: applyCoords
+  pickerState.map = map;
+  pickerState.setMarker = setMarker;
+  pickerState.notify = notify;
+  pickerState.applyCoords = applyCoords;
+  pickerState.refreshLayout = function () {
+    const el = document.getElementById(elementId);
+    if (!el || !map) {
+      return;
+    }
+
+    map.invalidateSize({ animate: false, pan: false });
+    const center = marker ? marker.getLatLng() : map.getCenter();
+    const zoom = map.getZoom();
+    map.setView(center, zoom, { animate: false });
+  };
+  pickerState.getMarkerCoords = function () {
+    if (!marker) {
+      return null;
+    }
+
+    const pos = marker.getLatLng();
+    return {
+      latitude: pos.lat,
+      longitude: pos.lng
+    };
   };
   window.comunaclic._profileAddressPickers[elementId] = pickerState;
 
@@ -610,9 +735,152 @@ window.comunaclic.initProfileAddressPicker = function (elementId, dotNetHelper, 
     }
   }
 
-  setTimeout(function () {
-    map.invalidateSize();
-  }, 200);
+  if (typeof pickerState.refreshLayout === "function") {
+    pickerState.refreshLayout();
+    setTimeout(function () {
+      pickerState.refreshLayout();
+    }, 200);
+  }
+};
+
+window.comunaclic.resetProfileAddressManualAdjust = function (elementId) {
+  const picker = window.comunaclic._profileAddressPickers[elementId];
+  if (picker) {
+    picker.userAdjusted = false;
+  }
+};
+
+window.comunaclic.profileAddressFocusMap = function (elementId, latitude, longitude, zoom, moveMarker, forceMove) {
+  const picker = window.comunaclic._profileAddressPickers[elementId];
+  if (!picker || typeof latitude !== "number" || isNaN(latitude) || typeof longitude !== "number" || isNaN(longitude)) {
+    return;
+  }
+
+  const level = typeof zoom === "number" && !isNaN(zoom) ? zoom : 13;
+  if (moveMarker === false) {
+    picker.map.setView([latitude, longitude], level);
+    setTimeout(function () {
+      picker.map.invalidateSize();
+    }, 100);
+    return;
+  }
+
+  picker.applyCoords(latitude, longitude, level, forceMove === true);
+};
+
+window.comunaclic._parseNominatimCoords = function (items) {
+  if (!items || !items.length) {
+    return null;
+  }
+
+  const first = items[0];
+  const lat = parseFloat(first.lat);
+  const lng = parseFloat(first.lon);
+  if (isNaN(lat) || isNaN(lng)) {
+    return null;
+  }
+
+  return { latitude: lat, longitude: lng };
+};
+
+window.comunaclic._nominatimFetch = function (params) {
+  params.set("format", "json");
+  params.set("limit", "1");
+  params.set("countrycodes", "cl");
+
+  return fetch("https://nominatim.openstreetmap.org/search?" + params.toString(), {
+    headers: { "Accept-Language": "es" }
+  })
+    .then(function (response) {
+      return response.ok ? response.json() : [];
+    })
+    .then(window.comunaclic._parseNominatimCoords)
+    .catch(function () {
+      return null;
+    });
+};
+
+window.comunaclic.geocodeAddressQuery = function (query) {
+  const q = (query || "").trim();
+  if (!q) {
+    return Promise.resolve(null);
+  }
+
+  return window.comunaclic._nominatimFetch(new URLSearchParams({ q: q }));
+};
+
+/** Geocodifica calle + número con contexto (comuna/región), estilo Google Maps. */
+window.comunaclic.geocodeStructuredAddress = function (street, number, comuna, region, country) {
+  const s = (street || "").trim();
+  const n = (number || "").trim();
+  const city = (comuna || "").trim();
+  const state = (region || "").trim();
+  const countryName = (country || "Chile").trim();
+
+  if (!s) {
+    return Promise.resolve(null);
+  }
+
+  const streetLine = n ? s + " " + n : s;
+
+  function tryStructured() {
+    const params = new URLSearchParams({
+      street: streetLine,
+      country: countryName
+    });
+    if (city) {
+      params.set("city", city);
+    }
+    if (state) {
+      params.set("state", state);
+    }
+    return window.comunaclic._nominatimFetch(params);
+  }
+
+  function tryFreeTextQueries() {
+    const parts = [streetLine];
+    if (city) {
+      parts.push(city);
+    }
+    if (state && state !== city) {
+      parts.push(state);
+    }
+    parts.push(countryName);
+
+    const variants = [parts.join(", ")];
+    if (n) {
+      variants.push(s + ", " + n + ", " + (city || state || countryName));
+      variants.push(n + " " + s + ", " + (city || countryName));
+    }
+    if (city) {
+      variants.push(streetLine + ", " + city + ", " + countryName);
+    }
+
+    const seen = {};
+    const unique = variants.filter(function (v) {
+      const key = v.toLowerCase();
+      if (seen[key]) {
+        return false;
+      }
+      seen[key] = true;
+      return true;
+    });
+
+    function next(i) {
+      if (i >= unique.length) {
+        return Promise.resolve(null);
+      }
+      return window.comunaclic.geocodeAddressQuery(unique[i]).then(function (coords) {
+        return coords || next(i + 1);
+      });
+    }
+
+    return next(0);
+  }
+
+  return tryStructured().then(function (coords) {
+    return coords || tryFreeTextQueries();
+  });
 };
 
 window.comunaclic.profileAddressUseCurrentLocation = function (elementId) {
@@ -643,6 +911,32 @@ window.comunaclic.profileAddressUseCurrentLocation = function (elementId) {
       }
       throw err;
     });
+};
+
+window.comunaclic.getProfileAddressMarkerCoords = function (elementId) {
+  const picker = window.comunaclic._profileAddressPickers[elementId];
+  if (!picker || typeof picker.getMarkerCoords !== "function") {
+    return null;
+  }
+
+  return picker.getMarkerCoords();
+};
+
+window.comunaclic.invalidateProfileAddressMap = function (elementId) {
+  const picker = window.comunaclic._profileAddressPickers[elementId];
+  if (!picker || typeof picker.refreshLayout !== "function") {
+    return;
+  }
+
+  const run = function () {
+    picker.refreshLayout();
+  };
+
+  run();
+  requestAnimationFrame(run);
+  setTimeout(run, 50);
+  setTimeout(run, 200);
+  setTimeout(run, 450);
 };
 
 window.comunaclic.destroyProfileAddressPicker = function (elementId) {

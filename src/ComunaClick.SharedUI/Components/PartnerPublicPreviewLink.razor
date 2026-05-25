@@ -1,0 +1,13 @@
+<a href="@Href"
+   target="_blank"
+   rel="noopener noreferrer"
+   class="inline-flex items-center gap-2 rounded-2xl border border-[#3b6700] bg-white px-4 py-2.5 text-sm font-bold text-[#3b6700] hover:bg-[#f0fdf4] transition-colors @CssClass">
+    <span class="material-symbols-outlined text-[18px]">visibility</span>
+    @Label
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = string.Empty;
+    [Parameter] public string Label { get; set; } = "Vista previa pública";
+    [Parameter] public string? CssClass { get; set; }
+}

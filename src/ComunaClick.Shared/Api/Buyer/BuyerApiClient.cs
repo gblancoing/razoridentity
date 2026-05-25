@@ -266,7 +266,13 @@ public sealed class BuyerApiClient : ApiClientBase
         => PostAsync<TenantResolution>($"/v1/public/geo/tenant-by-comuna/{comunaId}", new { }, cancellationToken);
 
     public Task<IReadOnlyList<PublicCategoryItem>?> GetProductCategoriesAsync(CancellationToken cancellationToken = default)
-        => GetAsync<IReadOnlyList<PublicCategoryItem>>("/v1/public/catalog/categories", cancellationToken);
+        => GetCatalogCategoriesAsync("commerce", cancellationToken);
+
+    public Task<IReadOnlyList<PublicCategoryItem>?> GetServiceCategoriesAsync(CancellationToken cancellationToken = default)
+        => GetCatalogCategoriesAsync("service", cancellationToken);
+
+    public Task<IReadOnlyList<PublicCategoryItem>?> GetCatalogCategoriesAsync(string scope, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicCategoryItem>>($"/v1/public/catalog/categories?scope={Uri.EscapeDataString(scope)}", cancellationToken);
 
     public Task<PublicSiteContentResponse?> GetSiteContentAsync(CancellationToken cancellationToken = default)
         => GetAsync<PublicSiteContentResponse>("/v1/public/site-content", cancellationToken);
@@ -720,7 +726,9 @@ public sealed record PublicComunaItem(
     Guid Id,
     Guid RegionId,
     string Code,
-    string Name
+    string Name,
+    double? Latitude,
+    double? Longitude
 );
 
 public sealed record TenantResolution(

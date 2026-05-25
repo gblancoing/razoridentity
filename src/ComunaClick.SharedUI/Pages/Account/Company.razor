@@ -1,0 +1,89 @@
+@page "/account/company"
+@layout AccountHubLayout
+@using System.Net
+@inject LocaleService L
+@inject AuthStateService AuthState
+@inject ApiSessionService ApiSession
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject NavigationManager Navigation
+
+<PageTitle>@L.T("account.company.title")</PageTitle>
+
+<div class="space-y-6">
+    <header>
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("account.hub.badge")</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("account.company.heading")</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("account.company.subtitle")</p>
+    </header>
+
+    @if (AuthState.IsPartnerAccount)
+    {
+        <StatusBanner Level="info" Message="@L.T("account.company.usePartnerPanel")" />
+        <a href="@AccountRoutes.PartnerCompany"
+           class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-6 py-3 text-sm font-bold text-white">
+            <span class="material-symbols-outlined text-[20px]">storefront</span>
+            @L.T("account.nav.partnerCompany")
+        </a>
+    }
+    else
+    {
+        <BuyerProfileCompanySection Partner="_partner"
+                                    SessionPartnerId="AuthState.PartnerId"
+                                    SessionTenantId="AuthState.TenantId"
+                                    PartnerChanged="OnPartnerUpdatedAsync" />
+    }
+</div>
+
+@code {
+    private ComunaClick.Shared.Api.Partner.PartnerDto? _partner;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || AuthState.IsPartnerAccount)
+        {
+            return;
+        }
+
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (await ApiSession.EnsureReadyAsync())
+            {
+                await LoadPartnerAsync();
+                StateHasChanged();
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task LoadPartnerAsync()
+    {
+        try
+        {
+            var mine = await PartnerApi.ListMyPartnersAsync();
+            _partner = mine?.FirstOrDefault();
+            if (_partner is null && AuthState.PartnerId is Guid pid && pid != Guid.Empty)
+            {
+                try { _partner = await PartnerApi.GetPartnerAsync(pid); }
+                catch (HttpRequestException) { }
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private Task OnPartnerUpdatedAsync(ComunaClick.Shared.Api.Partner.PartnerDto updated)
+    {
+        _partner = updated;
+        if (updated.Id != Guid.Empty)
+        {
+            Navigation.NavigateTo(AccountRoutes.PartnerCompany, forceLoad: false);
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+}

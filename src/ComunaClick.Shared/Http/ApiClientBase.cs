@@ -121,18 +121,29 @@ public abstract class ApiClientBase
     private async Task<bool> TryRefreshAsync(CancellationToken cancellationToken)
     {
         var tokens = await _tokenStore.GetAsync(cancellationToken);
-        if (tokens is null)
+        if (tokens is null || string.IsNullOrWhiteSpace(tokens.RefreshToken))
         {
             return false;
         }
 
-        var refreshed = await _authClient.RefreshAsync(
-            tokens.RefreshToken,
-            tokens.TenantId,
-            tokens.PartnerId,
-            cancellationToken);
-        await _tokenStore.SaveAsync(refreshed, cancellationToken);
-        return true;
+        try
+        {
+            var refreshed = await _authClient.RefreshAsync(
+                tokens.RefreshToken,
+                tokens.TenantId,
+                tokens.PartnerId,
+                cancellationToken);
+            await _tokenStore.SaveAsync(refreshed, cancellationToken);
+            return true;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static HttpRequestMessage Clone(HttpRequestMessage request)

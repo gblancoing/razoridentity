@@ -4,6 +4,7 @@ using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Onboarding.Contracts.Partners;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
+using ComunaClick.Api.Security;
 using ComunaClick.Common.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -54,32 +55,36 @@ public sealed class PartnersController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
+        var userId = ResolveUserIdFromUser();
+        if (!userId.HasValue)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
         var partnersQuery = _db.Partners.AsNoTracking()
             .Include(x => x.Subcategory)
             .ThenInclude(x => x!.Category)
             .Where(x => x.TenantId == tenantId.Value);
 
-        if (!HasAnyRole("tenant_admin", "platform_admin"))
+        if (!HasRole("platform_admin"))
         {
-            var scopedPartnerId = _tenantContext.PartnerId ?? ResolvePartnerIdFromUser();
-            if (scopedPartnerId.HasValue)
-            {
-                partnersQuery = partnersQuery.Where(x => x.Id == scopedPartnerId.Value);
-            }
-            else
-            {
-                var userId = ResolveUserIdFromUser();
-                if (!userId.HasValue)
-                {
-                    return Ok(Array.Empty<object>());
-                }
+            var allowedPartnerIds = _db.PartnerStaff.AsNoTracking()
+                .Where(x => x.TenantId == tenantId.Value && x.UserId == userId.Value)
+                .Select(x => x.PartnerId);
 
-                var allowedPartnerIds = _db.PartnerStaff.AsNoTracking()
-                    .Where(x => x.TenantId == tenantId.Value && x.UserId == userId.Value)
-                    .Select(x => x.PartnerId);
+            var tokenPartnerId = ResolvePartnerIdFromUser();
+            var userEmail = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+                ?? User.FindFirst(ClaimTypes.Email)?.Value;
+            var normalizedEmail = string.IsNullOrWhiteSpace(userEmail)
+                ? null
+                : userEmail.Trim().ToLowerInvariant();
 
-                partnersQuery = partnersQuery.Where(x => allowedPartnerIds.Contains(x.Id));
-            }
+            partnersQuery = partnersQuery.Where(x =>
+                allowedPartnerIds.Contains(x.Id)
+                || (tokenPartnerId.HasValue && x.Id == tokenPartnerId.Value)
+                || (normalizedEmail != null
+                    && x.Email != null
+                    && x.Email.ToLower() == normalizedEmail));
         }
 
         var partners = await partnersQuery
@@ -97,7 +102,7 @@ public sealed class PartnersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = "partner.owner")]
+    [Authorize]
     public async Task<ActionResult<object>> Get(Guid id)
     {
         var partner = await _db.Partners.AsNoTracking()
@@ -108,6 +113,24 @@ public sealed class PartnersController : ControllerBase
         if (partner is null)
         {
             return NotFound();
+        }
+
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.NotFound)
+        {
+            return NotFound();
+        }
+
+        if (access == PartnerAccessResult.Forbidden)
+        {
+            return Forbid();
         }
 
         var activation = await BuildActivationStatusAsync(partner);
@@ -128,9 +151,12 @@ public sealed class PartnersController : ControllerBase
             return BadRequest(new { message = "Type and name are required." });
         }
 
-        if (string.Equals(request.Type?.Trim(), "A", StringComparison.OrdinalIgnoreCase) && !request.SubcategoryId.HasValue)
+        var partnerType = request.Type!.Trim();
+        if ((string.Equals(partnerType, "A", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(partnerType, "B", StringComparison.OrdinalIgnoreCase))
+            && !request.SubcategoryId.HasValue)
         {
-            return BadRequest(new { message = "Subcategory is required for partner type A." });
+            return BadRequest(new { message = "Subcategory is required for partner types A and B." });
         }
 
         if (!HasValidCoordinates(request.Latitude, request.Longitude))
@@ -149,6 +175,12 @@ public sealed class PartnersController : ControllerBase
             {
                 return BadRequest(new { message = "Selected subcategory does not exist." });
             }
+
+            var expectedScope = string.Equals(partnerType, "B", StringComparison.OrdinalIgnoreCase) ? "service" : "commerce";
+            if (!string.Equals(subcategory.Category.CatalogScope, expectedScope, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Selected subcategory does not match the partner catalog type." });
+            }
         }
 
         var normalizedName = request.Name!.Trim();
@@ -164,9 +196,9 @@ public sealed class PartnersController : ControllerBase
         var partner = new Partner
         {
             TenantId = tenantId.Value,
-            CountryId = geo.CountryId,
-            RegionId = geo.RegionId,
-            ComunaId = geo.ComunaId,
+            CountryId = request.CountryId ?? geo.CountryId,
+            RegionId = request.RegionId ?? geo.RegionId,
+            ComunaId = request.ComunaId ?? geo.ComunaId,
             SubcategoryId = request.SubcategoryId,
             Type = normalizedType,
             Name = normalizedName,
@@ -218,8 +250,15 @@ public sealed class PartnersController : ControllerBase
             return NotFound();
         }
 
-        var scopedPartner = _tenantContext.PartnerId;
-        if (scopedPartner.HasValue && scopedPartner.Value != partner.Id)
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.Forbidden)
         {
             return Forbid();
         }
@@ -332,8 +371,15 @@ public sealed class PartnersController : ControllerBase
             return NotFound();
         }
 
-        var scopedPartner = _tenantContext.PartnerId;
-        if (scopedPartner.HasValue && scopedPartner.Value != partner.Id)
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.Forbidden)
         {
             return Forbid();
         }
@@ -376,8 +422,15 @@ public sealed class PartnersController : ControllerBase
             return NotFound();
         }
 
-        var scopedPartner = _tenantContext.PartnerId;
-        if (scopedPartner.HasValue && scopedPartner.Value != partner.Id)
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.Forbidden)
         {
             return Forbid();
         }
@@ -435,6 +488,7 @@ public sealed class PartnersController : ControllerBase
                 checklist.Add(BuildItem("offer", "Al menos 1 producto activo", productCount > 0, "Carga tu primer producto para activar la vitrina."));
                 break;
             case "B":
+                checklist.Add(BuildItem("catalog", "Subcategoría de servicios", partner.SubcategoryId.HasValue, "Selecciona la categoría principal de tu oferta de servicios."));
                 var serviceCount = await _db.Services.CountAsync(x => x.PartnerId == partner.Id && x.IsActive);
                 checklist.Add(BuildItem("offer", "Al menos 1 servicio activo", serviceCount > 0, "Crea un servicio para empezar a recibir reservas."));
                 break;

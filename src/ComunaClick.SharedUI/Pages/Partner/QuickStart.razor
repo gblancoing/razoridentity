@@ -3,6 +3,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Forms
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
@@ -124,34 +125,64 @@
             <DataAnnotationsValidator />
             <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-4">
                 <div>
-                    <h2 class="text-xl font-bold">Carga tu primer servicio</h2>
-                    <p class="text-sm text-[#61897c]">Con un servicio activo podrás empezar a recibir reservas.</p>
+                    <h2 class="text-xl font-bold">@L.T("partner.quickstart.service.title")</h2>
+                    <p class="text-sm text-[#61897c]">@L.T("partner.quickstart.service.subtitle")</p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="md:col-span-2">
-                        <label class="text-sm font-semibold">Nombre</label>
-                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Name" />
-                        <ValidationMessage For="@(() => _service.Name)" class="text-xs text-red-500" />
+                        <FormFieldHelp Label="@L.T("partner.quickstart.service.name.label")"
+                                       Tooltip="@L.T("partner.quickstart.service.name.tooltip")"
+                                       Help="@L.T("partner.quickstart.service.name.help")">
+                            <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Name" placeholder="Ej. Supervisión de obra" />
+                            <ValidationMessage For="@(() => _service.Name)" class="text-xs text-red-500" />
+                        </FormFieldHelp>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="text-sm font-semibold">Descripción</label>
-                        <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" @bind="_service.Description"></textarea>
+                        <FormFieldHelp Label="@L.T("partner.quickstart.service.description.label")"
+                                       Help="@L.T("partner.quickstart.service.description.help")">
+                            <textarea class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 py-3" @bind="_service.Description" rows="3" placeholder="Alcance, materiales, comuna de atención..."></textarea>
+                        </FormFieldHelp>
+                    </div>
+                    <div class="md:col-span-2">
+                        <FormFieldHelp Label="@L.T("partner.quickstart.service.category.label")"
+                                       Tooltip="@L.T("partner.quickstart.service.category.tooltip")"
+                                       Help="@ServiceCategoryHelpText">
+                            @if (!string.IsNullOrWhiteSpace(PartnerCompanyCategoryLabel))
+                            {
+                                <p class="mt-1 text-xs font-semibold text-[#3b6700]">
+                                    @string.Format(L.T("partner.quickstart.service.category.companyHint"), PartnerCompanyCategoryLabel)
+                                </p>
+                            }
+                            <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12"
+                                   list="quickstart-service-category-suggestions"
+                                   @bind="_service.Category"
+                                   placeholder="@L.T("partner.quickstart.service.category.placeholder")" />
+                            <datalist id="quickstart-service-category-suggestions">
+                                @foreach (var suggestion in ServiceCategorySuggestions)
+                                {
+                                    <option value="@suggestion"></option>
+                                }
+                            </datalist>
+                        </FormFieldHelp>
                     </div>
                     <div>
-                        <label class="text-sm font-semibold">Categoría visible</label>
-                        <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Category" />
+                        <FormFieldHelp Label="@L.T("partner.quickstart.service.duration.label")"
+                                       Tooltip="@L.T("partner.quickstart.service.duration.tooltip")"
+                                       Help="@L.T("partner.quickstart.service.duration.help")">
+                            <input type="number" step="5" min="15" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.DurationMinutes" />
+                        </FormFieldHelp>
                     </div>
                     <div>
-                        <label class="text-sm font-semibold">Duración (minutos)</label>
-                        <input type="number" step="5" min="15" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.DurationMinutes" />
-                    </div>
-                    <div>
-                        <label class="text-sm font-semibold">Precio</label>
-                        <input type="number" step="1" min="0" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Price" />
-                        <ValidationMessage For="@(() => _service.Price)" class="text-xs text-red-500" />
+                        <FormFieldHelp Label="@L.T("partner.quickstart.service.price.label")"
+                                       Help="@L.T("partner.quickstart.service.price.help")">
+                            <input type="number" step="1" min="0" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_service.Price" />
+                            <ValidationMessage For="@(() => _service.Price)" class="text-xs text-red-500" />
+                        </FormFieldHelp>
                     </div>
                 </div>
-                <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" disabled="@_submitting">@(_submitting ? "Guardando..." : "Crear primer servicio")</button>
+                <button type="submit" class="bg-primary text-[#111816] px-6 py-3 rounded-lg font-bold text-sm" disabled="@_submitting">
+                    @(_submitting ? L.T("partner.quickstart.service.submitting") : L.T("partner.quickstart.service.submit"))
+                </button>
             </div>
         </EditForm>
     }
@@ -199,6 +230,7 @@
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicSubcategoryItem> _subcategories = new();
+    private readonly List<string> _serviceCategorySuggestions = new();
     private string? _statusMessage;
     private string _statusLevel = "info";
     private bool _loadingCatalog;
@@ -233,6 +265,81 @@
         if (_partner?.Type == "A")
         {
             await LoadProductCategoriesAsync();
+        }
+        else if (_partner?.Type == "B")
+        {
+            await LoadServiceCategorySuggestionsAsync();
+            ApplyDefaultServiceCategoryFromPartner();
+        }
+    }
+
+    private string? PartnerCompanyCategoryLabel
+    {
+        get
+        {
+            if (_partner is null)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_partner.SubcategoryName) && !string.IsNullOrWhiteSpace(_partner.CategoryName))
+            {
+                return $"{_partner.CategoryName} · {_partner.SubcategoryName}";
+            }
+
+            return _partner.SubcategoryName ?? _partner.CategoryName;
+        }
+    }
+
+    private string ServiceCategoryHelpText => L.T("partner.quickstart.service.category.help");
+
+    private IReadOnlyList<string> ServiceCategorySuggestions => _serviceCategorySuggestions;
+
+    private void ApplyDefaultServiceCategoryFromPartner()
+    {
+        if (_partner is null || !string.IsNullOrWhiteSpace(_service.Category))
+        {
+            return;
+        }
+
+        _service.Category = _partner.SubcategoryName
+            ?? _partner.CategoryName
+            ?? string.Empty;
+    }
+
+    private async Task LoadServiceCategorySuggestionsAsync()
+    {
+        _serviceCategorySuggestions.Clear();
+        try
+        {
+            var items = await BuyerApi.GetServiceCategoriesAsync();
+            if (items is not null)
+            {
+                foreach (var item in items)
+                {
+                    if (!string.IsNullOrWhiteSpace(item.Name))
+                    {
+                        _serviceCategorySuggestions.Add(item.Name.Trim());
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        var companyLabel = PartnerCompanyCategoryLabel;
+        if (!string.IsNullOrWhiteSpace(companyLabel) && !_serviceCategorySuggestions.Contains(companyLabel, StringComparer.OrdinalIgnoreCase))
+        {
+            _serviceCategorySuggestions.Insert(0, companyLabel);
+        }
+
+        foreach (var extra in new[] { "Obra gruesa", "Terminaciones", "Gasfitería", "Electricidad", "Consultoría técnica", "Mantención" })
+        {
+            if (!_serviceCategorySuggestions.Contains(extra, StringComparer.OrdinalIgnoreCase))
+            {
+                _serviceCategorySuggestions.Add(extra);
+            }
         }
     }
 
@@ -435,8 +542,8 @@
         [Required] public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? Category { get; set; }
-        [Range(0.01, 999999999)] public double Price { get; set; }
-        [Range(15, 1440)] public int DurationMinutes { get; set; } = 30;
+        [Range(0, 999999999)] public double Price { get; set; }
+        [Range(15, 1440)] public int DurationMinutes { get; set; } = 60;
     }
 
     private sealed class ProfessionalForm : IValidatableObject

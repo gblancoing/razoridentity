@@ -1,5 +1,7 @@
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
+using ComunaClick.Api.Security;
+using ComunaClick.Common.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -19,10 +21,11 @@ public sealed class PublicCatalogController : ControllerBase
     }
 
     [HttpGet("categories")]
-    public async Task<ActionResult<IEnumerable<object>>> Categories()
+    public async Task<ActionResult<IEnumerable<object>>> Categories([FromQuery] string? scope = "commerce")
     {
+        var catalogScope = NormalizeCatalogScope(scope);
         var categories = await _db.ProductCategories.AsNoTracking()
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && x.CatalogScope == catalogScope)
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
             .ToListAsync();
@@ -381,9 +384,19 @@ public sealed class PublicCatalogController : ControllerBase
         var partner = await _db.Partners.AsNoTracking()
             .Include(x => x.Subcategory)
             .ThenInclude(x => x!.Category)
-            .FirstOrDefaultAsync(x => x.Id == id && x.IsVisible);
+            .FirstOrDefaultAsync(x => x.Id == id);
 
         if (partner is null)
+        {
+            return NotFound();
+        }
+
+        if (!partner.IsVisible
+            && !await PartnerAccessAuthorization.CanPreviewUnpublishedPartnerAsync(
+                _db,
+                User,
+                partner.Id,
+                HttpContext.RequestAborted))
         {
             return NotFound();
         }
@@ -597,4 +610,7 @@ public sealed class PublicCatalogController : ControllerBase
 
     private static string NormalizeKey(string? value)
         => value?.Trim().ToLowerInvariant() ?? string.Empty;
+
+    private static string NormalizeCatalogScope(string? scope)
+        => string.Equals(scope, "service", StringComparison.OrdinalIgnoreCase) ? "service" : "commerce";
 }

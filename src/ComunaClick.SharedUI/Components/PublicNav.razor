@@ -1,5 +1,6 @@
-@inject ComunaClick.SharedUI.Services.LocaleService L
-@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@using ComunaClick.SharedUI.Services
+@inject LocaleService L
+@inject AuthStateService AuthState
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -39,14 +40,13 @@
                 </div>
 
                 <div class="ml-auto flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 lg:ml-0 lg:gap-2.5">
-                    <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/buyer/orders" @onclick="CloseMenu">@L.T("nav.myPurchases")</a>
                     <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
                     <div class="hidden items-center border-l border-gray-200 pl-2 lg:flex">
                         <LanguageToggle />
                     </div>
                     @if (AuthState.IsAuthenticated)
                     {
-                        <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/buyer/profile" @onclick="CloseMenu">@L.T("nav.myAccount")</a>
+                        <UserNavChip />
                     }
 
                     @if (AuthState.IsAuthenticated)
@@ -63,7 +63,7 @@
                         {
                             <a class="hidden shrink-0 whitespace-nowrap rounded-full border-2 border-primary bg-white px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/5 lg:inline sm:px-2.5 sm:text-xs xl:px-3 xl:text-sm"
                                href="/register?role=commerce"
-                               @onclick="CloseMenu">@L.T("nav.register")</a>
+                               @onclick="CloseMenu">@RegisterCtaLabel</a>
                         }
                         <a class="shrink-0 whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-white shadow-sm hover:brightness-105 sm:px-3 sm:text-xs xl:px-4 xl:text-sm"
                            href="/login"
@@ -97,7 +97,6 @@
                    href="/"
                    @onclick="GoHome"
                    @onclick:preventDefault="true">@L.T("nav.home")</a>
-                <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/buyer/orders" @onclick="CloseMenu">@L.T("nav.myPurchases")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
                 <div class="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
                     <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">@L.T("nav.language")</span>
@@ -105,7 +104,10 @@
                 </div>
                 @if (AuthState.IsAuthenticated)
                 {
-                    <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/buyer/profile" @onclick="CloseMenu">@L.T("nav.myAccount")</a>
+                    <div class="flex items-center gap-3 rounded-lg px-3 py-2">
+                        <UserNavChip Compact="true" />
+                        <a class="text-sm font-medium text-[#2c2f30] hover:text-primary" href="@MyAccountHref" @onclick="CloseMenu">@L.T("nav.myAccount")</a>
+                    </div>
                     <button type="button"
                             class="block w-full rounded-lg border-2 border-primary px-3 py-2 text-left text-sm font-bold text-primary"
                             @onclick="HandleLogout">
@@ -116,7 +118,7 @@
                 {
                     @if (!_hideRegisterCta)
                     {
-                        <a class="block rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary" href="/register?role=commerce" @onclick="CloseMenu">@L.T("nav.register")</a>
+                        <a class="block rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary" href="/register?role=commerce" @onclick="CloseMenu">@RegisterCtaLabel</a>
                     }
                 }
             </div>
@@ -130,6 +132,11 @@
     private bool _mobileMenuOpen;
     private bool _authInitialized;
     private bool _hideRegisterCta;
+    private bool _isHomePage;
+
+    private string RegisterCtaLabel => L.T(_isHomePage ? "nav.registerShort" : "nav.register");
+
+    private string MyAccountHref => AccountRoutes.MyAccountLink(AuthState.IsPartnerAccount);
 
     protected override void OnInitialized()
     {
@@ -148,12 +155,14 @@
     {
         try
         {
-            var path = new Uri(Navigation.Uri).AbsolutePath;
+            var path = new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
             _hideRegisterCta = path.StartsWith("/register", StringComparison.OrdinalIgnoreCase);
+            _isHomePage = string.IsNullOrEmpty(path);
         }
         catch
         {
             _hideRegisterCta = false;
+            _isHomePage = false;
         }
     }
 

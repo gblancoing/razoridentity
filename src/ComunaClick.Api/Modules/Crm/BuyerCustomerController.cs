@@ -190,7 +190,19 @@ public sealed class BuyerCustomerController : ControllerBase
         }
 
         customer.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "No se pudo guardar el perfil. Si el error persiste, contacte soporte.",
+                detail = ex.InnerException?.Message ?? ex.Message
+            });
+        }
+
         return Ok(customer);
     }
 

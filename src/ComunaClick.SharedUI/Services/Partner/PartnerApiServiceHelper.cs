@@ -8,15 +8,26 @@ internal static class PartnerApiServiceHelper
     public static async Task<Guid?> ResolvePartnerIdAsync(
         AuthStateService authState,
         PartnerApiClient partnerApi,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
-        if (authState.PartnerId is { } p && p != Guid.Empty)
-            return p;
-
         try
         {
             var mine = await partnerApi.ListMyPartnersAsync(cancellationToken);
-            return mine?.FirstOrDefault()?.Id;
+            if (mine is null || mine.Count == 0)
+            {
+                return null;
+            }
+
+            if (authState.PartnerId is { } tokenPartner && tokenPartner != Guid.Empty)
+            {
+                var active = mine.FirstOrDefault(p => p.Id == tokenPartner);
+                if (active is not null)
+                {
+                    return active.Id;
+                }
+            }
+
+            return mine[0].Id;
         }
         catch (HttpRequestException)
         {

@@ -2,6 +2,7 @@ using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Catalog.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
+using ComunaClick.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -43,17 +44,48 @@ public sealed class ServicesController : ControllerBase
             return NotFound();
         }
 
-        var hasVisiblePartner = await _db.Partners.AsNoTracking()
-            .AnyAsync(x => x.Id == service.PartnerId && x.IsVisible);
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == service.PartnerId);
 
-        return hasVisiblePartner ? Ok(service) : NotFound();
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        if (partner.IsVisible)
+        {
+            return Ok(service);
+        }
+
+        if (await PartnerAccessAuthorization.CanPreviewUnpublishedPartnerAsync(
+                _db,
+                User,
+                service.PartnerId,
+                HttpContext.RequestAborted))
+        {
+            return Ok(service);
+        }
+
+        return NotFound();
     }
 
     [HttpGet("/v1/partners/{partnerId:guid}/services")]
     public async Task<ActionResult<IEnumerable<Service>>> ListByPartner(Guid partnerId)
     {
-        var scopedPartner = _tenantContext.PartnerId;
-        if (scopedPartner.HasValue && scopedPartner.Value != partnerId)
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            partnerId,
+            _tenantContext.TenantId,
+            _tenantContext.PartnerId,
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.NotFound)
+        {
+            return NotFound();
+        }
+
+        if (access == PartnerAccessResult.Forbidden)
         {
             return Forbid();
         }

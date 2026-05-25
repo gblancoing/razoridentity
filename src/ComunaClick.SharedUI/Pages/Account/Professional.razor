@@ -1,0 +1,15 @@
+@page "/account/professional"
+@layout AccountHubLayout
+@inject LocaleService L
+
+<PageTitle>@L.T("account.professional.title")</PageTitle>
+
+<div class="space-y-6">
+    <header>
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("account.hub.badge")</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("account.professional.heading")</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("account.professional.subtitle")</p>
+    </header>
+
+    <BuyerProfileProfessionalSection />
+</div>

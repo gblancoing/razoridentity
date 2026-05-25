@@ -50,7 +50,7 @@ public sealed class PublicGeoController : ControllerBase
         var comunas = await _db.Comunas.AsNoTracking()
             .Where(x => x.RegionId == regionId && x.IsActive)
             .OrderBy(x => x.Name)
-            .Select(x => new { x.Id, x.RegionId, x.Code, x.Name })
+            .Select(x => new { x.Id, x.RegionId, x.Code, x.Name, x.Latitude, x.Longitude })
             .ToListAsync();
 
         return Ok(comunas);

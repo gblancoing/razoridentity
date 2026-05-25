@@ -1,0 +1,37 @@
+@inject ComunaClick.SharedUI.Services.LocaleService L
+
+<div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4 dark:border-white/10 dark:bg-[#10221c]">
+    <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#3b6700] dark:text-primary">@FlowLabel</p>
+    <p class="mt-1 text-sm font-semibold text-[#111816] dark:text-white">@StepLabel</p>
+    <div class="mt-3 flex gap-1.5" role="progressbar" aria-valuenow="@CurrentStep" aria-valuemin="1" aria-valuemax="@TotalSteps">
+        @for (var step = 1; step <= TotalSteps; step++)
+        {
+            <div class="h-2 flex-1 rounded-full transition-colors @(step <= CurrentStep ? "bg-[#3b6700] dark:bg-primary" : "bg-[#e5ebe8] dark:bg-white/10")"
+                 title="@string.Format(System.Globalization.CultureInfo.CurrentUICulture, L.T("register.wizard.step"), step, TotalSteps)"></div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Flow { get; set; } = RegistrationFlow.RoleNatural;
+
+    [Parameter]
+    public int CurrentStep { get; set; } = 1;
+
+    [Parameter]
+    public int TotalSteps { get; set; } = 3;
+
+    private string FlowLabel => Flow switch
+    {
+        RegistrationFlow.RoleCommerce => L.T("register.wizard.commerce.label"),
+        RegistrationFlow.RoleProfessional => L.T("register.wizard.professional.label"),
+        _ => L.T("register.wizard.natural.label")
+    };
+
+    private string StepLabel => string.Format(
+        System.Globalization.CultureInfo.CurrentUICulture,
+        L.T("register.wizard.step"),
+        CurrentStep,
+        TotalSteps);
+}

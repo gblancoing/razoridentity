@@ -6,11 +6,14 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@inject ComunaClick.SharedUI.Services.ApiSessionService ApiSession
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@using Microsoft.JSInterop
 @implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>Registro de Negocio - ComunaClic</PageTitle>
 
@@ -21,7 +24,13 @@
             <span class="material-symbols-outlined text-[20px]">arrow_back</span>
             Volver a elegir tipo de registro
         </a>
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+        @if (_showWizard)
+        {
+            <RegistrationWizardProgress Flow="@WizardFlow" CurrentStep="2" TotalSteps="3" />
+        }
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 @(_showWizard ? "mt-6" : string.Empty)">
             <aside class="lg:col-span-2 bg-white dark:bg-[#1a2e28] rounded-2xl border border-[#dbe6e2] dark:border-white/10 p-6 space-y-4">
                 <p class="text-xs uppercase tracking-[0.2em] text-primary font-bold">Activación</p>
                 <h2 class="text-2xl font-bold text-[#111816] dark:text-white">Checklist de Etapa 1</h2>
@@ -63,6 +72,14 @@
                         {
                             <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
                         }
+                        @if (_showExistingBusinessCta)
+                        {
+                            <a href="/my-businesses"
+                               class="inline-flex items-center gap-2 rounded-xl border border-[#3b6700] bg-[#f0fdf4] px-4 py-3 text-sm font-bold text-[#3b6700] hover:underline">
+                                Ir a mis negocios
+                                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                            </a>
+                        }
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="md:col-span-2">
@@ -84,10 +101,10 @@
                                     <option value="C">C · Profesionales</option>
                                 </select>
                             </div>
-                            @if (_model.Type == "A")
+                            @if (ShowsCatalogFields)
                             {
                                 <div>
-                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Categoría</label>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">@CatalogCategoryLabel</label>
                                     <select class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
                                             value="@(_model.CategoryId?.ToString() ?? string.Empty)"
                                             @onchange="OnCategoryChangedAsync"
@@ -101,7 +118,7 @@
                                     <ValidationMessage For="@(() => _model.CategoryId)" class="text-xs text-red-500" />
                                 </div>
                                 <div>
-                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">Subcategoría</label>
+                                    <label class="text-sm font-semibold text-[#111816] dark:text-white">@CatalogSubcategoryLabel</label>
                                     <select class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12"
                                             value="@(_model.SubcategoryId?.ToString() ?? string.Empty)"
                                             @onchange="OnSubcategoryChanged"
@@ -115,40 +132,97 @@
                                     <ValidationMessage For="@(() => _model.SubcategoryId)" class="text-xs text-red-500" />
                                 </div>
                             }
-                            <div class="md:col-span-2">
-                                <label class="text-sm font-semibold text-[#111816] dark:text-white">Dirección</label>
-                                <input class="mt-1 w-full rounded-lg border border-[#dbe6e2] dark:border-white/10 dark:bg-[#10221c] dark:text-white px-4 h-12" @bind="_model.Address" />
-                            </div>
-                            <div class="md:col-span-2 rounded-2xl border border-[#dbe6e2] dark:border-white/10 bg-[#f7fbf9] dark:bg-[#10221c] p-4 space-y-3">
-                                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                    <div>
-                                        <label class="text-sm font-semibold text-[#111816] dark:text-white">Ubicación exacta del negocio</label>
-                                        <p class="text-xs text-[#61897c] mt-1">Opcional por ahora. Si la guardas, el mapa público podrá ubicar tu negocio con mayor precisión.</p>
-                                    </div>
-                                    <button type="button"
-                                            class="rounded-lg border border-primary/30 text-primary px-4 h-10 font-semibold text-sm disabled:opacity-60"
-                                            @onclick="CaptureLocationAsync"
-                                            disabled="@_capturingLocation">
-                                        @(_capturingLocation ? "Obteniendo ubicacion..." : "Usar mi ubicacion actual")
-                                    </button>
+                            <div class="md:col-span-2 rounded-2xl border border-[#e8e5dc] bg-[#faf4ea] dark:border-white/10 dark:bg-[#10221c] p-5 space-y-4">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">@L.T("buyer.profile.address.title")</p>
+                                    <p class="mt-1 text-sm text-[#61897c]">@L.T("buyer.profile.address.subtitle")</p>
                                 </div>
-                                @if (!string.IsNullOrWhiteSpace(_locationMessage))
-                                {
-                                    <p class="text-xs @( _locationStatus == "error" ? "text-red-500" : "text-[#61897c]")">@_locationMessage</p>
-                                }
-                                @if (_model.Latitude.HasValue && _model.Longitude.HasValue)
-                                {
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                                        <div class="rounded-xl bg-white dark:bg-[#163029] border border-[#dbe6e2] dark:border-white/10 px-4 py-3">
-                                            <p class="text-[10px] uppercase tracking-[0.15em] text-[#7b8081] font-bold">Latitud</p>
-                                            <p class="font-semibold text-[#111816] dark:text-white">@_model.Latitude.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)</p>
-                                        </div>
-                                        <div class="rounded-xl bg-white dark:bg-[#163029] border border-[#dbe6e2] dark:border-white/10 px-4 py-3">
-                                            <p class="text-[10px] uppercase tracking-[0.15em] text-[#7b8081] font-bold">Longitud</p>
-                                            <p class="font-semibold text-[#111816] dark:text-white">@_model.Longitude.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)</p>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.country")</label>
+                                        <select class="mt-2 w-full rounded-xl border border-[#dbe6e2] dark:border-white/10 dark:bg-[#163029] dark:text-white px-4 h-12"
+                                                value="@CountrySelectValue" @onchange="OnCountryChangedAsync">
+                                            <option value="">@L.T("buyer.profile.country.placeholder")</option>
+                                            @foreach (var country in _countries)
+                                            {
+                                                <option value="@country.Id">@country.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.region")</label>
+                                        <select class="mt-2 w-full rounded-xl border border-[#dbe6e2] dark:border-white/10 dark:bg-[#163029] dark:text-white px-4 h-12 disabled:opacity-50"
+                                                value="@RegionSelectValue" @onchange="OnRegionChangedAsync" disabled="@(!_countryId.HasValue)">
+                                            <option value="">@L.T("buyer.profile.region.placeholder")</option>
+                                            @foreach (var region in _regions)
+                                            {
+                                                <option value="@region.Id">@region.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.comuna")</label>
+                                        <select class="mt-2 w-full rounded-xl border border-[#dbe6e2] dark:border-white/10 dark:bg-[#163029] dark:text-white px-4 h-12 disabled:opacity-50"
+                                                value="@ComunaSelectValue" @onchange="OnComunaChangedAsync" disabled="@(!_regionId.HasValue)">
+                                            <option value="">@L.T("buyer.profile.comuna.placeholder")</option>
+                                            @foreach (var comuna in _comunas)
+                                            {
+                                                <option value="@comuna.Id">@comuna.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="md:col-span-2">
+                                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.street")</label>
+                                        <input class="mt-2 w-full rounded-xl border border-[#dbe6e2] dark:border-white/10 dark:bg-[#163029] dark:text-white px-4 h-12"
+                                               @bind="_model.AddressStreet" @bind:event="oninput" @bind:after="() => ScheduleAddressCascadeAsync(AddressCascadeLevel.Street)"
+                                               placeholder="@L.T("buyer.profile.address.street.placeholder")" />
+                                    </div>
+                                    <div>
+                                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.number")</label>
+                                        <input class="mt-2 w-full rounded-xl border border-[#dbe6e2] dark:border-white/10 dark:bg-[#163029] dark:text-white px-4 h-12"
+                                               @bind="_model.AddressNumber" @bind:event="oninput" @bind:after="() => ScheduleAddressCascadeAsync(AddressCascadeLevel.Number)"
+                                               placeholder="@L.T("buyer.profile.address.number.placeholder")" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.map")</label>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button type="button" @onclick="ToggleMapExpandedAsync"
+                                                    class="inline-flex items-center gap-1.5 rounded-xl border border-[#dbe6e2] bg-white px-3 py-2 text-xs font-bold text-[#111816] hover:bg-[#f0fdf4]">
+                                                <span class="material-symbols-outlined text-[18px]">@(_mapExpanded ? "close_fullscreen" : "open_in_full")</span>
+                                                @(_mapExpanded ? L.T("buyer.profile.address.collapseMap") : L.T("buyer.profile.address.expandMap"))
+                                            </button>
+                                            <button type="button"
+                                                    class="inline-flex items-center gap-1.5 rounded-xl border border-[#3b6700] bg-white px-3 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f0fdf4] disabled:opacity-60"
+                                                    @onclick="UseMyLocationAsync"
+                                                    disabled="@_isLocating">
+                                                <span class="material-symbols-outlined text-[18px]">my_location</span>
+                                                @(_isLocating ? L.T("ui.loading") : L.T("buyer.profile.address.useMyLocation"))
+                                            </button>
                                         </div>
                                     </div>
-                                }
+                                    <p class="mt-1 text-xs text-[#61897c]">@L.T("buyer.profile.address.mapHint")</p>
+                                    @if (!string.IsNullOrWhiteSpace(_geoStatusMessage))
+                                    {
+                                        <p class="mt-2 text-xs font-semibold @(_geoStatusOk ? "text-[#14532d]" : "text-[#b91c1c]")">@_geoStatusMessage</p>
+                                    }
+                                    @if (_model.Latitude is double latSaved && _model.Longitude is double lngSaved)
+                                    {
+                                        <p class="mt-1 text-[11px] text-[#61897c]">
+                                            @L.T("buyer.profile.address.coordsLabel")
+                                            @latSaved.ToString("F5", System.Globalization.CultureInfo.InvariantCulture),
+                                            @lngSaved.ToString("F5", System.Globalization.CultureInfo.InvariantCulture)
+                                        </p>
+                                    }
+                                    <AddressMapFrame Expanded="@_mapExpanded">
+                                        <div id="@AddressMapElementId"
+                                             class="mt-3 w-full rounded-2xl border border-[#dbe6e2] dark:border-white/10 overflow-hidden z-0 @(_mapExpanded ? "h-[520px] min-h-[520px]" : "h-[280px] min-h-[280px]")"
+                                             style="@(_mapExpanded ? "height:520px;min-height:520px;" : "height:280px;min-height:280px;")"></div>
+                                    </AddressMapFrame>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-sm font-semibold text-[#111816] dark:text-white">Teléfono</label>
@@ -182,16 +256,53 @@
     private bool _ready;
     private bool _isSubmitting;
     private bool _checkedAuth;
-    private bool _capturingLocation;
     private string? _statusMessage;
     private string _statusLevel = "info";
-    private string? _locationMessage;
-    private string _locationStatus = "info";
+    private bool _showWizard;
+    private bool _showExistingBusinessCta;
+    private bool _mapInitialized;
+    private bool _mapExpanded;
+    private CancellationTokenSource? _addressGeocodeCts;
+    private bool _isLocating;
+    private bool _geoStatusOk;
+    private string _geoStatusMessage = string.Empty;
+    private DotNetObjectReference<RegisterBusinessSetup>? _mapRef;
+    private const string AddressMapElementId = "register-business-address-map";
+    private Guid? _countryId;
+    private Guid? _regionId;
+    private Guid? _comunaId;
+    private IReadOnlyList<PublicCountryItem> _countries = Array.Empty<PublicCountryItem>();
+    private IReadOnlyList<PublicRegionItem> _regions = Array.Empty<PublicRegionItem>();
+    private IReadOnlyList<PublicComunaItem> _comunas = Array.Empty<PublicComunaItem>();
+
+    private string CountrySelectValue => _countryId?.ToString() ?? string.Empty;
+    private string RegionSelectValue => _regionId?.ToString() ?? string.Empty;
+    private string ComunaSelectValue => _comunaId?.ToString() ?? string.Empty;
+
+    private bool ShowsCatalogFields => string.Equals(_model.Type, "A", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(_model.Type, "B", StringComparison.OrdinalIgnoreCase);
+
+    private string CatalogCategoryLabel => string.Equals(_model.Type, "B", StringComparison.OrdinalIgnoreCase)
+        ? "Categoría de servicios"
+        : "Categoría de comercio";
+
+    private string CatalogSubcategoryLabel => string.Equals(_model.Type, "B", StringComparison.OrdinalIgnoreCase)
+        ? "Subcategoría de servicios"
+        : "Subcategoría de comercio";
+
+    private string CatalogScope => string.Equals(_model.Type, "B", StringComparison.OrdinalIgnoreCase)
+        ? "service"
+        : "commerce";
+
+    private string WizardFlow => string.Equals(_model.Type, "C", StringComparison.OrdinalIgnoreCase)
+        ? RegistrationFlow.RoleProfessional
+        : RegistrationFlow.RoleCommerce;
 
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
         ApplyDefaultTypeFromQuery();
+        _showWizard = ReadWizardFlag();
     }
 
     private void ApplyDefaultTypeFromQuery()
@@ -220,22 +331,60 @@
         }
     }
 
+    private bool ReadWizardFlag()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var q = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return false;
+        }
+
+        foreach (var pair in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "wizard", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var v = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+            return string.Equals(v, "1", StringComparison.Ordinal) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_checkedAuth)
         {
+            if (_ready && !_mapInitialized)
+            {
+                await TryInitAddressMapAsync();
+            }
+
             return;
         }
 
         _checkedAuth = true;
         try
         {
-            await AuthState.InitializeAsync();
-            _ready = AuthState.IsAuthenticated && AuthState.TenantId.HasValue;
+            _ready = await ApiSession.EnsureReadyAsync();
+            if (_ready && await TryRedirectExistingPartnerAsync())
+            {
+                return;
+            }
+
             if (_ready)
             {
-                await LoadCategoriesAsync();
+                await LoadCountriesAsync();
+                if (ShowsCatalogFields)
+                {
+                    await LoadCategoriesAsync();
+                }
             }
+
             _loadingAuth = false;
             StateHasChanged();
         }
@@ -252,27 +401,64 @@
         L.OnChange -= HandleChange;
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        _mapExpanded = false;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.destroyProfileAddressPicker", AddressMapElementId);
+        }
+        catch (JSException)
+        {
+        }
+
+        _mapRef?.Dispose();
+    }
+
     private async Task HandleSubmitAsync()
     {
-        if (!AuthState.IsAuthenticated || !AuthState.TenantId.HasValue || AuthState.Tokens is null)
+        if (!await ApiSession.EnsureReadyAsync())
         {
             _statusLevel = "warning";
-            _statusMessage = "La sesión no está lista. Vuelve a iniciar sesión.";
+            _statusMessage = "Tu sesión expiró o no está lista. Volvé a iniciar sesión y continuá desde acá.";
+            return;
+        }
+
+        if (!_countryId.HasValue || !_regionId.HasValue || !_comunaId.HasValue
+            || string.IsNullOrWhiteSpace(_model.AddressStreet))
+        {
+            _statusLevel = "warning";
+            _statusMessage = "Completá país, región, comuna, calle/pasaje y número antes de guardar.";
+            _showExistingBusinessCta = false;
+            return;
+        }
+
+        await SyncMapCoordinatesFromMarkerAsync();
+        if (!_model.Latitude.HasValue || !_model.Longitude.HasValue)
+        {
+            _statusLevel = "warning";
+            _statusMessage = L.T("buyer.profile.address.coordsRequired");
+            _showExistingBusinessCta = false;
             return;
         }
 
         _isSubmitting = true;
         _statusMessage = null;
+        _showExistingBusinessCta = false;
         try
         {
             var partner = await PartnerApi.CreatePartnerAsync(new PartnerCreateRequest(
                 _model.Type,
                 _model.Name.Trim(),
                 NullIfWhiteSpace(_model.Rut),
-                NullIfWhiteSpace(_model.Address),
+                NullIfWhiteSpace(AddressLineFormatter.Combine(_model.AddressStreet, _model.AddressNumber)),
                 NullIfWhiteSpace(_model.Phone),
                 NullIfWhiteSpace(_model.Email),
-                _model.Type == "A" ? _model.SubcategoryId : null,
+                ShowsCatalogFields ? _model.SubcategoryId : null,
+                _countryId,
+                _regionId,
+                _comunaId,
                 _model.Latitude,
                 _model.Longitude));
 
@@ -280,9 +466,37 @@
             {
                 var refreshed = await AuthClient.RefreshAsync(AuthState.Tokens.RefreshToken, partner.TenantId, partner.Id);
                 await AuthState.SetTokensAsync(refreshed);
+                await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", WizardFlow);
+                if (string.Equals(_model.Type, "C", StringComparison.OrdinalIgnoreCase))
+                {
+                    Navigation.NavigateTo("/account/professional?wizard=1", true);
+                    return;
+                }
+
                 var nextStep = partner.Activation?.NextStep ?? TypeNextStepHint;
                 Navigation.NavigateTo($"/partner?welcome={Uri.EscapeDataString(nextStep)}", true);
             }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            _statusLevel = "warning";
+            _statusMessage = "Ya existe un negocio con ese nombre en tu cuenta. Cambiá el nombre del negocio o continuá desde «Mis negocios» si ya lo creaste antes.";
+            _showExistingBusinessCta = true;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            _statusLevel = "error";
+            _statusMessage = "No se guardó el negocio: la sesión no llegó a la API. Verificá que la API (http://localhost:5277) y el ACL (http://localhost:5135) estén en ejecución, cerrá sesión, volvé a entrar y guardá de nuevo. Sin este paso no podés entrar al panel de gestión.";
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusLevel = "error";
+            var apiMessage = TryExtractApiMessage(ex.Message);
+            _statusMessage = !string.IsNullOrWhiteSpace(apiMessage)
+                ? apiMessage
+                : string.IsNullOrWhiteSpace(ex.Message)
+                    ? $"No se pudo crear el negocio ({(int?)ex.StatusCode ?? 0})."
+                    : ex.Message;
         }
         catch (Exception ex)
         {
@@ -298,22 +512,111 @@
     private static string? NullIfWhiteSpace(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private async Task<bool> TryRedirectExistingPartnerAsync(bool isRetry = false)
+    {
+        try
+        {
+            await AuthState.InitializeAsync();
+            var partners = await PartnerApi.ListMyPartnersAsync();
+            if (partners is null || partners.Count == 0)
+            {
+                return false;
+            }
+
+            if (partners.Count > 1)
+            {
+                Navigation.NavigateTo("/my-businesses", true);
+                return true;
+            }
+
+            var pick = partners[0];
+            if (AuthState.Tokens?.RefreshToken is { } refresh)
+            {
+                var refreshed = await AuthClient.RefreshAsync(refresh, pick.TenantId, pick.Id);
+                await AuthState.SetTokensAsync(refreshed);
+            }
+
+            var welcome = pick.Activation?.NextStep;
+            Navigation.NavigateTo(
+                string.IsNullOrWhiteSpace(welcome)
+                    ? "/partner"
+                    : $"/partner?welcome={Uri.EscapeDataString(welcome)}",
+                true);
+            return true;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized && !isRetry)
+        {
+            if (await ApiSession.TryRefreshAsync())
+            {
+                return await TryRedirectExistingPartnerAsync(isRetry: true);
+            }
+
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
+    }
+
     private async Task LoadCategoriesAsync()
     {
         _loadingCatalog = true;
+        _statusMessage = null;
         try
         {
             _categories.Clear();
-            var items = await BuyerApi.GetProductCategoriesAsync();
+            _subcategories.Clear();
+            _model.CategoryId = null;
+            _model.SubcategoryId = null;
+
+            var items = await BuyerApi.GetCatalogCategoriesAsync(CatalogScope);
             if (items is not null)
             {
                 _categories.AddRange(items);
+            }
+
+            if (_categories.Count == 0)
+            {
+                _statusLevel = "warning";
+                _statusMessage = string.Equals(CatalogScope, "service", StringComparison.OrdinalIgnoreCase)
+                    ? "No hay categorías de servicios cargadas en la base de datos. Ejecutá la migración 20260521_product_categories_catalog_scope.sql."
+                    : "No hay categorías de comercio activas en la base de datos.";
             }
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
             _statusLevel = "warning";
-            _statusMessage = "Las categorías aún no están disponibles en este ambiente. Puedes continuar con tipo B o C mientras se publica el catálogo.";
+            _statusMessage = "Las categorías aún no están disponibles en este ambiente.";
         }
         catch (HttpRequestException ex)
         {
@@ -342,18 +645,17 @@
             _ => "A"
         };
 
-        if (_model.Type != "A")
+        _model.CategoryId = null;
+        _model.SubcategoryId = null;
+        _categories.Clear();
+        _subcategories.Clear();
+
+        if (!ShowsCatalogFields)
         {
-            _model.CategoryId = null;
-            _model.SubcategoryId = null;
-            _subcategories.Clear();
             return;
         }
 
-        if (_categories.Count == 0)
-        {
-            await LoadCategoriesAsync();
-        }
+        await LoadCategoriesAsync();
     }
 
     private async Task OnCategoryChangedAsync(ChangeEventArgs args)
@@ -397,33 +699,421 @@
         _model.SubcategoryId = Guid.TryParse(args.Value?.ToString(), out var subcategoryId) ? subcategoryId : null;
     }
 
-    private async Task CaptureLocationAsync()
+    private async Task LoadCountriesAsync()
     {
-        _capturingLocation = true;
-        _locationMessage = null;
-        _locationStatus = "info";
+        _countries = await BuyerApi.GetCountriesAsync() ?? Array.Empty<PublicCountryItem>();
+    }
+
+    private async Task OnCountryChangedAsync(ChangeEventArgs e)
+    {
+        _countryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _regionId = null;
+        _comunaId = null;
+        _regions = _countryId.HasValue
+            ? await BuyerApi.GetRegionsAsync(_countryId.Value) ?? Array.Empty<PublicRegionItem>()
+            : Array.Empty<PublicRegionItem>();
+        _comunas = Array.Empty<PublicComunaItem>();
+        await ApplyAddressCascadeAsync(AddressCascadeLevel.Country);
+    }
+
+    private async Task OnRegionChangedAsync(ChangeEventArgs e)
+    {
+        _regionId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _comunaId = null;
+        _comunas = _regionId.HasValue
+            ? await BuyerApi.GetComunasAsync(_regionId.Value) ?? Array.Empty<PublicComunaItem>()
+            : Array.Empty<PublicComunaItem>();
+        await ApplyAddressCascadeAsync(AddressCascadeLevel.Region);
+    }
+
+    private async Task OnComunaChangedAsync(ChangeEventArgs e)
+    {
+        _comunaId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        var level = !string.IsNullOrWhiteSpace(_model.AddressStreet) && _model.AddressStreet.Trim().Length >= 2
+            ? AddressCascadeLevel.Street
+            : AddressCascadeLevel.Comuna;
+        await ApplyAddressCascadeAsync(level);
+    }
+
+    private AddressCascadeContext BuildAddressCascadeContext()
+    {
+        var comuna = _comunas.FirstOrDefault(c => c.Id == _comunaId);
+        var region = _regions.FirstOrDefault(r => r.Id == _regionId);
+        var country = _countries.FirstOrDefault(c => c.Id == _countryId);
+        return new AddressCascadeContext(
+            country?.Name,
+            region?.Name,
+            comuna?.Name,
+            comuna?.Latitude,
+            comuna?.Longitude,
+            _model.AddressStreet,
+            _model.AddressNumber);
+    }
+
+    private async Task ApplyAddressCascadeAsync(AddressCascadeLevel level)
+    {
+        if (!_mapInitialized || level == AddressCascadeLevel.None)
+        {
+            return;
+        }
+
+        var result = await AddressMapCascadeHelper.ApplyAsync(
+            JSRuntime,
+            AddressMapElementId,
+            BuildAddressCascadeContext(),
+            level);
+
+        if (result is not null && AddressMapCascadeHelper.MovesMarker(level))
+        {
+            _model.Latitude = Math.Round(result.Value.Latitude, 6, MidpointRounding.AwayFromZero);
+            _model.Longitude = Math.Round(result.Value.Longitude, 6, MidpointRounding.AwayFromZero);
+        }
+    }
+
+    private async Task ScheduleAddressCascadeAsync(AddressCascadeLevel level)
+    {
+        if (!_mapInitialized)
+        {
+            return;
+        }
+
+        var ctx = BuildAddressCascadeContext();
+        if (level == AddressCascadeLevel.Street && (ctx.Street?.Trim().Length ?? 0) < 2)
+        {
+            return;
+        }
+
+        if (level == AddressCascadeLevel.Number)
+        {
+            if ((ctx.Street?.Trim().Length ?? 0) < 2)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(ctx.Number))
+            {
+                await ApplyAddressCascadeAsync(AddressCascadeLevel.Street);
+                return;
+            }
+        }
+
+        _addressGeocodeCts?.Cancel();
+        _addressGeocodeCts?.Dispose();
+        _addressGeocodeCts = new CancellationTokenSource();
+        var ct = _addressGeocodeCts.Token;
 
         try
         {
-            var position = await JSRuntime.InvokeAsync<BrowserLocation>("comunaclic.getCurrentPosition");
-            _model.Latitude = Math.Round(position.Latitude, 6, MidpointRounding.AwayFromZero);
-            _model.Longitude = Math.Round(position.Longitude, 6, MidpointRounding.AwayFromZero);
-            _locationMessage = "Ubicación capturada. La usaremos como referencia exacta del negocio en el mapa público.";
+            await Task.Delay(450, ct);
+            await ApplyAddressCascadeAsync(level);
         }
-        catch (InvalidOperationException)
+        catch (TaskCanceledException)
         {
-            _locationStatus = "error";
-            _locationMessage = "La ubicación estará disponible cuando la página termine de cargarse por completo.";
+        }
+    }
+
+    private sealed record MapMarkerCoordsDto(double Latitude, double Longitude);
+
+    [JSInvokable]
+    public Task OnMapMarkerAdjustStarted()
+    {
+        _addressGeocodeCts?.Cancel();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnMapMarkerDragged(double latitude, double longitude)
+    {
+        _model.Latitude = Math.Round(latitude, 6, MidpointRounding.AwayFromZero);
+        _model.Longitude = Math.Round(longitude, 6, MidpointRounding.AwayFromZero);
+        _geoStatusOk = true;
+        _geoStatusMessage = L.T("buyer.profile.address.manualPin");
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ToggleMapExpandedAsync()
+    {
+        if (!_mapInitialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+
+        _mapExpanded = !_mapExpanded;
+        await InvokeAsync(StateHasChanged);
+        await RefreshMapLayoutAfterResizeAsync();
+    }
+
+    private async Task RefreshMapLayoutAfterResizeAsync()
+    {
+        if (!_mapInitialized)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(30);
+            await JSRuntime.InvokeVoidAsync("comunaclic.invalidateProfileAddressMap", AddressMapElementId);
+            await Task.Delay(250);
+            await JSRuntime.InvokeVoidAsync("comunaclic.invalidateProfileAddressMap", AddressMapElementId);
         }
         catch (JSException)
         {
-            _locationStatus = "error";
-            _locationMessage = "No pudimos acceder a tu ubicación. Revisa los permisos del navegador e inténtalo de nuevo.";
         }
-        finally
+    }
+
+    private async Task<bool> SyncMapCoordinatesFromMarkerAsync()
+    {
+        if (!_mapInitialized)
         {
-            _capturingLocation = false;
+            return _model.Latitude.HasValue && _model.Longitude.HasValue;
         }
+
+        try
+        {
+            var coords = await JSRuntime.InvokeAsync<MapMarkerCoordsDto?>(
+                "comunaclic.getProfileAddressMarkerCoords",
+                AddressMapElementId);
+            if (coords is null)
+            {
+                return _model.Latitude.HasValue && _model.Longitude.HasValue;
+            }
+
+            _model.Latitude = Math.Round(coords.Latitude, 6, MidpointRounding.AwayFromZero);
+            _model.Longitude = Math.Round(coords.Longitude, 6, MidpointRounding.AwayFromZero);
+            return true;
+        }
+        catch (JSException)
+        {
+            return _model.Latitude.HasValue && _model.Longitude.HasValue;
+        }
+    }
+
+    private async Task TryInitAddressMapAsync()
+    {
+        if (_mapInitialized || !_ready)
+        {
+            return;
+        }
+
+        try
+        {
+            _mapRef ??= DotNetObjectReference.Create(this);
+            var hasSavedCoords = _model.Latitude.HasValue && _model.Longitude.HasValue;
+            await JSRuntime.InvokeVoidAsync(
+                "comunaclic.initProfileAddressPicker",
+                AddressMapElementId,
+                _mapRef,
+                _model.Latitude,
+                _model.Longitude,
+                !hasSavedCoords);
+            _mapInitialized = true;
+            _geoStatusMessage = string.Empty;
+            await ApplyAddressCascadeAsync(AddressMapCascadeHelper.ResolveLevel(BuildAddressCascadeContext()));
+        }
+        catch (JSException ex)
+        {
+            _mapInitialized = false;
+            _geoStatusOk = false;
+            _geoStatusMessage = ex.Message.Contains("initProfileAddressPicker", StringComparison.OrdinalIgnoreCase)
+                ? L.T("buyer.profile.address.mapScriptStale")
+                : ex.Message;
+        }
+    }
+
+    private async Task UseMyLocationAsync()
+    {
+        if (!_mapInitialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+
+        _isLocating = true;
+        _geoStatusMessage = string.Empty;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.profileAddressUseCurrentLocation", AddressMapElementId);
+        }
+        catch (JSException ex)
+        {
+            _geoStatusOk = false;
+            _geoStatusMessage = ex.Message;
+            _isLocating = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnMapLocationPicked(
+        double latitude,
+        double longitude,
+        string? displayName,
+        string? country,
+        string? state,
+        string? city,
+        string? municipality,
+        string? suburb,
+        string? road,
+        string? houseNumber)
+    {
+        _model.Latitude = Math.Round(latitude, 6, MidpointRounding.AwayFromZero);
+        _model.Longitude = Math.Round(longitude, 6, MidpointRounding.AwayFromZero);
+        await ApplyGeoFromReverseAsync(displayName, country, state, city, municipality, suburb, road, houseNumber);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnGeolocationStarted()
+    {
+        _isLocating = true;
+        _geoStatusMessage = L.T("buyer.profile.address.locating");
+        _geoStatusOk = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnGeolocationFinished(bool success, string? message)
+    {
+        _isLocating = false;
+        if (success)
+        {
+            _geoStatusOk = true;
+            _geoStatusMessage = L.T("buyer.profile.address.located");
+        }
+        else
+        {
+            _geoStatusOk = false;
+            _geoStatusMessage = string.IsNullOrWhiteSpace(message)
+                ? L.T("buyer.profile.address.locationFailed")
+                : message;
+        }
+
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplyGeoFromReverseAsync(
+        string? displayName,
+        string? country,
+        string? state,
+        string? city,
+        string? municipality,
+        string? suburb,
+        string? road,
+        string? houseNumber)
+    {
+        if (_countries.Count == 0)
+        {
+            await LoadCountriesAsync();
+        }
+
+        if (!string.IsNullOrWhiteSpace(road))
+        {
+            _model.AddressStreet = road.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(suburb))
+        {
+            _model.AddressStreet = suburb.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(houseNumber))
+        {
+            _model.AddressNumber = houseNumber.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            var split = AddressLineFormatter.Split(displayName);
+            if (string.IsNullOrWhiteSpace(_model.AddressStreet))
+            {
+                _model.AddressStreet = split.Street;
+            }
+
+            if (string.IsNullOrWhiteSpace(_model.AddressNumber))
+            {
+                _model.AddressNumber = split.Number;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(country))
+        {
+            return;
+        }
+
+        var countryItem = _countries.FirstOrDefault(c => GeoNamesMatch(c.Name, country));
+        if (countryItem is null)
+        {
+            return;
+        }
+
+        _countryId = countryItem.Id;
+        _regions = await BuyerApi.GetRegionsAsync(countryItem.Id) ?? Array.Empty<PublicRegionItem>();
+        _regionId = null;
+        _comunaId = null;
+        _comunas = Array.Empty<PublicComunaItem>();
+
+        if (string.IsNullOrWhiteSpace(state))
+        {
+            return;
+        }
+
+        var regionItem = _regions.FirstOrDefault(r => GeoNamesMatch(r.Name, state))
+            ?? _regions.FirstOrDefault(r => GeoNamesContain(r.Name, state));
+        if (regionItem is null)
+        {
+            return;
+        }
+
+        _regionId = regionItem.Id;
+        _comunas = await BuyerApi.GetComunasAsync(regionItem.Id) ?? Array.Empty<PublicComunaItem>();
+
+        foreach (var candidate in new[] { city, municipality, suburb, ExtractComunaFromDisplayName(displayName) }.Where(x => !string.IsNullOrWhiteSpace(x)))
+        {
+            var comunaItem = _comunas.FirstOrDefault(c => GeoNamesMatch(c.Name, candidate))
+                ?? _comunas.FirstOrDefault(c => GeoNamesContain(c.Name, candidate));
+            if (comunaItem is not null)
+            {
+                _comunaId = comunaItem.Id;
+                break;
+            }
+        }
+    }
+
+    private static string? ExtractComunaFromDisplayName(string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return null;
+        }
+
+        var segments = displayName.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 4 ? segments[3] : null;
+    }
+
+    private static bool GeoNamesMatch(string? left, string? right)
+    {
+        var a = NormalizeGeoName(left);
+        var b = NormalizeGeoName(right);
+        return a.Length > 0 && b.Length > 0 && string.Equals(a, b, StringComparison.Ordinal);
+    }
+
+    private static bool GeoNamesContain(string? haystack, string? needle)
+    {
+        var h = NormalizeGeoName(haystack);
+        var n = NormalizeGeoName(needle);
+        return h.Length > 0 && n.Length > 0 && (h.Contains(n, StringComparison.Ordinal) || n.Contains(h, StringComparison.Ordinal));
+    }
+
+    private static string NormalizeGeoName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace("región ", "", StringComparison.Ordinal)
+            .Replace("region ", "", StringComparison.Ordinal);
+        return string.Concat(normalized.Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray());
     }
 
     private sealed class RegisterBusinessModel
@@ -434,10 +1124,11 @@
         public string Type { get; set; } = "A";
         public Guid? CategoryId { get; set; }
 
-        [RequiredIfTypeA]
+        [RequiredIfCatalogPartner]
         public Guid? SubcategoryId { get; set; }
         public string? Rut { get; set; }
-        public string? Address { get; set; }
+        public string AddressStreet { get; set; } = string.Empty;
+        public string AddressNumber { get; set; } = string.Empty;
         public string? Phone { get; set; }
         public string? Email { get; set; }
         public double? Latitude { get; set; }
@@ -445,11 +1136,17 @@
     }
 
     [AttributeUsage(AttributeTargets.Property)]
-    private sealed class RequiredIfTypeAAttribute : ValidationAttribute
+    private sealed class RequiredIfCatalogPartnerAttribute : ValidationAttribute
     {
         protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
         {
-            if (validationContext.ObjectInstance is not RegisterBusinessModel model || model.Type != "A")
+            if (validationContext.ObjectInstance is not RegisterBusinessModel model)
+            {
+                return ValidationResult.Success;
+            }
+
+            if (!string.Equals(model.Type, "A", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(model.Type, "B", StringComparison.OrdinalIgnoreCase))
             {
                 return ValidationResult.Success;
             }
@@ -459,22 +1156,16 @@
                 return ValidationResult.Success;
             }
 
-            if (value is Guid?)
+            var selectedSubcategory = value as Guid?;
+            if (selectedSubcategory.HasValue && selectedSubcategory.Value != Guid.Empty)
             {
-                var guidValue = (Guid?)value;
-                if (guidValue.HasValue && guidValue.Value != Guid.Empty)
-                {
-                    return ValidationResult.Success;
-                }
+                return ValidationResult.Success;
             }
 
-            return new ValidationResult("La subcategoría es obligatoria para partners tipo A.");
+            return string.Equals(model.Type, "B", StringComparison.OrdinalIgnoreCase)
+                ? new ValidationResult("La subcategoría de servicios es obligatoria para empresas tipo B.")
+                : new ValidationResult("La subcategoría de comercio es obligatoria para partners tipo A.");
         }
     }
 
-    private sealed record BrowserLocation(
-        double Latitude,
-        double Longitude,
-        double Accuracy
-    );
 }

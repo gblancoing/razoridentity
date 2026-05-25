@@ -1,0 +1,31 @@
+@page "/account/buyer"
+@layout AccountHubLayout
+@inject LocaleService L
+
+<PageTitle>@L.T("account.buyer.title")</PageTitle>
+
+<div class="space-y-6">
+    <header>
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("account.hub.badge")</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("account.buyer.heading")</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("account.buyer.subtitle")</p>
+    </header>
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <a href="/buyer/orders" class="group rounded-[2rem] border border-[#dbe6e2] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors">
+            <span class="material-symbols-outlined text-[#3b6700] text-[32px]">receipt_long</span>
+            <h2 class="mt-4 text-xl font-black text-[#2c2f30]">@L.T("buyer.profile.buyer.orders")</h2>
+            <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.buyer.orders.desc")</p>
+        </a>
+        <a href="/buyer/favorites" class="group rounded-[2rem] border border-[#dbe6e2] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors">
+            <span class="material-symbols-outlined text-[#3b6700] text-[32px]">favorite</span>
+            <h2 class="mt-4 text-xl font-black text-[#2c2f30]">@L.T("buyer.profile.buyer.favorites")</h2>
+            <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.buyer.favorites.desc")</p>
+        </a>
+        <a href="/categorias" class="group rounded-[2rem] border border-[#dbe6e2] bg-[#f6f1e8] p-6 lg:col-span-2 hover:border-[#3b6700]/40 transition-colors">
+            <span class="material-symbols-outlined text-[#3b6700] text-[32px]">explore</span>
+            <h2 class="mt-4 text-xl font-black text-[#2c2f30]">@L.T("buyer.profile.buyer.discover")</h2>
+            <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.buyer.orders.desc")</p>
+        </a>
+    </section>
+</div>

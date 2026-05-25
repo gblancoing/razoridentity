@@ -4,43 +4,15 @@
     "Projects": [
       {
         "Path": "src\\ComunaClick.Acl\\ComunaClick.Acl.csproj",
-        "Action": "Start",
-        "LaunchProfile": "http"
+        "Action": "Start"
       },
       {
         "Path": "src\\ComunaClick.Api\\ComunaClick.Api.csproj",
-        "Action": "Start",
-        "LaunchProfile": "http"
+        "Action": "Start"
       },
       {
         "Path": "src\\ComunaClick\\ComunaClick.App.csproj",
-        "Action": "Start",
-        "LaunchProfile": "ComunaClic"
-      }
-    ]
-  },
-  {
-    "Name": "ComunaClic — local (+ Payments Gateway)",
-    "Projects": [
-      {
-        "Path": "src\\ComunaClick.Acl\\ComunaClick.Acl.csproj",
-        "Action": "Start",
-        "LaunchProfile": "http"
-      },
-      {
-        "Path": "src\\ComunaClick.Api\\ComunaClick.Api.csproj",
-        "Action": "Start",
-        "LaunchProfile": "http"
-      },
-      {
-        "Path": "src\\Payments.Gateway.Api\\Payments.Gateway.Api.csproj",
-        "Action": "Start",
-        "LaunchProfile": "http"
-      },
-      {
-        "Path": "src\\ComunaClick\\ComunaClick.App.csproj",
-        "Action": "Start",
-        "LaunchProfile": "ComunaClic"
+        "Action": "Start"
       }
     ]
   }

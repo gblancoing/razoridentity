@@ -1,0 +1,20 @@
+@page "/partner/account"
+@layout PartnerLayout
+@inject LocaleService L
+@inject AuthStateService AuthState
+
+<PageTitle>@L.T("partner.account.title")</PageTitle>
+
+<div class="space-y-6">
+    <header>
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("partner.account.badge")</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.account.tab.personal")</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.account.subtitle")</p>
+        @if (!string.IsNullOrWhiteSpace(AuthState.DisplayName))
+        {
+            <p class="mt-2 text-sm font-semibold text-[#3b6700]">@AuthState.DisplayName</p>
+        }
+    </header>
+
+    <BuyerProfileAccountSection MapElementId="partner-account-address-map" ShowHeading="false" Active="true" />
+</div>

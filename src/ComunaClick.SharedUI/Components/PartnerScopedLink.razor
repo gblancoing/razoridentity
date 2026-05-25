@@ -1,0 +1,55 @@
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@inject NavigationManager Navigation
+
+<a href="@Href"
+   class="@CssClass"
+   @onclick="NavigateAsync"
+   @onclick:preventDefault="true"
+   @onclick:stopPropagation="true">
+    @ChildContent
+</a>
+
+@code {
+    [Parameter, EditorRequired] public Guid PartnerId { get; set; }
+    [Parameter, EditorRequired] public Guid TenantId { get; set; }
+    [Parameter, EditorRequired] public string Href { get; set; } = "/partner";
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private async Task NavigateAsync()
+    {
+        if (Disabled || PartnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        await TrySetPartnerSessionAsync();
+        Navigation.NavigateTo(Href, forceLoad: true);
+    }
+
+    private async Task TrySetPartnerSessionAsync()
+    {
+        if (AuthState.PartnerId == PartnerId)
+        {
+            return;
+        }
+
+        var refresh = AuthState.Tokens?.RefreshToken;
+        if (string.IsNullOrWhiteSpace(refresh))
+        {
+            return;
+        }
+
+        try
+        {
+            var refreshed = await AuthClient.RefreshAsync(refresh, TenantId, PartnerId);
+            await AuthState.SetTokensAsync(refreshed);
+        }
+        catch
+        {
+            // Si el refresh falla, igual navegamos: el panel puede pedir re-login.
+        }
+    }
+}

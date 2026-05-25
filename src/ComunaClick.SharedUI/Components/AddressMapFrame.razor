@@ -1,0 +1,9 @@
+@* Expansión suave del mapa (solo más alto, sin pantalla completa). *@
+<div class="@(Expanded ? "rounded-2xl ring-2 ring-[#86efac]/35 bg-[#f8faf9]/80 p-1" : "")">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+}

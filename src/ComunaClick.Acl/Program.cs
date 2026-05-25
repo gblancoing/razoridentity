@@ -16,7 +16,15 @@ builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "ComunaClick ACL (login, tokens, usuarios)",
+        Version = "v1",
+        Description = "http://localhost:5135 — autenticación y sesión."
+    });
+});
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<RecaptchaV3Verifier>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -81,7 +89,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "ComunaClick ACL — Swagger";
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "ComunaClick ACL v1");
+    });
 }
 else
 {
@@ -89,7 +101,10 @@ else
 }
 
 app.UseForwardedHeaders();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseRouting();
 app.UseRateLimiter();
 app.Use(async (context, next) =>

@@ -2,6 +2,7 @@ using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Catalog.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
+using ComunaClick.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -39,8 +40,20 @@ public sealed class ProfessionalsController : ControllerBase
     [HttpGet("/v1/partners/{partnerId:guid}/professionals")]
     public async Task<ActionResult<IEnumerable<Professional>>> ListByPartner(Guid partnerId)
     {
-        var scopedPartner = _tenantContext.PartnerId;
-        if (scopedPartner.HasValue && scopedPartner.Value != partnerId)
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            partnerId,
+            _tenantContext.TenantId,
+            _tenantContext.PartnerId,
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.NotFound)
+        {
+            return NotFound();
+        }
+
+        if (access == PartnerAccessResult.Forbidden)
         {
             return Forbid();
         }
@@ -51,14 +64,20 @@ public sealed class ProfessionalsController : ControllerBase
             return NotFound();
         }
 
-        var tenantId = _tenantContext.TenantId;
-        if (tenantId.HasValue && partner.TenantId != tenantId.Value)
+        var query = _db.Professionals.AsNoTracking()
+            .Where(x => x.TenantId == partner.TenantId);
+
+        if (!string.IsNullOrWhiteSpace(partner.Email))
         {
-            return Forbid();
+            var partnerEmail = partner.Email.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Email != null && x.Email.ToLower() == partnerEmail);
+        }
+        else
+        {
+            query = query.Where(x => x.Name == partner.Name);
         }
 
-        var professionals = await _db.Professionals.AsNoTracking()
-            .Where(x => x.TenantId == partner.TenantId)
+        var professionals = await query
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
         return Ok(professionals);

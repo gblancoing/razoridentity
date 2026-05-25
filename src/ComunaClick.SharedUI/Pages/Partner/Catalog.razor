@@ -6,6 +6,9 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject NavigationManager Navigation
+@using ComunaClick.SharedUI.Services.Partner
 @implements IDisposable
 @using PartnerProduct = ComunaClick.Shared.Api.Partner.Product
 @using PartnerService = ComunaClick.Shared.Api.Partner.Service
@@ -20,11 +23,160 @@
             <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@HeadingTitle</h1>
             <p class="mt-2 text-sm text-[#595c5d]">@HeadingSubtitle</p>
         </div>
-        <a href="/partner/quickstart" class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]">
-            <span class="material-symbols-outlined text-[20px]">add_circle</span>
-            @CreateCtaLabel
-        </a>
+        <div class="flex flex-wrap gap-3">
+            <button type="button"
+                    class="inline-flex items-center gap-2 bg-gradient-to-br from-[#3b6700] to-[#335900] text-[#d9ffad] px-6 py-3 rounded-2xl font-bold text-sm shadow-[0_18px_32px_-20px_rgba(59,103,0,0.8)]"
+                    @onclick="ToggleCreatePanel">
+                <span class="material-symbols-outlined text-[20px]">@(_showCreatePanel ? "close" : "add_circle")</span>
+                @(_showCreatePanel ? L.T("partner.catalog.create.hide") : L.T("partner.catalog.create.toggle"))
+            </button>
+            @if (_partner is not null)
+            {
+                <PartnerPublicPreviewLink Href="@($"/buyer/detail/partner/{_partner.Id}")" Label="@L.T("partner.catalog.preview.company")" />
+            }
+        </div>
     </header>
+
+    @if (_showCreatePanel && _partner is not null)
+    {
+        <section class="rounded-3xl border border-[#3b6700]/30 bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+            <div>
+                <h2 class="text-xl font-black text-[#2c2f30]">@L.T("partner.catalog.create.title")</h2>
+                <p class="mt-1 text-sm text-[#61897c]">@L.T("partner.catalog.create.subtitle")</p>
+            </div>
+
+            @if (IsProductPartner)
+            {
+                <EditForm Model="_createProduct" OnValidSubmit="CreateProductAsync">
+                    <DataAnnotationsValidator />
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.name.label")"
+                                               Tooltip="@L.T("partner.quickstart.service.name.tooltip")"
+                                               Help="Nombre del producto que verán en la vitrina (ej. Cemento 25 kg, Kit herramientas).">
+                                    <input class="@InputClass" @bind="_createProduct.Name" />
+                                    <ValidationMessage For="@(() => _createProduct.Name)" class="text-xs text-red-500" />
+                                </FormFieldHelp>
+                            </div>
+                            <div class="md:col-span-2">
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.description.label")"
+                                               Help="@L.T("partner.quickstart.service.description.help")">
+                                    <textarea class="@TextAreaClass" @bind="_createProduct.Description" rows="3"></textarea>
+                                </FormFieldHelp>
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold">Categoría catálogo</label>
+                                <select class="@InputClass" value="@(_createProduct.CategoryId?.ToString() ?? "")" @onchange="OnCreateProductCategoryChangedAsync">
+                                    <option value="">Seleccioná categoría</option>
+                                    @foreach (var cat in _productCategories)
+                                    {
+                                        <option value="@cat.Id">@cat.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold">Subcategoría</label>
+                                <select class="@InputClass" value="@(_createProduct.SubcategoryId?.ToString() ?? "")" @onchange="OnCreateProductSubcategoryChanged">
+                                    <option value="">Seleccioná subcategoría</option>
+                                    @foreach (var sub in _productSubcategories)
+                                    {
+                                        <option value="@sub.Id">@sub.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.price.label")" Help="@L.T("partner.quickstart.service.price.help")">
+                                    <input type="number" step="1" min="0" class="@InputClass" @bind="_createProduct.Price" />
+                                </FormFieldHelp>
+                            </div>
+                            <div>
+                                <label class="text-sm font-semibold">Stock inicial</label>
+                                <input type="number" min="0" class="@InputClass" @bind="_createProduct.StockQuantity" />
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="text-sm font-semibold">Foto (URL)</label>
+                                <input class="@InputClass" @bind="_createProduct.ImageUrl" placeholder="https://..." />
+                            </div>
+                            <div class="md:col-span-2">
+                                <button type="submit" class="@PrimaryButtonClass" disabled="@_isCreating">
+                                    @(_isCreating ? L.T("partner.quickstart.service.submitting") : L.T("partner.catalog.create.product"))
+                                </button>
+                            </div>
+                        </div>
+                        <PartnerOfferPreviewCard IsProduct="true"
+                                                 Name="@_createProduct.Name"
+                                                 Description="@_createProduct.Description"
+                                                 Category="@CreateProductCategoryLabel"
+                                                 Price="@_createProduct.Price"
+                                                 ImageUrl="@_createProduct.ImageUrl"
+                                                 CompanyName="@_partner.Name" />
+                    </div>
+                </EditForm>
+            }
+            else if (IsServicePartner)
+            {
+                <EditForm Model="_createService" OnValidSubmit="CreateServiceAsync">
+                    <DataAnnotationsValidator />
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.name.label")"
+                                               Tooltip="@L.T("partner.quickstart.service.name.tooltip")"
+                                               Help="@L.T("partner.quickstart.service.name.help")">
+                                    <input class="@InputClass" @bind="_createService.Name" placeholder="Ej. Supervisión de obra" />
+                                    <ValidationMessage For="@(() => _createService.Name)" class="text-xs text-red-500" />
+                                </FormFieldHelp>
+                            </div>
+                            <div class="md:col-span-2">
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.description.label")"
+                                               Help="@L.T("partner.quickstart.service.description.help")">
+                                    <textarea class="@TextAreaClass" @bind="_createService.Description" rows="3"></textarea>
+                                </FormFieldHelp>
+                            </div>
+                            <div class="md:col-span-2">
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.category.label")"
+                                               Tooltip="@L.T("partner.quickstart.service.category.tooltip")"
+                                               Help="@L.T("partner.quickstart.service.category.help")">
+                                    <input class="@InputClass" list="catalog-service-categories" @bind="_createService.Category"
+                                           placeholder="@L.T("partner.quickstart.service.category.placeholder")" />
+                                    <datalist id="catalog-service-categories">
+                                        @foreach (var s in _serviceCategorySuggestions)
+                                        {
+                                            <option value="@s"></option>
+                                        }
+                                    </datalist>
+                                </FormFieldHelp>
+                            </div>
+                            <div>
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.duration.label")"
+                                               Tooltip="@L.T("partner.quickstart.service.duration.tooltip")"
+                                               Help="@L.T("partner.quickstart.service.duration.help")">
+                                    <input type="number" step="5" min="15" class="@InputClass" @bind="_createService.DurationMinutes" />
+                                </FormFieldHelp>
+                            </div>
+                            <div>
+                                <FormFieldHelp Label="@L.T("partner.quickstart.service.price.label")" Help="@L.T("partner.quickstart.service.price.help")">
+                                    <input type="number" step="1" min="0" class="@InputClass" @bind="_createService.Price" />
+                                </FormFieldHelp>
+                            </div>
+                            <div class="md:col-span-2">
+                                <button type="submit" class="@PrimaryButtonClass" disabled="@_isCreating">
+                                    @(_isCreating ? L.T("partner.quickstart.service.submitting") : L.T("partner.catalog.create.service"))
+                                </button>
+                            </div>
+                        </div>
+                        <PartnerOfferPreviewCard Name="@_createService.Name"
+                                                 Description="@_createService.Description"
+                                                 Category="@_createService.Category"
+                                                 Price="@_createService.Price"
+                                                 DurationMinutes="@_createService.DurationMinutes"
+                                                 CompanyName="@_partner.Name" />
+                    </div>
+                </EditForm>
+            }
+        </section>
+    }
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
@@ -110,6 +262,7 @@
                         </div>
 
                         <div class="flex flex-wrap gap-3">
+                            <PartnerPublicPreviewLink Href="@($"/buyer/detail/product/{item.Id}")" Label="@L.T("partner.catalog.preview.item")" />
                             <button class="@PrimaryButtonClass" @onclick="() => BeginEditProduct(item)" disabled="@IsBusy(item.Id)">
                                 <span class="material-symbols-outlined text-[18px]">edit</span>
                                 Editar
@@ -195,6 +348,7 @@
                         </div>
 
                         <div class="flex flex-wrap gap-3">
+                            <PartnerPublicPreviewLink Href="@($"/buyer/detail/service/{item.Id}")" Label="@L.T("partner.catalog.preview.item")" />
                             <button class="@PrimaryButtonClass" @onclick="() => BeginEditService(item)" disabled="@IsBusy(item.Id)">
                                 <span class="material-symbols-outlined text-[18px]">edit</span>
                                 Editar
@@ -209,39 +363,61 @@
                         {
                             <EditForm Model="_serviceEditor" OnValidSubmit="SaveServiceAsync">
                                 <DataAnnotationsValidator />
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f5f6f7] rounded-3xl p-5">
-                                    <div class="md:col-span-2">
-                                        <label class="text-sm font-semibold text-[#2c2f30]">Nombre</label>
-                                        <input class="@InputClass" @bind="_serviceEditor.Name" />
-                                        <ValidationMessage For="@(() => _serviceEditor.Name)" class="text-xs text-red-500" />
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f5f6f7] rounded-3xl p-5">
+                                        <div class="md:col-span-2">
+                                            <FormFieldHelp Label="@L.T("partner.quickstart.service.name.label")" Help="@L.T("partner.quickstart.service.name.help")">
+                                                <input class="@InputClass" @bind="_serviceEditor.Name" />
+                                                <ValidationMessage For="@(() => _serviceEditor.Name)" class="text-xs text-red-500" />
+                                            </FormFieldHelp>
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <FormFieldHelp Label="@L.T("partner.quickstart.service.description.label")" Help="@L.T("partner.quickstart.service.description.help")">
+                                                <textarea class="@TextAreaClass" @bind="_serviceEditor.Description"></textarea>
+                                            </FormFieldHelp>
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <FormFieldHelp Label="@L.T("partner.quickstart.service.category.label")"
+                                                           Tooltip="@L.T("partner.quickstart.service.category.tooltip")"
+                                                           Help="@L.T("partner.quickstart.service.category.help")">
+                                                <input class="@InputClass" list="catalog-service-categories-edit" @bind="_serviceEditor.Category" />
+                                                <datalist id="catalog-service-categories-edit">
+                                                    @foreach (var s in _serviceCategorySuggestions)
+                                                    {
+                                                        <option value="@s"></option>
+                                                    }
+                                                </datalist>
+                                            </FormFieldHelp>
+                                        </div>
+                                        <div>
+                                            <FormFieldHelp Label="@L.T("partner.quickstart.service.duration.label")" Help="@L.T("partner.quickstart.service.duration.help")">
+                                                <input type="number" step="5" min="15" class="@InputClass" @bind="_serviceEditor.DurationMinutes" />
+                                                <ValidationMessage For="@(() => _serviceEditor.DurationMinutes)" class="text-xs text-red-500" />
+                                            </FormFieldHelp>
+                                        </div>
+                                        <div>
+                                            <FormFieldHelp Label="@L.T("partner.quickstart.service.price.label")" Help="@L.T("partner.quickstart.service.price.help")">
+                                                <input type="number" step="1" min="0" class="@InputClass" @bind="_serviceEditor.Price" />
+                                                <ValidationMessage For="@(() => _serviceEditor.Price)" class="text-xs text-red-500" />
+                                            </FormFieldHelp>
+                                        </div>
+                                        <div class="md:col-span-2 flex flex-wrap gap-3">
+                                            <button type="submit" class="@PrimaryButtonClass" disabled="@IsBusy(item.Id)">
+                                                <span class="material-symbols-outlined text-[18px]">save</span>
+                                                Guardar cambios
+                                            </button>
+                                            <button type="button" class="@GhostButtonClass" @onclick="CancelEdit">
+                                                Cancelar
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="md:col-span-2">
-                                        <label class="text-sm font-semibold text-[#2c2f30]">Descripcion</label>
-                                        <textarea class="@TextAreaClass" @bind="_serviceEditor.Description"></textarea>
-                                    </div>
-                                    <div>
-                                        <label class="text-sm font-semibold text-[#2c2f30]">Categoria</label>
-                                        <input class="@InputClass" @bind="_serviceEditor.Category" />
-                                    </div>
-                                    <div>
-                                        <label class="text-sm font-semibold text-[#2c2f30]">Duracion (min)</label>
-                                        <input type="number" step="5" min="15" class="@InputClass" @bind="_serviceEditor.DurationMinutes" />
-                                        <ValidationMessage For="@(() => _serviceEditor.DurationMinutes)" class="text-xs text-red-500" />
-                                    </div>
-                                    <div>
-                                        <label class="text-sm font-semibold text-[#2c2f30]">Precio</label>
-                                        <input type="number" step="1" min="0" class="@InputClass" @bind="_serviceEditor.Price" />
-                                        <ValidationMessage For="@(() => _serviceEditor.Price)" class="text-xs text-red-500" />
-                                    </div>
-                                    <div class="md:col-span-2 flex flex-wrap gap-3">
-                                        <button type="submit" class="@PrimaryButtonClass" disabled="@IsBusy(item.Id)">
-                                            <span class="material-symbols-outlined text-[18px]">save</span>
-                                            Guardar cambios
-                                        </button>
-                                        <button type="button" class="@GhostButtonClass" @onclick="CancelEdit">
-                                            Cancelar
-                                        </button>
-                                    </div>
+                                    <PartnerOfferPreviewCard Name="@_serviceEditor.Name"
+                                                             Description="@_serviceEditor.Description"
+                                                             Category="@_serviceEditor.Category"
+                                                             Price="@_serviceEditor.Price"
+                                                             DurationMinutes="@_serviceEditor.DurationMinutes"
+                                                             CompanyName="@_partner?.Name"
+                                                             PublicHref="@($"/buyer/detail/service/{item.Id}")" />
                                 </div>
                             </EditForm>
                         }
@@ -343,6 +519,13 @@
     private readonly ProductEditor _productEditor = new();
     private readonly ServiceEditor _serviceEditor = new();
     private readonly ProfessionalEditor _professionalEditor = new();
+    private readonly ProductEditor _createProduct = new();
+    private readonly ServiceEditor _createService = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _productCategories = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicSubcategoryItem> _productSubcategories = new();
+    private readonly List<string> _serviceCategorySuggestions = new();
+    private bool _showCreatePanel;
+    private bool _isCreating;
 
     private bool IsProductPartner => string.Equals(_partner?.Type, "A", StringComparison.OrdinalIgnoreCase);
     private bool IsServicePartner => string.Equals(_partner?.Type, "B", StringComparison.OrdinalIgnoreCase);
@@ -399,10 +582,10 @@
             return;
         }
 
-        var partnerId = AuthState.PartnerId;
+        var partnerId = await PartnerApiServiceHelper.ResolvePartnerIdAsync(AuthState, PartnerApi, CancellationToken.None);
         if (partnerId is null || partnerId == Guid.Empty)
         {
-            _statusMessage = "No encontramos un negocio activo en tu sesion.";
+            _statusMessage = "No encontramos un negocio activo en tu sesion. Entra desde Mis negocios o crea uno.";
             _isLoading = false;
             return;
         }
@@ -428,6 +611,9 @@
                     _products.AddRange(products);
                 }
 
+                await LoadProductCategoriesAsync();
+                ApplyDefaultCreateProductCategory();
+
                 _statusMessage = _products.Count == 0
                     ? "Completa tu primer producto para empezar a publicar y vender."
                     : "Tu catalogo de productos ya se puede editar, activar o pausar desde aqui.";
@@ -439,6 +625,9 @@
                 {
                     _services.AddRange(services);
                 }
+
+                await LoadServiceCategorySuggestionsAsync();
+                ApplyDefaultCreateServiceCategory();
 
                 _statusMessage = _services.Count == 0
                     ? "Completa tu primer servicio para empezar a recibir reservas."
@@ -468,6 +657,216 @@
         catch (HttpRequestException ex)
         {
             _statusMessage = $"No se pudo cargar el catalogo ({(int?)ex.StatusCode ?? 0}).";
+        }
+    }
+
+    private void ToggleCreatePanel() => _showCreatePanel = !_showCreatePanel;
+
+    private string? CreateProductCategoryLabel
+    {
+        get
+        {
+            if (_createProduct.SubcategoryId is Guid subId)
+            {
+                var sub = _productSubcategories.FirstOrDefault(x => x.Id == subId);
+                if (sub is not null)
+                {
+                    return sub.Name;
+                }
+            }
+
+            if (_createProduct.CategoryId is Guid catId)
+            {
+                return _productCategories.FirstOrDefault(x => x.Id == catId)?.Name;
+            }
+
+            return null;
+        }
+    }
+
+    private async Task LoadProductCategoriesAsync()
+    {
+        _productCategories.Clear();
+        var items = await BuyerApi.GetProductCategoriesAsync();
+        if (items is not null)
+        {
+            _productCategories.AddRange(items);
+        }
+    }
+
+    private async Task LoadProductSubcategoriesAsync(Guid categoryId)
+    {
+        _productSubcategories.Clear();
+        var items = await BuyerApi.GetProductSubcategoriesAsync(categoryId);
+        if (items is not null)
+        {
+            _productSubcategories.AddRange(items);
+        }
+    }
+
+    private void ApplyDefaultCreateProductCategory()
+    {
+        if (_partner?.CategoryId is Guid categoryId && categoryId != Guid.Empty)
+        {
+            _createProduct.CategoryId = categoryId;
+            _ = LoadProductSubcategoriesAsync(categoryId);
+            if (_partner.SubcategoryId is Guid subcategoryId && subcategoryId != Guid.Empty)
+            {
+                _createProduct.SubcategoryId = subcategoryId;
+            }
+        }
+    }
+
+    private async Task OnCreateProductCategoryChangedAsync(ChangeEventArgs args)
+    {
+        _createProduct.CategoryId = Guid.TryParse(args.Value?.ToString(), out var id) ? id : null;
+        _createProduct.SubcategoryId = null;
+        _productSubcategories.Clear();
+        if (_createProduct.CategoryId.HasValue)
+        {
+            await LoadProductSubcategoriesAsync(_createProduct.CategoryId.Value);
+        }
+    }
+
+    private void OnCreateProductSubcategoryChanged(ChangeEventArgs args)
+    {
+        _createProduct.SubcategoryId = Guid.TryParse(args.Value?.ToString(), out var id) ? id : null;
+    }
+
+    private async Task LoadServiceCategorySuggestionsAsync()
+    {
+        _serviceCategorySuggestions.Clear();
+        try
+        {
+            var items = await BuyerApi.GetServiceCategoriesAsync();
+            if (items is not null)
+            {
+                foreach (var item in items)
+                {
+                    if (!string.IsNullOrWhiteSpace(item.Name))
+                    {
+                        _serviceCategorySuggestions.Add(item.Name.Trim());
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        var company = PartnerCompanyCategoryLabel;
+        if (!string.IsNullOrWhiteSpace(company) && !_serviceCategorySuggestions.Contains(company, StringComparer.OrdinalIgnoreCase))
+        {
+            _serviceCategorySuggestions.Insert(0, company);
+        }
+    }
+
+    private string? PartnerCompanyCategoryLabel
+    {
+        get
+        {
+            if (_partner is null)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_partner.SubcategoryName) && !string.IsNullOrWhiteSpace(_partner.CategoryName))
+            {
+                return $"{_partner.CategoryName} · {_partner.SubcategoryName}";
+            }
+
+            return _partner.SubcategoryName ?? _partner.CategoryName;
+        }
+    }
+
+    private void ApplyDefaultCreateServiceCategory()
+    {
+        if (string.IsNullOrWhiteSpace(_createService.Category))
+        {
+            _createService.Category = PartnerCompanyCategoryLabel ?? string.Empty;
+        }
+    }
+
+    private async Task CreateProductAsync()
+    {
+        if (_partner is null)
+        {
+            return;
+        }
+
+        _isCreating = true;
+        try
+        {
+            var categoryLabel = CreateProductCategoryLabel;
+            var created = await PartnerApi.CreateProductAsync(new ComunaClick.Shared.Api.Partner.ProductCreateRequest(
+                _partner.Id,
+                _createProduct.Name.Trim(),
+                NullIfWhiteSpace(_createProduct.Description),
+                categoryLabel,
+                NullIfWhiteSpace(_createProduct.ImageUrl),
+                _createProduct.Price,
+                "CLP",
+                true));
+            if (created is not null)
+            {
+                await PartnerApi.UpdateProductInventoryAsync(created.Id, new ComunaClick.Shared.Api.Partner.ProductInventoryUpdateRequest(_createProduct.StockQuantity));
+                _products.Add(created);
+                _statusMessage = "Producto creado. Revisá la vista previa pública.";
+                _createProduct.Name = string.Empty;
+                _createProduct.Description = null;
+                _createProduct.ImageUrl = null;
+                _createProduct.Price = 0;
+                _createProduct.StockQuantity = 0;
+                ApplyDefaultCreateProductCategory();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo crear el producto ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private async Task CreateServiceAsync()
+    {
+        if (_partner is null)
+        {
+            return;
+        }
+
+        _isCreating = true;
+        try
+        {
+            var created = await PartnerApi.CreateServiceAsync(new ComunaClick.Shared.Api.Partner.ServiceCreateRequest(
+                _partner.Id,
+                _createService.Name.Trim(),
+                NullIfWhiteSpace(_createService.Description),
+                NullIfWhiteSpace(_createService.Category),
+                _createService.Price,
+                "CLP",
+                _createService.DurationMinutes,
+                true));
+            if (created is not null)
+            {
+                _services.Add(created);
+                _statusMessage = "Servicio creado. Usá «Vista previa» para ver la ficha pública.";
+                _createService.Name = string.Empty;
+                _createService.Description = null;
+                _createService.Price = 0;
+                _createService.DurationMinutes = 60;
+                ApplyDefaultCreateServiceCategory();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudo crear el servicio ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _isCreating = false;
         }
     }
 
@@ -748,6 +1147,7 @@
 
     private static string Money(double value) => $"${value:N0}";
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private void HandleChange()
     {
@@ -764,9 +1164,11 @@
         [Required] public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? Category { get; set; }
+        public Guid? CategoryId { get; set; }
+        public Guid? SubcategoryId { get; set; }
         public string? ImageUrl { get; set; }
         [Range(0, int.MaxValue)] public int StockQuantity { get; set; }
-        [Range(0.01, 999999999)] public double Price { get; set; }
+        [Range(0, 999999999)] public double Price { get; set; }
     }
 
     private sealed class ServiceEditor
@@ -774,8 +1176,8 @@
         [Required] public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? Category { get; set; }
-        [Range(0.01, 999999999)] public double Price { get; set; }
-        [Range(15, 1440)] public int DurationMinutes { get; set; } = 30;
+        [Range(0, 999999999)] public double Price { get; set; }
+        [Range(15, 1440)] public int DurationMinutes { get; set; } = 60;
     }
 
     private sealed class ProfessionalEditor : IValidatableObject

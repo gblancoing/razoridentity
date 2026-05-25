@@ -16,7 +16,9 @@
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <div class="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
             <section class="order-1 rounded-[1.75rem] border border-[#dbe6e2] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#1a2e28] sm:p-8 lg:order-2 lg:col-span-7">
-                <div class="mb-6">
+                <RegistrationWizardProgress Flow="@_role" CurrentStep="1" TotalSteps="3" />
+
+                <div class="mb-6 mt-6">
                     <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3b6700] dark:text-primary">@L.T("registerAccount.form.eyebrow")</p>
                     <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#111816] dark:text-white">@FormTitle</h2>
                     <p class="mt-2 text-sm leading-relaxed text-[#61897c]">@FormDescription</p>
@@ -43,7 +45,8 @@
                                     @if (IsNatural)
                                     {
                                         <button type="button"
-                                                class="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] transition hover:bg-gray-50 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
+                                                disabled
+                                                class="flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] opacity-60 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
                                                 @onclick='@(() => ShowSocialInfo("Facebook"))'>
                                             <svg class="h-5 w-6 shrink-0" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
                                                 <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
@@ -53,7 +56,8 @@
                                     }
                                     <button type="button"
                                             class="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] transition hover:bg-gray-50 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
-                                            @onclick='@(() => ShowSocialInfo("Google"))'>
+                                            disabled="@_isSubmitting"
+                                            @onclick="HandleGoogleSignInAsync">
                                         <svg class="h-5 w-6 shrink-0" viewBox="0 0 48 48" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
                                             <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.48 32.905 28.075 36 22 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
                                             <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
@@ -65,7 +69,8 @@
                                     @if (IsProfessional)
                                     {
                                         <button type="button"
-                                                class="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] transition hover:bg-gray-50 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
+                                                disabled
+                                                class="flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-[#dbe6e2] bg-white text-sm font-semibold text-[#111816] opacity-60 dark:border-white/20 dark:bg-[#1a2e28] dark:text-white"
                                                 @onclick='@(() => ShowSocialInfo("LinkedIn"))'>
                                             <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
                                                 <path fill="#0A66C2" d="M20.5 2h-17A1.5 1.5 0 0 0 2 3.5v17A1.5 1.5 0 0 0 3.5 22h17a1.5 1.5 0 0 0 1.5-1.5v-17A1.5 1.5 0 0 0 20.5 2zM8 19H5V9h3v10zM6.5 7.5A1.75 1.75 0 1 1 8.2 5.7a1.75 1.75 0 0 1-1.7 1.8zM19 19h-3v-5.2c0-1.24-.45-2.1-1.6-2.1a1.7 1.7 0 0 0-1.6 1.1 2.1 2.1 0 0 0-.1.8V19H9.5s.1-8.1 0-9H12v1.2a3.1 3.1 0 0 1 2.8-1.5c2 0 3.2 1.2 3.2 3.6V19z" />
@@ -130,20 +135,6 @@
                                     }
                                 </button>
                             </div>
-
-                            <div class="relative flex py-2 items-center">
-                                <div class="flex-grow border-t border-[#dbe6e2] dark:border-white/10"></div>
-                                <span class="flex-shrink mx-4 text-[#61897c] text-xs uppercase">o continuar con</span>
-                                <div class="flex-grow border-t border-[#dbe6e2] dark:border-white/10"></div>
-                            </div>
-
-                            <button type="button"
-                                    class="w-full inline-flex items-center justify-center gap-2 h-12 border border-[#dbe6e2] dark:border-white/10 rounded-xl bg-white dark:bg-[#10221c] hover:bg-gray-50 dark:hover:bg-[#123028] transition-colors disabled:opacity-60"
-                                    disabled="@_isSubmitting"
-                                    @onclick="HandleGoogleSignInAsync">
-                                <span class="material-symbols-outlined text-red-500">google</span>
-                                <span class="font-semibold text-[#111816] dark:text-white">Registrarme con Google</span>
-                            </button>
                         </div>
                     </EditForm>
                 }
@@ -370,12 +361,11 @@
             {
                 if (IsPartnerPath)
                 {
-                    Navigation.NavigateTo(PartnerOnboardingPath(), true);
+                    Navigation.NavigateTo(RegistrationFlow.PartnerOnboardingPath(_role), true);
                 }
                 else
                 {
-                    var destination = ResolveAuthenticatedDestination(AuthState.IsPersonalAccount, _returnUrl);
-                    Navigation.NavigateTo(destination, true);
+                    Navigation.NavigateTo(RegistrationFlow.BuildBuyerCompletePath(_returnUrl), true);
                 }
                 return;
             }
@@ -454,10 +444,8 @@
                 recaptchaToken));
 
             await AuthState.SetTokensAsync(tokens);
-            var destination = IsPartnerPath
-                ? PartnerOnboardingPath()
-                : ResolveBuyerDestination(_returnUrl);
-            Navigation.NavigateTo(destination, true);
+            await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", _role);
+            Navigation.NavigateTo(RegistrationFlow.ResolvePostAuthDestination(_role, _returnUrl), true);
         }
         catch (Exception ex)
         {
@@ -469,11 +457,6 @@
             _isSubmitting = false;
         }
     }
-
-    private string PartnerOnboardingPath()
-        => IsCommerce
-            ? "/register/business?defaultType=A"
-            : "/register/business?defaultType=C";
 
     private string ReadRole()
     {
@@ -544,19 +527,6 @@
         return null;
     }
 
-    private static string ResolveBuyerDestination(string? returnUrl)
-    {
-        if (!string.IsNullOrWhiteSpace(returnUrl) && !returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
-        {
-            return returnUrl;
-        }
-
-        return "/categorias";
-    }
-
-    private static string ResolveAuthenticatedDestination(bool isPersonalAccount, string? returnUrl)
-        => isPersonalAccount ? ResolveBuyerDestination(returnUrl) : "/my-businesses";
-
     private string GetRoleCardClass(string role)
     {
         var isActive = string.Equals(_role, role, StringComparison.OrdinalIgnoreCase);
@@ -579,12 +549,24 @@
 
     private async Task HandleGoogleSignInAsync()
     {
+        if (!_model.AcceptFlow)
+        {
+            _statusLevel = "warning";
+            _statusMessage = IsCommerce
+                ? "Debes confirmar que continuarás con el registro de tu comercio."
+                : IsProfessional
+                    ? "Debes confirmar que continuarás con el perfil profesional."
+                    : "Debes confirmar que deseas una cuenta de persona natural.";
+            return;
+        }
+
         _statusLevel = "info";
         _statusMessage = null;
 
         try
         {
             var callbackUrl = Navigation.ToAbsoluteUri(Navigation.Uri).GetLeftPart(UriPartial.Path) + Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+            await JSRuntime.InvokeVoidAsync("comunaclic.setRegisterIntent", _role, _returnUrl ?? string.Empty);
             await JSRuntime.InvokeVoidAsync("comunaclic.beginGoogleSignIn", callbackUrl);
         }
         catch (Exception ex)
@@ -609,15 +591,19 @@
 
         try
         {
+            var options = ApiOptions.Value;
             var tokens = await AuthClient.LoginExternalAsync(new ComunaClick.Shared.Auth.ExternalLoginRequest(
                 ComunaClick.Shared.Auth.ExternalProvider.Google,
                 idToken,
-                TenantId: null,
+                TenantId: options.DefaultTenantId,
                 PartnerId: null));
             await AuthState.SetTokensAsync(tokens);
-            var destination = IsPartnerPath
-                ? "/register/business"
-                : "/buyer";
+
+            var intent = await JSRuntime.InvokeAsync<RegisterIntentDto?>("comunaclic.consumeRegisterIntent");
+            var role = RegistrationFlow.NormalizeRole(intent?.Role ?? _role);
+            await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", role);
+            var returnUrl = !string.IsNullOrWhiteSpace(intent?.ReturnUrl) ? intent.ReturnUrl : _returnUrl;
+            var destination = RegistrationFlow.ResolvePostAuthDestination(role, returnUrl);
             Navigation.NavigateTo(destination, true);
             return true;
         }

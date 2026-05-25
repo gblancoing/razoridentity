@@ -21,7 +21,15 @@ builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "ComunaClick API (negocio, catálogo, marketplace)",
+        Version = "v1",
+        Description = "http://localhost:5277 — backend principal de la app."
+    });
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddCors(options =>
@@ -148,7 +156,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "ComunaClick API — Swagger";
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "ComunaClick API v1");
+    });
 }
 else
 {
@@ -156,7 +168,10 @@ else
 }
 
 app.UseForwardedHeaders();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsRoot);
 app.UseStaticFiles(new StaticFileOptions

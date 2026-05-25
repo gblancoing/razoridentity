@@ -841,7 +841,9 @@
         _partnerProfile = await BuyerApi.GetPartnerProfileAsync(id);
         if (_partnerProfile is null)
         {
-            _errorMessage = "Negocio no encontrado o no disponible públicamente.";
+            _errorMessage = AuthState.IsAuthenticated
+                ? "Negocio no encontrado o no tenés permiso para ver esta ficha. Si aún no publicaste, usá «Vista previa» desde tu perfil Empresa."
+                : "Negocio no encontrado o no está publicado en el portal.";
             return;
         }
 

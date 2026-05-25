@@ -186,7 +186,9 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.ImageUrl).HasColumnName("image_url");
             entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
             entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CatalogScope).HasColumnName("catalog_scope").HasMaxLength(32).HasDefaultValue("commerce");
             entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.CatalogScope);
         });
 
         modelBuilder.Entity<ProductSubcategory>(entity =>

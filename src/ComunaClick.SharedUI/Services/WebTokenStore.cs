@@ -7,16 +7,27 @@ namespace ComunaClick.SharedUI.Services;
 
 public sealed class WebTokenStore : ITokenStore
 {
-    private const string StorageKey = "comunaclic.tokens";
-    private readonly IJSRuntime _jsRuntime;
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
-    public WebTokenStore(IJSRuntime jsRuntime)
+    private readonly IJSRuntime _jsRuntime;
+    private readonly SessionTokenHolder _sessionTokens;
+
+    public WebTokenStore(IJSRuntime jsRuntime, SessionTokenHolder sessionTokens)
     {
         _jsRuntime = jsRuntime;
+        _sessionTokens = sessionTokens;
     }
 
     public async Task<AuthTokens?> GetAsync(CancellationToken cancellationToken = default)
     {
+        if (_sessionTokens.Current is not null)
+        {
+            return _sessionTokens.Current;
+        }
+
         try
         {
             var json = await _jsRuntime.InvokeAsync<string>("comunaclic.getTokens", cancellationToken);
@@ -25,7 +36,9 @@ public sealed class WebTokenStore : ITokenStore
                 return null;
             }
 
-            return JsonSerializer.Deserialize<AuthTokens>(json);
+            var tokens = JsonSerializer.Deserialize<AuthTokens>(json, JsonOptions);
+            _sessionTokens.Current = tokens;
+            return tokens;
         }
         catch (InvalidOperationException)
         {
@@ -40,6 +53,7 @@ public sealed class WebTokenStore : ITokenStore
 
     public async Task SaveAsync(AuthTokens tokens, CancellationToken cancellationToken = default)
     {
+        _sessionTokens.Current = tokens;
         try
         {
             var json = JsonSerializer.Serialize(tokens);
@@ -55,6 +69,7 @@ public sealed class WebTokenStore : ITokenStore
 
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
+        _sessionTokens.Current = null;
         try
         {
             await _jsRuntime.InvokeVoidAsync("comunaclic.clearTokens", cancellationToken);

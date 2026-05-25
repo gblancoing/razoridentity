@@ -306,10 +306,11 @@
 
         try
         {
+            var options = ApiOptions.Value;
             var tokens = await AuthClient.LoginExternalAsync(new ComunaClick.Shared.Auth.ExternalLoginRequest(
                 ComunaClick.Shared.Auth.ExternalProvider.Google,
                 idToken,
-                TenantId: null,
+                TenantId: options.DefaultTenantId,
                 PartnerId: null));
             await AuthState.SetTokensAsync(tokens);
             var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;

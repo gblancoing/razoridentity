@@ -344,8 +344,11 @@ public sealed class AuthController : ControllerBase
             var hasTenantAccess = tenantAccess.Any(x => x.TenantId == requestedTenantId.Value);
             if (matches.Count == 0 && !hasTenantAccess && !roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase) && !isSuperAdmin)
             {
-                error = Forbid();
-                return false;
+                if (!TryAllowDefaultTenant(requestedTenantId.Value))
+                {
+                    error = Forbid();
+                    return false;
+                }
             }
 
             tenantId = requestedTenantId;
@@ -382,7 +385,24 @@ public sealed class AuthController : ControllerBase
             return false;
         }
 
+        if (!tenantId.HasValue)
+        {
+            tenantId = ResolveDefaultTenantId();
+        }
+
         return true;
+    }
+
+    private Guid? ResolveDefaultTenantId()
+    {
+        var raw = _configuration["Auth:RegisterDefaultTenantId"];
+        return Guid.TryParse(raw, out var tenantId) ? tenantId : null;
+    }
+
+    private bool TryAllowDefaultTenant(Guid requestedTenantId)
+    {
+        var defaultTenant = ResolveDefaultTenantId();
+        return defaultTenant.HasValue && defaultTenant.Value == requestedTenantId;
     }
 
     private async Task<(RefreshToken Token, string RawToken)> IssueRefreshToken(User user, DateTimeOffset now)
@@ -466,6 +486,15 @@ public sealed class AuthController : ControllerBase
             if (role is not null)
             {
                 user.UserRoles.Add(new UserRole { RoleId = role.Id, User = user });
+            }
+
+            if (ResolveDefaultTenantId() is Guid defaultTenantId)
+            {
+                user.TenantAccess.Add(new UserTenantAccess
+                {
+                    User = user,
+                    TenantId = defaultTenantId
+                });
             }
 
             _db.Users.Add(user);

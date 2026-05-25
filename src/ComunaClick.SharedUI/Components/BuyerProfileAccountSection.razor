@@ -1,0 +1,771 @@
+@using System.Net
+@using Microsoft.AspNetCore.Components.Forms
+@using ComunaClick.Shared.Api.Buyer
+@using Microsoft.JSInterop
+@using ComunaClick.SharedUI.Services
+@inject LocaleService L
+@inject AuthStateService AuthState
+@inject ApiSessionService ApiSession
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<section class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+    @if (ShowHeading)
+    {
+        <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30] dark:text-white">@L.T("buyer.profile.heading")</h2>
+        <p class="mt-2 text-sm text-[#61897c]">@L.T("buyer.profile.subtitle")</p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_loadBanner))
+    {
+        <div class="mt-6">
+            <StatusBanner Message="@_loadBanner" Level="@_loadBannerLevel" />
+        </div>
+    }
+
+    @if (!_initialized)
+    {
+        <p class="mt-8 text-sm text-[#61897c]">@L.T("ui.loading")</p>
+    }
+    else
+    {
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="md:col-span-2">
+                <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.name")</label>
+                <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="FullName" />
+            </div>
+            <div>
+                <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.email")</label>
+                <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#eef1f2] px-5 h-14 text-[#595c5d]" @bind="Email" type="email" readonly />
+            </div>
+            <div>
+                <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.phone")</label>
+                <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14 text-[#111816] focus:ring-2 focus:ring-primary" @bind="Phone" type="tel" autocomplete="tel" />
+            </div>
+            <div class="md:col-span-2">
+                <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.avatarPhoto")</label>
+                <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4]">
+                        @if (ShowAvatarImage)
+                        {
+                            <img src="@AvatarImageSrc" alt="" class="h-full w-full object-cover" @onerror="HandleAvatarError" />
+                        }
+                        else
+                        {
+                            <span class="text-2xl font-black text-[#3b6700]">@UserInitial</span>
+                        }
+                    </div>
+                    <div class="flex-1 space-y-2">
+                        <label class="relative inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-[#3b6700] bg-white px-5 py-3 text-sm font-bold text-[#3b6700] hover:bg-[#f0fdf4] transition-colors">
+                            <span class="material-symbols-outlined text-[20px]">photo_library</span>
+                            @(_isUploadingAvatar ? L.T("ui.loading") : L.T("buyer.profile.avatarChoose"))
+                            <InputFile OnChange="OnAvatarFileSelected" accept="image/jpeg,image/png,image/webp,image/gif" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        </label>
+                        <p class="text-xs text-[#61897c]">@L.T("buyer.profile.avatarHint")</p>
+                        @if (!string.IsNullOrWhiteSpace(_avatarUploadMessage))
+                        {
+                            <p class="text-xs font-semibold @(_avatarUploadOk ? "text-[#14532d]" : "text-[#b91c1c]")">@_avatarUploadMessage</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 rounded-2xl border border-[#e8e5dc] bg-[#faf4ea] p-5">
+            <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">@L.T("buyer.profile.address.title")</p>
+            <p class="mt-1 text-sm text-[#61897c]">@L.T("buyer.profile.address.subtitle")</p>
+            <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.country")</label>
+                    <select class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-white px-4 h-14" value="@CountrySelectValue" @onchange="OnCountryChanged">
+                        <option value="">@L.T("buyer.profile.country.placeholder")</option>
+                        @foreach (var country in _countries) { <option value="@country.Id">@country.Name</option> }
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.region")</label>
+                    <select class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-white px-4 h-14 disabled:opacity-50" value="@RegionSelectValue" @onchange="OnRegionChanged" disabled="@(!_countryId.HasValue)">
+                        <option value="">@L.T("buyer.profile.region.placeholder")</option>
+                        @foreach (var region in _regions) { <option value="@region.Id">@region.Name</option> }
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.comuna")</label>
+                    <select class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-white px-4 h-14 disabled:opacity-50" value="@ComunaSelectValue" @onchange="OnComunaChanged" disabled="@(!_regionId.HasValue)">
+                        <option value="">@L.T("buyer.profile.comuna.placeholder")</option>
+                        @foreach (var comuna in _comunas) { <option value="@comuna.Id">@comuna.Name</option> }
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.street")</label>
+                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14"
+                           @bind="AddressStreet" @bind:event="oninput" @bind:after="() => ScheduleAddressCascadeAsync(AddressCascadeLevel.Street)"
+                           placeholder="@L.T("buyer.profile.address.street.placeholder")" />
+                </div>
+                <div>
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.number")</label>
+                    <input class="mt-2 w-full rounded-2xl border border-[#dbe6e2] bg-[#F0FDF4] px-5 h-14"
+                           @bind="AddressNumber" @bind:event="oninput" @bind:after="() => ScheduleAddressCascadeAsync(AddressCascadeLevel.Number)"
+                           placeholder="@L.T("buyer.profile.address.number.placeholder")" />
+                </div>
+            </div>
+            <div class="mt-5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.address.map")</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" @onclick="ToggleMapExpandedAsync"
+                                class="inline-flex items-center gap-1.5 rounded-xl border border-[#dbe6e2] bg-white px-3 py-2 text-xs font-bold text-[#111816] hover:bg-[#f0fdf4]">
+                            <span class="material-symbols-outlined text-[18px]">@(_mapExpanded ? "close_fullscreen" : "open_in_full")</span>
+                            @(_mapExpanded ? L.T("buyer.profile.address.collapseMap") : L.T("buyer.profile.address.expandMap"))
+                        </button>
+                        <button type="button" @onclick="UseMyLocationAsync" disabled="@_isLocating"
+                                class="inline-flex items-center gap-1.5 rounded-xl border border-[#3b6700] bg-white px-3 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f0fdf4] disabled:opacity-60">
+                            <span class="material-symbols-outlined text-[18px]">my_location</span>
+                            @(_isLocating ? L.T("ui.loading") : L.T("buyer.profile.address.useMyLocation"))
+                        </button>
+                    </div>
+                </div>
+                <p class="mt-1 text-xs text-[#61897c]">@L.T("buyer.profile.address.mapHint")</p>
+                @if (!string.IsNullOrWhiteSpace(_geoStatusMessage))
+                {
+                    <p class="mt-2 text-xs font-semibold @(_geoStatusOk ? "text-[#14532d]" : "text-[#b91c1c]")">@_geoStatusMessage</p>
+                }
+                @if (Latitude is double latSaved && Longitude is double lngSaved)
+                {
+                    <p class="mt-1 text-[11px] text-[#61897c]">
+                        @L.T("buyer.profile.address.coordsLabel")
+                        @latSaved.ToString("F5", System.Globalization.CultureInfo.InvariantCulture),
+                        @lngSaved.ToString("F5", System.Globalization.CultureInfo.InvariantCulture)
+                    </p>
+                }
+                <AddressMapFrame Expanded="@_mapExpanded">
+                    <div id="@MapElementId"
+                         class="mt-3 w-full rounded-2xl border border-[#dbe6e2] overflow-hidden z-0 @(_mapExpanded ? "h-[520px] min-h-[520px]" : "h-[280px] min-h-[280px]")"
+                         style="@(_mapExpanded ? "height:520px;min-height:520px;" : "height:280px;min-height:280px;")"></div>
+                </AddressMapFrame>
+            </div>
+        </div>
+
+        <button class="mt-8 inline-flex items-center gap-2 bg-primary text-[#111816] px-6 py-3 rounded-2xl font-bold disabled:opacity-60"
+                type="button" @onclick="HandleSaveAccount" disabled="@_isSavingAccount">
+            <span class="material-symbols-outlined text-[20px]">save</span>
+            @(_isSavingAccount ? L.T("ui.loading") : L.T("buyer.profile.save"))
+        </button>
+        @if (!string.IsNullOrWhiteSpace(_accountStatus))
+        {
+            <div class="mt-4">
+                <StatusBanner Message="@_accountStatus" Level="@_accountStatusLevel" />
+            </div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public bool Active { get; set; } = true;
+    [Parameter] public bool ShowHeading { get; set; } = true;
+    [Parameter] public string MapElementId { get; set; } = "profile-address-map";
+    [Parameter] public EventCallback<BuyerProfileAccountSnapshot> OnProfileChanged { get; set; }
+
+    private bool _initialized;
+    private string CustomerId = string.Empty;
+    private string FullName = string.Empty;
+    private string Email = string.Empty;
+    private string Phone = string.Empty;
+    private string AvatarUrl = string.Empty;
+    private string AddressStreet = string.Empty;
+    private string AddressNumber = string.Empty;
+    private Guid? _countryId;
+    private Guid? _regionId;
+    private Guid? _comunaId;
+    private double? Latitude;
+    private double? Longitude;
+    private IReadOnlyList<PublicCountryItem> _countries = Array.Empty<PublicCountryItem>();
+    private IReadOnlyList<PublicRegionItem> _regions = Array.Empty<PublicRegionItem>();
+    private IReadOnlyList<PublicComunaItem> _comunas = Array.Empty<PublicComunaItem>();
+    private bool _mapInitialized;
+    private bool _mapExpanded;
+    private CancellationTokenSource? _addressGeocodeCts;
+    private bool _isLocating;
+    private bool _geoStatusOk;
+    private string _geoStatusMessage = string.Empty;
+    private DotNetObjectReference<BuyerProfileAccountSection>? _mapRef;
+    private string _accountStatus = string.Empty;
+    private string _accountStatusLevel = "info";
+    private string _loadBanner = string.Empty;
+    private string _loadBannerLevel = "warning";
+    private bool _isSavingAccount;
+    private bool _isUploadingAvatar;
+    private bool _avatarFailed;
+    private bool _avatarUploadOk;
+    private string? _avatarPreviewDataUrl;
+    private string _avatarUploadMessage = string.Empty;
+    private const long MaxAvatarBytes = 4 * 1024 * 1024;
+    private bool _loadStarted;
+
+    public sealed record BuyerProfileAccountSnapshot(
+        string FullName,
+        string Email,
+        string? AvatarUrl,
+        string? Phone,
+        Guid? ComunaId);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_loadStarted)
+        {
+            _loadStarted = true;
+            await LoadAccountAsync();
+            _initialized = true;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        if (Active && _initialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+        else if (!Active && _mapInitialized)
+        {
+            await DestroyAddressMapAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Active && _mapInitialized)
+        {
+            await DestroyAddressMapAsync();
+        }
+        else if (Active && _initialized && !_mapInitialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+    }
+
+    public async Task DestroyMapAsync() => await DestroyAddressMapAsync();
+
+    private Guid? ResolveTenantId()
+    {
+        var tid = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
+        return tid is { } g && g != Guid.Empty ? g : null;
+    }
+
+    private string CountrySelectValue => _countryId?.ToString() ?? string.Empty;
+    private string RegionSelectValue => _regionId?.ToString() ?? string.Empty;
+    private string ComunaSelectValue => _comunaId?.ToString() ?? string.Empty;
+
+    private string AvatarImageSrc
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(_avatarPreviewDataUrl))
+                return _avatarPreviewDataUrl;
+            return ResolveAvatarUrl(AvatarUrl);
+        }
+    }
+
+    private bool ShowAvatarImage => !_avatarFailed && !string.IsNullOrWhiteSpace(AvatarImageSrc);
+
+    private string UserInitial => string.IsNullOrWhiteSpace(FullName)
+        ? "C"
+        : FullName.Trim()[0].ToString().ToUpperInvariant();
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError)) return null;
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException) { }
+        return null;
+    }
+
+    private string ResolveAvatarUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+        var trimmed = url.Trim();
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            return trimmed;
+        if (trimmed.StartsWith('/'))
+            return $"{ApiOptions.Value.ApiBaseUrl.TrimEnd('/')}{trimmed}";
+        return trimmed;
+    }
+
+    private async Task LoadAccountAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(AuthState.DisplayName) && string.IsNullOrWhiteSpace(FullName))
+            FullName = AuthState.DisplayName!;
+        if (!string.IsNullOrWhiteSpace(AuthState.Email))
+            Email = AuthState.Email!;
+
+        try
+        {
+            await LoadCountriesAsync();
+            var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+            if (!string.IsNullOrWhiteSpace(storedCustomerId))
+                CustomerId = storedCustomerId;
+
+            if (!await ApiSession.EnsureReadyAsync())
+            {
+                _loadBanner = L.T("buyer.profile.loginRequired");
+                _loadBannerLevel = "warning";
+                return;
+            }
+
+            var tenantId = ResolveTenantId();
+            if (!tenantId.HasValue)
+            {
+                _loadBanner = L.T("buyer.profile.tenantRequired");
+                _loadBannerLevel = "warning";
+                return;
+            }
+
+            try
+            {
+                var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
+                if (ensured is not null) await ApplyCustomerAsync(ensured);
+                var fresh = await BuyerApi.GetBuyerCustomerAsync(tenantId);
+                if (fresh is not null) await ApplyCustomerAsync(fresh);
+                await LoadGeoListsForCustomerAsync();
+            }
+            catch (HttpRequestException ex)
+            {
+                _loadBanner = ex.StatusCode == HttpStatusCode.Forbidden
+                    ? L.T("buyer.profile.forbidden")
+                    : ex.StatusCode == HttpStatusCode.Unauthorized
+                        ? L.T("buyer.profile.sessionApiFailed")
+                        : L.T("buyer.status.profileFailed");
+                _loadBannerLevel = "error";
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task ApplyCustomerAsync(Customer c)
+    {
+        CustomerId = c.Id.ToString();
+        FullName = c.FullName ?? FullName;
+        Email = c.Email ?? Email;
+        Phone = c.Phone ?? string.Empty;
+        AvatarUrl = c.AvatarUrl ?? string.Empty;
+        _avatarFailed = false;
+        _countryId = c.CountryId;
+        _regionId = c.RegionId;
+        _comunaId = c.ComunaId;
+        (AddressStreet, AddressNumber) = AddressLineFormatter.Split(c.Address);
+        Latitude = c.Latitude;
+        Longitude = c.Longitude;
+        await OnProfileChanged.InvokeAsync(new BuyerProfileAccountSnapshot(FullName, Email, AvatarUrl, Phone, _comunaId));
+    }
+
+    private async Task LoadGeoListsForCustomerAsync()
+    {
+        if (_countryId is Guid countryId && countryId != Guid.Empty)
+            _regions = await BuyerApi.GetRegionsAsync(countryId) ?? Array.Empty<PublicRegionItem>();
+        if (_regionId is Guid regionId && regionId != Guid.Empty)
+            _comunas = await BuyerApi.GetComunasAsync(regionId) ?? Array.Empty<PublicComunaItem>();
+    }
+
+    private async Task LoadCountriesAsync()
+        => _countries = await BuyerApi.GetCountriesAsync() ?? Array.Empty<PublicCountryItem>();
+
+    private async Task OnCountryChanged(ChangeEventArgs e)
+    {
+        _countryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _regionId = null;
+        _comunaId = null;
+        _regions = _countryId.HasValue
+            ? await BuyerApi.GetRegionsAsync(_countryId.Value) ?? Array.Empty<PublicRegionItem>()
+            : Array.Empty<PublicRegionItem>();
+        _comunas = Array.Empty<PublicComunaItem>();
+        await ApplyAddressCascadeAsync(AddressCascadeLevel.Country);
+    }
+
+    private async Task OnRegionChanged(ChangeEventArgs e)
+    {
+        _regionId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _comunaId = null;
+        _comunas = _regionId.HasValue
+            ? await BuyerApi.GetComunasAsync(_regionId.Value) ?? Array.Empty<PublicComunaItem>()
+            : Array.Empty<PublicComunaItem>();
+        await ApplyAddressCascadeAsync(AddressCascadeLevel.Region);
+    }
+
+    private async Task OnComunaChanged(ChangeEventArgs e)
+    {
+        _comunaId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        var level = !string.IsNullOrWhiteSpace(AddressStreet) && AddressStreet.Trim().Length >= 2
+            ? AddressCascadeLevel.Street
+            : AddressCascadeLevel.Comuna;
+        await ApplyAddressCascadeAsync(level);
+    }
+
+    private AddressCascadeContext BuildAddressCascadeContext()
+    {
+        var comuna = _comunas.FirstOrDefault(c => c.Id == _comunaId);
+        var region = _regions.FirstOrDefault(r => r.Id == _regionId);
+        var country = _countries.FirstOrDefault(c => c.Id == _countryId);
+        return new AddressCascadeContext(country?.Name, region?.Name, comuna?.Name, comuna?.Latitude, comuna?.Longitude, AddressStreet, AddressNumber);
+    }
+
+    private async Task ApplyAddressCascadeAsync(AddressCascadeLevel level)
+    {
+        if (!_mapInitialized || level == AddressCascadeLevel.None) return;
+        var result = await AddressMapCascadeHelper.ApplyAsync(JSRuntime, MapElementId, BuildAddressCascadeContext(), level);
+        if (result is not null && AddressMapCascadeHelper.MovesMarker(level))
+        {
+            Latitude = Math.Round(result.Value.Latitude, 6, MidpointRounding.AwayFromZero);
+            Longitude = Math.Round(result.Value.Longitude, 6, MidpointRounding.AwayFromZero);
+        }
+    }
+
+    private async Task ScheduleAddressCascadeAsync(AddressCascadeLevel level)
+    {
+        if (!_mapInitialized) return;
+        var ctx = BuildAddressCascadeContext();
+        if (level == AddressCascadeLevel.Street && (ctx.Street?.Trim().Length ?? 0) < 2) return;
+        if (level == AddressCascadeLevel.Number)
+        {
+            if ((ctx.Street?.Trim().Length ?? 0) < 2) return;
+            if (string.IsNullOrWhiteSpace(ctx.Number))
+            {
+                await ApplyAddressCascadeAsync(AddressCascadeLevel.Street);
+                return;
+            }
+        }
+
+        _addressGeocodeCts?.Cancel();
+        _addressGeocodeCts?.Dispose();
+        _addressGeocodeCts = new CancellationTokenSource();
+        var ct = _addressGeocodeCts.Token;
+        try
+        {
+            await Task.Delay(450, ct);
+            await ApplyAddressCascadeAsync(level);
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    [JSInvokable]
+    public Task OnMapMarkerAdjustStarted()
+    {
+        _addressGeocodeCts?.Cancel();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnMapMarkerDragged(double latitude, double longitude)
+    {
+        Latitude = Math.Round(latitude, 6, MidpointRounding.AwayFromZero);
+        Longitude = Math.Round(longitude, 6, MidpointRounding.AwayFromZero);
+        _geoStatusOk = true;
+        _geoStatusMessage = L.T("buyer.profile.address.manualPin");
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnMapLocationPicked(double latitude, double longitude, string? displayName, string? country, string? state, string? city, string? municipality, string? suburb, string? road, string? houseNumber)
+    {
+        Latitude = latitude;
+        Longitude = longitude;
+        await ApplyGeoFromReverseAsync(displayName, country, state, city, municipality, suburb, road, houseNumber);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplyGeoFromReverseAsync(string? displayName, string? country, string? state, string? city, string? municipality, string? suburb, string? road, string? houseNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(road)) AddressStreet = road.Trim();
+        else if (!string.IsNullOrWhiteSpace(suburb)) AddressStreet = suburb.Trim();
+        if (!string.IsNullOrWhiteSpace(houseNumber)) AddressNumber = houseNumber.Trim();
+        else if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            var split = AddressLineFormatter.Split(displayName);
+            if (string.IsNullOrWhiteSpace(AddressStreet)) AddressStreet = split.Street;
+            if (string.IsNullOrWhiteSpace(AddressNumber)) AddressNumber = split.Number;
+        }
+
+        if (_countries.Count == 0) await LoadCountriesAsync();
+        var countryItem = _countries.FirstOrDefault(c => GeoNamesMatch(c.Name, country) || GeoNamesMatch(c.Code, country));
+        if (countryItem is null) return;
+
+        _countryId = countryItem.Id;
+        _regions = await BuyerApi.GetRegionsAsync(countryItem.Id) ?? Array.Empty<PublicRegionItem>();
+        _regionId = null;
+        _comunaId = null;
+        _comunas = Array.Empty<PublicComunaItem>();
+        if (string.IsNullOrWhiteSpace(state)) return;
+
+        var regionItem = _regions.FirstOrDefault(r => GeoNamesMatch(r.Name, state))
+            ?? _regions.FirstOrDefault(r => GeoNamesContain(r.Name, state));
+        if (regionItem is null) return;
+
+        _regionId = regionItem.Id;
+        _comunas = await BuyerApi.GetComunasAsync(regionItem.Id) ?? Array.Empty<PublicComunaItem>();
+        foreach (var candidate in new[] { city, municipality, suburb, ExtractComunaFromDisplayName(displayName) }.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var comunaItem = _comunas.FirstOrDefault(c => GeoNamesMatch(c.Name, candidate))
+                ?? _comunas.FirstOrDefault(c => GeoNamesContain(c.Name, candidate));
+            if (comunaItem is not null) { _comunaId = comunaItem.Id; break; }
+        }
+    }
+
+    private static string? ExtractComunaFromDisplayName(string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName)) return null;
+        var segments = displayName.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 4 ? segments[3] : null;
+    }
+
+    private static bool GeoNamesMatch(string? left, string? right)
+    {
+        var a = NormalizeGeoName(left);
+        var b = NormalizeGeoName(right);
+        return a.Length > 0 && b.Length > 0 && string.Equals(a, b, StringComparison.Ordinal);
+    }
+
+    private static bool GeoNamesContain(string? haystack, string? needle)
+    {
+        var h = NormalizeGeoName(haystack);
+        var n = NormalizeGeoName(needle);
+        return h.Length > 0 && n.Length > 0 && (h.Contains(n, StringComparison.Ordinal) || n.Contains(h, StringComparison.Ordinal));
+    }
+
+    private static string NormalizeGeoName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace("región ", "", StringComparison.Ordinal)
+            .Replace("region ", "", StringComparison.Ordinal);
+        return string.Concat(normalized.Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray());
+    }
+
+    private async Task TryInitAddressMapAsync()
+    {
+        if (_mapInitialized || !Active || !_initialized) return;
+        try
+        {
+            _mapRef ??= DotNetObjectReference.Create(this);
+            var hasSavedCoords = Latitude.HasValue && Longitude.HasValue;
+            await JSRuntime.InvokeVoidAsync("comunaclic.initProfileAddressPicker", MapElementId, _mapRef, Latitude, Longitude, !hasSavedCoords);
+            _mapInitialized = true;
+            _geoStatusMessage = string.Empty;
+            await ApplyAddressCascadeAsync(AddressMapCascadeHelper.ResolveLevel(BuildAddressCascadeContext()));
+        }
+        catch (JSException ex)
+        {
+            _mapInitialized = false;
+            _geoStatusOk = false;
+            _geoStatusMessage = ex.Message.Contains("profileAddress", StringComparison.OrdinalIgnoreCase)
+                || ex.Message.Contains("initProfileAddressPicker", StringComparison.OrdinalIgnoreCase)
+                ? L.T("buyer.profile.address.mapScriptStale")
+                : ex.Message;
+        }
+    }
+
+    private async Task UseMyLocationAsync()
+    {
+        if (!_mapInitialized) await TryInitAddressMapAsync();
+        _geoStatusMessage = string.Empty;
+        _isLocating = true;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.profileAddressUseCurrentLocation", MapElementId);
+        }
+        catch (JSException ex)
+        {
+            _geoStatusOk = false;
+            _geoStatusMessage = ex.Message;
+            _isLocating = false;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnGeolocationStarted()
+    {
+        _isLocating = true;
+        _geoStatusMessage = L.T("buyer.profile.address.locating");
+        _geoStatusOk = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnGeolocationFinished(bool success, string? message)
+    {
+        _isLocating = false;
+        _geoStatusOk = success;
+        _geoStatusMessage = success
+            ? L.T("buyer.profile.address.located")
+            : string.IsNullOrWhiteSpace(message) ? L.T("buyer.profile.address.locationFailed") : message;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ToggleMapExpandedAsync()
+    {
+        if (!_mapInitialized) await TryInitAddressMapAsync();
+        _mapExpanded = !_mapExpanded;
+        await InvokeAsync(StateHasChanged);
+        await RefreshMapLayoutAfterResizeAsync();
+    }
+
+    private async Task RefreshMapLayoutAfterResizeAsync()
+    {
+        if (!_mapInitialized) return;
+        try
+        {
+            await Task.Delay(30);
+            await JSRuntime.InvokeVoidAsync("comunaclic.invalidateProfileAddressMap", MapElementId);
+            await Task.Delay(250);
+            await JSRuntime.InvokeVoidAsync("comunaclic.invalidateProfileAddressMap", MapElementId);
+        }
+        catch (JSException) { }
+    }
+
+    private async Task<bool> SyncMapCoordinatesFromMarkerAsync()
+    {
+        if (!_mapInitialized) return Latitude.HasValue && Longitude.HasValue;
+        try
+        {
+            var coords = await JSRuntime.InvokeAsync<MapMarkerCoordsDto?>("comunaclic.getProfileAddressMarkerCoords", MapElementId);
+            if (coords is null) return Latitude.HasValue && Longitude.HasValue;
+            Latitude = Math.Round(coords.Latitude, 6, MidpointRounding.AwayFromZero);
+            Longitude = Math.Round(coords.Longitude, 6, MidpointRounding.AwayFromZero);
+            return true;
+        }
+        catch (JSException)
+        {
+            return Latitude.HasValue && Longitude.HasValue;
+        }
+    }
+
+    private async Task DestroyAddressMapAsync()
+    {
+        _mapExpanded = false;
+        try { await JSRuntime.InvokeVoidAsync("comunaclic.destroyProfileAddressPicker", MapElementId); }
+        catch (JSException) { }
+        _mapInitialized = false;
+    }
+
+    private async Task HandleSaveAccount()
+    {
+        _isSavingAccount = true;
+        _accountStatus = string.Empty;
+        if (!AuthState.IsAuthenticated) { _accountStatus = L.T("buyer.profile.loginRequired"); _accountStatusLevel = "warning"; _isSavingAccount = false; return; }
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue) { _accountStatus = L.T("buyer.profile.tenantRequired"); _accountStatusLevel = "error"; _isSavingAccount = false; return; }
+
+        try
+        {
+            if (!Guid.TryParse(CustomerId, out _))
+            {
+                var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
+                if (ensured is null) { _accountStatus = L.T("buyer.status.profileFailed"); _accountStatusLevel = "error"; _isSavingAccount = false; return; }
+                await ApplyCustomerAsync(ensured);
+            }
+
+            await SyncMapCoordinatesFromMarkerAsync();
+            var updated = await BuyerApi.UpdateBuyerCustomerAsync(
+                new CustomerUpdateRequest(
+                    Email.Trim(),
+                    string.IsNullOrWhiteSpace(Phone) ? string.Empty : Phone.Trim(),
+                    string.IsNullOrWhiteSpace(FullName) ? string.Empty : FullName.Trim(),
+                    CountryId: _countryId,
+                    RegionId: _regionId,
+                    ComunaId: _comunaId,
+                    Address: AddressLineFormatter.Combine(AddressStreet, AddressNumber),
+                    Latitude: Latitude,
+                    Longitude: Longitude,
+                    UpdateDeliveryAddress: true),
+                tenantId);
+
+            if (updated is null) { _accountStatus = L.T("buyer.status.profileFailed"); _accountStatusLevel = "error"; }
+            else
+            {
+                await ApplyCustomerAsync(updated);
+                await LoadGeoListsForCustomerAsync();
+                await ApplyAddressCascadeAsync(AddressMapCascadeHelper.ResolveLevel(BuildAddressCascadeContext()));
+                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                _accountStatus = L.T("buyer.status.profileUpdated");
+                _accountStatusLevel = "success";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            var apiMessage = TryExtractApiMessage(ex.Message);
+            _accountStatus = ex.StatusCode switch
+            {
+                HttpStatusCode.BadRequest => apiMessage ?? L.T("buyer.profile.address.invalidGeo"),
+                HttpStatusCode.Unauthorized => L.T("buyer.profile.loginRequired"),
+                HttpStatusCode.Forbidden => L.T("buyer.profile.forbidden"),
+                HttpStatusCode.NotFound => L.T("buyer.profile.accountNotFound"),
+                _ => apiMessage ?? L.T("buyer.status.profileFailed")
+            };
+            _accountStatusLevel = "error";
+        }
+        catch (Exception)
+        {
+            _accountStatus = L.T("buyer.status.profileFailed");
+            _accountStatusLevel = "error";
+        }
+        finally { _isSavingAccount = false; }
+    }
+
+    private async Task OnAvatarFileSelected(InputFileChangeEventArgs e)
+    {
+        _avatarUploadMessage = string.Empty;
+        _avatarUploadOk = false;
+        var file = e.File;
+        if (file.Size > MaxAvatarBytes) { _avatarUploadMessage = L.T("buyer.profile.avatarTooLarge"); return; }
+        if (!AuthState.IsAuthenticated) { _avatarUploadMessage = L.T("buyer.profile.loginRequired"); return; }
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue) { _avatarUploadMessage = L.T("buyer.profile.tenantRequired"); return; }
+
+        _isUploadingAvatar = true;
+        try
+        {
+            await using var readStream = file.OpenReadStream(MaxAvatarBytes);
+            using var buffer = new MemoryStream();
+            await readStream.CopyToAsync(buffer);
+            var bytes = buffer.ToArray();
+            _avatarPreviewDataUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+            _avatarFailed = false;
+            StateHasChanged();
+
+            await using var uploadStream = new MemoryStream(bytes);
+            var updated = await BuyerApi.UploadBuyerCustomerAvatarAsync(uploadStream, file.Name, file.ContentType, tenantId);
+            if (updated is null) { _avatarUploadMessage = L.T("buyer.profile.avatarFailed"); return; }
+            await ApplyCustomerAsync(updated);
+            _avatarPreviewDataUrl = null;
+            _avatarUploadMessage = L.T("buyer.profile.avatarUploaded");
+            _avatarUploadOk = true;
+        }
+        catch (HttpRequestException) { _avatarUploadMessage = L.T("buyer.profile.avatarFailed"); }
+        finally { _isUploadingAvatar = false; }
+    }
+
+    private void HandleAvatarError() => _avatarFailed = true;
+
+    public async ValueTask DisposeAsync()
+    {
+        await DestroyAddressMapAsync();
+        _mapRef?.Dispose();
+    }
+
+    private sealed record MapMarkerCoordsDto(double Latitude, double Longitude);
+}
