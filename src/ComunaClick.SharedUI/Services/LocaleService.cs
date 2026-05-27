@@ -19,6 +19,7 @@ public sealed class LocaleService
         {
             ["nav.help"] = "Centro de ayuda",
             ["nav.register"] = "Registrar negocio",
+            ["nav.registerShort"] = "Registrarse",
             ["nav.login"] = "Ingresar",
             ["nav.logout"] = "Cerrar sesión",
             ["nav.language"] = "Idioma",
