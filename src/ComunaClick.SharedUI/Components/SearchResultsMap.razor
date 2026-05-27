@@ -1,0 +1,139 @@
+@using ComunaClick.SharedUI.Services
+@inject LocaleService L
+@inject IJSRuntime JSRuntime
+@inject UserMapLocationService MapLocation
+@inject ApiMediaUrl MediaUrl
+@implements IAsyncDisposable
+
+<div class="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:px-5">
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#61897c]">
+            @string.Format(L.T("search.page.mapPoints"), _mappableCount)
+        </p>
+        @if (_mappableCount < AllItems.Count)
+        {
+            <p class="text-[11px] font-medium text-amber-800">@L.T("search.page.mapPartial")</p>
+        }
+    </div>
+    @if (_mappableCount == 0)
+    {
+        <div class="px-5 py-10 text-center text-sm text-[#61897c]">@L.T("search.page.mapEmpty")</div>
+    }
+    else
+    {
+        <div id="@_mapElementId"
+             class="relative z-0 h-[min(70vh,520px)] w-full min-h-[280px] bg-[#e8f2ec]"
+             role="region"
+             aria-label="@L.T("search.page.mapAria")"></div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SearchResultItem> AllItems { get; set; } = Array.Empty<SearchResultItem>();
+
+    [Parameter]
+    public GeoFilter? Geo { get; set; }
+
+    [Parameter]
+    public UserMapLocationResult DeviceLocation { get; set; }
+
+    private readonly string _mapElementId = $"search-results-map-{Guid.NewGuid():N}";
+    private bool _mapRendered;
+    private string _itemsSignature = string.Empty;
+    private int _mappableCount;
+
+    protected override void OnParametersSet()
+    {
+        var signature = BuildItemsSignature(AllItems);
+        if (!string.Equals(signature, _itemsSignature, StringComparison.Ordinal))
+        {
+            _itemsSignature = signature;
+            _mapRendered = false;
+        }
+
+        _mappableCount = AllItems.Count(SearchDisplayHelper.HasMapCoordinates);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_mapRendered || _mappableCount == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var userLocation = await ResolveUserLocationAsync();
+            var markers = BuildMarkerPayload();
+            var layerLabels = new { mapa = L.T("map.layer.street"), satelite = L.T("map.layer.satellite") };
+            await JSRuntime.InvokeVoidAsync("comunaclic.renderSearchResultsMap", _mapElementId, userLocation, markers, layerLabels);
+            _mapRendered = true;
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender / SSR: map renders on next pass.
+        }
+    }
+
+    private async Task<object> ResolveUserLocationAsync()
+    {
+        if (DeviceLocation.FromDevice)
+        {
+            return UserMapLocationService.ToMapPayload(DeviceLocation);
+        }
+
+        var fresh = await MapLocation.GetCurrentAsync();
+        if (fresh.FromDevice)
+        {
+            return UserMapLocationService.ToMapPayload(fresh);
+        }
+
+        if (Geo?.HasCoordinates == true
+            && Geo.Latitude is double urlLat
+            && Geo.Longitude is double urlLng
+            && GeoLocationValidator.IsPlausibleSearchOrigin(urlLat, urlLng))
+        {
+            return new { latitude = urlLat, longitude = urlLng };
+        }
+
+        return new { latitude = (double?)null, longitude = (double?)null };
+    }
+
+    private IReadOnlyList<object> BuildMarkerPayload()
+        => AllItems
+            .Where(item => SearchDisplayHelper.HasMapCoordinates(item)
+                && GeoLocationValidator.IsWithinChile(item.Latitude!.Value, item.Longitude!.Value))
+            .Select(item => (object)new
+            {
+                id = item.Id,
+                type = item.Type,
+                name = item.Name,
+                latitude = item.Latitude,
+                longitude = item.Longitude,
+                distanceKm = item.DistanceKm,
+                href = SearchDisplayHelper.GetResultHref(item),
+                typeLabel = SearchDisplayHelper.GetTypeLabel(L, item.Type),
+                category = SearchDisplayHelper.FormatCategorySubtitle(L, item),
+                logoUrl = string.IsNullOrWhiteSpace(item.LogoUrl) ? null : MediaUrl.Resolve(item.LogoUrl)
+            })
+            .ToList();
+
+    private static string BuildItemsSignature(IReadOnlyList<SearchResultItem> items)
+        => items.Count == 0
+            ? string.Empty
+            : string.Join("|", items.Select(x => $"{x.Type}:{x.Id}:{x.Latitude}:{x.Longitude}:{x.LogoUrl}"));
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.destroySearchResultsMap", _mapElementId);
+        }
+        catch
+        {
+            // Ignore teardown during prerender/dispose.
+        }
+    }
+
+}

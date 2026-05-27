@@ -139,6 +139,90 @@ window.comunaclic.setLastTracking = function (json) {
   }
 };
 
+/** Guest cart: { tenantId, partnerId, partnerName, currency, items:[{productId,name,quantity,unitPrice,maxAvailable}] } */
+window.comunaclic.getGuestCart = function () {
+  try {
+    return localStorage.getItem("comunaclic.guestCart") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setGuestCart = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.guestCart");
+    } else {
+      localStorage.setItem("comunaclic.guestCart", json);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+window.comunaclic.clearGuestCart = function () {
+  window.comunaclic.setGuestCart(null);
+};
+
+window.comunaclic.addGuestCartItem = function (itemJson) {
+  try {
+    var item = typeof itemJson === "string" ? JSON.parse(itemJson) : itemJson;
+    if (!item || !item.productId || !item.partnerId || !item.tenantId) return "invalid";
+    var raw = window.comunaclic.getGuestCart();
+    var cart = raw ? JSON.parse(raw) : null;
+    if (cart && cart.partnerId && cart.partnerId !== item.partnerId) {
+      return "different_partner";
+    }
+    if (!cart) {
+      cart = {
+        tenantId: item.tenantId,
+        partnerId: item.partnerId,
+        partnerName: item.partnerName || "",
+        currency: item.currency || "CLP",
+        items: []
+      };
+    }
+    var existing = cart.items.find(function (x) { return x.productId === item.productId; });
+    var qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+    if (existing) {
+      existing.quantity = Math.min((existing.maxAvailable || 99), existing.quantity + qty);
+    } else {
+      cart.items.push({
+        productId: item.productId,
+        name: item.name || "Producto",
+        quantity: qty,
+        unitPrice: item.unitPrice || 0,
+        maxAvailable: item.maxAvailable || 99
+      });
+    }
+    window.comunaclic.setGuestCart(JSON.stringify(cart));
+    return "ok";
+  } catch {
+    return "error";
+  }
+};
+
+/** Pending MP: { orderId?, bookingId?, customerId, createdAt, checkoutUrl? } */
+window.comunaclic.getPendingMpPayment = function () {
+  try {
+    return localStorage.getItem("comunaclic.pendingMpPayment") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setPendingMpPayment = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.pendingMpPayment");
+    } else {
+      localStorage.setItem("comunaclic.pendingMpPayment", json);
+    }
+  } catch {
+    // ignore
+  }
+};
+
 window.comunaclic.getDeviceType = function () {
   try {
     const width = window.innerWidth || 0;
@@ -416,7 +500,50 @@ window.comunaclic.scrollToElement = function (elementId) {
   }
 };
 
-window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, businesses, returnPath) {
+/** Capas base Leaflet: calles (OSM) y satélite (Esri + etiquetas). */
+window.comunaclic.applyLeafletBaseLayers = function (map, layerLabels) {
+  const labels = layerLabels || {};
+  const mapaLabel = labels.mapa || labels.street || "Mapa";
+  const satLabel = labels.satelite || labels.satellite || "Satélite";
+
+  const street = window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  });
+
+  const satellite = window.L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics"
+    }
+  );
+
+  const satelliteLabels = window.L.tileLayer(
+    "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      pane: "overlayPane"
+    }
+  );
+
+  const satelliteHybrid = window.L.layerGroup([satellite, satelliteLabels]);
+  const baseLayers = {};
+  baseLayers[mapaLabel] = street;
+  baseLayers[satLabel] = satelliteHybrid;
+
+  street.addTo(map);
+  window.L.control
+    .layers(baseLayers, null, {
+      position: "topright",
+      collapsed: window.innerWidth && window.innerWidth < 640
+    })
+    .addTo(map);
+
+  return { street: street, satellite: satelliteHybrid };
+};
+
+window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, businesses, returnPath, layerLabels) {
   if (!window.L) {
     throw new Error("Leaflet is not available.");
   }
@@ -442,11 +569,7 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
   });
 
   window.comunaclic._leafletMaps[elementId] = map;
-
-  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(map);
+  window.comunaclic.applyLeafletBaseLayers(map, layerLabels);
 
   const markers = [];
   const useClusters = Array.isArray(businesses) && businesses.length >= 8 && typeof window.L.markerClusterGroup === "function";
@@ -458,18 +581,25 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
         maxClusterRadius: window.innerWidth && window.innerWidth < 640 ? 48 : 64
       })
     : null;
-  const userLat = userLocation.latitude ?? userLocation.Latitude;
-  const userLng = userLocation.longitude ?? userLocation.Longitude;
-  const userMarker = window.L.circleMarker([userLat, userLng], {
-    radius: 10,
-    color: "#ffffff",
-    weight: 3,
-    fillColor: "#2d9e4f",
-    fillOpacity: 1
-  }).addTo(map);
+  const userLat = userLocation?.latitude ?? userLocation?.Latitude;
+  const userLng = userLocation?.longitude ?? userLocation?.Longitude;
+  const hasUserCoords =
+    typeof userLat === "number" &&
+    typeof userLng === "number" &&
+    isFinite(userLat) &&
+    isFinite(userLng);
+  if (hasUserCoords) {
+    const userMarker = window.L.circleMarker([userLat, userLng], {
+      radius: 10,
+      color: "#ffffff",
+      weight: 3,
+      fillColor: "#2d9e4f",
+      fillOpacity: 1
+    }).addTo(map);
 
-  userMarker.bindPopup("<strong>Tu ubicación aproximada</strong>");
-  markers.push(userMarker);
+    userMarker.bindPopup("<strong>Tu ubicación aproximada</strong>");
+    markers.push(userMarker);
+  }
 
   (businesses || []).forEach((business) => {
     const latitude = business.latitude ?? business.Latitude;
@@ -529,8 +659,23 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
     map.addLayer(businessLayer);
   }
 
-  const group = window.L.featureGroup(markers);
-  map.fitBounds(group.getBounds().pad(0.18));
+  if (markers.length > 0) {
+    try {
+      const group = window.L.featureGroup(markers);
+      const bounds = group.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds.pad(0.18));
+      } else if (hasUserCoords) {
+        map.setView([userLat, userLng], 12);
+      }
+    } catch (e) {
+      if (hasUserCoords) {
+        map.setView([userLat, userLng], 12);
+      }
+    }
+  } else if (hasUserCoords) {
+    map.setView([userLat, userLng], 12);
+  }
 
   setTimeout(() => {
     map.invalidateSize();
@@ -546,6 +691,143 @@ window.comunaclic.destroyCategoryNearbyMap = function (elementId) {
     existingMap.remove();
     delete window.comunaclic._leafletMaps[elementId];
   }
+};
+
+window.comunaclic.renderSearchResultsMap = function (elementId, userLocation, markers, layerLabels) {
+  if (!window.L) {
+    throw new Error("Leaflet is not available.");
+  }
+
+  const element = document.getElementById(elementId);
+  if (!element) {
+    return;
+  }
+
+  const existingMap = window.comunaclic._leafletMaps[elementId];
+  if (existingMap) {
+    existingMap.remove();
+    delete window.comunaclic._leafletMaps[elementId];
+  }
+
+  const map = window.L.map(elementId, {
+    zoomControl: true,
+    scrollWheelZoom: false,
+    tap: true,
+    dragging: !(window.innerWidth && window.innerWidth < 640)
+  });
+
+  window.comunaclic._leafletMaps[elementId] = map;
+  window.comunaclic.applyLeafletBaseLayers(map, layerLabels);
+
+  const leafletMarkers = [];
+  const useClusters = Array.isArray(markers) && markers.length >= 8 && typeof window.L.markerClusterGroup === "function";
+  const markerLayer = useClusters
+    ? window.L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 16,
+        maxClusterRadius: window.innerWidth && window.innerWidth < 640 ? 48 : 64
+      })
+    : null;
+
+  const userLat = userLocation.latitude ?? userLocation.Latitude;
+  const userLng = userLocation.longitude ?? userLocation.Longitude;
+  if (typeof userLat === "number" && typeof userLng === "number") {
+    const userMarker = window.L.circleMarker([userLat, userLng], {
+      radius: 10,
+      color: "#ffffff",
+      weight: 3,
+      fillColor: "#2d9e4f",
+      fillOpacity: 1
+    }).addTo(map);
+    userMarker.bindPopup("<strong>Tu ubicación aproximada</strong>");
+    leafletMarkers.push(userMarker);
+  }
+
+  (markers || []).forEach((entry) => {
+    const latitude = entry.latitude ?? entry.Latitude;
+    const longitude = entry.longitude ?? entry.Longitude;
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      return;
+    }
+
+    const rawName = entry.name ?? entry.Name ?? "Resultado";
+    const rawType = entry.typeLabel ?? entry.TypeLabel ?? "";
+    const rawCategory = entry.category ?? entry.Category ?? "";
+    const name = window.comunaclic.escapeHtml(rawName);
+    const typeLabel = window.comunaclic.escapeHtml(rawType);
+    const category = window.comunaclic.escapeHtml(rawCategory);
+    const distanceKm = entry.distanceKm ?? entry.DistanceKm;
+    const href = entry.href ?? entry.Href ?? "#";
+    const rawLogoUrl = entry.logoUrl ?? entry.LogoUrl ?? "";
+    const logoUrl = window.comunaclic.safeImageUrl(rawLogoUrl);
+    const logo =
+      logoUrl && logoUrl.length > 0
+        ? `<img src="${logoUrl}" alt="" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:2px solid rgba(255,255,255,0.8);background:#fff;box-shadow:0 10px 26px -16px rgba(0,0,0,0.45);flex:0 0 auto;" />`
+        : "";
+    const popup = [
+      `<div style="min-width:220px">`,
+      `<div style="display:flex;gap:10px;align-items:flex-start">`,
+      logo,
+      `<div style="min-width:0;flex:1">`,
+      `<strong style="display:block;line-height:1.2">${name}</strong>`,
+      typeLabel ? `<div style="margin-top:4px;color:#2d9e4f;font-weight:700;font-size:12px">${typeLabel}</div>` : "",
+      category ? `<div style="margin-top:4px;color:#595c5d;font-size:12px">${category}</div>` : "",
+      typeof distanceKm === "number" ? `<div style="margin-top:6px;color:#2d9e4f;font-weight:700">${distanceKm.toFixed(1)} km</div>` : "",
+      `<a href="${href}" style="display:inline-block;margin-top:8px;color:#2d9e4f;font-weight:700;text-decoration:none">Ver detalle</a>`,
+      `</div>`,
+      `</div>`,
+      `</div>`
+    ].join("");
+
+    const marker = window.L.marker([latitude, longitude]);
+    marker.bindPopup(popup);
+    if (markerLayer) {
+      markerLayer.addLayer(marker);
+    } else {
+      marker.addTo(map);
+    }
+    leafletMarkers.push(marker);
+  });
+
+  if (markerLayer) {
+    map.addLayer(markerLayer);
+  }
+
+  if (leafletMarkers.length > 0) {
+    const group = window.L.featureGroup(leafletMarkers);
+    map.fitBounds(group.getBounds().pad(0.18));
+  } else if (typeof userLat === "number" && typeof userLng === "number") {
+    map.setView([userLat, userLng], 12);
+  }
+
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 150);
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 500);
+};
+
+window.comunaclic.destroySearchResultsMap = function (elementId) {
+  const existingMap = window.comunaclic._leafletMaps[elementId];
+  if (existingMap) {
+    existingMap.remove();
+    delete window.comunaclic._leafletMaps[elementId];
+  }
+};
+
+window.comunaclic.invalidateLeafletMap = function (elementId) {
+  const map = window.comunaclic._leafletMaps[elementId];
+  if (!map) {
+    return;
+  }
+  setTimeout(function () {
+    map.invalidateSize();
+  }, 120);
+  setTimeout(function () {
+    map.invalidateSize();
+  }, 400);
 };
 
 /** Cuando el elemento entra al viewport (o timeout), invoca el callback .NET una sola vez. */
@@ -929,7 +1211,15 @@ window.comunaclic.geocodeAddressQuery = function (query) {
     return Promise.resolve(null);
   }
 
-  return window.comunaclic._nominatimFetch(new URLSearchParams({ q: q }));
+  const normalized = q.toLowerCase();
+  const hasChileHint =
+    normalized.includes("chile") ||
+    normalized.includes("santiago") ||
+    normalized.includes("región") ||
+    normalized.includes("region");
+  const searchQ = hasChileHint ? q : q + ", Chile";
+
+  return window.comunaclic._nominatimFetch(new URLSearchParams({ q: searchQ, countrycodes: "cl" }));
 };
 
 /** Geocodifica calle + número con contexto (comuna/región), estilo Google Maps. */

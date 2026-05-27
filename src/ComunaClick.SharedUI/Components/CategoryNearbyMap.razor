@@ -1,12 +1,13 @@
 @using System.Globalization
 @using Microsoft.AspNetCore.Components
-@using System.Text.Json.Serialization
 @using ComunaClick.SharedUI.Services
 @using ComunaClick.Shared.Api.Buyer
 @inject BuyerApiClient BuyerApi
 @inject ApiMediaUrl MediaUrl
+@inject LocaleService L
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject UserMapLocationService MapLocation
 @implements IAsyncDisposable
 
 @if (_isLoading)
@@ -55,82 +56,6 @@ else if (!string.IsNullOrWhiteSpace(_statusMessage))
 else if (_nearby is not null)
 {
     <section id="@SectionDomId" class="scroll-mt-20 w-full min-w-0 max-w-full space-y-2 sm:space-y-3">
-        @* Encabezado: jerarquía clara, poco aire, barra de acento (columna título). *@
-        <div class="w-full max-w-none border-b border-[#e0dcd6] pb-2.5 sm:pb-3">
-            <div class="flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between min-[900px]:gap-5 min-[1200px]:gap-6">
-                <div class="flex min-w-0 flex-1 gap-2.5 min-[500px]:gap-3 min-[900px]:max-w-xl min-[1200px]:max-w-2xl">
-                    <div class="mt-1 h-9 w-0.5 shrink-0 self-start rounded-full bg-gradient-to-b from-[#2d5200] via-[#3b6700] to-[#7cb342] min-[500px]:h-11" aria-hidden="true"></div>
-                    <div class="min-w-0 space-y-0.5">
-                        <p class="text-[10px] font-semibold uppercase leading-none tracking-[0.2em] text-[#6b7070]">@(_nearby.Category.Name)</p>
-                        <h2 class="text-xl font-extrabold leading-[1.2] tracking-[-0.02em] text-[#1e2122] min-[1200px]:text-[1.65rem] min-[1200px]:leading-tight">@(MapOnly ? "Mapa" : "Negocios cerca de ti")</h2>
-                        <p class="!mt-1.5 flex flex-wrap items-baseline gap-x-2 text-[12px] leading-snug text-[#5a5d5e] min-[1200px]:text-[13px]">
-                        @if (MapOnly)
-                        {
-                            <span class="font-medium tabular-nums text-[#1e2122]">@(_nearby.Businesses?.Count ?? 0) punto(s)</span>
-                            <span class="text-[#7b8081]"> en el mapa</span>
-                        }
-                        else
-                        {
-                            <span class="font-medium tabular-nums text-[#1e2122]">@FilteredCount de @TotalCount</span>
-                            <span class="text-[#4a4d4e]">@((TotalCount == 1) ? "resultado" : "resultados")</span>
-                            <span class="px-0.5 text-[#a8acad]" aria-hidden="true">|</span>
-                            <span class="text-[#6b7070]">Orden por distancia</span>
-                        }
-                        </p>
-                    @if (!string.IsNullOrWhiteSpace(SubcategoryFilterLabel))
-                    {
-                        <span class="!mt-2 inline-flex w-fit items-center rounded-md border border-[#3b6700]/25 bg-[#f4f8ef] px-2.5 py-1 text-[11px] font-semibold text-[#2d5200]">@SubcategoryFilterLabel</span>
-                    }
-                    </div>
-                </div>
-                @if (!MapOnly)
-                {
-                    <div class="min-w-0 w-full min-[900px]:max-w-none min-[900px]:flex-[1.15] min-[1200px]:min-w-0" role="complementary" aria-label="Ventajas de la búsqueda en ComunaClic">
-                        <div class="relative flex w-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#e0dcd4] bg-gradient-to-b from-white via-[#fbfaf7] to-[#f3f5ef] shadow-[0_4px_28px_-12px_rgba(15,30,0,0.12),0_1px_0_rgba(255,255,255,0.8)_inset]">
-                            <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#2d5200] via-[#3b6700] to-[#7cb342]" aria-hidden="true"></div>
-                            <div class="pointer-events-none absolute -right-8 -top-6 h-20 w-20 rounded-full bg-[#a7f255]/10 blur-2xl" aria-hidden="true"></div>
-                            <div class="pointer-events-none absolute -bottom-6 left-1/3 h-16 w-32 rounded-full bg-[#0d47a1]/5 blur-2xl" aria-hidden="true"></div>
-                            <div class="relative z-[1] flex flex-col gap-1 px-3 py-2.5 min-[900px]:gap-1.5 min-[900px]:px-3.5 min-[1200px]:py-2">
-                                <div class="space-y-0 text-center min-[900px]:text-left">
-                                    <p class="text-[10px] font-bold uppercase leading-tight tracking-[0.16em] text-[#2d5200]">Por qué usar el mapa</p>
-                                    <p class="text-[11px] leading-snug text-[#6b7071] min-[1200px]:text-xs min-[1200px]:leading-snug">Compará ofertas locales, mové el mapa y filtrá sin salir de esta vista.</p>
-                                </div>
-                                <ul class="m-0 grid w-full list-none grid-cols-1 gap-2 p-0 sm:grid-cols-3 sm:gap-2.5 min-[1200px]:gap-2">
-                                    <li class="group flex min-h-0 min-w-0 flex-col gap-1.5 rounded-xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-sm transition duration-200 ease-out sm:flex-row sm:items-stretch sm:gap-2 sm:p-2 min-[1200px]:p-1.5 hover:-translate-y-px hover:border-[#a7f255]/45 hover:shadow-md">
-                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-xl bg-gradient-to-br from-[#e8f3dc] to-[#cfe8b0] text-[#1a3d00] shadow-sm ring-1 ring-[#3b6700]/10" aria-hidden="true">
-                                            <span class="material-symbols-outlined text-[18px]">map</span>
-                                        </div>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-xs font-extrabold leading-tight text-[#2c2f30] sm:text-[13px]">Mapa en vivo</p>
-                                            <p class="mt-0.5 text-[10px] leading-relaxed text-[#5c5f60] sm:text-[11px] sm:leading-relaxed min-[1200px]:line-clamp-3">Zoom y desplazamiento para explorar cada punto publicado.</p>
-                                        </div>
-                                    </li>
-                                    <li class="group flex min-h-0 min-w-0 flex-col gap-1.5 rounded-xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-sm transition duration-200 ease-out sm:flex-row sm:items-stretch sm:gap-2 sm:p-2 min-[1200px]:p-1.5 hover:-translate-y-px hover:border-[#a7f255]/45 hover:shadow-md">
-                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-xl bg-gradient-to-br from-[#e8f3dc] to-[#cfe8b0] text-[#1a3d00] shadow-sm ring-1 ring-[#3b6700]/10" aria-hidden="true">
-                                            <span class="material-symbols-outlined text-[18px]">tune</span>
-                                        </div>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-xs font-extrabold leading-tight text-[#2c2f30] sm:text-[13px]">Filtros en la misma pantalla</p>
-                                            <p class="mt-0.5 text-[10px] leading-relaxed text-[#5c5f60] sm:text-[11px] sm:leading-relaxed min-[1200px]:line-clamp-3">Afiná distancia, comuna, nombre y subcategoría al instante.</p>
-                                        </div>
-                                    </li>
-                                    <li class="group flex min-h-0 min-w-0 flex-col gap-1.5 rounded-xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-sm transition duration-200 ease-out sm:flex-row sm:items-stretch sm:gap-2 sm:p-2 min-[1200px]:p-1.5 hover:-translate-y-px hover:border-[#a7f255]/45 hover:shadow-md">
-                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-xl bg-gradient-to-br from-[#e8f3dc] to-[#cfe8b0] text-[#1a3d00] shadow-sm ring-1 ring-[#3b6700]/10" aria-hidden="true">
-                                            <span class="material-symbols-outlined text-[18px]">near_me</span>
-                                        </div>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-xs font-extrabold leading-tight text-[#2c2f30] sm:text-[13px]">Orden por cercanía</p>
-                                            <p class="mt-0.5 text-[10px] leading-relaxed text-[#5c5f60] sm:text-[11px] sm:leading-relaxed min-[1200px]:line-clamp-3">Qué tan cerca queda según la ubicación que compartas.</p>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-
         @if (!string.IsNullOrWhiteSpace(_mapContextHint))
         {
             <p class="rounded-2xl border border-[#e3e6e8] bg-[#f6f1e8] px-4 py-3 text-sm text-[#2c2f30]">@_mapContextHint</p>
@@ -151,11 +76,43 @@ else if (_nearby is not null)
         @* 1/3: filtros | listado (horizontal en desktop) · 2/3: mapa. Móvil: col-reverse = mapa arriba. *@
         <div class="flex w-full min-w-0 max-w-full flex-col-reverse gap-4 min-[1200px]:grid min-[1200px]:grid-cols-3 min-[1200px]:items-start min-[1200px]:gap-1.5 xl:gap-2">
             @* Móvil: listado arriba, filtros abajo. Desktop: 2 subcolumnas (filtro izq. · listado dcha.), misma altura; scroll por panel. *@
-            <div class="flex w-full min-w-0 max-[1199px]:flex max-[1199px]:flex-col max-[1199px]:gap-4 min-[1200px]:col-span-1 min-[1200px]:h-[min(92vh,60rem)] min-[1200px]:min-h-0 min-[1200px]:min-w-0 min-[1200px]:grid min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] min-[1200px]:gap-2 min-[1200px]:items-stretch min-[1200px]:overflow-hidden min-[1200px]:[scrollbar-gutter:stable] min-[1200px]:pl-0 min-[1200px]:pr-0">
-            <aside class="min-w-0 min-[1200px]:min-h-0 min-[1200px]:overflow-y-auto max-[1199px]:order-2">
+            <div class="@GetFiltersListShellClass()">
+            <aside class="@GetFilterAsideClass()">
+                @if (_filtersCollapsed)
+                {
+                    <button type="button"
+                            class="flex h-full min-h-[8rem] w-full flex-col items-center justify-center gap-1 rounded-2xl border border-[#e4e0d8] bg-white px-1 py-3 text-[#3b6700] shadow-sm transition hover:border-[#3b6700]/40 hover:bg-[#f4f8ef] min-[1200px]:h-full min-[1200px]:min-h-0 min-[1200px]:w-full"
+                            @onclick="ToggleFiltersCollapsedAsync"
+                            aria-expanded="false"
+                            title="@L.T("category.map.filters.show")">
+                        <span class="material-symbols-outlined text-[22px]">tune</span>
+                        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+                        <span class="hidden min-[1200px]:block text-[9px] font-bold uppercase tracking-wide writing-vertical text-center" style="writing-mode: vertical-rl; text-orientation: mixed;">@L.T("category.map.filters.label")</span>
+                    </button>
+                }
+                else
+                {
                 <div class="rounded-2xl border border-[#e4e0d8] bg-white p-3 shadow-sm min-[1200px]:p-3.5 min-[1200px]:pr-0.5 sm:p-4">
-                    <h3 class="text-base font-black tracking-[-0.02em] text-[#2c2f30]">Filtrar por</h3>
-                    <p class="mt-1 text-xs text-[#7b8081]">Afiná comercios y servicios locales según tu criterio.</p>
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <h3 class="text-base font-black tracking-[-0.02em] text-[#2c2f30]">@L.T("category.map.filters.label")</h3>
+                            <p class="mt-1 text-xs text-[#7b8081]">@L.T("category.map.filters.subtitle")</p>
+                        </div>
+                        <button type="button"
+                                class="hidden min-[1200px]:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e4e0d8] bg-[#f7f4ee] text-[#3b6700] transition hover:border-[#3b6700]/40 hover:bg-[#e8f3dc]"
+                                @onclick="ToggleFiltersCollapsedAsync"
+                                aria-expanded="true"
+                                title="@L.T("category.map.filters.hide")">
+                            <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                        </button>
+                        <button type="button"
+                                class="min-[1200px]:hidden inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e4e0d8] bg-[#f7f4ee] text-[#3b6700]"
+                                @onclick="ToggleFiltersCollapsedAsync"
+                                aria-expanded="true"
+                                title="@L.T("category.map.filters.hide")">
+                            <span class="material-symbols-outlined text-[20px]">expand_less</span>
+                        </button>
+                    </div>
                     <div class="mt-5 space-y-5 border-t border-[#efede8] pt-4">
                         <div>
                             <p class="text-sm font-bold text-[#2c2f30]">Disponibilidad de ubicación</p>
@@ -233,13 +190,24 @@ else if (_nearby is not null)
                                 </div>
                             </div>
                         }
-                        <button type="button" class="w-full rounded-xl border border-[#d6d1ca] bg-[#f7f4ee] py-2.5 text-sm font-bold text-[#2c2f30] transition hover:border-[#3b6700]/40" @onclick="ResetFiltersAsync">Restablecer filtros</button>
+                        <button type="button" class="w-full rounded-xl border border-[#d6d1ca] bg-[#f7f4ee] py-2.5 text-sm font-bold text-[#2c2f30] transition hover:border-[#3b6700]/40" @onclick="ResetFiltersAsync">@L.T("category.map.filters.reset")</button>
                     </div>
                 </div>
+                }
             </aside>
 
-            <div class="flex w-full min-w-0 flex-col min-[1200px]:min-h-0 min-[1200px]:min-w-0 min-[1200px]:overflow-y-auto min-[1200px]:[scrollbar-gutter:stable] max-[1199px]:order-1">
-                <p class="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">Listado</p>
+            <div class="flex w-full min-w-0 flex-1 flex-col min-[1200px]:min-h-0 min-[1200px]:min-w-0 min-[1200px]:overflow-y-auto min-[1200px]:[scrollbar-gutter:stable] max-[1199px]:order-1">
+                <div class="flex shrink-0 items-center justify-between gap-2">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("category.map.list.label")</p>
+                    @if (_filtersCollapsed)
+                    {
+                        <button type="button"
+                                class="min-[1200px]:hidden text-xs font-bold text-primary"
+                                @onclick="ToggleFiltersCollapsedAsync">
+                            @L.T("category.map.filters.show")
+                        </button>
+                    }
+                </div>
                 @{
                     var fl = GetFilteredList();
                 }
@@ -341,6 +309,67 @@ else if (_nearby is not null)
     private bool _mapRendered;
     private bool _loadAttempted;
     private bool _scrollAfterMap;
+    private bool _filtersCollapsed;
+
+    private string GetFiltersListShellClass()
+        => "flex w-full min-w-0 flex-col gap-4 max-[1199px]:order-2 min-[1200px]:order-none min-[1200px]:col-span-1 min-[1200px]:flex min-[1200px]:h-[min(92vh,60rem)] min-[1200px]:min-h-0 min-[1200px]:flex-row min-[1200px]:items-stretch min-[1200px]:gap-2 min-[1200px]:overflow-hidden";
+
+    private string GetFilterAsideClass()
+        => _filtersCollapsed
+            ? "hidden w-full max-[1199px]:order-2 min-[1200px]:order-none min-[1200px]:flex min-[1200px]:h-full min-[1200px]:w-11 min-[1200px]:shrink-0 min-[1200px]:grow-0"
+            : "w-full min-w-0 max-[1199px]:order-2 min-[1200px]:order-none min-[1200px]:h-full min-[1200px]:w-[42%] min-[1200px]:max-w-[17rem] min-[1200px]:shrink-0 min-[1200px]:grow-0 min-[1200px]:overflow-y-auto";
+
+    private async Task ToggleFiltersCollapsedAsync()
+    {
+        _filtersCollapsed = !_filtersCollapsed;
+        await InvokeAsync(StateHasChanged);
+        if (_mapRendered)
+        {
+            await SafeInvalidateMapAsync();
+            if (!_filtersCollapsed)
+            {
+                await Task.Delay(350);
+                await SafeInvalidateMapAsync();
+            }
+        }
+    }
+
+    private async Task SafeInvalidateMapAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.invalidateLeafletMap", _mapId);
+        }
+        catch (Exception)
+        {
+            // No tumbar el circuito Blazor si Leaflet/JS falla al redimensionar.
+        }
+    }
+
+    private async Task SafeRenderCategoryMapAsync(IReadOnlyList<MapNearbyBusinessPayload> businesses)
+    {
+        if (_nearby is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var returnPath = GetPartnerDetailReturnForQuery();
+            var layerLabels = new { mapa = L.T("map.layer.street"), satelite = L.T("map.layer.satellite") };
+            await JSRuntime.InvokeVoidAsync(
+                "comunaclic.renderCategoryNearbyMap",
+                _mapId,
+                _nearby.UserLocation,
+                businesses,
+                returnPath,
+                layerLabels);
+        }
+        catch (Exception)
+        {
+            // Errores JS (Leaflet, bounds vacíos, etc.) no deben cerrar la sesión Blazor.
+        }
+    }
 
     private string _nameFilter = "";
     private string _keywordFilter = "";
@@ -353,9 +382,6 @@ else if (_nearby is not null)
 
     public IReadOnlyList<string> ComunaOptions { get; private set; } = Array.Empty<string>();
     public IReadOnlyList<string> SubcategoryOptions { get; private set; } = Array.Empty<string>();
-
-    private int TotalCount => _nearby?.Businesses?.Count ?? 0;
-    private int FilteredCount => GetFilteredList().Count;
 
     private IReadOnlyList<MapNearbyBusinessPayload> BuildMapBusinessPayload(IReadOnlyList<CategoryNearbyBusinessItem> businesses)
         => businesses.Select(b => new MapNearbyBusinessPayload(
@@ -391,9 +417,6 @@ else if (_nearby is not null)
         double Longitude,
         bool UsesExactLocation,
         double DistanceKm);
-
-    private const double DefaultMapLatitude = -33.4489;
-    private const double DefaultMapLongitude = -70.6693;
 
     /// <summary>Path + query + ancla para <c>return</c> en el detalle del partner (volver a esta categoría con mapa).</summary>
     private string GetPartnerDetailReturnForQuery()
@@ -453,7 +476,7 @@ else if (_nearby is not null)
         if (!_loadAttempted && _isLoading && !string.IsNullOrWhiteSpace(CategoryCode))
         {
             _loadAttempted = true;
-            await LoadNearbyAsync(userRequestedGps: false);
+            await LoadNearbyAsync();
             await InvokeAsync(StateHasChanged);
             return;
         }
@@ -466,12 +489,19 @@ else if (_nearby is not null)
         try
         {
             var businesses = BuildMapBusinessPayload(GetFilteredList());
-            var returnPath = GetPartnerDetailReturnForQuery();
-            await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, businesses, returnPath);
+            await SafeRenderCategoryMapAsync(businesses);
             _mapRendered = true;
             if (_scrollAfterMap && !string.IsNullOrWhiteSpace(SectionDomId))
             {
-                await JSRuntime.InvokeVoidAsync("comunaclic.scrollToElement", SectionDomId);
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("comunaclic.scrollToElement", SectionDomId);
+                }
+                catch (Exception)
+                {
+                    // Ignorar fallos de scroll en prerender/JS.
+                }
+
                 _scrollAfterMap = false;
             }
         }
@@ -481,32 +511,22 @@ else if (_nearby is not null)
         }
     }
 
-    /// <param name="userRequestedGps">En reintento manual: <c>forceFresh</c> en JS para que el navegador pueda volver a pedir permiso de ubicación.</param>
-    private async Task LoadNearbyAsync(bool userRequestedGps = false)
+    private async Task LoadNearbyAsync()
     {
         var completed = false;
-        var lat = DefaultMapLatitude;
-        var lng = DefaultMapLongitude;
         _mapContextHint = null;
 
         try
         {
-            try
+            var device = await MapLocation.GetCurrentAsync();
+            if (!device.FromDevice)
             {
-                var p = userRequestedGps
-                    ? await JSRuntime.InvokeAsync<BrowserLocationDto>("comunaclic.getCurrentPosition", new { forceFresh = true, timeout = 20000 })
-                    : await JSRuntime.InvokeAsync<BrowserLocationDto>("comunaclic.getCurrentPosition");
-                lat = p.Latitude;
-                lng = p.Longitude;
+                _statusMessage = device.ErrorMessage ?? L.T("home.search.location.denied");
+                return;
             }
-            catch (InvalidOperationException)
-            {
-                throw;
-            }
-            catch
-            {
-                // Sin GPS: mapa con centro por defecto (Chile), sin bloque de aviso encima del mapa.
-            }
+
+            var lat = device.Latitude;
+            var lng = device.Longitude;
 
             try
             {
@@ -699,15 +719,8 @@ else if (_nearby is not null)
         {
             return;
         }
-        try
-        {
-            var list = BuildMapBusinessPayload(GetFilteredList());
-            var returnPath = GetPartnerDetailReturnForQuery();
-            await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, list, returnPath);
-        }
-        catch (InvalidOperationException)
-        {
-        }
+        var list = BuildMapBusinessPayload(GetFilteredList());
+        await SafeRenderCategoryMapAsync(list);
     }
 
     private static bool CoerceBool(object? o)
@@ -818,7 +831,7 @@ else if (_nearby is not null)
         _mapRendered = false;
         _loadAttempted = true;
 
-        await LoadNearbyAsync(userRequestedGps: true);
+        await LoadNearbyAsync();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -834,14 +847,4 @@ else if (_nearby is not null)
         }
     }
 
-    /// <summary>Debe mapear el JSON de <c>getCurrentPosition</c> (claves <c>latitude</c> / <c>longitude</c>).</summary>
-    private sealed class BrowserLocationDto
-    {
-        [JsonPropertyName("latitude")]
-        public double Latitude { get; set; }
-        [JsonPropertyName("longitude")]
-        public double Longitude { get; set; }
-        [JsonPropertyName("accuracy")]
-        public double Accuracy { get; set; }
-    }
 }

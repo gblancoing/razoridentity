@@ -5,6 +5,7 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Auth.Interfaces.IAuthClient AuthClient
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
@@ -397,6 +398,11 @@
     {
         _role = ReadRole();
         _returnUrl = ReadReturnUrl();
+        var emailFromQuery = ReadEmailFromQuery();
+        if (!string.IsNullOrWhiteSpace(emailFromQuery))
+        {
+            _model.Email = emailFromQuery;
+        }
     }
 
     public void Dispose()
@@ -445,6 +451,11 @@
 
             await AuthState.SetTokensAsync(tokens);
             await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", _role);
+            if (IsNatural)
+            {
+                await TryLinkGuestCustomerAsync();
+            }
+
             Navigation.NavigateTo(RegistrationFlow.ResolvePostAuthDestination(_role, _returnUrl), true);
         }
         catch (Exception ex)
@@ -499,6 +510,12 @@
     }
 
     private string? ReadReturnUrl()
+        => ReadQueryValue("returnUrl", requireLeadingSlash: true);
+
+    private string? ReadEmailFromQuery()
+        => ReadQueryValue("email");
+
+    private string? ReadQueryValue(string key, bool requireLeadingSlash = false)
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var q = uri.Query.TrimStart('?');
@@ -510,18 +527,23 @@
         foreach (var pair in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = pair.Split('=', 2);
-            if (!string.Equals(Uri.UnescapeDataString(parts[0]), "returnUrl", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(Uri.UnescapeDataString(parts[0]), key, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
             var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
-            if (string.IsNullOrWhiteSpace(value) || !value.StartsWith('/'))
+            if (string.IsNullOrWhiteSpace(value))
             {
                 return null;
             }
 
-            return value;
+            if (requireLeadingSlash && !value.StartsWith('/'))
+            {
+                return null;
+            }
+
+            return value.Trim();
         }
 
         return null;
@@ -533,6 +555,24 @@
         return isActive
             ? "flex min-h-full items-start gap-2 rounded-2xl border-2 border-[#3b6700] bg-[#f4faf0] p-3 sm:flex-col sm:items-stretch sm:gap-2 dark:border-primary dark:bg-primary/10"
             : "flex min-h-full items-start gap-2 rounded-2xl border border-[#dbe6e2] p-3 transition hover:border-[#3b6700]/40 sm:flex-col sm:items-stretch sm:gap-2 dark:border-white/10";
+    }
+
+    private async Task TryLinkGuestCustomerAsync()
+    {
+        try
+        {
+            var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
+            if (!Guid.TryParse(storedCustomerId, out var customerId) || customerId == Guid.Empty)
+            {
+                return;
+            }
+
+            await BuyerApi.LinkGuestCustomerAsync(customerId, AuthState.TenantId);
+        }
+        catch
+        {
+            // Non-blocking: registration already succeeded.
+        }
     }
 
     private async Task<string?> ExecuteRecaptchaAsync()
@@ -602,6 +642,10 @@
             var intent = await JSRuntime.InvokeAsync<RegisterIntentDto?>("comunaclic.consumeRegisterIntent");
             var role = RegistrationFlow.NormalizeRole(intent?.Role ?? _role);
             await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", role);
+            if (string.Equals(role, RoleNatural, StringComparison.OrdinalIgnoreCase))
+            {
+                await TryLinkGuestCustomerAsync();
+            }
             var returnUrl = !string.IsNullOrWhiteSpace(intent?.ReturnUrl) ? intent.ReturnUrl : _returnUrl;
             var destination = RegistrationFlow.ResolvePostAuthDestination(role, returnUrl);
             Navigation.NavigateTo(destination, true);

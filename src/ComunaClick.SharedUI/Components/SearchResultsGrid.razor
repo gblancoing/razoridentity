@@ -1,0 +1,11 @@
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    @foreach (var item in Items)
+    {
+        <SearchResultCard Item="item" Layout="SearchResultCardLayout.Grid" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SearchResultItem> Items { get; set; } = Array.Empty<SearchResultItem>();
+}

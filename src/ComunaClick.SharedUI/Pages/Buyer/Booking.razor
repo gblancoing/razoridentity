@@ -1,5 +1,6 @@
 @page "/buyer/booking"
 @layout BuyerLayout
+@using System.Text.Json
 @using ComunaClick.Common.Funnel
 @using System.Globalization
 @inject ComunaClick.SharedUI.Services.LocaleService L
@@ -11,89 +12,163 @@
 
 <PageTitle>@L.T("buyer.booking.title")</PageTitle>
 
-@if (_loadingSession)
+@if (_initializing)
 {
-    <BrandedLoading Title="Validando acceso" Message="Estamos comprobando que tu sesión corresponda a una cuenta personal." />
+    <BrandedLoading Title="@L.T("buyer.booking.loadingTitle")" Message="@L.T("buyer.booking.loadingMessage")" />
 }
-else if (!_canUsePersonalFlow)
+else if (_isPartnerBlocked)
 {
     <section class="max-w-3xl mx-auto rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
-        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Acceso requerido</p>
-        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">Ingresa con tu cuenta personal para reservar</h1>
-        <p class="text-sm text-[#595c5d]">Las reservas buyer solo están disponibles para usuarios con cuenta personal. Si estás con una sesión partner, cambia de cuenta antes de continuar.</p>
-        <div class="flex flex-col sm:flex-row gap-3">
-            <a href="@LoginHref" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Iniciar sesión personal</a>
-            <a href="@RegisterHref" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Crear cuenta personal</a>
-        </div>
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@L.T("buyer.booking.partnerBlocked.eyebrow")</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.booking.partnerBlocked.title")</h1>
+        <p class="text-sm text-[#595c5d]">@L.T("buyer.booking.partnerBlocked.body")</p>
+        <a href="/" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">@L.T("buyer.booking.partnerBlocked.cta")</a>
     </section>
 }
 else
 {
     <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
         <h1 class="text-2xl font-bold">@L.T("buyer.booking.heading")</h1>
-        <p class="text-sm text-[#61897c]">@L.T("buyer.booking.subtitle")</p>
-        @if (_serviceName is not null)
-        {
-            <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-                <strong>Servicio:</strong> @_serviceName<br />
-                <strong>Categoría:</strong> @_serviceCategory<br />
-                <strong>Monto sugerido:</strong> @($"{Amount:N0}")
-            </div>
-        }
-        @if (_createdBooking is not null)
+        <p class="text-sm text-[#61897c]">@(_isPersonal ? L.T("buyer.booking.subtitle") : L.T("buyer.booking.guestSubtitle"))</p>
+
+        @if (_successBookingId is Guid successId)
         {
             <div class="mt-6 rounded-[1.5rem] border border-[#a7f255] bg-[#f8fff1] p-5 space-y-3">
-                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">Reserva registrada</p>
-                <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">Tu reserva quedó creada correctamente</h2>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">@L.T("buyer.booking.success.eyebrow")</p>
+                <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.booking.success.title")</h2>
                 <p class="text-sm text-[#595c5d]">
-                    Reserva <strong>#@ShortId(_createdBooking.Id)</strong> con estado <strong>@(_createdBooking.Status ?? "registrado")</strong>.
-                    Revisa su seguimiento para confirmar horario, negocio y política de cancelación.
+                    @string.Format(L.T("buyer.booking.success.body"), ShortId(successId), _successStatus ?? "payment_pending")
                 </p>
+                @if (!string.IsNullOrWhiteSpace(_mercadoPagoCheckoutUrl))
+                {
+                    <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.mp.hint")</p>
+                    <a href="@_mercadoPagoCheckoutUrl" class="inline-flex items-center justify-center rounded-2xl bg-[#009ee3] px-5 py-3 text-sm font-bold text-white">@L.T("buyer.checkout.mp.pay")</a>
+                }
+                else if (_mercadoPagoChecked && !_partnerAcceptsOnlinePayment)
+                {
+                    <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.mp.offline")</p>
+                }
                 <div class="flex flex-col sm:flex-row gap-3">
-                    <a href="@($"/buyer/orders?bookingId={_createdBooking.Id}")" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Ver seguimiento</a>
-                    <a href="/categorias" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">Ver categorías</a>
+                    <a href="@TrackingHref" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">@L.T("buyer.booking.success.track")</a>
+                    @if (!_isPersonal)
+                    {
+                        <a href="@RegisterHref" class="inline-flex items-center justify-center rounded-2xl border border-[#3b6700] px-5 py-3 text-sm font-bold text-[#3b6700]">@L.T("buyer.booking.success.register")</a>
+                    }
+                    <a href="/categorias" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">@L.T("buyer.booking.success.browse")</a>
                 </div>
             </div>
         }
-        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div class="space-y-2 md:col-span-2">
-                <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Fecha (día/mes/año)</label>
-                <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="dd/MM/yyyy" @bind="BookingDate" />
-                @if (TryParseDateAndTime(BookingDate, StartTime, out var parsedDateTime))
+
+        @if (!_isPersonal && _successBookingId is null)
+        {
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-[#fafafa] px-4 py-3 text-sm">
+                <span class="text-[#595c5d]">@L.T("buyer.booking.guestLoginHint")</span>
+                <a href="@LoginHref" class="font-bold text-[#3b6700] hover:underline">@L.T("buyer.booking.guestLoginCta")</a>
+            </div>
+        }
+
+        @if (_serviceName is not null && _successBookingId is null)
+        {
+            <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                <strong>@L.T("buyer.booking.serviceLabel")</strong> @_serviceName<br />
+                <strong>@L.T("buyer.booking.categoryLabel")</strong> @_serviceCategory<br />
+                <strong>@L.T("buyer.booking.amountLabel")</strong> @($"{Amount:N0}")
+            </div>
+        }
+
+        @if (!_isPersonal && _successBookingId is null)
+        {
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.guest.fullName")</label>
+                    <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                           @bind="GuestFullName"
+                           disabled="@_isSubmitting"
+                           autocomplete="name" />
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.guest.email")</label>
+                    <input type="email" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                           @bind="GuestEmail" disabled="@_isSubmitting" autocomplete="email" />
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.guest.phone")</label>
+                    <input type="tel" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                           @bind="GuestPhone" disabled="@_isSubmitting" autocomplete="tel" />
+                </div>
+            </div>
+        }
+
+        @if (_successBookingId is null)
+        {
+            @if (_availableSlots.Count > 0 && !_useManualSchedule)
+            {
+                <div class="mt-6 space-y-3">
+                    <p class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">@L.T("buyer.booking.slotsLabel")</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        @foreach (var slot in _availableSlots)
+                        {
+                            var selected = _selectedSlotId == slot.Id;
+                            <button type="button"
+                                    class="@($"rounded-xl border px-4 py-3 text-left text-sm transition {(selected ? "border-[#3b6700] bg-[#f8fff1] font-bold" : "border-[#dadddf]")}")"
+                                    disabled="@_isSubmitting"
+                                    @onclick="() => SelectSlot(slot)">
+                                @slot.StartAt.ToLocalTime().ToString("ddd dd/MM · HH:mm", CultureInfo.CurrentCulture)
+                                <span class="block text-xs text-[#61897c]">@slot.EndAt.ToLocalTime().ToString("HH:mm")</span>
+                            </button>
+                        }
+                    </div>
+                    <button type="button" class="text-sm font-bold text-[#3b6700] hover:underline" @onclick="EnableManualSchedule">
+                        @L.T("buyer.booking.manualSchedule")
+                    </button>
+                </div>
+            }
+            else
+            {
+                @if (_availableSlots.Count == 0 && _slotsLoaded)
                 {
-                    <p class="text-xs text-[#61897c]">Fecha seleccionada: @parsedDateTime.ToString("dd/MM/yyyy")</p>
+                    <p class="mt-4 text-sm text-[#61897c]">@L.T("buyer.booking.slotsEmpty")</p>
                 }
-            </div>
-            <div class="space-y-2">
-                <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Hora inicio</label>
-                <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="HH:mm" @bind="StartTime" />
-            </div>
-            <div class="space-y-2">
-                <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">Hora término</label>
-                <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full" placeholder="HH:mm" @bind="EndTime" />
-            </div>
-            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 bg-gray-50 dark:bg-gray-800" placeholder="Monto" @bind="Amount" readonly />
-        </div>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="space-y-2 md:col-span-2">
+                        <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">@L.T("buyer.booking.dateLabel")</label>
+                        <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                               placeholder="dd/MM/yyyy" @bind="BookingDate" disabled="@_isSubmitting" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">@L.T("buyer.booking.startLabel")</label>
+                        <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                               placeholder="HH:mm" @bind="StartTime" disabled="@_isSubmitting" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs uppercase tracking-[0.14em] font-bold text-[#595c5d]">@L.T("buyer.booking.endLabel")</label>
+                        <input type="text" class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                               placeholder="HH:mm" @bind="EndTime" disabled="@_isSubmitting" />
+                    </div>
+                </div>
+            }
+        }
+
         @if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
             <StatusBanner Message="@_statusMessage" Level="@_statusLevel" />
         }
-        <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
-                @onclick="HandleBooking"
-                disabled="@(_isSubmitting || _createdBooking is not null)">
-            @if (_isSubmitting)
-            {
-                <span>Creando reserva...</span>
-            }
-            else if (_createdBooking is not null)
-            {
-                <span>Reserva completada</span>
-            }
-            else
-            {
-                <span>@L.T("buyer.booking.confirm")</span>
-            }
-        </button>
+
+        @if (_successBookingId is null)
+        {
+            <button class="mt-6 bg-primary text-[#111816] px-6 py-2 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+                    @onclick="HandleBooking"
+                    disabled="@_isSubmitting">
+                @if (_isSubmitting)
+                {
+                    <span>@L.T("buyer.booking.submitting")</span>
+                }
+                else
+                {
+                    <span>@L.T("buyer.booking.confirm")</span>
+                }
+            </button>
+        }
     </div>
 }
 
@@ -104,7 +179,7 @@ else
     private string BookingDate = string.Empty;
     private string StartTime = string.Empty;
     private string EndTime = string.Empty;
-    private double Amount = 0;
+    private double Amount;
     private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
     private string? _serviceName;
@@ -112,14 +187,45 @@ else
     private bool _startedTracked;
     private bool _completed;
     private Guid? _tenantId;
-    private bool _loadingSession = true;
-    private bool _canUsePersonalFlow;
+    private bool _initializing = true;
+    private bool _isPartnerBlocked;
+    private bool _isPersonal;
     private bool _checkedAuth;
     private bool _isSubmitting;
-    private ComunaClick.Shared.Api.Buyer.Booking? _createdBooking;
+    private Guid? _successBookingId;
+    private Guid? _successCustomerId;
+    private string? _successStatus;
+    private string? _mercadoPagoCheckoutUrl;
+    private bool _mercadoPagoChecked;
+    private bool _partnerAcceptsOnlinePayment;
+    private readonly List<PublicServiceSlot> _availableSlots = new();
+    private Guid? _selectedSlotId;
+    private bool _useManualSchedule;
+    private bool _slotsLoaded;
+
+    private string GuestFullName = string.Empty;
+    private string GuestEmail = string.Empty;
+    private string GuestPhone = string.Empty;
+
     private string CurrentPathAndQuery => Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
     private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
-    private string RegisterHref => $"/register?role=natural&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
+    private string RegisterHref
+    {
+        get
+        {
+            var href = $"/register?role=natural&returnUrl={Uri.EscapeDataString(CurrentPathAndQuery)}";
+            if (!string.IsNullOrWhiteSpace(GuestEmail))
+            {
+                href += $"&email={Uri.EscapeDataString(GuestEmail.Trim())}";
+            }
+
+            return href;
+        }
+    }
+
+    private string TrackingHref => _successBookingId is Guid bookingId && _successCustomerId is Guid customerId
+        ? $"/buyer/orders?bookingId={bookingId}&customerId={customerId}"
+        : "/buyer/orders";
 
     protected override void OnInitialized()
     {
@@ -138,10 +244,11 @@ else
         try
         {
             await AuthState.InitializeAsync();
-            _canUsePersonalFlow = AuthState.IsPersonalAccount;
-            _loadingSession = false;
+            _isPersonal = AuthState.IsPersonalAccount;
+            _isPartnerBlocked = AuthState.IsAuthenticated && !_isPersonal;
+            _initializing = false;
 
-            if (_canUsePersonalFlow)
+            if (!_isPartnerBlocked)
             {
                 await LoadBookingAsync();
             }
@@ -156,36 +263,87 @@ else
 
     private async Task HandleBooking()
     {
-        if (_isSubmitting || _createdBooking is not null)
+        if (_isSubmitting || _successBookingId is not null)
         {
-            return;
-        }
-
-        await AuthState.InitializeAsync();
-        if (!AuthState.IsPersonalAccount)
-        {
-            _statusMessage = "Tu sesión de cuenta personal no está activa. Inicia sesión para continuar con la reserva.";
-            _statusLevel = "warning";
-            await TrackAsync("flow_error", "identity", "not_logged_personal");
             return;
         }
 
         _statusMessage = string.Empty;
         _statusLevel = "info";
-        if (string.IsNullOrWhiteSpace(PartnerId) || string.IsNullOrWhiteSpace(ServiceId))
+
+        if (string.IsNullOrWhiteSpace(PartnerId) || string.IsNullOrWhiteSpace(ServiceId) ||
+            !Guid.TryParse(PartnerId, out var partnerId) ||
+            !Guid.TryParse(ServiceId, out var serviceId))
         {
-            _statusMessage = "No encontramos el servicio seleccionado para reservar. Vuelve al detalle del servicio e inténtalo otra vez.";
+            _statusMessage = L.T("buyer.booking.missingService");
             _statusLevel = "warning";
-            await TrackAsync("flow_error", "validation", "missing_service_context");
             return;
         }
 
-        if (!Guid.TryParse(PartnerId, out var partnerId) ||
-            !Guid.TryParse(ServiceId, out var serviceId))
+        DateTimeOffset startAt;
+        DateTimeOffset endAt;
+        Guid? slotId = null;
+
+        if (_availableSlots.Count > 0 && !_useManualSchedule)
         {
-            _statusMessage = "No encontramos el servicio seleccionado para reservar. Vuelve al detalle del servicio e inténtalo otra vez.";
+            var slot = _availableSlots.FirstOrDefault(x => x.Id == _selectedSlotId);
+            if (slot is null)
+            {
+                _statusMessage = L.T("buyer.booking.slotRequired");
+                _statusLevel = "warning";
+                return;
+            }
+
+            slotId = slot.Id;
+            startAt = slot.StartAt;
+            endAt = slot.EndAt;
+        }
+        else if (!TryParseDateAndTime(BookingDate, StartTime, out startAt) ||
+                 !TryParseDateAndTime(BookingDate, EndTime, out endAt) ||
+                 endAt <= startAt)
+        {
+            _statusMessage = L.T("buyer.booking.invalidSchedule");
             _statusLevel = "warning";
-            await TrackAsync("flow_error", "validation", "invalid_service_context");
+            return;
+        }
+
+        if (_tenantId is not Guid tenantId || tenantId == Guid.Empty)
+        {
+            _statusMessage = L.T("buyer.checkout.missingTenant");
+            _statusLevel = "warning";
+            return;
+        }
+
+        _isSubmitting = true;
+        try
+        {
+            if (_isPersonal)
+            {
+                await SubmitPersonalBookingAsync(partnerId, serviceId, startAt, endAt, tenantId, slotId);
+            }
+            else
+            {
+                await SubmitGuestBookingAsync(serviceId, startAt, endAt, tenantId, slotId);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = string.Format(L.T("buyer.booking.httpError"), (int?)ex.StatusCode ?? 0);
+            _statusLevel = "error";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task SubmitPersonalBookingAsync(Guid partnerId, Guid serviceId, DateTimeOffset startAt, DateTimeOffset endAt, Guid tenantId, Guid? slotId)
+    {
+        await AuthState.InitializeAsync();
+        if (!AuthState.IsPersonalAccount)
+        {
+            _statusMessage = L.T("buyer.checkout.personalSessionRequired");
+            _statusLevel = "warning";
             return;
         }
 
@@ -194,122 +352,184 @@ else
             await ResolveCustomerIdAsync();
         }
 
-        Guid customerId = Guid.Empty;
-        if (Guid.TryParse(CustomerId, out var parsedCustomerId))
+        if (!Guid.TryParse(CustomerId, out var customerId))
         {
-            customerId = parsedCustomerId;
-            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-        }
-
-        if (!TryParseDateAndTime(BookingDate, StartTime, out var startAt) ||
-            !TryParseDateAndTime(BookingDate, EndTime, out var endAt))
-        {
-            _statusMessage = "Debes ingresar una fecha válida (día/mes/año) y horas válidas para la reserva.";
+            _statusMessage = L.T("buyer.checkout.customerMissing");
             _statusLevel = "warning";
-            await TrackAsync("flow_error", "validation", "invalid_booking_datetime");
             return;
         }
 
-        if (endAt <= startAt)
+        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+
+        var booking = await BuyerApi.CreateBookingAsync(
+            new BookingCreateRequest(partnerId, serviceId, slotId, customerId, startAt, endAt, Amount, "CLP", null),
+            tenantId);
+
+        if (booking is null)
         {
-            _statusMessage = "La hora de término debe ser posterior a la hora de inicio.";
-            _statusLevel = "warning";
-            await TrackAsync("flow_error", "validation", "invalid_booking_range");
+            _statusMessage = L.T("buyer.status.bookingFailed");
+            _statusLevel = "error";
             return;
         }
 
-        _isSubmitting = true;
-        try
+        ApplySuccess(booking.Id, booking.CustomerId, booking.Status);
+        _statusMessage = $"{L.T("buyer.status.bookingCreated")} #{booking.Id}";
+        _statusLevel = "success";
+    }
+
+    private async Task SubmitGuestBookingAsync(Guid serviceId, DateTimeOffset startAt, DateTimeOffset endAt, Guid tenantId, Guid? slotId)
+    {
+        if (string.IsNullOrWhiteSpace(GuestFullName) || GuestFullName.Trim().Length < 2)
         {
-            var request = new BookingCreateRequest(
-                partnerId,
+            _statusMessage = L.T("buyer.checkout.guest.fullNameRequired");
+            _statusLevel = "warning";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(GuestEmail) || !GuestEmail.Contains('@'))
+        {
+            _statusMessage = L.T("buyer.checkout.guest.emailRequired");
+            _statusLevel = "warning";
+            return;
+        }
+
+        var response = await BuyerApi.CreateGuestBookingAsync(
+            new GuestBookingCreateRequest(
+                tenantId,
                 serviceId,
-                null,
-                customerId,
+                slotId,
+                new GuestContactRequest(GuestFullName.Trim(), GuestEmail.Trim(), string.IsNullOrWhiteSpace(GuestPhone) ? null : GuestPhone.Trim()),
                 startAt,
                 endAt,
-                Amount,
-                "CLP",
-                null);
+                "CLP"));
 
-            var booking = await BuyerApi.CreateBookingAsync(request);
-            if (booking is null)
+        if (response is null)
+        {
+            _statusMessage = L.T("buyer.status.bookingFailed");
+            _statusLevel = "error";
+            return;
+        }
+
+        CustomerId = response.CustomerId.ToString();
+        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+        ApplySuccess(response.BookingId, response.CustomerId, response.Status);
+        _statusMessage = L.T("buyer.booking.guestSuccess");
+        _statusLevel = "success";
+    }
+
+    private void ApplySuccess(Guid bookingId, Guid customerId, string? status)
+    {
+        _successBookingId = bookingId;
+        _successCustomerId = customerId;
+        _successStatus = status;
+        _completed = true;
+        _ = PersistLastTrackingAsync(bookingId, customerId);
+        _ = TrackAsync("submit_booking", "submit", "success");
+        _ = TryOfferMercadoPagoAsync(bookingId, customerId);
+    }
+
+    private async Task PersistLastTrackingAsync(Guid bookingId, Guid customerId)
+    {
+        try
+        {
+            var payload = JsonSerializer.Serialize(new Dictionary<string, string>
             {
-                _statusMessage = L.T("buyer.status.bookingFailed");
-                _statusLevel = "error";
-                await TrackAsync("flow_error", "submit", "booking_failed");
+                ["bookingId"] = bookingId.ToString(),
+                ["customerId"] = customerId.ToString()
+            });
+            await JSRuntime.InvokeVoidAsync("comunaclic.setLastTracking", payload);
+        }
+        catch
+        {
+            // Ignore storage errors.
+        }
+    }
+
+    private async Task TryOfferMercadoPagoAsync(Guid bookingId, Guid customerId)
+    {
+        if (!Guid.TryParse(PartnerId, out var partnerId))
+        {
+            _mercadoPagoChecked = true;
+            return;
+        }
+
+        try
+        {
+            var status = await BuyerApi.GetPartnerPaymentStatusAsync(partnerId);
+            _partnerAcceptsOnlinePayment = status?.MercadoPagoReady == true;
+            if (!_partnerAcceptsOnlinePayment)
+            {
+                return;
             }
-            else
+
+            var checkout = await BuyerApi.CreateMercadoPagoCheckoutAsync(
+                new PublicMercadoPagoCheckoutRequest(customerId, null, bookingId));
+            if (!string.IsNullOrWhiteSpace(checkout?.CheckoutUrl))
             {
-                _createdBooking = booking;
-                _statusMessage = $"{L.T("buyer.status.bookingCreated")} #{booking.Id}";
-                _statusLevel = "success";
-                _completed = true;
-                if (booking.CustomerId != Guid.Empty)
-                {
-                    CustomerId = booking.CustomerId.ToString();
-                    await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-                }
-                await TrackAsync("submit_booking", "submit", "success");
+                _mercadoPagoCheckoutUrl = checkout.CheckoutUrl;
+                await SavePendingMpPaymentAsync(bookingId, customerId, checkout.CheckoutUrl);
             }
         }
-        catch (HttpRequestException ex)
+        catch
         {
-            _statusMessage = $"No se pudo crear la reserva ({(int?)ex.StatusCode ?? 0}). Revisa los datos del horario e inténtalo otra vez.";
-            _statusLevel = "error";
-            await TrackAsync("flow_error", "submit", "http_exception");
+            _partnerAcceptsOnlinePayment = false;
         }
         finally
         {
-            _isSubmitting = false;
+            _mercadoPagoChecked = true;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
-    private void HandleChange()
+    private async Task SavePendingMpPaymentAsync(Guid bookingId, Guid customerId, string checkoutUrl)
     {
-        InvokeAsync(StateHasChanged);
+        try
+        {
+            var payload = JsonSerializer.Serialize(new Dictionary<string, string?>
+            {
+                ["bookingId"] = bookingId.ToString(),
+                ["customerId"] = customerId.ToString(),
+                ["checkoutUrl"] = checkoutUrl,
+                ["createdAt"] = DateTimeOffset.UtcNow.ToString("O")
+            });
+            await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", payload);
+        }
+        catch
+        {
+            // Ignore storage errors.
+        }
     }
 
-    private async Task TrackAsync(string eventName, string step, string status)
+    private void SelectSlot(PublicServiceSlot slot)
     {
-        var entityId = Guid.TryParse(ServiceId, out var serviceId) ? serviceId : (Guid?)null;
-        var deviceType = await JSRuntime.InvokeAsync<string>("comunaclic.getDeviceType");
-        await BuyerApi.TrackFunnelEventAsync(new FunnelEventRequest(
-            eventName,
-            "services",
-            "service",
-            entityId,
-            _tenantId,
-            Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery,
-            deviceType,
-            "book",
-            step,
-            status,
-            DateTimeOffset.UtcNow,
-            new Dictionary<string, string?>
-            {
-                ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
-                ["partnerId"] = PartnerId,
-                ["bookingDate"] = BookingDate,
-                ["startTime"] = StartTime,
-                ["endTime"] = EndTime
-            }));
+        _selectedSlotId = slot.Id;
+        BookingDate = slot.StartAt.ToLocalTime().ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        StartTime = slot.StartAt.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
+        EndTime = slot.EndAt.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private void EnableManualSchedule()
+    {
+        _useManualSchedule = true;
+        _selectedSlotId = null;
     }
 
     private async Task LoadBookingAsync()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var serviceId = GetQueryParameter(uri.Query, "serviceId");
-        var customerIdFromQuery = GetQueryParameter(uri.Query, "customerId");
-
-        if (!Guid.TryParse(serviceId, out var parsedServiceId))
+        var serviceIdRaw = GetQueryParameter(uri.Query, "serviceId");
+        if (!Guid.TryParse(serviceIdRaw, out var parsedServiceId))
         {
+            _statusMessage = L.T("buyer.booking.missingService");
+            _statusLevel = "warning";
             return;
         }
 
         var service = await BuyerApi.GetServiceAsync(parsedServiceId);
         if (service is null)
         {
+            _statusMessage = L.T("buyer.booking.missingService");
+            _statusLevel = "warning";
             return;
         }
 
@@ -320,19 +540,31 @@ else
         _serviceCategory = service.Category;
         _tenantId = service.TenantId;
 
-        if (Guid.TryParse(customerIdFromQuery, out var parsedCustomerId) && parsedCustomerId != Guid.Empty)
+        var slots = await BuyerApi.GetPublicServiceSlotsAsync(parsedServiceId);
+        _availableSlots.Clear();
+        if (slots is { Count: > 0 })
         {
-            CustomerId = parsedCustomerId.ToString();
-            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+            _availableSlots.AddRange(slots);
+            _useManualSchedule = false;
+            SelectSlot(_availableSlots[0]);
+        }
+        else
+        {
+            _useManualSchedule = true;
+            var suggestedStart = DateTimeOffset.Now.Date.AddDays(1).AddHours(10);
+            var suggestedEnd = suggestedStart.AddMinutes(Math.Max(service.DurationMinutes, 30));
+            BookingDate = suggestedStart.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+            StartTime = suggestedStart.ToString("HH:mm", CultureInfo.InvariantCulture);
+            EndTime = suggestedEnd.ToString("HH:mm", CultureInfo.InvariantCulture);
         }
 
-        await ResolveCustomerIdAsync();
+        _slotsLoaded = true;
 
-        var suggestedStart = DateTimeOffset.Now.Date.AddDays(1).AddHours(10);
-        var suggestedEnd = suggestedStart.AddMinutes(Math.Max(service.DurationMinutes, 30));
-        BookingDate = suggestedStart.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
-        StartTime = suggestedStart.ToString("HH:mm", CultureInfo.InvariantCulture);
-        EndTime = suggestedEnd.ToString("HH:mm", CultureInfo.InvariantCulture);
+        if (_isPersonal)
+        {
+            await ResolveCustomerIdAsync();
+        }
+
         await TrackAsync("start_booking", "start", "started");
         _startedTracked = true;
     }
@@ -340,7 +572,6 @@ else
     private async Task ResolveCustomerIdAsync()
     {
         await AuthState.InitializeAsync();
-
         var tenantCandidates = new List<Guid?>();
         if (_tenantId is Guid tenantFromService && tenantFromService != Guid.Empty)
         {
@@ -353,54 +584,41 @@ else
         }
 
         tenantCandidates.Add(null);
-
         foreach (var tenantCandidate in tenantCandidates)
         {
-            if (await TryEnsureCustomerIdAsync(tenantCandidate))
+            try
             {
-                return;
+                var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantCandidate);
+                if (ensured?.Id is Guid customerId && customerId != Guid.Empty)
+                {
+                    CustomerId = customerId.ToString();
+                    await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                    return;
+                }
+            }
+            catch
+            {
+                // try next tenant
             }
         }
-
-        if (Guid.TryParse(CustomerId, out var currentId) && currentId != Guid.Empty)
-        {
-            return;
-        }
-
-        await TryUseStoredCustomerIdAsync();
     }
 
-    private async Task<bool> TryEnsureCustomerIdAsync(Guid? tenantId)
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    private async Task TrackAsync(string eventName, string step, string status)
     {
-        try
-        {
-            var ensured = await BuyerApi.EnsureBuyerCustomerAsync(tenantId);
-            if (ensured?.Id is Guid customerId && customerId != Guid.Empty)
+        var entityId = Guid.TryParse(ServiceId, out var serviceId) ? serviceId : (Guid?)null;
+        var deviceType = await JSRuntime.InvokeAsync<string>("comunaclic.getDeviceType");
+        await BuyerApi.TrackFunnelEventAsync(new FunnelEventRequest(
+            eventName, "services", "service", entityId, _tenantId,
+            Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery, deviceType, "book", step, status,
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, string?>
             {
-                CustomerId = customerId.ToString();
-                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-                return true;
-            }
-        }
-        catch
-        {
-            // Continue with next tenant candidate.
-        }
-
-        return false;
-    }
-
-    private async Task<bool> TryUseStoredCustomerIdAsync()
-    {
-        var storedCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
-        if (Guid.TryParse(storedCustomerId, out var parsedId) && parsedId != Guid.Empty)
-        {
-            CustomerId = parsedId.ToString();
-            return true;
-        }
-
-        CustomerId = string.Empty;
-        return false;
+                ["customerId"] = string.IsNullOrWhiteSpace(CustomerId) ? null : CustomerId,
+                ["partnerId"] = PartnerId,
+                ["guest"] = (!_isPersonal).ToString()
+            }));
     }
 
     private static bool TryParseDateAndTime(string? dateRaw, string? timeRaw, out DateTimeOffset result)
@@ -421,8 +639,7 @@ else
             return false;
         }
 
-        var localDateTime = date.ToDateTime(time, DateTimeKind.Local);
-        result = new DateTimeOffset(localDateTime);
+        result = new DateTimeOffset(date.ToDateTime(time, DateTimeKind.Local));
         return true;
     }
 
@@ -440,8 +657,7 @@ else
         return null;
     }
 
-    private static string ShortId(Guid id)
-        => id.ToString()[..8];
+    private static string ShortId(Guid id) => id.ToString()[..8];
 
     public void Dispose()
     {

@@ -87,6 +87,17 @@ assert_body_contains() {
   grep -F "$needle" "$WORK_DIR/$name.body" >/dev/null || fail "$name no contiene '$needle'"
 }
 
+assert_body_contains_any() {
+  local name="$1"
+  shift
+  for needle in "$@"; do
+    if grep -F "$needle" "$WORK_DIR/$name.body" >/dev/null; then
+      return 0
+    fi
+  done
+  fail "$name no contiene ninguno de: $*"
+}
+
 extract_first_guid() {
   local name="$1"
   sed -n 's/.*"id":"\([0-9a-fA-F-]\{36\}\)".*/\1/p' "$WORK_DIR/$name.body" | head -n 1
@@ -114,7 +125,7 @@ check_app_public() {
 
   http_request "app_login" GET "${APP_BASE_URL}/login" ""
   assert_status "app_login" 200
-  assert_body_contains "app_login" "Cuenta personal"
+  assert_body_contains_any "app_login" "Persona natural" "Cuenta personal" "Individual"
   assert_body_contains "app_login" "Registrar negocio"
   pass "Login pública responde 200 con CTAs esperados"
 

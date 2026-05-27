@@ -88,6 +88,53 @@ public sealed class ServicesController : ControllerBase
         return Ok(service);
     }
 
+    [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
+    [HttpGet("/v1/public/services/{serviceId:guid}/slots")]
+    public async Task<ActionResult<IEnumerable<object>>> ListPublicSlots(Guid serviceId, [FromQuery] int days = 14)
+    {
+        var service = await _db.Services.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == serviceId && x.IsActive && x.DeletedAt == null);
+
+        if (service is null)
+        {
+            return NotFound();
+        }
+
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == service.PartnerId);
+
+        if (partner is null || !partner.IsVisible)
+        {
+            return NotFound();
+        }
+
+        var horizon = Math.Clamp(days, 1, 60);
+        var from = DateTimeOffset.UtcNow;
+        var to = from.AddDays(horizon);
+
+        var slots = await _db.ServiceSlots.AsNoTracking()
+            .Where(x =>
+                x.ServiceId == serviceId &&
+                x.IsAvailable &&
+                x.Capacity > 0 &&
+                x.StartAt >= from &&
+                x.StartAt < to &&
+                x.EndAt > x.StartAt)
+            .OrderBy(x => x.StartAt)
+            .Take(100)
+            .Select(x => new
+            {
+                x.Id,
+                x.StartAt,
+                x.EndAt,
+                x.Capacity
+            })
+            .ToListAsync();
+
+        return Ok(slots);
+    }
+
     [HttpGet("/v1/partners/{partnerId:guid}/services")]
     public async Task<ActionResult<IEnumerable<Service>>> ListByPartner(Guid partnerId)
     {

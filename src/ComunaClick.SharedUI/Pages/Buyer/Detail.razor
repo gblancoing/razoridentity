@@ -2,6 +2,7 @@
 @page "/buyer/detail/{Type}/{Id:guid}"
 @layout BuyerLayout
 @using System.Net
+@using System.Text.Json
 @using BuyerModels = ComunaClick.Shared.Api.Buyer
 @using ComunaClick.Common
 @using ComunaClick.SharedUI.Services
@@ -10,6 +11,7 @@
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject NavigationManager Navigation
 @inject ApiMediaUrl MediaUrl
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>@(_partnerPageTitle)</PageTitle>
@@ -289,6 +291,23 @@
                         <p class="mt-2 text-sm text-[#595c5d]">@_ctaSubtitle</p>
                         <div class="mt-5 space-y-3">
                             <a href="@_primaryCtaHref" class="block w-full rounded-2xl bg-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#d9ffad]">@_primaryCtaLabel</a>
+                            @if (_showAddToCart)
+                            {
+                                <button type="button"
+                                        class="block w-full rounded-2xl border border-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#3b6700] disabled:opacity-60"
+                                        disabled="@_addingToCart"
+                                        @onclick="AddToCartAsync">
+                                    @(_addingToCart ? "..." : L.T("buyer.cart.add"))
+                                </button>
+                                @if (!string.IsNullOrWhiteSpace(_cartStatusMessage))
+                                {
+                                    <p class="text-xs text-[#61897c]">@_cartStatusMessage</p>
+                                }
+                                @if (_cartAdded)
+                                {
+                                    <a href="/buyer/cart" class="block text-center text-xs font-bold text-[#3b6700] underline">@L.T("buyer.cart.view")</a>
+                                }
+                            }
                             @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
                             {
                                 <a href="@_secondaryCtaHref" class="block w-full rounded-2xl border border-[#dadddf] px-5 py-3 text-center text-sm font-bold text-[#2c2f30]">@_secondaryCtaLabel</a>
@@ -373,6 +392,10 @@
     private readonly List<DetailFact> _detailFacts = new();
     private BuyerModels.PartnerProfileResponse? _partnerProfile;
     private BuyerModels.Product? _productDetail;
+    private bool _showAddToCart;
+    private bool _addingToCart;
+    private string? _cartStatusMessage;
+    private bool _cartAdded;
     private BuyerModels.Service? _serviceDetail;
     private ProfileWebLinks? _displayWebLinks;
     private string? _shareRelativePath;
@@ -623,6 +646,9 @@
         _primaryCtaHref = "/categorias";
         _secondaryCtaLabel = null;
         _secondaryCtaHref = null;
+        _showAddToCart = false;
+        _cartStatusMessage = null;
+        _cartAdded = false;
         _isFavorite = false;
         _favoriteId = null;
         _favoriteMessage = null;
@@ -703,8 +729,8 @@
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
         _statusMessage = "Oferta lista para compra.";
         _ctaSubtitle = "Continúa al checkout o revisa el negocio que publica este producto.";
-        _primaryCtaLabel = AuthState.IsPersonalAccount ? "Comprar ahora" : "Inicia sesión para comprar";
-        _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/checkout?productId={id}");
+        _primaryCtaLabel = product.InStock ? "Comprar ahora" : L.T("public.product.outOfStock");
+        _primaryCtaHref = product.InStock ? $"/buyer/checkout?productId={id}" : "#";
         _secondaryCtaLabel = product.PartnerId != Guid.Empty ? "Ver negocio" : null;
         _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : null;
         _consultHref = product.PartnerId != Guid.Empty
@@ -721,6 +747,52 @@
         AddFact("Estado", product.InStock ? L.T("public.product.inStock") : L.T("public.product.outOfStock"));
         AddFact("Publicado", product.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy"));
         _productDetail = product;
+        _showAddToCart = product.InStock && product.TenantId != Guid.Empty;
+    }
+
+    private async Task AddToCartAsync()
+    {
+        if (_productDetail is null || !_showAddToCart)
+        {
+            return;
+        }
+
+        _addingToCart = true;
+        _cartStatusMessage = null;
+        _cartAdded = false;
+        try
+        {
+            var item = JsonSerializer.Serialize(new
+            {
+                tenantId = _productDetail.TenantId.ToString(),
+                partnerId = _productDetail.PartnerId.ToString(),
+                partnerName = _productDetail.PartnerName ?? _title,
+                currency = _productDetail.Currency ?? "CLP",
+                productId = _productDetail.Id.ToString(),
+                name = _productDetail.Name ?? _title,
+                quantity = 1,
+                unitPrice = _productDetail.Price,
+                maxAvailable = _productDetail.AvailableQuantity ?? _productDetail.StockQuantity ?? 99
+            });
+            var result = await JSRuntime.InvokeAsync<string>("comunaclic.addGuestCartItem", item);
+            switch (result)
+            {
+                case "ok":
+                    _cartStatusMessage = L.T("buyer.cart.added");
+                    _cartAdded = true;
+                    break;
+                case "different_partner":
+                    _cartStatusMessage = L.T("buyer.cart.differentPartner");
+                    break;
+                default:
+                    _cartStatusMessage = L.T("buyer.checkout.missingProduct");
+                    break;
+            }
+        }
+        finally
+        {
+            _addingToCart = false;
+        }
     }
 
     private async Task LoadServiceAsync(Guid id)
@@ -756,8 +828,8 @@
 
         if (bookable)
         {
-            _primaryCtaLabel = AuthState.IsPersonalAccount ? L.T("public.offer.cta.bookNow") : L.T("public.offer.cta.bookLogin");
-            _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/booking?serviceId={id}");
+            _primaryCtaLabel = L.T("public.offer.cta.bookNow");
+            _primaryCtaHref = $"/buyer/booking?serviceId={id}";
             _consultHref = consultHref;
         }
         else

@@ -1,3 +1,5 @@
+using ComunaClick.Api.Modules.Marketplace;
+
 namespace ComunaClick.Api.Modules.Marketplace.Contracts;
 
 public sealed record CreateMarketplacePaymentRequest(
@@ -12,7 +14,8 @@ public sealed record CreateMarketplacePaymentRequest(
     string? IssuerId,
     string? Description,
     string Flow = "checkout_api",
-    string? IdempotencyKey = null);
+    string? IdempotencyKey = null,
+    MercadoPagoBackUrls? BackUrls = null);
 
 public sealed record MarketplaceBuyerRequest(
     string Email,

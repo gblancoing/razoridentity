@@ -9,6 +9,8 @@ namespace ComunaClick.Api.Modules.Marketplace;
 
 public sealed class MarketplacePaymentService
 {
+    public const string BookingExternalReferencePrefix = "cc-booking-";
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly CoreDbContext _db;
@@ -102,23 +104,24 @@ public sealed class MarketplacePaymentService
         MarketplacePaymentResponse response;
         if (string.Equals(request.Flow, "checkout_pro", StringComparison.OrdinalIgnoreCase))
         {
+            var backUrls = request.BackUrls ?? new MercadoPagoBackUrls(
+                $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}",
+                $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}",
+                $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}");
+
             var preference = await _mpClient.CreateCheckoutProPreferenceAsync(
                 accessToken,
                 new MercadoPagoPreferenceRequest(
                     payment.ExternalReference,
                     fee.TotalPlatformFeeAmount,
-                    new MercadoPagoBackUrls(
-                        $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}",
-                        $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}",
-                        $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}"),
-                    order.Items.Select(x => new MercadoPagoPreferenceItem(
-                        x.ProductId.ToString("N"),
-                        !string.IsNullOrWhiteSpace(request.Items.FirstOrDefault(i => string.Equals(i.Sku, x.ProductId.ToString("N"), StringComparison.OrdinalIgnoreCase))?.Title)
-                            ? request.Items.First(i => string.Equals(i.Sku, x.ProductId.ToString("N"), StringComparison.OrdinalIgnoreCase)).Title
-                            : "Producto ComunaClic",
-                        x.Quantity,
-                        order.Currency,
-                        x.UnitPrice)).ToArray(),
+                    backUrls,
+                    order.Items.Select(x =>
+                    {
+                        var sku = x.ProductId.ToString("N");
+                        var matched = request.Items.FirstOrDefault(i => string.Equals(i.Sku, sku, StringComparison.OrdinalIgnoreCase));
+                        var title = !string.IsNullOrWhiteSpace(matched?.Title) ? matched!.Title! : "Producto ComunaClic";
+                        return new MercadoPagoPreferenceItem(sku, title, x.Quantity, order.Currency, x.UnitPrice);
+                    }).ToArray(),
                     new MercadoPagoPreferencePayer(order.BuyerEmail ?? request.Buyer.Email, order.BuyerName ?? request.Buyer.Name),
                     $"{_options.AppBaseUrl.TrimEnd('/')}/api/webhooks/mercadopago"),
                 cancellationToken);
@@ -444,6 +447,153 @@ public sealed class MarketplacePaymentService
             PercentageFee = feeOverride.PercentageFee ?? config?.PercentageFee ?? 0m,
             IsActive = true
         };
+    }
+
+    public async Task<bool> IsSellerCheckoutReadyAsync(Guid sellerId, CancellationToken cancellationToken)
+    {
+        if (sellerId == Guid.Empty)
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = await _oauthService.GetSellerAccessTokenAsync(sellerId, cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<MarketplacePaymentResponse> CreateBuyerCheckoutProForOrderAsync(
+        Persistence.Entities.Order order,
+        string buyerEmail,
+        string? buyerName,
+        CancellationToken cancellationToken)
+    {
+        if (order.Items.Count == 0)
+        {
+            throw new InvalidOperationException("Order has no items.");
+        }
+
+        var productIds = order.Items.Select(x => x.ProductId).Distinct().ToList();
+        var productNames = await _db.Products.AsNoTracking()
+            .Where(x => productIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+
+        var baseUrl = _options.AppBaseUrl.TrimEnd('/');
+        var backUrl = $"{baseUrl}/buyer/orders?orderId={order.Id}&customerId={order.CustomerId}";
+        var items = order.Items.Select(x => new MarketplaceOrderItemRequest(
+            x.ProductId.ToString("N"),
+            productNames.TryGetValue(x.ProductId, out var name) && !string.IsNullOrWhiteSpace(name)
+                ? name.Trim()
+                : "Producto ComunaClic",
+            x.Quantity,
+            x.UnitPrice)).ToList();
+
+        return await CreateAsync(
+            new CreateMarketplacePaymentRequest(
+                order.PartnerId,
+                order.Id,
+                new MarketplaceBuyerRequest(buyerEmail, buyerName),
+                items,
+                FeeOverride: null,
+                PaymentToken: null,
+                PaymentMethodId: null,
+                Installments: null,
+                IssuerId: null,
+                Description: $"Compra ComunaClic #{order.Id:N}"[..Math.Min(40, $"Compra ComunaClic #{order.Id:N}".Length)],
+                Flow: "checkout_pro",
+                IdempotencyKey: $"cc-order-pay:{order.Id:N}",
+                BackUrls: new MercadoPagoBackUrls(backUrl, backUrl, backUrl)),
+            cancellationToken);
+    }
+
+    public async Task<MarketplacePaymentResponse> CreateBuyerCheckoutProForBookingAsync(
+        Persistence.Entities.Booking booking,
+        string serviceTitle,
+        string buyerEmail,
+        string? buyerName,
+        CancellationToken cancellationToken)
+    {
+        var seller = await _sellerService.EnsureSellerAsync(booking.PartnerId, cancellationToken);
+        var accessToken = await _oauthService.GetSellerAccessTokenAsync(booking.PartnerId, cancellationToken);
+        var grossAmount = booking.Amount > 0 ? booking.Amount : 0m;
+        if (grossAmount <= 0)
+        {
+            throw new InvalidOperationException("Booking amount must be greater than zero.");
+        }
+
+        var feeConfig = await ResolveFeeConfigurationAsync(booking.PartnerId, feeOverride: null, cancellationToken);
+        var fee = _feeCalculator.Calculate(grossAmount, feeConfig.FixedFeeAmount, feeConfig.PercentageFee);
+        var correlationId = _httpContextAccessor.HttpContext?.GetCorrelationId() ?? Guid.NewGuid().ToString("N");
+        var externalReference = $"{BookingExternalReferencePrefix}{booking.Id:N}";
+        var idempotencyKey = $"cc-booking-pay:{booking.Id:N}";
+
+        var payment = new Payment
+        {
+            TenantId = seller.TenantId,
+            SellerId = seller.Id,
+            OrderId = null,
+            Provider = "mercadopago",
+            ExternalReference = externalReference,
+            Amount = grossAmount,
+            TransactionAmount = grossAmount,
+            Currency = string.IsNullOrWhiteSpace(booking.Currency) ? _options.Currency : booking.Currency,
+            Status = "pending",
+            IdempotencyKey = idempotencyKey,
+            CorrelationId = correlationId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.Payments.Add(payment);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var baseUrl = _options.AppBaseUrl.TrimEnd('/');
+        var backUrl = $"{baseUrl}/buyer/orders?bookingId={booking.Id}&customerId={booking.CustomerId}";
+        var preference = await _mpClient.CreateCheckoutProPreferenceAsync(
+            accessToken,
+            new MercadoPagoPreferenceRequest(
+                payment.ExternalReference,
+                fee.TotalPlatformFeeAmount,
+                new MercadoPagoBackUrls(backUrl, backUrl, backUrl),
+                new[]
+                {
+                    new MercadoPagoPreferenceItem(
+                        booking.ServiceId.ToString("N"),
+                        serviceTitle,
+                        1,
+                        payment.Currency,
+                        grossAmount)
+                },
+                new MercadoPagoPreferencePayer(buyerEmail, buyerName),
+                $"{baseUrl}/api/webhooks/mercadopago"),
+            cancellationToken);
+
+        payment.ProviderToken = preference.Id;
+        payment.RawResponseJson = JsonSerializer.Serialize(preference, JsonOptions);
+        payment.StatusDetail = "checkout_pro_preference_created";
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return new MarketplacePaymentResponse(
+            payment.Id,
+            Guid.Empty,
+            seller.Id,
+            "checkout_pro",
+            payment.Provider,
+            payment.Status,
+            payment.StatusDetail,
+            payment.Currency,
+            grossAmount,
+            fee.TotalPlatformFeeAmount,
+            fee.NetToSellerAmount,
+            payment.ExternalReference,
+            null,
+            preference.InitPoint ?? preference.SandboxInitPoint,
+            correlationId);
     }
 
     private static void ValidateCreateRequest(CreateMarketplacePaymentRequest request)

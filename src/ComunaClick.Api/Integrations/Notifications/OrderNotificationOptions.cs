@@ -4,6 +4,8 @@ public sealed class OrderNotificationOptions
 {
     public bool Enabled { get; set; } = false;
     public bool EnableEmail { get; set; } = false;
+    public bool EnableBuyerEmail { get; set; } = true;
+    public string AppBaseUrl { get; set; } = "https://app.comunaclic.cl";
     public bool EnableWhatsAppWebhook { get; set; } = false;
     public string? WhatsAppWebhookUrl { get; set; }
     public string? WhatsAppApiKey { get; set; }

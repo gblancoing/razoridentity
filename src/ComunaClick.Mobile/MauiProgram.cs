@@ -23,6 +23,7 @@ public static class MauiProgram
 #endif
 
 		builder.Services.AddScoped<LocaleService>();
+		builder.Services.AddScoped<UserMapLocationService>();
 		builder.Services.AddScoped<AuthStateService>();
 		builder.Services.AddScoped<ITokenStore, ComunaClick.Mobile.Services.SecureTokenStore>();
 		builder.Services.AddSingleton(new ComunaClick.Shared.Http.ApiOptions

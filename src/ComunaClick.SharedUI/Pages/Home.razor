@@ -1,6 +1,7 @@
 ﻿@page "/"
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject IJSRuntime JSRuntime
 @using ComunaClick.SharedUI.Services
 @using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
@@ -32,8 +33,11 @@
 
 <!-- MEGA HERO -->
 <section class="cc-hero-bg relative min-h-[600px] sm:min-h-[700px] flex flex-col overflow-hidden">
-    <!-- Photo: full opacity, shows through gradient overlays on the right -->
-    <div class="absolute inset-0 bg-cover bg-center pointer-events-none" style="@HeroImageOnlyStyle"></div>
+    <!-- Hero photos: crossfade every 10s (marketplace, food, retail) -->
+    <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div class="cc-hero-slide bg-cover bg-center @GetHeroSlideLayerClass(0)" style="@_heroLayer0Style"></div>
+        <div class="cc-hero-slide bg-cover bg-center @GetHeroSlideLayerClass(1)" style="@_heroLayer1Style"></div>
+    </div>
     <!-- Left-to-right overlay: dark on left (text), transparent on right (photo) -->
     <div class="absolute inset-0 bg-gradient-to-r from-[#043d2a]/95 via-[#065f46]/75 to-[#0f766e]/20 pointer-events-none"></div>
     <!-- Top-to-bottom overlay for depth -->
@@ -62,21 +66,23 @@
 
         <!-- Mega search bar -->
         <div class="w-full max-w-3xl mx-auto">
-            <div class="cc-search-ring flex w-full items-stretch rounded-2xl h-[58px] sm:h-16 overflow-hidden bg-white shadow-[0_24px_64px_-12px_rgba(0,0,0,0.65)] ring-2 ring-white/15 transition-all duration-300">
+            <form class="cc-search-ring flex w-full items-stretch rounded-2xl h-[58px] sm:h-16 overflow-hidden bg-white shadow-[0_24px_64px_-12px_rgba(0,0,0,0.65)] ring-2 ring-white/15 transition-all duration-300"
+                  @onsubmit="OnSearchSubmitAsync"
+                  @onsubmit:preventDefault="true">
                 <div class="flex items-center justify-center pl-4 sm:pl-5 bg-white shrink-0">
                     <span class="material-symbols-outlined text-primary text-[26px]">search</span>
                 </div>
                 <input @bind="_searchQuery"
                        @bind:event="oninput"
-                       @onkeydown="HandleSearchKeyDown"
+                       name="q"
                        class="flex-1 min-w-0 border-0 bg-white text-[#111816] placeholder:text-gray-400 px-3 sm:px-4 text-base sm:text-lg focus:ring-0 focus:outline-none font-medium"
                        placeholder="@L.T("home.search.placeholder")" />
-                <button type="button"
-                        @onclick="ExecuteSearchAsync"
-                        class="shrink-0 px-6 sm:px-10 bg-primary text-white font-headline font-extrabold text-sm sm:text-[15px] hover:brightness-110 active:scale-[0.97] transition-all duration-150">
+                <button type="submit"
+                        disabled="@_searchLoading"
+                        class="shrink-0 px-6 sm:px-10 bg-primary text-white font-headline font-extrabold text-sm sm:text-[15px] hover:brightness-110 active:scale-[0.97] transition-all duration-150 disabled:opacity-60">
                     @L.T("home.search.button")
                 </button>
-            </div>
+            </form>
 
             <!-- Quick pills below search -->
             <div class="flex flex-wrap gap-2 mt-4 justify-center">
@@ -93,6 +99,31 @@
                     <span class="material-symbols-outlined text-rose-300 text-[14px]">local_offer</span>@L.T("home.market.promo4")
                 </span>
             </div>
+
+            <HomeSearchLocationBar @ref="_searchLocationBar" OnGeoChanged="HandleSearchGeoChanged" />
+
+            @if (_searchLoading || _searchHasRun || !string.IsNullOrWhiteSpace(_heroSearchMessage))
+            {
+                <div class="mt-3 rounded-xl border border-white/25 bg-black/35 backdrop-blur-md px-4 py-3 text-left text-sm"
+                     role="status"
+                     aria-live="polite">
+                    @if (_searchLoading)
+                    {
+                        <p class="font-semibold text-white/95 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                            @L.T("home.market.searching")
+                        </p>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_searchError))
+                    {
+                        <p class="font-semibold text-rose-200">@_searchError</p>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_heroSearchMessage))
+                    {
+                        <p class="font-semibold text-white/95">@_heroSearchMessage</p>
+                    }
+                </div>
+            }
         </div>
 
         <!-- CTA buttons -->
@@ -158,7 +189,7 @@
 <div class="w-full max-w-full min-w-0 overflow-x-clip bg-gradient-to-b from-slate-50 via-[#f0f4f3] to-slate-50">
 
     <!-- Search results panel (conditional) -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-8">
+    <div id="home-search-results" class="max-w-7xl mx-auto px-4 sm:px-6 pt-8 scroll-mt-24">
         @if (_searchLoading)
         {
             <div class="rounded-2xl bg-white border border-gray-200/80 p-5 shadow-sm mb-4 animate-pulse">
@@ -193,46 +224,39 @@
                                 </div>
                             </div>
                         }
-                        @if (_partnerSearchResults.Count > 0)
+
+                        <SearchResultsSection Title="@L.T("home.search.products")"
+                                              Items="_productSearchResults"
+                                              ShowViewAll="_hasMoreProducts"
+                                              ViewAllHref="@BuildSearchSectionUrl("products")"
+                                              ViewAllText="@L.T("home.search.viewAllSection")" />
+
+                        <SearchResultsSection Title="@L.T("home.featured.title")"
+                                              Items="_partnerSearchResults"
+                                              ShowViewAll="_hasMorePartners"
+                                              ViewAllHref="@BuildSearchSectionUrl("partners")"
+                                              ViewAllText="@L.T("home.search.viewAllSection")" />
+
+                        <SearchResultsSection Title="@L.T("home.services.title")"
+                                              Items="_serviceSearchResults"
+                                              ShowViewAll="_hasMoreServices"
+                                              ViewAllHref="@BuildSearchSectionUrl("services")"
+                                              ViewAllText="@L.T("home.search.viewAllSection")" />
+
+                        <SearchResultsSection Title="@L.T("home.search.professionals")"
+                                              Items="_professionalSearchResults"
+                                              ShowViewAll="_hasMoreProfessionals"
+                                              ViewAllHref="@BuildSearchSectionUrl("professionals")"
+                                              ViewAllText="@L.T("home.search.viewAllSection")" />
+
+                        @if (HasCatalogSearchResults())
                         {
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">@L.T("home.featured.title")</p>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    @foreach (var item in _partnerSearchResults)
-                                    {
-                                        <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-[#f0fdf4]/50 px-3 py-2.5 text-sm font-semibold hover:bg-emerald-50 transition-colors">
-                                            @item.Name
-                                        </a>
-                                    }
-                                </div>
-                            </div>
-                        }
-                        @if (_serviceSearchResults.Count > 0)
-                        {
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">@L.T("home.services.title")</p>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    @foreach (var item in _serviceSearchResults)
-                                    {
-                                        <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-[#f0fdf4]/50 px-3 py-2.5 text-sm font-semibold hover:bg-emerald-50 transition-colors">
-                                            @item.Name
-                                        </a>
-                                    }
-                                </div>
-                            </div>
-                        }
-                        @if (_professionalSearchResults.Count > 0)
-                        {
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.14em] font-black text-[#4d4f50] mb-2">@L.T("home.search.professionals")</p>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    @foreach (var item in _professionalSearchResults)
-                                    {
-                                        <a href="@GetSearchResultHref(item)" class="rounded-xl border border-emerald-100 bg-[#f0fdf4]/50 px-3 py-2.5 text-sm font-semibold hover:bg-emerald-50 transition-colors">
-                                            @item.Name
-                                        </a>
-                                    }
-                                </div>
+                            <div class="pt-1 border-t border-gray-100">
+                                <a href="@BuildSearchAllUrl()"
+                                   class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-extrabold text-white shadow-md hover:brightness-110 transition-all">
+                                    @L.T("home.search.viewAll")
+                                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                </a>
                             </div>
                         }
                     </div>
@@ -573,9 +597,17 @@
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _featuredBusinesses = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _featuredServices = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categorySearchResults = new();
+    private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _productSearchResults = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _partnerSearchResults = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _serviceSearchResults = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.SearchResultItem> _professionalSearchResults = new();
+    private HomeSearchLocationBar? _searchLocationBar;
+    private HomeSearchLocationBar.HomeSearchGeoContext? _searchGeoContext;
+    private GeoFilter? _lastSearchGeo;
+    private bool _hasMoreProducts;
+    private bool _hasMorePartners;
+    private bool _hasMoreServices;
+    private bool _hasMoreProfessionals;
     private readonly List<HomeNewsCard> _newsCards = new();
     private readonly List<HomeEventCard> _eventCards = new();
     private bool _categoriesLoading = true;
@@ -587,20 +619,33 @@
     private string _featuredStatusMessage = "No encontramos negocios destacados por ahora.";
     private string _featuredServicesStatusMessage = "No encontramos servicios destacados por ahora.";
     private string? _searchError;
+    private string? _heroSearchMessage;
     private string _searchQuery = string.Empty;
     private ComunaClick.Shared.Api.Buyer.PublicSiteContentResponse? _siteContent;
 
     [SupplyParameterFromQuery(Name = "q")]
     private string? QFromUrl { get; set; }
 
-    /// <summary>Imagen fija de comercio local (Unsplash); coherente con la marca y sin variación aleatoria diaria.</summary>
-    private const string HomeHeroImageUrl =
-        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1920&q=82";
+    private static readonly string[] HeroSlideUrls =
+    [
+        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1920&q=82",
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1920&q=82",
+        "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=1920&q=80",
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1920&q=82",
+        "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1920&q=82",
+        "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1920&q=82"
+    ];
 
     private const string NewsMoreHref = "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FtVnVLQUFQAQ?hl=es-419&gl=CL&ceid=CL%3Aes-419";
-    private string HeroImageOnlyStyle => $"background-image: url('{HomeHeroImageUrl}');";
+
+    private int _heroSlideIndex;
+    private int _heroVisibleLayer;
+    private string _heroLayer0Style = string.Empty;
+    private string _heroLayer1Style = string.Empty;
+    private CancellationTokenSource? _heroSlideCts;
     private bool HasSearchResults
         => _categorySearchResults.Count > 0
+        || _productSearchResults.Count > 0
         || _partnerSearchResults.Count > 0
         || _serviceSearchResults.Count > 0
         || _professionalSearchResults.Count > 0;
@@ -609,6 +654,7 @@
     {
         L.OnChange += HandleChange;
         RebuildSidebarCards();
+        InitializeHeroSlides();
     }
 
     protected override async Task OnInitializedAsync()
@@ -695,6 +741,78 @@
             _searchQuery = QFromUrl.Trim();
             await ExecuteSearchAsync();
         }
+
+        _ = StartHeroSlideRotationAsync();
+    }
+
+    private void InitializeHeroSlides()
+    {
+        if (HeroSlideUrls.Length == 0)
+        {
+            return;
+        }
+
+        _heroSlideIndex = 0;
+        _heroVisibleLayer = 0;
+        _heroLayer0Style = BuildHeroBackgroundStyle(HeroSlideUrls[0]);
+        _heroLayer1Style = HeroSlideUrls.Length > 1
+            ? BuildHeroBackgroundStyle(HeroSlideUrls[1])
+            : _heroLayer0Style;
+    }
+
+    private static string BuildHeroBackgroundStyle(string url)
+        => $"background-image: url('{url}');";
+
+    private string GetHeroSlideLayerClass(int layer)
+        => layer == _heroVisibleLayer ? "cc-hero-slide--visible" : string.Empty;
+
+    private async Task StartHeroSlideRotationAsync()
+    {
+        if (HeroSlideUrls.Length <= 1)
+        {
+            return;
+        }
+
+        _heroSlideCts?.Cancel();
+        _heroSlideCts?.Dispose();
+        _heroSlideCts = new CancellationTokenSource();
+        var token = _heroSlideCts.Token;
+
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                AdvanceHeroSlide();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Page left or disposed.
+        }
+    }
+
+    private void AdvanceHeroSlide()
+    {
+        if (HeroSlideUrls.Length <= 1)
+        {
+            return;
+        }
+
+        _heroSlideIndex = (_heroSlideIndex + 1) % HeroSlideUrls.Length;
+        var nextUrl = HeroSlideUrls[_heroSlideIndex];
+
+        if (_heroVisibleLayer == 0)
+        {
+            _heroLayer1Style = BuildHeroBackgroundStyle(nextUrl);
+            _heroVisibleLayer = 1;
+        }
+        else
+        {
+            _heroLayer0Style = BuildHeroBackgroundStyle(nextUrl);
+            _heroVisibleLayer = 0;
+        }
     }
 
     private string GetCategoryHref(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
@@ -709,24 +827,50 @@
             : $"/categorias/{slug}?code={Uri.EscapeDataString(code)}";
     }
 
+    private async Task OnSearchSubmitAsync()
+    {
+        await ExecuteSearchAsync();
+    }
+
     private async Task ExecuteSearchAsync()
     {
+        var query = _searchQuery?.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            _searchHasRun = true;
+            _searchError = null;
+            _heroSearchMessage = L.T("home.search.emptyQuery");
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         _searchHasRun = true;
         _searchError = null;
+        _heroSearchMessage = null;
         _categorySearchResults.Clear();
+        _productSearchResults.Clear();
         _partnerSearchResults.Clear();
         _serviceSearchResults.Clear();
         _professionalSearchResults.Clear();
 
-        var query = _searchQuery?.Trim();
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return;
-        }
-
         _searchLoading = true;
+        await InvokeAsync(StateHasChanged);
+
         try
         {
+            var ctx = _searchGeoContext ?? _searchLocationBar?.GetContext();
+            if (ctx?.Mode == HomeSearchLocationBar.NearbyMode && _searchLocationBar is not null)
+            {
+                var located = await _searchLocationBar.EnsureLocationForSearchAsync();
+                if (!located)
+                {
+                    _heroSearchMessage = L.T("home.search.location.requiredBeforeSearch");
+                    return;
+                }
+
+                _searchGeoContext = _searchLocationBar.GetContext();
+            }
+
             var normalizedQuery = NormalizeCategoryName(query);
             _categorySearchResults.AddRange(
                 _allCategories
@@ -736,53 +880,154 @@
                     .DistinctBy(x => CategoryVisualService.ResolveDisplayName(x.Code, x.Name), StringComparer.OrdinalIgnoreCase)
                     .Take(8));
 
-            var partnersTask = BuyerApi.SearchAsync(query, "partners", 8);
-            var servicesTask = BuyerApi.SearchAsync(query, "services", 8);
-            var professionalsTask = BuyerApi.SearchAsync(query, "professionals", 8);
+            var geo = BuildSearchGeoFilter();
+            _lastSearchGeo = geo;
+            await RunCatalogSearchAsync(query, geo);
+            UpdateSearchHasMoreFlags();
 
-            await Task.WhenAll(partnersTask, servicesTask, professionalsTask);
+            if (geo is not null && !HasCatalogSearchResults())
+            {
+                await RunCatalogSearchAsync(query, geo: null);
+                _lastSearchGeo = null;
+                UpdateSearchHasMoreFlags();
+                if (HasCatalogSearchResults())
+                {
+                    _heroSearchMessage = L.T("home.search.fallbackNoGeo");
+                }
+            }
 
-            _partnerSearchResults.AddRange((await partnersTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
-                .Where(x => string.Equals(x.Type, "partner", StringComparison.OrdinalIgnoreCase)));
-            _serviceSearchResults.AddRange((await servicesTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
-                .Where(x => string.Equals(x.Type, "service", StringComparison.OrdinalIgnoreCase)));
-            _professionalSearchResults.AddRange((await professionalsTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
-                .Where(x => string.Equals(x.Type, "professional", StringComparison.OrdinalIgnoreCase)));
+            _heroSearchMessage ??= BuildHeroSearchSummary(query);
         }
         catch (HttpRequestException ex)
         {
             _searchError = $"No se pudo completar la búsqueda ({(int?)ex.StatusCode ?? 0}).";
+            _heroSearchMessage = null;
         }
-        catch
+        catch (Exception ex)
         {
-            _searchError = "No se pudo completar la búsqueda en este momento.";
+            _searchError = L.T("home.search.errorGeneric");
+            _heroSearchMessage = null;
+            System.Diagnostics.Debug.WriteLine($"Home search failed: {ex}");
         }
         finally
         {
             _searchLoading = false;
+            await InvokeAsync(StateHasChanged);
+            await ScrollToSearchResultsAsync();
         }
     }
 
-    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
+    private bool HasCatalogSearchResults()
+        => _productSearchResults.Count > 0
+        || _partnerSearchResults.Count > 0
+        || _serviceSearchResults.Count > 0
+        || _professionalSearchResults.Count > 0;
+
+    private async Task RunCatalogSearchAsync(string query, ComunaClick.Shared.Api.Buyer.GeoFilter? geo)
     {
-        if (string.Equals(e.Key, "Enter", StringComparison.Ordinal))
+        if (geo is null)
         {
-            await ExecuteSearchAsync();
+            _productSearchResults.Clear();
+            _partnerSearchResults.Clear();
+            _serviceSearchResults.Clear();
+            _professionalSearchResults.Clear();
+        }
+
+        var fetchLimit = SearchQueryHelper.HomeFetchLimit;
+        var productsTask = BuyerApi.SearchAsync(query, "products", fetchLimit, geo);
+        var partnersTask = BuyerApi.SearchAsync(query, "partners", fetchLimit, geo);
+        var servicesTask = BuyerApi.SearchAsync(query, "services", fetchLimit, geo);
+        var professionalsTask = BuyerApi.SearchAsync(query, "professionals", fetchLimit, geo);
+
+        await Task.WhenAll(productsTask, partnersTask, servicesTask, professionalsTask);
+
+        if (geo is null)
+        {
+            _productSearchResults.Clear();
+            _partnerSearchResults.Clear();
+            _serviceSearchResults.Clear();
+            _professionalSearchResults.Clear();
+        }
+
+        _productSearchResults.AddRange((await productsTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
+            .Where(x => string.Equals(x.Type, "product", StringComparison.OrdinalIgnoreCase)));
+        _partnerSearchResults.AddRange((await partnersTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
+            .Where(x => string.Equals(x.Type, "partner", StringComparison.OrdinalIgnoreCase)));
+        _serviceSearchResults.AddRange((await servicesTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
+            .Where(x => string.Equals(x.Type, "service", StringComparison.OrdinalIgnoreCase)));
+        _professionalSearchResults.AddRange((await professionalsTask ?? Array.Empty<ComunaClick.Shared.Api.Buyer.SearchResultItem>())
+            .Where(x => string.Equals(x.Type, "professional", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private string? BuildHeroSearchSummary(string query)
+    {
+        if (!string.IsNullOrWhiteSpace(_searchError))
+        {
+            return null;
+        }
+
+        var total = _categorySearchResults.Count
+            + _productSearchResults.Count
+            + _partnerSearchResults.Count
+            + _serviceSearchResults.Count
+            + _professionalSearchResults.Count;
+
+        if (total == 0)
+        {
+            return string.Format(L.T("home.search.summaryNone"), query);
+        }
+
+        return string.Format(L.T("home.search.summaryFound"), total, query);
+    }
+
+    private async Task ScrollToSearchResultsAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.scrollToElement", "home-search-results");
+        }
+        catch
+        {
+            // Ignore scroll failures (prerender / SSR).
         }
     }
+
+    private Task HandleSearchGeoChanged(HomeSearchLocationBar.HomeSearchGeoContext context)
+    {
+        _searchGeoContext = context;
+        return Task.CompletedTask;
+    }
+
+    private ComunaClick.Shared.Api.Buyer.GeoFilter? BuildSearchGeoFilter()
+    {
+        var ctx = _searchGeoContext ?? _searchLocationBar?.GetContext();
+        if (ctx?.HasCoordinates != true || ctx.Latitude is null || ctx.Longitude is null)
+        {
+            return null;
+        }
+
+        return new ComunaClick.Shared.Api.Buyer.GeoFilter(
+            Latitude: ctx.Latitude,
+            Longitude: ctx.Longitude,
+            RadiusKm: ctx.RadiusKm);
+    }
+
+    private void UpdateSearchHasMoreFlags()
+    {
+        _hasMoreProducts = _productSearchResults.Count > SearchQueryHelper.HomePreviewCount;
+        _hasMorePartners = _partnerSearchResults.Count > SearchQueryHelper.HomePreviewCount;
+        _hasMoreServices = _serviceSearchResults.Count > SearchQueryHelper.HomePreviewCount;
+        _hasMoreProfessionals = _professionalSearchResults.Count > SearchQueryHelper.HomePreviewCount;
+    }
+
+    private string BuildSearchAllUrl()
+        => SearchQueryHelper.BuildBuscarUrl(_searchQuery, geo: _lastSearchGeo);
+
+    private string BuildSearchSectionUrl(string type)
+        => SearchQueryHelper.BuildBuscarUrl(_searchQuery, type, _lastSearchGeo);
 
     private static string GetSearchResultHref(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
-    {
-        var kind = item.Type?.Trim().ToLowerInvariant();
-        return kind switch
-        {
-            "partner" => $"/buyer/detail/partner/{item.Id}",
-            "service" => $"/buyer/detail/service/{item.Id}",
-            "professional" => $"/buyer/detail/professional/{item.Id}",
-            "product" => $"/buyer/detail/product/{item.Id}",
-            _ => !string.IsNullOrWhiteSpace(item.CtaHref) ? item.CtaHref! : "#"
-        };
-    }
+        => SearchDisplayHelper.GetResultHref(item);
 
     private static string BuildCategoryStyle(string? image)
     {
@@ -938,5 +1183,8 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+        _heroSlideCts?.Cancel();
+        _heroSlideCts?.Dispose();
+        _heroSlideCts = null;
     }
 }

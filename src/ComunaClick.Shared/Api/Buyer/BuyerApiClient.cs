@@ -52,6 +52,48 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<Order>(message, cancellationToken);
     }
 
+    public Task<GuestOrderCreateResponse?> CreateGuestOrderAsync(
+        GuestOrderCreateRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<GuestOrderCreateResponse>("/v1/public/orders/guest", request, cancellationToken);
+
+    public Task<GuestBookingCreateResponse?> CreateGuestBookingAsync(
+        GuestBookingCreateRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<GuestBookingCreateResponse>("/v1/public/bookings/guest", request, cancellationToken);
+
+    public Task<PublicPartnerPaymentStatusResponse?> GetPartnerPaymentStatusAsync(
+        Guid partnerId,
+        CancellationToken cancellationToken = default)
+        => GetAsync<PublicPartnerPaymentStatusResponse>($"/v1/public/checkout/partners/{partnerId}/payment-status", cancellationToken);
+
+    public Task<PublicMercadoPagoCheckoutResponse?> CreateMercadoPagoCheckoutAsync(
+        PublicMercadoPagoCheckoutRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<PublicMercadoPagoCheckoutResponse>("/v1/public/checkout/mercadopago", request, cancellationToken);
+
+    public Task<PublicMercadoPagoCheckoutResponse?> ResumeMercadoPagoCheckoutAsync(
+        PublicMercadoPagoCheckoutRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<PublicMercadoPagoCheckoutResponse>("/v1/public/checkout/mercadopago/resume", request, cancellationToken);
+
+    public Task SendPaymentReminderAsync(
+        PublicPaymentReminderRequest request,
+        CancellationToken cancellationToken = default)
+        => PostNoContentAsync("/v1/public/checkout/payment-reminder", request, cancellationToken);
+
+    public Task<IReadOnlyList<PublicServiceSlot>?> GetPublicServiceSlotsAsync(
+        Guid serviceId,
+        int days = 14,
+        CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicServiceSlot>>($"/v1/public/services/{serviceId}/slots?days={days}", cancellationToken);
+
+    public Task<Customer?> LinkGuestCustomerAsync(
+        Guid customerId,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+        => PostAsync<Customer>("/v1/buyer/customer/link-guest", new LinkGuestCustomerRequest(customerId, tenantId), cancellationToken);
+
     public Task<CartSnapshot?> GetCartAsync(CancellationToken cancellationToken = default)
         => GetAsync<CartSnapshot>("/v1/cart", cancellationToken);
 
@@ -368,15 +410,31 @@ public sealed class BuyerApiClient : ApiClientBase
             parts.Add($"comunaId={comunaId}");
         }
 
+        if (geo?.HasCoordinates == true)
+        {
+            parts.Add($"latitude={geo.Latitude!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            parts.Add($"longitude={geo.Longitude!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            var radius = geo.RadiusKm ?? 30;
+            parts.Add($"radiusKm={radius.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+
         return $"{basePath}?{string.Join("&", parts)}";
     }
 }
 
 public sealed record GeoFilter(
-    Guid? CountryId,
-    Guid? RegionId,
-    Guid? ComunaId
-);
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    double? RadiusKm = null)
+{
+    public bool HasCoordinates =>
+        Latitude is double lat && Longitude is double lng
+        && lat is >= -90 and <= 90
+        && lng is >= -180 and <= 180;
+}
 
 public sealed record SearchResultItem(
     string? Type,
@@ -387,8 +445,11 @@ public sealed record SearchResultItem(
     double? Price,
     string? Currency,
     string? CtaLabel,
-    string? CtaHref
-);
+    string? CtaHref,
+    double? DistanceKm = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    string? LogoUrl = null);
 
 public sealed record Order(
     Guid Id,
@@ -464,6 +525,74 @@ public sealed record OrderCreateRequest(
     Guid? DeliveryProviderId = null,
     string? DeliveryAddress = null
 );
+
+public sealed record GuestContactRequest(
+    string FullName,
+    string Email,
+    string? Phone);
+
+public sealed record GuestOrderCreateRequest(
+    Guid TenantId,
+    Guid PartnerId,
+    IReadOnlyList<OrderItemCreateRequest> Items,
+    GuestContactRequest Guest,
+    double DeliveryFee = 0,
+    string? Currency = null,
+    string? DeliveryAddress = null);
+
+public sealed record GuestOrderCreateResponse(
+    Guid OrderId,
+    Guid CustomerId,
+    string? Status,
+    double TotalAmount,
+    string? Currency);
+
+public sealed record GuestBookingCreateRequest(
+    Guid TenantId,
+    Guid ServiceId,
+    Guid? SlotId,
+    GuestContactRequest Guest,
+    DateTimeOffset StartAt,
+    DateTimeOffset EndAt,
+    string? Currency = null,
+    string? CancellationPolicy = null);
+
+public sealed record GuestBookingCreateResponse(
+    Guid BookingId,
+    Guid CustomerId,
+    string? Status,
+    double Amount,
+    string? Currency);
+
+public sealed record PublicPartnerPaymentStatusResponse(
+    Guid PartnerId,
+    bool MercadoPagoReady);
+
+public sealed record PublicMercadoPagoCheckoutRequest(
+    Guid CustomerId,
+    Guid? OrderId,
+    Guid? BookingId);
+
+public sealed record PublicMercadoPagoCheckoutResponse(
+    bool Available,
+    string? CheckoutUrl,
+    Guid? PaymentId,
+    string? Message);
+
+public sealed record PublicPaymentReminderRequest(
+    Guid CustomerId,
+    Guid? OrderId,
+    Guid? BookingId);
+
+public sealed record LinkGuestCustomerRequest(
+    Guid CustomerId,
+    Guid? TenantId);
+
+public sealed record PublicServiceSlot(
+    Guid Id,
+    DateTimeOffset StartAt,
+    DateTimeOffset EndAt,
+    int Capacity);
 
 public sealed record CartItemUpsertRequest(
     Guid ProductId,

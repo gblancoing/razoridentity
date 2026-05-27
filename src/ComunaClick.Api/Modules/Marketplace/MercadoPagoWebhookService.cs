@@ -222,6 +222,21 @@ public sealed class MercadoPagoWebhookService
                     cancellationToken);
             }
         }
+        else if (OrderInventoryFulfillment.IsPaidStatus(payment.Status) &&
+                 payment.ExternalReference.StartsWith(MarketplacePaymentService.BookingExternalReferencePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var bookingIdRaw = payment.ExternalReference[MarketplacePaymentService.BookingExternalReferencePrefix.Length..];
+            if (Guid.TryParse(bookingIdRaw, out var bookingId))
+            {
+                var booking = await _db.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId, cancellationToken);
+                if (booking is not null && !string.Equals(booking.Status, "confirmed", StringComparison.OrdinalIgnoreCase))
+                {
+                    booking.Status = "confirmed";
+                    booking.UpdatedAt = DateTimeOffset.UtcNow;
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
     }
 
     private static string NormalizeMercadoPagoStatus(string? status)

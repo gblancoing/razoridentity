@@ -27,6 +27,7 @@ builder.Services.AddHsts(options =>
     options.IncludeSubDomains = true;
 });
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.LocaleService>();
+builder.Services.AddScoped<ComunaClick.SharedUI.Services.UserMapLocationService>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.ApiMediaUrl>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.SessionTokenHolder>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.AuthStateService>();
@@ -107,6 +108,7 @@ app.Use(async (context, next) =>
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; " +
         "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.google.com https://www.gstatic.com https://unpkg.com; " +
         "worker-src 'self' blob:; " +
+        "media-src 'self' https://d8j0ntlcm91z4.cloudfront.net https://*.cloudfront.net blob:; " +
         (app.Environment.IsDevelopment()
             // Dev: API, Blazor (wss), geocoding, recaptcha + VS Browser Link / Hot Reload (ws/http en localhost).
             ? "connect-src 'self' " +

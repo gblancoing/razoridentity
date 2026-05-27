@@ -54,6 +54,7 @@ internal sealed class QualityCheckSuite
         await CheckAclContractsAsync();
         await CheckApiPublicAsync();
         await CheckTrackingContractsAsync();
+        await CheckGuestCheckoutContractsAsync();
         await CheckAuthenticatedOwnershipAsync();
         await CheckOptionalRegisterAsync();
 
@@ -73,7 +74,12 @@ internal sealed class QualityCheckSuite
 
         var login = await SendAsync(HttpMethod.Get, $"{_appBaseUrl}/login");
         Expect(login, "app.login", HttpStatusCode.OK);
-        ExpectContains(login.Body, "Cuenta personal", "app.login debería exponer CTA buyer");
+        if (!login.Body.Contains("Persona natural", StringComparison.Ordinal)
+            && !login.Body.Contains("Cuenta personal", StringComparison.Ordinal)
+            && !login.Body.Contains("Individual", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("app.login debería exponer CTA buyer (Persona natural / Cuenta personal / Individual)");
+        }
         ExpectContains(login.Body, "Registrar negocio", "app.login debería exponer CTA partner");
         Pass("App login pública responde con CTAs esperados");
 
@@ -171,6 +177,111 @@ internal sealed class QualityCheckSuite
         var bookingWithoutCustomer = await SendAsync(HttpMethod.Get, $"{_apiBaseUrl}/v1/public/bookings/{fakeBookingId}");
         Expect(bookingWithoutCustomer, "api.publicBookingWithoutCustomer", HttpStatusCode.NotFound);
         Pass("Tracking público de booking exige customerId");
+    }
+
+    private async Task CheckGuestCheckoutContractsAsync()
+    {
+        Info("Validando checkout invitado y Mercado Pago público");
+
+        var invalidGuestOrder = JsonSerializer.Serialize(new
+        {
+            tenantId = Guid.Empty,
+            partnerId = Guid.Empty,
+            items = Array.Empty<object>(),
+            guest = new { fullName = "A", email = "not-an-email" },
+            deliveryFee = 0m,
+            currency = "CLP"
+        }, _json);
+        var guestOrderBad = await SendAsync(HttpMethod.Post, $"{_apiBaseUrl}/v1/public/orders/guest", invalidGuestOrder);
+        Expect(guestOrderBad, "api.guestOrderInvalid", HttpStatusCode.BadRequest);
+        Pass("Guest order rechaza payload inválido");
+
+        var invalidGuestBooking = JsonSerializer.Serialize(new
+        {
+            tenantId = Guid.Empty,
+            serviceId = Guid.Empty,
+            slotId = (Guid?)null,
+            guest = new { fullName = "", email = "" },
+            startAt = DateTimeOffset.UtcNow,
+            endAt = DateTimeOffset.UtcNow.AddHours(-1),
+            currency = "CLP"
+        }, _json);
+        var guestBookingBad = await SendAsync(HttpMethod.Post, $"{_apiBaseUrl}/v1/public/bookings/guest", invalidGuestBooking);
+        Expect(guestBookingBad, "api.guestBookingInvalid", HttpStatusCode.BadRequest);
+        Pass("Guest booking rechaza payload inválido");
+
+        var randomPartnerId = Guid.NewGuid();
+        var paymentStatus = await SendAsync(HttpMethod.Get, $"{_apiBaseUrl}/v1/public/checkout/partners/{randomPartnerId}/payment-status");
+        Expect(paymentStatus, "api.guestPartnerPaymentStatus", HttpStatusCode.OK);
+        ExpectContains(paymentStatus.Body, "\"mercadoPagoReady\"", "payment-status debería incluir mercadoPagoReady");
+        Pass("Payment status público responde para partner desconocido");
+
+        var mpCheckoutBad = JsonSerializer.Serialize(new
+        {
+            customerId = Guid.NewGuid(),
+            orderId = Guid.NewGuid(),
+            bookingId = (Guid?)null
+        }, _json);
+        var mpCheckout = await SendAsync(HttpMethod.Post, $"{_apiBaseUrl}/v1/public/checkout/mercadopago", mpCheckoutBad);
+        Expect(mpCheckout, "api.guestMpCheckoutMissing", HttpStatusCode.BadRequest);
+        Pass("Checkout MP público rechaza order inexistente");
+
+        await CheckOptionalGuestFlowAsync();
+    }
+
+    private async Task CheckOptionalGuestFlowAsync()
+    {
+        if (!TryParseGuid(ReadOptional("QUALITY_GUEST_FLOW_PRODUCT_ID"), out var productId))
+        {
+            Skip("E2E guest order omitido: falta QUALITY_GUEST_FLOW_PRODUCT_ID");
+            return;
+        }
+
+        var product = await SendAsync(HttpMethod.Get, $"{_apiBaseUrl}/v1/public/products/{productId}");
+        Expect(product, "api.guestFlowPublicProduct", HttpStatusCode.OK);
+        var tenantId = ReadNestedGuid(product.Body, "tenantId");
+        var partnerId = ReadNestedGuid(product.Body, "partnerId");
+        var price = ReadNestedDouble(product.Body, "price", 1d);
+
+        var guestEmail = $"guest-qc-{Guid.NewGuid():N}@comunaclic.test";
+        var guestOrderPayload = JsonSerializer.Serialize(new
+        {
+            tenantId,
+            partnerId,
+            items = new[]
+            {
+                new { productId, quantity = 1, unitPrice = price }
+            },
+            guest = new
+            {
+                fullName = "Quality Guest Buyer",
+                email = guestEmail,
+                phone = "+56900000000"
+            },
+            deliveryFee = 0m,
+            currency = "CLP",
+            deliveryAddress = "QC Guest Address 1"
+        }, _json);
+
+        var created = await SendAsync(HttpMethod.Post, $"{_apiBaseUrl}/v1/public/orders/guest", guestOrderPayload);
+        Expect(created, "api.guestOrderCreate", HttpStatusCode.OK);
+        var orderId = ReadNestedGuid(created.Body, "orderId");
+        var customerId = ReadNestedGuid(created.Body, "customerId");
+        Pass("Guest order E2E crea orden y customer");
+
+        var tracking = await SendAsync(HttpMethod.Get, $"{_apiBaseUrl}/v1/public/orders/{orderId}?customerId={customerId}");
+        Expect(tracking, "api.guestOrderTracking", HttpStatusCode.OK);
+        Pass("Guest order E2E permite tracking público");
+
+        var mpPayload = JsonSerializer.Serialize(new
+        {
+            customerId,
+            orderId,
+            bookingId = (Guid?)null
+        }, _json);
+        var mp = await SendAsync(HttpMethod.Post, $"{_apiBaseUrl}/v1/public/checkout/mercadopago", mpPayload);
+        ExpectOneOf(mp, "api.guestOrderMpCheckout", HttpStatusCode.OK, HttpStatusCode.BadRequest);
+        Pass("Guest order E2E intenta checkout MP (OK o negocio sin MP)");
     }
 
     private async Task CheckAuthenticatedOwnershipAsync()
@@ -669,6 +780,25 @@ internal sealed class QualityCheckSuite
             }
 
             if (direct.ValueKind == JsonValueKind.String && int.TryParse(direct.GetString(), out number))
+            {
+                return number;
+            }
+        }
+
+        return fallback;
+    }
+
+    private static double ReadNestedDouble(string json, string propertyName, double fallback)
+    {
+        using var document = JsonDocument.Parse(json);
+        if (document.RootElement.TryGetProperty(propertyName, out var direct))
+        {
+            if (direct.ValueKind == JsonValueKind.Number && direct.TryGetDouble(out var number))
+            {
+                return number;
+            }
+
+            if (direct.ValueKind == JsonValueKind.String && double.TryParse(direct.GetString(), out number))
             {
                 return number;
             }
