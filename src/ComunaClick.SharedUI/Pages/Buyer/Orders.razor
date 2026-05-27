@@ -167,6 +167,19 @@
                         </div>
                     </article>
 
+                    @if (_order.Partner?.Id is Guid partnerId && _customerId is Guid customerId)
+                    {
+                        <PendingOrderPaymentPanel OrderId="_order.Id"
+                                                  CustomerId="customerId"
+                                                  PartnerId="partnerId"
+                                                  Status="_order.Status" />
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_order.DeliveryAddress))
+                    {
+                        <p class="text-sm text-[#595c5d]"><span class="font-bold text-[#2c2f30]">@L.T("buyer.checkout.guest.address"):</span> @_order.DeliveryAddress</p>
+                    }
+
                     <div class="space-y-3">
                         <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">Productos</p>
                         @foreach (var item in _order.Items ?? Array.Empty<ComunaClick.Shared.Api.Buyer.OrderTrackingItem>())
@@ -273,6 +286,15 @@
                         </div>
                     </article>
 
+                    @if (_booking.Partner?.Id is Guid bookingPartnerId && _customerId is Guid bookingCustomerId)
+                    {
+                        <PendingOrderPaymentPanel OrderId="@(_booking.Id)"
+                                                  CustomerId="bookingCustomerId"
+                                                  PartnerId="bookingPartnerId"
+                                                  Status="_booking.Status"
+                                                  IsBooking="true" />
+                    }
+
                     @if (!string.IsNullOrWhiteSpace(_booking.Service?.Description))
                     {
                         <article class="rounded-3xl border border-[#dadddf] p-5">
@@ -315,6 +337,12 @@
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         OrderId = GetQueryParameter(uri.Query, "orderId") ?? string.Empty;
         BookingId = GetQueryParameter(uri.Query, "bookingId") ?? string.Empty;
+        var customerFromQuery = GetQueryParameter(uri.Query, "customerId");
+        if (Guid.TryParse(customerFromQuery, out var parsedCustomer) && parsedCustomer != Guid.Empty)
+        {
+            _customerId = parsedCustomer;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -327,6 +355,11 @@
 
         try
         {
+            if (_customerId is Guid presetCustomer && presetCustomer != Guid.Empty)
+            {
+                await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", presetCustomer.ToString());
+            }
+
             var rawCustomerId = await JSRuntime.InvokeAsync<string>("comunaclic.getCustomerId");
             if (Guid.TryParse(rawCustomerId, out var customerId) && customerId != Guid.Empty)
             {
@@ -345,6 +378,8 @@
             {
                 await LoadRecentBookingsAsync();
             }
+
+            await TryHandleMercadoPagoReturnAsync();
 
             await InvokeAsync(StateHasChanged);
         }
@@ -469,6 +504,11 @@
                 _statusMessage = L.T("buyer.status.lookupOk");
                 _statusLevel = "success";
                 await PersistLastTrackingFromInputsAsync();
+                if (_order is not null && string.Equals(_order.Status, "paid", StringComparison.OrdinalIgnoreCase))
+                {
+                    await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
+                    await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+                }
             }
         }
         catch (HttpRequestException)
@@ -510,6 +550,35 @@
         OrderId = string.Empty;
         Navigation.NavigateTo($"/buyer/orders?bookingId={booking.Id}", replace: true);
         await HandleLookup();
+    }
+
+    private async Task TryHandleMercadoPagoReturnAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var status = GetQueryParameter(uri.Query, "collection_status")
+            ?? GetQueryParameter(uri.Query, "status");
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return;
+        }
+
+        if (string.Equals(status, "approved", StringComparison.OrdinalIgnoreCase))
+        {
+            _statusMessage = L.T("buyer.checkout.mp.returnApproved");
+            _statusLevel = "success";
+            await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
+            await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+        }
+        else if (string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase))
+        {
+            _statusMessage = L.T("buyer.checkout.mp.returnPending");
+            _statusLevel = "info";
+        }
+        else
+        {
+            _statusMessage = L.T("buyer.checkout.mp.returnRejected");
+            _statusLevel = "warning";
+        }
     }
 
     private async Task PersistLastTrackingFromInputsAsync()
