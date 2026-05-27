@@ -53,6 +53,10 @@
                 </div>
             </div>
 
+            <div class="rounded-2xl border border-[#dbe6e2] bg-white p-5">
+                <ProfileWebLinksEditor Model="@_linksEditor" />
+            </div>
+
             <button type="button" @onclick="HandleSaveProfessional" disabled="@_isSavingProfessional"
                     class="mt-8 inline-flex items-center gap-2 bg-[#3b6700] text-white px-6 py-3 rounded-2xl font-bold disabled:opacity-60">
                 <span class="material-symbols-outlined text-[20px]">badge</span>
@@ -88,6 +92,7 @@
     private string _proStatusLevel = "info";
     private bool _isSavingProfessional;
     private bool _initialized;
+    private readonly ProfileWebLinksEditorModel _linksEditor = new();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -146,6 +151,7 @@
         if (!string.IsNullOrWhiteSpace(pro.Specialty)) ProSpecialty = pro.Specialty;
         if (!string.IsNullOrWhiteSpace(pro.Bio)) ProBio = pro.Bio;
         if (!string.IsNullOrWhiteSpace(pro.Phone)) ProPhone = pro.Phone;
+        ProfileWebLinksHelper.Apply(_linksEditor, ProfileWebLinksHelper.FromBuyerProfessional(pro));
     }
 
     private async Task HandleSaveProfessional()
@@ -178,7 +184,16 @@
                     string.IsNullOrWhiteSpace(ProPhone) ? _fallbackPhone.Trim() : ProPhone.Trim(),
                     string.IsNullOrWhiteSpace(ProSpecialty) ? null : ProSpecialty.Trim(),
                     string.IsNullOrWhiteSpace(ProBio) ? null : ProBio.Trim(),
-                    _professionalActivate),
+                    _professionalActivate,
+                    Null(_linksEditor.WebsiteUrl),
+                    Null(_linksEditor.InstagramUrl),
+                    Null(_linksEditor.FacebookUrl),
+                    Null(_linksEditor.LinkedInUrl),
+                    Null(_linksEditor.XUrl),
+                    Null(_linksEditor.TikTokUrl),
+                    Null(_linksEditor.YouTubeUrl),
+                    Null(_linksEditor.OtherLinkLabel),
+                    Null(_linksEditor.OtherLinkUrl)),
                 CancellationToken.None);
 
             if (result is null)
@@ -203,4 +218,6 @@
             _isSavingProfessional = false;
         }
     }
+
+    private static string? Null(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -7,10 +7,13 @@ public static class AccountRoutes
 {
     public const string Profile = "/account/profile";
     public const string Buyer = "/account/buyer";
+    public const string Messages = "/account/messages";
     public const string Professional = "/account/professional";
     public const string Company = "/account/company";
     public const string PartnerProfile = "/partner/account";
-    public const string PartnerCompany = "/partner/account/company";
+    public const string PartnerSettings = "/partner/settings";
+    /// <summary>Ruta legada; redirige a ajuste de empresa.</summary>
+    public const string PartnerCompany = PartnerSettings;
 
     public static string DefaultHome(bool hasPartnerContext)
         => hasPartnerContext ? PartnerProfile : Profile;

@@ -1,0 +1,81 @@
+@page "/partner/settings"
+@layout PartnerLayout
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject AuthStateService AuthState
+@inject LocaleService L
+@implements IDisposable
+
+<PageTitle>@L.T("partner.settings.title")</PageTitle>
+
+<div class="space-y-8 max-w-5xl">
+    <header>
+        <a href="/partner" class="inline-flex items-center gap-1.5 text-sm font-bold text-[#3b6700] hover:underline mb-4">
+            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            @L.T("partner.settings.backPanel")
+        </a>
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("partner.settings.badge")</p>
+        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.settings.heading")</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.settings.subtitle")</p>
+    </header>
+
+    <nav class="flex flex-wrap gap-2" aria-label="@L.T("partner.settings.nav.label")">
+        <a href="#organizacion" class="inline-flex items-center gap-1.5 rounded-full border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f5f6f7]">
+            <span class="material-symbols-outlined text-[16px]">apartment</span>
+            @L.T("partner.settings.nav.org")
+        </a>
+        @if (_isCommerceOrServicePartner)
+        {
+            <a href="#bancario" class="inline-flex items-center gap-1.5 rounded-full border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f5f6f7]">
+                <span class="material-symbols-outlined text-[16px]">account_balance</span>
+                @L.T("partner.settings.nav.bank")
+            </a>
+        }
+        @if (_isServicePartner)
+        {
+            <a href="#equipo" class="inline-flex items-center gap-1.5 rounded-full border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f5f6f7]">
+                <span class="material-symbols-outlined text-[16px]">groups</span>
+                @L.T("partner.settings.nav.team")
+            </a>
+        }
+        <a href="#publicacion" class="inline-flex items-center gap-1.5 rounded-full border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f5f6f7]">
+            <span class="material-symbols-outlined text-[16px]">public</span>
+            @L.T("partner.settings.nav.publish")
+        </a>
+    </nav>
+
+    <PartnerOrganizationSection />
+
+    @if (_isCommerceOrServicePartner)
+    {
+        <PartnerBankSection />
+    }
+
+    @if (_isServicePartner)
+    {
+        <PartnerTeamManageSection />
+    }
+
+    <PartnerPublishSection />
+</div>
+
+@code {
+    private bool _isServicePartner;
+    private bool _isCommerceOrServicePartner;
+
+    protected override async Task OnInitializedAsync()
+    {
+        L.OnChange += HandleLocaleChange;
+        await AuthState.InitializeAsync();
+        if (AuthState.PartnerId is Guid id && id != Guid.Empty)
+        {
+            var partner = await PartnerApi.GetPartnerAsync(id);
+            var type = partner?.Type?.Trim().ToUpperInvariant();
+            _isServicePartner = type == "B";
+            _isCommerceOrServicePartner = type is "A" or "B";
+        }
+    }
+
+    private void HandleLocaleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.OnChange -= HandleLocaleChange;
+}

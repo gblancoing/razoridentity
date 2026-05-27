@@ -1,0 +1,66 @@
+@inject ApiMediaUrl MediaUrl
+
+<div class="@ContainerClass" title="@PartnerName">
+    @if (HasLogo)
+    {
+        <img src="@ResolvedLogo" alt="@(PartnerName ?? "")" class="h-full w-full object-cover" />
+    }
+    else if (!string.IsNullOrWhiteSpace(PartnerName))
+    {
+        <span class="@InitialsClass">@Initials</span>
+    }
+    else
+    {
+        <span class="material-symbols-outlined @IconClass">store</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string? LogoUrl { get; set; }
+    [Parameter] public string? PartnerName { get; set; }
+    [Parameter] public string Size { get; set; } = "lg";
+
+    private bool HasLogo => !string.IsNullOrWhiteSpace(LogoUrl);
+    private string ResolvedLogo => MediaUrl.Resolve(LogoUrl!);
+
+    private string ContainerClass => Size switch
+    {
+        "sm" => "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/35 bg-white shadow-md",
+        "md" => "flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/35 bg-white shadow-lg",
+        "xl" => "flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/40 bg-white shadow-xl sm:h-28 sm:w-28",
+        _ => "flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/35 bg-white shadow-lg"
+    };
+
+    private string InitialsClass => Size switch
+    {
+        "sm" => "text-sm font-black text-[#3b6700]",
+        "md" => "text-base font-black text-[#3b6700]",
+        "xl" => "text-2xl font-black text-[#3b6700] sm:text-3xl",
+        _ => "text-xl font-black text-[#3b6700]"
+    };
+
+    private string IconClass => Size switch
+    {
+        "sm" => "text-[22px] text-[#3b6700]",
+        "md" => "text-[26px] text-[#3b6700]",
+        "xl" => "text-[32px] text-[#3b6700]",
+        _ => "text-[28px] text-[#3b6700]"
+    };
+
+    private string Initials
+    {
+        get
+        {
+            var name = (PartnerName ?? string.Empty).Trim();
+            if (name.Length == 0)
+            {
+                return "?";
+            }
+
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2
+                ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
+                : name.Length >= 2 ? name[..2].ToUpperInvariant() : name[0].ToString().ToUpperInvariant();
+        }
+    }
+}

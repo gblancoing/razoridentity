@@ -1,0 +1,190 @@
+@inject LocaleService L
+
+@if (IsOpen && Gallery.Count > 0)
+{
+    <div @ref="_root"
+         tabindex="-1"
+         class="offer-gallery-lightbox fixed inset-0 z-[1060] flex flex-col outline-none"
+         role="dialog"
+         aria-modal="true"
+         aria-label="@L.T("public.offer.gallery.lightbox")"
+         @onkeydown="OnKeydown">
+        <button type="button"
+                class="absolute inset-0 border-0 bg-[#050605]/75 backdrop-blur-md"
+                aria-label="@L.T("public.offer.gallery.close")"
+                @onclick="CloseAsync">
+        </button>
+
+        <div class="relative z-10 flex min-h-0 flex-1 flex-col pointer-events-none">
+            <div class="flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-8 pointer-events-auto">
+                <div class="min-w-0">
+                    @if (!string.IsNullOrWhiteSpace(Title))
+                    {
+                        <p class="truncate text-sm font-bold text-white sm:text-base">@Title</p>
+                    }
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-white/65">
+                        @string.Format(L.T(CounterLocaleKey), Index + 1, Gallery.Count)
+                    </p>
+                </div>
+                <button type="button"
+                        class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-lg backdrop-blur hover:bg-black/55"
+                        aria-label="@L.T("public.offer.gallery.close")"
+                        @onclick="CloseAsync">
+                    <span class="material-symbols-outlined text-[22px]">close</span>
+                </button>
+            </div>
+
+            <div class="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3 sm:px-10 sm:pb-6 pointer-events-auto">
+                @if (Gallery.Count > 1)
+                {
+                    <button type="button"
+                            class="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45 p-0 text-white shadow-xl backdrop-blur-md transition hover:bg-black/60 disabled:opacity-30 sm:left-4 sm:flex sm:h-12 sm:w-12"
+                            aria-label="@L.T("public.offer.gallery.prev")"
+                            disabled="@(Index <= 0)"
+                            @onclick="PrevAsync">
+                        <span class="material-symbols-outlined text-[28px]">chevron_left</span>
+                    </button>
+                }
+
+                <div class="relative mx-auto flex max-h-full max-w-full items-center justify-center px-10 sm:px-14">
+                    <div class="absolute inset-0 -m-3 rounded-[1.35rem] bg-black/50 shadow-[0_28px_90px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/10 sm:-m-5 sm:rounded-[1.5rem]"
+                         aria-hidden="true"></div>
+                    <div class="absolute inset-0 -m-3 rounded-[1.35rem] bg-gradient-to-t from-black/55 via-black/15 to-black/40 sm:-m-5 sm:rounded-[1.5rem]"
+                         aria-hidden="true"></div>
+                    <img src="@Gallery[Index]"
+                         alt="@Title"
+                         class="relative z-10 max-h-[min(68vh,820px)] w-auto max-w-[min(92vw,1100px)] rounded-xl object-contain shadow-[0_8px_40px_rgba(0,0,0,0.45)]" />
+                </div>
+
+                @if (Gallery.Count > 1)
+                {
+                    <button type="button"
+                            class="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45 p-0 text-white shadow-xl backdrop-blur-md transition hover:bg-black/60 disabled:opacity-30 sm:right-4 sm:flex sm:h-12 sm:w-12"
+                            aria-label="@L.T("public.offer.gallery.next")"
+                            disabled="@(Index >= Gallery.Count - 1)"
+                            @onclick="NextAsync">
+                        <span class="material-symbols-outlined text-[28px]">chevron_right</span>
+                    </button>
+                }
+            </div>
+
+            @if (Gallery.Count > 1)
+            {
+                <div class="shrink-0 border-t border-white/10 bg-[#0a0c0a]/55 px-5 py-4 backdrop-blur-xl sm:px-8 pointer-events-auto">
+                    <p class="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-white/55 sm:text-left">@L.T("public.offer.gallery")</p>
+                    <div class="flex justify-center gap-2 overflow-x-auto pb-1 sm:justify-start">
+                        @for (var i = 0; i < Gallery.Count; i++)
+                        {
+                            var thumbIndex = i;
+                            <button type="button"
+                                    class="@ThumbClass(thumbIndex) relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border sm:h-16 sm:w-24"
+                                    aria-label="@string.Format(L.T(CounterLocaleKey), thumbIndex + 1, Gallery.Count)"
+                                    @onclick="() => SelectAsync(thumbIndex)">
+                                <img src="@Gallery[thumbIndex]" alt="" class="h-full w-full object-cover" />
+                                <span class="absolute inset-0 bg-black/30 transition group-hover:bg-black/15 @(thumbIndex == Index ? "bg-black/10" : "")"
+                                      aria-hidden="true"></span>
+                            </button>
+                        }
+                    </div>
+                    <div class="mt-4 flex items-center justify-center gap-3 sm:hidden">
+                        <button type="button"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white disabled:opacity-40"
+                                disabled="@(Index <= 0)"
+                                @onclick="PrevAsync">
+                            <span class="material-symbols-outlined">chevron_left</span>
+                        </button>
+                        <button type="button"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white disabled:opacity-40"
+                                disabled="@(Index >= Gallery.Count - 1)"
+                                @onclick="NextAsync">
+                            <span class="material-symbols-outlined">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public IReadOnlyList<string> Gallery { get; set; } = Array.Empty<string>();
+    [Parameter] public int Index { get; set; }
+    [Parameter] public EventCallback<int> IndexChanged { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string CounterLocaleKey { get; set; } = "public.offer.gallery.counter";
+
+    private ElementReference _root;
+    private bool _needsFocus;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen)
+        {
+            _needsFocus = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsFocus && IsOpen)
+        {
+            _needsFocus = false;
+            try
+            {
+                await _root.FocusAsync();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+    }
+
+    private string ThumbClass(int thumbIndex)
+        => thumbIndex == Index
+            ? "border-[#a7f255] ring-2 ring-[#a7f255]/80 opacity-100"
+            : "border-white/20 opacity-80 hover:opacity-100";
+
+    private async Task CloseAsync() => await OnClose.InvokeAsync();
+
+    private async Task SelectAsync(int index)
+    {
+        if (index != Index)
+        {
+            await IndexChanged.InvokeAsync(index);
+        }
+    }
+
+    private async Task PrevAsync()
+    {
+        if (Index > 0)
+        {
+            await IndexChanged.InvokeAsync(Index - 1);
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        if (Index < Gallery.Count - 1)
+        {
+            await IndexChanged.InvokeAsync(Index + 1);
+        }
+    }
+
+    private async Task OnKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            await CloseAsync();
+        }
+        else if (e.Key == "ArrowLeft")
+        {
+            await PrevAsync();
+        }
+        else if (e.Key == "ArrowRight")
+        {
+            await NextAsync();
+        }
+    }
+}

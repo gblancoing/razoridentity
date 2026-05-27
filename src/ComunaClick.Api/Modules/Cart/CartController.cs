@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Cart.Contracts;
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Modules.Orders.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -21,12 +22,18 @@ public sealed class CartController : ControllerBase
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IOrderNotificationService _orderNotificationService;
+    private readonly IProductInventoryService _inventoryService;
 
-    public CartController(CoreDbContext db, ITenantContext tenantContext, IOrderNotificationService orderNotificationService)
+    public CartController(
+        CoreDbContext db,
+        ITenantContext tenantContext,
+        IOrderNotificationService orderNotificationService,
+        IProductInventoryService inventoryService)
     {
         _db = db;
         _tenantContext = tenantContext;
         _orderNotificationService = orderNotificationService;
+        _inventoryService = inventoryService;
     }
 
     [HttpGet]
@@ -108,6 +115,14 @@ public sealed class CartController : ControllerBase
         if (product is null)
         {
             return BadRequest(new { message = "Selected product is not available." });
+        }
+
+        var stockCheck = await _inventoryService.ValidateLineItemsAsync(
+            [(product.Id, request.Quantity)],
+            cancellationToken: cancellationToken);
+        if (!stockCheck.Ok)
+        {
+            return BadRequest(new { message = stockCheck.Message });
         }
 
         var cart = await _db.ShoppingCarts
@@ -290,6 +305,14 @@ public sealed class CartController : ControllerBase
         if (products.Count != productIds.Count)
         {
             return BadRequest(new { message = "One or more products are not available for purchase." });
+        }
+
+        var stockCheck = await _inventoryService.ValidateLineItemsAsync(
+            request.Items.Select(x => (x.ProductId, x.Quantity)).ToList(),
+            cancellationToken: cancellationToken);
+        if (!stockCheck.Ok)
+        {
+            return BadRequest(new { message = stockCheck.Message });
         }
 
         var partnerIds = products.Select(x => x.PartnerId).Distinct().ToList();

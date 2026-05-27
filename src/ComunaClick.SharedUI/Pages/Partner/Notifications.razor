@@ -327,7 +327,8 @@
         var type = note.Type?.Trim().ToLowerInvariant() ?? string.Empty;
         return type.Contains("order", StringComparison.Ordinal)
             || type.Contains("booking", StringComparison.Ordinal)
-            || type.Contains("lead", StringComparison.Ordinal);
+            || type.Contains("lead", StringComparison.Ordinal)
+            || type.Contains("stock", StringComparison.Ordinal);
     }
 
     private static bool IsFinance(ComunaClick.Shared.Api.Partner.Notification note)
@@ -338,10 +339,20 @@
             || type.Contains("refund", StringComparison.Ordinal);
     }
 
-    private static string FormatType(string? type)
-        => string.IsNullOrWhiteSpace(type)
-            ? "Notificación"
-            : type.Replace("_", " ", StringComparison.Ordinal).Trim();
+    private string FormatType(string? type)
+    {
+        if (string.IsNullOrWhiteSpace(type))
+        {
+            return "Notificación";
+        }
+
+        return type.Trim().ToLowerInvariant() switch
+        {
+            "stock_out" => L.T("partner.notifications.stockOut"),
+            "stock_low" => L.T("partner.notifications.stockLow"),
+            _ => type.Replace("_", " ", StringComparison.Ordinal).Trim()
+        };
+    }
 
     private static string FormatPayload(string? payload)
     {
@@ -376,7 +387,8 @@
 
         if (IsActionable(note))
         {
-            return "bolt";
+            var type = note.Type?.Trim().ToLowerInvariant() ?? string.Empty;
+            return type.Contains("stock", StringComparison.Ordinal) ? "inventory_2" : "bolt";
         }
 
         return "notifications";
@@ -446,6 +458,12 @@
 
         if (IsActionable(note))
         {
+            var type = note.Type?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (type.Contains("stock", StringComparison.Ordinal))
+            {
+                return "Actualiza el stock del producto en Catálogo para volver a venderlo.";
+            }
+
             return "Prioriza esta alerta en la operación diaria: puede impactar atención al cliente o cumplimiento.";
         }
 
@@ -468,6 +486,11 @@
         if (type.Contains("lead", StringComparison.Ordinal))
         {
             return "/partner/leads";
+        }
+
+        if (type.Contains("stock", StringComparison.Ordinal))
+        {
+            return "/partner/catalog";
         }
 
         if (type.Contains("payout", StringComparison.Ordinal) || type.Contains("payment", StringComparison.Ordinal))

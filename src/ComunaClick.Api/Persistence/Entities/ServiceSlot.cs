@@ -6,6 +6,7 @@ public sealed class ServiceSlot
     public Guid TenantId { get; set; }
     public Guid PartnerId { get; set; }
     public Guid ServiceId { get; set; }
+    public Guid? ProfessionalId { get; set; }
     public DateTimeOffset StartAt { get; set; }
     public DateTimeOffset EndAt { get; set; }
     public int Capacity { get; set; } = 1;

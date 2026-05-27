@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ComunaClick.Api.Geo;
+using ComunaClick.Api.Modules.Onboarding.Contracts;
 using ComunaClick.Api.Modules.Onboarding.Contracts.Partners;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -312,23 +313,22 @@ public sealed class PartnersController : ControllerBase
             partner.Longitude = request.Longitude;
         }
 
-        if (request.SubcategoryId.HasValue || (request.SubcategoryId is null && string.Equals(partner.Type, "A", StringComparison.OrdinalIgnoreCase)))
+        if (request.SubcategoryId.HasValue)
         {
-            if (string.Equals(partner.Type, "A", StringComparison.OrdinalIgnoreCase) && !request.SubcategoryId.HasValue)
+            var subcategoryExists = await _db.ProductSubcategories.AnyAsync(x => x.Id == request.SubcategoryId.Value && x.IsActive);
+            if (!subcategoryExists)
             {
-                return BadRequest(new { message = "Subcategory is required for partner type A." });
-            }
-
-            if (request.SubcategoryId.HasValue)
-            {
-                var subcategoryExists = await _db.ProductSubcategories.AnyAsync(x => x.Id == request.SubcategoryId.Value && x.IsActive);
-                if (!subcategoryExists)
-                {
-                    return BadRequest(new { message = "Selected subcategory does not exist." });
-                }
+                return BadRequest(new { message = "Selected subcategory does not exist." });
             }
 
             partner.SubcategoryId = request.SubcategoryId;
+        }
+
+        // Para tipo A la subcategoría es obligatoria, pero un PATCH sin SubcategoryId no debería fallar
+        // (se asume "sin cambios"). Solo rechazamos si el partner queda tipo A sin subcategoría.
+        if (string.Equals(partner.Type, "A", StringComparison.OrdinalIgnoreCase) && !partner.SubcategoryId.HasValue)
+        {
+            return BadRequest(new { message = "Subcategory is required for partner type A." });
         }
 
         if (request.IsVisible.HasValue)
@@ -350,6 +350,40 @@ public sealed class PartnersController : ControllerBase
             partner.IsVisible = requestedVisibility;
         }
 
+        if (request.OffersServices.HasValue)
+        {
+            if (!string.Equals(partner.Type, "A", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Solo los comercios tipo A pueden activar avisos de servicio." });
+            }
+
+            partner.OffersServices = request.OffersServices.Value;
+        }
+
+        if (request.BankName is not null
+            || request.BankAccountType is not null
+            || request.BankAccountNumber is not null
+            || request.BankAccountHolder is not null
+            || request.BankAccountHolderRut is not null)
+        {
+            if (!IsCommerceOrServicePartner(partner.Type))
+            {
+                return BadRequest(new { message = "La cuenta bancaria solo aplica a empresas de comercio o servicios." });
+            }
+
+            var bankError = TryApplyBankAccount(
+                partner,
+                request.BankName,
+                request.BankAccountType,
+                request.BankAccountNumber,
+                request.BankAccountHolder,
+                request.BankAccountHolderRut);
+            if (bankError is not null)
+            {
+                return BadRequest(new { message = bankError });
+            }
+        }
+
         partner.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         await _db.Entry(partner).Reference(x => x.Subcategory).LoadAsync();
@@ -359,6 +393,94 @@ public sealed class PartnersController : ControllerBase
         }
         var updatedActivation = await BuildActivationStatusAsync(partner);
         return Ok(ToPartnerResponse(partner, updatedActivation));
+    }
+
+    [HttpPatch("{id:guid}/bank-account")]
+    [Authorize(Policy = "partner.staff")]
+    public async Task<ActionResult<Partner>> UpdateBankAccount(Guid id, PartnerBankAccountUpdateRequest request)
+    {
+        var partner = await _db.Partners.FirstOrDefaultAsync(x => x.Id == id);
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.Forbidden)
+        {
+            return Forbid();
+        }
+
+        if (!IsCommerceOrServicePartner(partner.Type))
+        {
+            return BadRequest(new { message = "La cuenta bancaria solo aplica a empresas de comercio o servicios." });
+        }
+
+        var bankError = TryApplyBankAccount(partner, request.BankName, request.BankAccountType, request.BankAccountNumber, request.BankAccountHolder, request.BankAccountHolderRut);
+        if (bankError is not null)
+        {
+            return BadRequest(new { message = bankError });
+        }
+
+        partner.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        await _db.Entry(partner).Reference(x => x.Subcategory).LoadAsync();
+        if (partner.Subcategory is not null)
+        {
+            await _db.Entry(partner.Subcategory).Reference(x => x.Category).LoadAsync();
+        }
+
+        var activation = await BuildActivationStatusAsync(partner);
+        return Ok(ToPartnerResponse(partner, activation));
+    }
+
+    [HttpPatch("{id:guid}/web-links")]
+    [Authorize(Policy = "partner.staff")]
+    public async Task<ActionResult<object>> UpdateWebLinks(Guid id, ProfileWebLinksUpdateRequest request)
+    {
+        var partner = await _db.Partners.FirstOrDefaultAsync(x => x.Id == id);
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.Forbidden)
+        {
+            return Forbid();
+        }
+
+        var validationError = ProfileWebLinksNormalizer.Validate(request);
+        if (validationError is not null)
+        {
+            return BadRequest(new { message = validationError });
+        }
+
+        ProfileWebLinksNormalizer.ApplyToPartner(partner, request);
+        partner.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        await _db.Entry(partner).Reference(x => x.Subcategory).LoadAsync();
+        if (partner.Subcategory is not null)
+        {
+            await _db.Entry(partner.Subcategory).Reference(x => x.Category).LoadAsync();
+        }
+
+        var activation = await BuildActivationStatusAsync(partner);
+        return Ok(ToPartnerResponse(partner, activation));
     }
 
     [HttpPatch("{id:guid}/visibility")]
@@ -486,11 +608,13 @@ public sealed class PartnersController : ControllerBase
                 checklist.Add(BuildItem("catalog", "Subcategoría de productos", partner.SubcategoryId.HasValue, "Selecciona la subcategoría principal para publicar tu oferta."));
                 var productCount = await _db.Products.CountAsync(x => x.PartnerId == partner.Id && x.IsActive);
                 checklist.Add(BuildItem("offer", "Al menos 1 producto activo", productCount > 0, "Carga tu primer producto para activar la vitrina."));
+                checklist.Add(BuildItem("bank", "Cuenta bancaria para cobros", HasBankAccount(partner), "Ingresá la cuenta donde recibirás tus pagos."));
                 break;
             case "B":
                 checklist.Add(BuildItem("catalog", "Subcategoría de servicios", partner.SubcategoryId.HasValue, "Selecciona la categoría principal de tu oferta de servicios."));
                 var serviceCount = await _db.Services.CountAsync(x => x.PartnerId == partner.Id && x.IsActive);
                 checklist.Add(BuildItem("offer", "Al menos 1 servicio activo", serviceCount > 0, "Crea un servicio para empezar a recibir reservas."));
+                checklist.Add(BuildItem("bank", "Cuenta bancaria para cobros", HasBankAccount(partner), "Ingresá la cuenta donde recibirás tus pagos."));
                 break;
             case "C":
                 var qualifiedProfessionalCount = await _db.Professionals.CountAsync(x =>
@@ -541,6 +665,21 @@ public sealed class PartnersController : ControllerBase
             partner.Latitude,
             partner.Longitude,
             partner.IsVisible,
+            partner.OffersServices,
+            partner.BankName,
+            partner.BankAccountType,
+            partner.BankAccountNumber,
+            partner.BankAccountHolder,
+            partner.BankAccountHolderRut,
+            partner.WebsiteUrl,
+            partner.InstagramUrl,
+            partner.FacebookUrl,
+            partner.LinkedInUrl,
+            partner.XUrl,
+            partner.TikTokUrl,
+            partner.YouTubeUrl,
+            partner.OtherLinkLabel,
+            partner.OtherLinkUrl,
             partner.CreatedAt,
             partner.UpdatedAt,
             CategoryId = partner.Subcategory != null ? partner.Subcategory.CategoryId : (Guid?)null,
@@ -555,6 +694,86 @@ public sealed class PartnersController : ControllerBase
 
     private static bool HasContactChannel(Partner partner)
         => !string.IsNullOrWhiteSpace(partner.Phone) || !string.IsNullOrWhiteSpace(partner.Email);
+
+    private static bool IsCommerceOrServicePartner(string? type)
+        => string.Equals(type, "A", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(type, "B", StringComparison.OrdinalIgnoreCase);
+
+    private static string? TryApplyBankAccount(
+        Partner partner,
+        string? bankNameRaw,
+        string? bankAccountTypeRaw,
+        string? bankAccountNumberRaw,
+        string? bankAccountHolderRaw,
+        string? bankAccountHolderRutRaw)
+    {
+        var bankName = NormalizeOptional(bankNameRaw);
+        var bankAccountType = NormalizeBankAccountType(bankAccountTypeRaw);
+        var bankAccountNumber = NormalizeBankAccountNumber(bankAccountNumberRaw);
+        var bankAccountHolder = NormalizeOptional(bankAccountHolderRaw);
+        var bankAccountHolderRut = NormalizeOptional(bankAccountHolderRutRaw);
+
+        if (string.IsNullOrWhiteSpace(bankName)
+            || string.IsNullOrWhiteSpace(bankAccountType)
+            || string.IsNullOrWhiteSpace(bankAccountNumber)
+            || string.IsNullOrWhiteSpace(bankAccountHolder))
+        {
+            return "Completá banco, tipo de cuenta, número y titular para guardar la cuenta bancaria.";
+        }
+
+        if (bankAccountType is not ("checking" or "vista" or "savings"))
+        {
+            return "Tipo de cuenta no válido.";
+        }
+
+        partner.BankName = bankName;
+        partner.BankAccountType = bankAccountType;
+        partner.BankAccountNumber = bankAccountNumber;
+        partner.BankAccountHolder = bankAccountHolder;
+        partner.BankAccountHolderRut = bankAccountHolderRut;
+        return null;
+    }
+
+    private static bool HasBankAccount(Partner partner)
+        => !string.IsNullOrWhiteSpace(partner.BankName)
+            && !string.IsNullOrWhiteSpace(partner.BankAccountType)
+            && !string.IsNullOrWhiteSpace(partner.BankAccountNumber)
+            && !string.IsNullOrWhiteSpace(partner.BankAccountHolder);
+
+    private static string? NormalizeOptional(string? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static string? NormalizeBankAccountType(string? value)
+    {
+        var normalized = NormalizeOptional(value)?.ToLowerInvariant();
+        return normalized switch
+        {
+            "checking" or "corriente" or "cuenta corriente" => "checking",
+            "vista" or "cuentarut" or "cuenta vista" or "cuenta rut" => "vista",
+            "savings" or "ahorro" or "cuenta de ahorro" => "savings",
+            _ => normalized
+        };
+    }
+
+    private static string? NormalizeBankAccountNumber(string? value)
+    {
+        var trimmed = NormalizeOptional(value);
+        if (trimmed is null)
+        {
+            return null;
+        }
+
+        var digits = new string(trimmed.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digits) ? null : digits;
+    }
 
     private static bool HasValidCoordinates(double? latitude, double? longitude)
     {

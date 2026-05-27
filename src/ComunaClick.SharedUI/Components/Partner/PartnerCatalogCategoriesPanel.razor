@@ -1,0 +1,130 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject LocaleService L
+
+<div class="rounded-2xl border border-[#dbe6e2] bg-[#fafcf8] p-4 space-y-4">
+    <div>
+        <p class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.catalog.a.sections.title")</p>
+        <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.catalog.a.sections.help")</p>
+    </div>
+
+    @if (_categories.Count > 0)
+    {
+        <ul class="space-y-2">
+            @foreach (var cat in _categories.OrderBy(x => x.SortOrder))
+            {
+                <li class="flex items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-white px-3 py-2">
+                    <span class="text-sm font-semibold text-[#2c2f30]">@cat.Name</span>
+                    <button type="button"
+                            class="text-xs font-bold text-red-700"
+                            disabled="@_busy"
+                            @onclick="() => DeleteAsync(cat)">
+                        @L.T("partner.catalog.a.sections.remove")
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="flex flex-wrap gap-2">
+        <input class="flex-1 min-w-[140px] rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+               placeholder="@L.T("partner.catalog.a.sections.placeholder")"
+               @bind="_newName" />
+        <button type="button"
+                class="rounded-xl bg-[#3b6700] px-4 py-2 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                disabled="@(_busy || string.IsNullOrWhiteSpace(_newName))"
+                @onclick="CreateAsync">
+            @L.T("partner.catalog.a.sections.add")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <p class="text-xs font-medium @(_ok ? "text-[#3b6700]" : "text-red-600")">@_message</p>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid PartnerId { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<PartnerApiModels.PartnerCatalogCategoryInfo>> CategoriesChanged { get; set; }
+
+    private readonly List<PartnerApiModels.PartnerCatalogCategoryInfo> _categories = new();
+    private string _newName = string.Empty;
+    private string? _message;
+    private bool _ok;
+    private bool _busy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PartnerId != Guid.Empty)
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        var list = await PartnerApi.GetPartnerCatalogCategoriesAsync(PartnerId);
+        _categories.Clear();
+        if (list is not null)
+        {
+            _categories.AddRange(list);
+        }
+
+        await CategoriesChanged.InvokeAsync(_categories);
+    }
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var created = await PartnerApi.CreatePartnerCatalogCategoryAsync(
+                PartnerId,
+                new PartnerApiModels.PartnerCatalogCategoryCreateRequest(_newName.Trim()));
+            if (created is null)
+            {
+                _message = L.T("partner.catalog.a.sections.failed");
+                _ok = false;
+                return;
+            }
+
+            _newName = string.Empty;
+            await ReloadAsync();
+            _message = L.T("partner.catalog.a.sections.created");
+            _ok = true;
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.catalog.a.sections.failed");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync(PartnerApiModels.PartnerCatalogCategoryInfo cat)
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            await PartnerApi.DeletePartnerCatalogCategoryAsync(PartnerId, cat.Id);
+            await ReloadAsync();
+            _message = L.T("partner.catalog.a.sections.deleted");
+            _ok = true;
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.catalog.a.sections.deleteBlocked");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

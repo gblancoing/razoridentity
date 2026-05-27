@@ -565,8 +565,8 @@
 
         try
         {
-            var callbackUrl = Navigation.ToAbsoluteUri(Navigation.Uri).GetLeftPart(UriPartial.Path) + Navigation.ToAbsoluteUri(Navigation.Uri).Query;
             await JSRuntime.InvokeVoidAsync("comunaclic.setRegisterIntent", _role, _returnUrl ?? string.Empty);
+            var callbackUrl = Navigation.ToAbsoluteUri("/register").GetLeftPart(UriPartial.Path);
             await JSRuntime.InvokeVoidAsync("comunaclic.beginGoogleSignIn", callbackUrl);
         }
         catch (Exception ex)

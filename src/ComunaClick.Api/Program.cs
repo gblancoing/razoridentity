@@ -1,6 +1,7 @@
 using ComunaClick.Api.Configuration;
 using ComunaClick.Api.Middleware;
 using ComunaClick.Api.Integrations.Notifications;
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Modules.Marketplace;
 using ComunaClick.Api.Modules.Admin;
 using ComunaClick.Api.Persistence;
@@ -63,8 +64,11 @@ builder.Services.AddHostedService<JobsHostedService>();
 builder.Services.AddScoped<SiteContentService>();
 builder.Services.Configure<OrderNotificationOptions>(builder.Configuration.GetSection("OrderNotifications"));
 builder.Services.Configure<BusinessRulesOptions>(builder.Configuration.GetSection(BusinessRulesOptions.SectionName));
+builder.Services.Configure<InventoryOptions>(builder.Configuration.GetSection(InventoryOptions.SectionName));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
+builder.Services.AddScoped<IStockNotificationService, StockNotificationService>();
 builder.Services.AddSingleton<MarketplaceMetricsService>();
 builder.Services.AddScoped<FeeCalculator>();
 builder.Services.Configure<MercadoPagoMarketplaceOptions>(options =>
@@ -87,6 +91,9 @@ builder.Services.AddScoped<MarketplacePaymentService>();
 builder.Services.AddScoped<MercadoPagoWebhookService>();
 builder.Services.AddHttpClient<MercadoPagoMarketplaceClient>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Crm.CustomerAvatarStorage>();
+builder.Services.AddSingleton<ComunaClick.Api.Modules.Catalog.ServiceImageStorage>();
+builder.Services.AddSingleton<ComunaClick.Api.Modules.Catalog.ProductImageStorage>();
+builder.Services.AddSingleton<ComunaClick.Api.Modules.Onboarding.StorefrontBannerStorage>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -152,6 +159,29 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+try
+{
+    await DatabaseSchemaBootstrap.ApplyPendingAsync(
+        builder.Configuration.GetConnectionString("CoreDb"),
+        app.Environment,
+        app.Logger);
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Database schema bootstrap failed.");
+}
+
+try
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+    await ProductInventoryBackfill.EnsureAllProductsHaveInventoryAsync(db, app.Logger);
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Product inventory backfill failed.");
+}
 
 if (app.Environment.IsDevelopment())
 {

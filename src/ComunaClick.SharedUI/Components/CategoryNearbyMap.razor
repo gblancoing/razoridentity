@@ -4,6 +4,7 @@
 @using ComunaClick.SharedUI.Services
 @using ComunaClick.Shared.Api.Buyer
 @inject BuyerApiClient BuyerApi
+@inject ApiMediaUrl MediaUrl
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
@@ -256,6 +257,9 @@ else if (_nearby is not null)
                            class="group flex w-full min-w-0 overflow-hidden rounded-2xl border border-[#e4e0d9] bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#a7f255]/70 hover:shadow-md">
                             <div class="relative w-[6.5rem] shrink-0 self-stretch min-h-[5.5rem] bg-[#e8e6e1] min-[1200px]:w-[5.5rem]">
                                 <div class="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105" style="@($"background-image:linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.12)), url('{cardImg}')")" aria-hidden="true"></div>
+                                <div class="absolute left-2 top-2">
+                                    <PartnerBrandMark LogoUrl="@business.LogoUrl" PartnerName="@business.Name" Size="sm" />
+                                </div>
                             </div>
                             <div class="flex min-w-0 flex-1 flex-col justify-center gap-1 p-2.5 min-[1200px]:p-2.5">
                                 <div class="flex items-start justify-between gap-1.5">
@@ -353,6 +357,41 @@ else if (_nearby is not null)
     private int TotalCount => _nearby?.Businesses?.Count ?? 0;
     private int FilteredCount => GetFilteredList().Count;
 
+    private IReadOnlyList<MapNearbyBusinessPayload> BuildMapBusinessPayload(IReadOnlyList<CategoryNearbyBusinessItem> businesses)
+        => businesses.Select(b => new MapNearbyBusinessPayload(
+            b.Id,
+            b.Type,
+            b.Name,
+            b.Address,
+            b.Phone,
+            b.Email,
+            string.IsNullOrWhiteSpace(b.LogoUrl) ? null : MediaUrl.Resolve(b.LogoUrl),
+            b.CategoryName,
+            b.SubcategoryName,
+            b.ComunaId,
+            b.ComunaName,
+            b.Latitude,
+            b.Longitude,
+            b.UsesExactLocation,
+            b.DistanceKm)).ToList();
+
+    private sealed record MapNearbyBusinessPayload(
+        Guid Id,
+        string? Type,
+        string? Name,
+        string? Address,
+        string? Phone,
+        string? Email,
+        string? LogoUrl,
+        string? CategoryName,
+        string? SubcategoryName,
+        Guid? ComunaId,
+        string? ComunaName,
+        double Latitude,
+        double Longitude,
+        bool UsesExactLocation,
+        double DistanceKm);
+
     private const double DefaultMapLatitude = -33.4489;
     private const double DefaultMapLongitude = -70.6693;
 
@@ -426,7 +465,7 @@ else if (_nearby is not null)
 
         try
         {
-            var businesses = GetFilteredList();
+            var businesses = BuildMapBusinessPayload(GetFilteredList());
             var returnPath = GetPartnerDetailReturnForQuery();
             await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, businesses, returnPath);
             _mapRendered = true;
@@ -475,7 +514,8 @@ else if (_nearby is not null)
                     CategoryCode,
                     lat,
                     lng,
-                    subcode: string.IsNullOrWhiteSpace(SubcategoryCode) ? null : SubcategoryCode.Trim());
+                    subcode: string.IsNullOrWhiteSpace(SubcategoryCode) ? null : SubcategoryCode.Trim(),
+                    maxDistanceKm: 50);
             }
             catch (HttpRequestException)
             {
@@ -661,7 +701,7 @@ else if (_nearby is not null)
         }
         try
         {
-            var list = GetFilteredList();
+            var list = BuildMapBusinessPayload(GetFilteredList());
             var returnPath = GetPartnerDetailReturnForQuery();
             await JSRuntime.InvokeVoidAsync("comunaclic.renderCategoryNearbyMap", _mapId, _nearby.UserLocation, list, returnPath);
         }

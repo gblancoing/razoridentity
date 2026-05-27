@@ -60,7 +60,19 @@ else
                     <p class="text-[11px] uppercase tracking-[0.12em] font-bold text-[#61897c]">Compra autenticada</p>
                     <p class="text-sm text-[#2c2f30]">El perfil buyer y el producto se validan automáticamente en tu sesión.</p>
                 </div>
-                <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="Quantity" @bind="Quantity" disabled="@(_isSubmitting || _createdOrder is not null)" />
+                <div>
+                    <input type="number"
+                           min="1"
+                           max="@MaxQuantity"
+                           class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                           placeholder="@L.T("buyer.checkout.quantity")"
+                           @bind="Quantity"
+                           disabled="@(_isSubmitting || _createdOrder is not null || !CanPurchase)" />
+                    @if (_maxAvailable > 0)
+                    {
+                        <p class="mt-1 text-xs text-[#61897c]">@string.Format(L.T("buyer.checkout.stockAvailable"), _maxAvailable)</p>
+                    }
+                </div>
                 <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12" placeholder="UnitPrice" @bind="UnitPrice" readonly="@_prefilled" />
             </div>
             @if (!string.IsNullOrWhiteSpace(_statusMessage))
@@ -78,7 +90,7 @@ else
             </div>
             <button class="w-full mt-6 bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                     @onclick="HandleCheckout"
-                    disabled="@(_isSubmitting || _createdOrder is not null)">
+                    disabled="@(_isSubmitting || _createdOrder is not null || !CanPurchase)">
                 @if (_isSubmitting)
                 {
                     <span>Procesando compra...</span>
@@ -101,7 +113,11 @@ else
     private string CustomerId = string.Empty;
     private string ProductId = string.Empty;
     private int Quantity = 1;
+    private int _maxAvailable;
+    private bool _inStock = true;
     private double UnitPrice = 0;
+    private bool CanPurchase => _inStock && _maxAvailable > 0;
+    private int MaxQuantity => _maxAvailable > 0 ? _maxAvailable : 1;
     private string _statusMessage = string.Empty;
     private string _statusLevel = "info";
     private string _total = "$0";
@@ -217,6 +233,22 @@ else
             }
         }
 
+        if (!CanPurchase)
+        {
+            _statusMessage = L.T("buyer.checkout.outOfStock");
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "out_of_stock");
+            return;
+        }
+
+        if (Quantity < 1 || Quantity > _maxAvailable)
+        {
+            _statusMessage = string.Format(L.T("buyer.checkout.quantityExceeded"), _maxAvailable);
+            _statusLevel = "warning";
+            await TrackAsync("flow_error", "validation", "quantity_exceeded");
+            return;
+        }
+
         _isSubmitting = true;
         try
         {
@@ -246,7 +278,9 @@ else
         }
         catch (HttpRequestException ex)
         {
-            _statusMessage = $"No se pudo completar la compra ({(int?)ex.StatusCode ?? 0}). Revisa los datos e inténtalo nuevamente.";
+            _statusMessage = ex.StatusCode == System.Net.HttpStatusCode.BadRequest
+                ? L.T("buyer.checkout.stockRejected")
+                : $"No se pudo completar la compra ({(int?)ex.StatusCode ?? 0}). Revisa los datos e inténtalo nuevamente.";
             _statusLevel = "error";
             await TrackAsync("flow_error", "submit", "http_exception");
         }
@@ -290,6 +324,17 @@ else
         _productCategory = product.Category;
         _tenantId = product.TenantId;
         _prefilled = true;
+        _inStock = product.InStock;
+        _maxAvailable = product.AvailableQuantity ?? product.StockQuantity ?? 0;
+        if (_maxAvailable > 0 && Quantity > _maxAvailable)
+        {
+            Quantity = _maxAvailable;
+        }
+        if (_maxAvailable <= 0 || !product.InStock)
+        {
+            _statusMessage = L.T("buyer.checkout.outOfStock");
+            _statusLevel = "warning";
+        }
 
         if (Guid.TryParse(customerIdFromQuery, out var parsedCustomerId) && parsedCustomerId != Guid.Empty)
         {

@@ -1,0 +1,197 @@
+@inject LocaleService L
+@inject ApiMediaUrl MediaUrl
+
+<aside class="space-y-4 lg:sticky lg:top-6 lg:self-start">
+    <article class="overflow-hidden rounded-3xl border border-[#e3e6e8] bg-white shadow-[0_12px_40px_-24px_rgba(0,0,0,0.12)]">
+        <div class="relative aspect-[21/9] min-h-[100px] bg-[#141816]">
+            @if (!string.IsNullOrWhiteSpace(BannerUrl))
+            {
+                <img src="@MediaUrl.Resolve(BannerUrl)" alt="" class="absolute inset-0 h-full w-full object-cover opacity-90" />
+            }
+            <div class="absolute inset-0 bg-gradient-to-t from-[#0d120c]/95 via-[#0d120c]/40 to-transparent"></div>
+            <div class="absolute inset-x-0 bottom-0 p-4">
+                <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-[#d9ffad]/90">@L.T("partner.storefront.previewCard.badge")</p>
+                <p class="mt-1 line-clamp-2 text-lg font-black leading-tight text-white">@(string.IsNullOrWhiteSpace(PartnerName) ? "—" : PartnerName)</p>
+                <p class="mt-1 line-clamp-2 text-xs font-medium text-white/85">
+                    @(string.IsNullOrWhiteSpace(Tagline) ? L.T("partner.storefront.previewCard.taglineEmpty") : Tagline)
+                </p>
+            </div>
+        </div>
+        <div class="border-t border-[#eceae6] bg-[#fafaf8] px-4 py-3 text-center">
+            <a href="@PublicPreviewHref" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-1.5 text-xs font-bold text-[#3b6700] hover:underline">
+                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                @L.T("partner.storefront.preview")
+            </a>
+        </div>
+    </article>
+
+    <article class="rounded-3xl border border-[#e3e6e8] bg-white p-5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">@L.T("partner.storefront.score.badge")</p>
+                <p class="mt-1 text-sm font-bold text-[#2c2f30]">@L.T("partner.storefront.score.title")</p>
+            </div>
+            <p class="text-3xl font-black text-[#3b6700]">@CompletionPercent%</p>
+        </div>
+        <div class="mt-3 h-2 overflow-hidden rounded-full bg-[#e6e8ea]">
+            <div class="h-full rounded-full bg-[#3b6700] transition-all duration-300" style="width:@($"{CompletionPercent}%")"></div>
+        </div>
+        <p class="mt-2 text-xs text-[#595c5d]">@ScoreMessage</p>
+
+        <ul class="mt-5 space-y-2">
+            @foreach (var item in Checklist)
+            {
+                <li class="flex items-start gap-2.5 rounded-xl px-2 py-2 @(item.IsComplete ? "bg-[#f5f8f0]" : "bg-[#fff8e6]/60")">
+                    <span class="material-symbols-outlined shrink-0 text-[20px] @(item.IsComplete ? "text-[#3b6700]" : "text-[#b58c00]")">
+                        @(item.IsComplete ? "check_circle" : "radio_button_unchecked")
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-[#2c2f30]">@item.Label</p>
+                        @if (!item.IsComplete && !string.IsNullOrWhiteSpace(item.Hint))
+                        {
+                            <p class="mt-0.5 text-xs text-[#595c5d]">@item.Hint</p>
+                        }
+                        @if (!item.IsComplete && !string.IsNullOrWhiteSpace(item.Href))
+                        {
+                            <a href="@item.Href" class="mt-1 inline-flex text-xs font-bold text-[#3b6700] hover:underline">@item.ActionLabel →</a>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    </article>
+
+    <article class="rounded-3xl border border-[#dbe6e2] bg-gradient-to-br from-[#eff8e0] to-white p-5">
+        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">@L.T("partner.storefront.links.badge")</p>
+        <div class="mt-3 space-y-2">
+            <a href="/partner/settings#organizacion" class="flex items-center gap-3 rounded-xl border border-[#e3e6e8] bg-white px-3 py-2.5 text-sm font-semibold text-[#2c2f30] hover:border-[#3b6700]/30 hover:bg-[#f8faf8]">
+                <span class="material-symbols-outlined text-[20px] text-[#3b6700]">apartment</span>
+                @L.T("partner.nav.settings")
+            </a>
+            <a href="/partner/catalog" class="flex items-center gap-3 rounded-xl border border-[#e3e6e8] bg-white px-3 py-2.5 text-sm font-semibold text-[#2c2f30] hover:border-[#3b6700]/30 hover:bg-[#f8faf8]">
+                <span class="material-symbols-outlined text-[20px] text-[#3b6700]">inventory_2</span>
+                @L.T("partner.nav.catalog")
+            </a>
+            @if (ShowTeamLink)
+            {
+                <a href="/partner/settings#equipo" class="flex items-center gap-3 rounded-xl border border-[#e3e6e8] bg-white px-3 py-2.5 text-sm font-semibold text-[#2c2f30] hover:border-[#3b6700]/30 hover:bg-[#f8faf8]">
+                    <span class="material-symbols-outlined text-[20px] text-[#3b6700]">groups</span>
+                    @L.T("partner.settings.nav.team")
+                </a>
+            }
+            <a href="/partner/settings#publicacion" class="flex items-center gap-3 rounded-xl border border-[#e3e6e8] bg-white px-3 py-2.5 text-sm font-semibold text-[#2c2f30] hover:border-[#3b6700]/30 hover:bg-[#f8faf8]">
+                <span class="material-symbols-outlined text-[20px] text-[#3b6700]">public</span>
+                @L.T("partner.settings.nav.publish")
+            </a>
+        </div>
+    </article>
+
+    <article class="rounded-3xl border border-[#e8eaec] bg-[#f5f8f0] p-5">
+        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">@L.T("partner.storefront.tips.badge")</p>
+        <ul class="mt-4 space-y-3 text-sm leading-relaxed text-[#595c5d]">
+            <li class="flex gap-2">
+                <span class="material-symbols-outlined shrink-0 text-[18px] text-[#3b6700]">photo_camera</span>
+                @L.T("partner.storefront.tip1")
+            </li>
+            <li class="flex gap-2">
+                <span class="material-symbols-outlined shrink-0 text-[18px] text-[#3b6700]">edit_note</span>
+                @L.T("partner.storefront.tip2")
+            </li>
+            <li class="flex gap-2">
+                <span class="material-symbols-outlined shrink-0 text-[18px] text-[#3b6700]">sell</span>
+                @L.T("partner.storefront.tip3")
+            </li>
+            <li class="flex gap-2">
+                <span class="material-symbols-outlined shrink-0 text-[18px] text-[#3b6700]">forum</span>
+                @L.T("partner.storefront.tip5")
+            </li>
+        </ul>
+    </article>
+</aside>
+
+@code {
+    [Parameter] public string? PartnerName { get; set; }
+    [Parameter] public string? BannerUrl { get; set; }
+    [Parameter] public string? Tagline { get; set; }
+    [Parameter] public string? About { get; set; }
+    [Parameter] public int HighlightCount { get; set; }
+    [Parameter] public bool HasContactInfo { get; set; }
+    [Parameter] public int ActiveServiceCount { get; set; }
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public bool ShowTeamLink { get; set; }
+    [Parameter, EditorRequired] public string PublicPreviewHref { get; set; } = default!;
+
+    private int CompletionPercent
+    {
+        get
+        {
+            var total = Checklist.Count;
+            if (total == 0) return 0;
+            return (int)Math.Round(100.0 * Checklist.Count(x => x.IsComplete) / total);
+        }
+    }
+
+    private string ScoreMessage => CompletionPercent switch
+    {
+        >= 100 => L.T("partner.storefront.score.complete"),
+        >= 70 => L.T("partner.storefront.score.good"),
+        >= 40 => L.T("partner.storefront.score.mid"),
+        _ => L.T("partner.storefront.score.low")
+    };
+
+    private IReadOnlyList<ChecklistItem> Checklist
+    {
+        get
+        {
+            var items = new List<ChecklistItem>
+            {
+                new(
+                    L.T("partner.storefront.check.banner"),
+                    !string.IsNullOrWhiteSpace(BannerUrl),
+                    L.T("partner.storefront.check.banner.hint"),
+                    null,
+                    null),
+                new(
+                    L.T("partner.storefront.check.tagline"),
+                    !string.IsNullOrWhiteSpace(Tagline) && Tagline.Trim().Length >= 10,
+                    L.T("partner.storefront.check.tagline.hint"),
+                    null,
+                    null),
+                new(
+                    L.T("partner.storefront.check.about"),
+                    !string.IsNullOrWhiteSpace(About) && About.Trim().Length >= 80,
+                    L.T("partner.storefront.check.about.hint"),
+                    null,
+                    null),
+                new(
+                    L.T("partner.storefront.check.highlights"),
+                    HighlightCount >= 1,
+                    L.T("partner.storefront.check.highlights.hint"),
+                    null,
+                    null),
+                new(
+                    L.T("partner.storefront.check.contact"),
+                    HasContactInfo,
+                    L.T("partner.storefront.check.contact.hint"),
+                    "/partner/settings#organizacion",
+                    L.T("partner.storefront.check.contact.action")),
+                new(
+                    L.T("partner.storefront.check.services"),
+                    ActiveServiceCount >= 1,
+                    L.T("partner.storefront.check.services.hint"),
+                    "/partner/catalog",
+                    L.T("partner.storefront.check.services.action")),
+                new(
+                    L.T("partner.storefront.check.visible"),
+                    IsVisible,
+                    L.T("partner.storefront.check.visible.hint"),
+                    "/partner/settings#publicacion",
+                    L.T("partner.storefront.check.visible.action"))
+            };
+            return items;
+        }
+    }
+
+    private sealed record ChecklistItem(string Label, bool IsComplete, string? Hint, string? Href, string? ActionLabel);
+}

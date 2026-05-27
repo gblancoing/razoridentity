@@ -21,13 +21,7 @@
             </a>
 
             <nav class="space-y-2 text-sm font-semibold">
-                <a class="@NavClass(AccountRoutes.Profile)" href="@AccountRoutes.Profile">
-                    <span class="material-symbols-outlined text-[20px]">person</span>
-                    <span>
-                        @L.T("account.nav.profile")
-                        <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.profile.hint")</span>
-                    </span>
-                </a>
+                <p class="px-4 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-[#8a8f90]">@L.T("account.nav.section.activity")</p>
                 <a class="@NavClass(AccountRoutes.Buyer)" href="@AccountRoutes.Buyer">
                     <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
                     <span>
@@ -35,39 +29,23 @@
                         <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.buyer.hint")</span>
                     </span>
                 </a>
-                @if (_showProfessionalNav)
-                {
-                    <a class="@NavClass(AccountRoutes.Professional)" href="@AccountRoutes.Professional">
-                        <span class="material-symbols-outlined text-[20px]">work</span>
-                        <span>
-                            @L.T("account.nav.professional")
-                            <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.professional.hint")</span>
-                        </span>
-                    </a>
-                }
-                @if (_showCompanyNav && !_hasPartnerPanel)
-                {
-                    <a class="@NavClass(AccountRoutes.Company)" href="@AccountRoutes.Company">
-                        <span class="material-symbols-outlined text-[20px]">storefront</span>
-                        <span>
-                            @L.T("account.nav.company")
-                            <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.company.hint")</span>
-                        </span>
-                    </a>
-                }
+                <a class="@NavClass(AccountRoutes.Messages)" href="@AccountRoutes.Messages">
+                    <span class="material-symbols-outlined text-[20px]">mail</span>
+                    <span>
+                        @L.T("account.nav.messages")
+                        <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.messages.hint")</span>
+                    </span>
+                </a>
                 @if (_hasPartnerPanel)
                 {
-                    <div class="pt-4 mt-4 border-t border-[#e3e6e8]">
-                        <p class="px-4 text-[10px] uppercase tracking-[0.18em] font-bold text-[#8a8f90] mb-2">@L.T("account.nav.partnerSection")</p>
-                        <a class="@NavClass("/partner")" href="/partner">
-                            <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                    <p class="px-4 pt-5 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-[#8a8f90]">@L.T("account.nav.partnerSection")</p>
+                    <a class="@NavClass("/partner")" href="/partner">
+                        <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                        <span>
                             @L.T("account.nav.partnerPanel")
-                        </a>
-                        <a class="@NavClass(AccountRoutes.PartnerCompany)" href="@AccountRoutes.PartnerCompany">
-                            <span class="material-symbols-outlined text-[20px]">store</span>
-                            @L.T("account.nav.partnerCompany")
-                        </a>
-                    </div>
+                            <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.partnerPanel.hint")</span>
+                        </span>
+                    </a>
                 }
             </nav>
         </div>
@@ -86,10 +64,9 @@
             <p class="text-sm font-bold text-[#111816] lg:hidden">@L.T("account.hub.badge")</p>
             <div class="flex items-center gap-3 sm:gap-4 ml-auto">
                 <LanguageToggle />
-                <div class="hidden sm:flex items-center gap-3 rounded-full border border-[#dadddf] bg-[#f5f6f7] px-4 py-2">
-                    <div class="w-8 h-8 rounded-full bg-[#a7f255] text-[#325800] flex items-center justify-center font-bold text-sm">@UserInitial</div>
-                    <p class="text-sm font-bold text-[#111816]">@UserLabel</p>
-                </div>
+                <AccountUserMenu HasPartnerPanel="_hasPartnerPanel"
+                                 ShowCompanyNav="_showCompanyNav"
+                                 ShowProfessionalNav="_showProfessionalNav" />
                 <button type="button" class="inline-flex items-center gap-2 rounded-full bg-[#eff1f2] px-4 py-2 text-sm font-semibold text-[#3b6700]" @onclick="HandleLogout">
                     <span class="material-symbols-outlined text-[18px]">logout</span>
                     @L.T("nav.logout")
@@ -107,9 +84,6 @@
     private bool _showProfessionalNav = true;
     private bool _showCompanyNav;
     private bool _hasPartnerPanel;
-
-    private string UserLabel => AuthState.DisplayName ?? AuthState.Email ?? "ComunaClic";
-    private string UserInitial => string.IsNullOrWhiteSpace(UserLabel) ? "C" : UserLabel.Trim()[0].ToString().ToUpperInvariant();
 
     protected override void OnInitialized() => L.OnChange += HandleLocaleChange;
 

@@ -91,7 +91,16 @@ En **ComunaClick.App** y **ComunaClick.Acl**, configura el mismo Client ID de Go
 }
 ```
 
-En la consola de Google Cloud, agrega como **Authorized JavaScript origins**: `https://localhost:7224`.
+En la consola de Google Cloud (mismo Client ID en App y ACL), configura:
+
+| Tipo | URLs |
+|------|------|
+| **Authorized JavaScript origins** | `https://localhost:7224`, `https://app.comunaclic.cl` |
+| **Authorized redirect URIs** | `https://localhost:7224/login`, `https://localhost:7224/register`, `https://app.comunaclic.cl/login`, `https://app.comunaclic.cl/register` |
+
+La app envía `redirect_uri` **sin query string** (p. ej. siempre `https://app.comunaclic.cl/login`). El `returnUrl` y el `role` del registro van en `sessionStorage`, no en la URL de Google.
+
+Si ves **Error 400: redirect_uri_mismatch**, la URL que envía la app no está en la lista anterior (o estás usando otro dominio, p. ej. `www.`).
 
 User Secrets desde VS: clic derecho en **ComunaClick.App** → **Administrar secretos de usuario** (idem en **ComunaClick.Acl** con los mismos valores).
 

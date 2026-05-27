@@ -7,4 +7,5 @@ public sealed record ProfessionalCreateRequest(
     string? Specialty,
     string? Bio,
     bool? IsVerified,
-    bool? IsActive);
+    bool? IsActive,
+    Guid? PartnerId);

@@ -1,3 +1,4 @@
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using ComunaClick.Api.Security;
@@ -14,10 +15,12 @@ namespace ComunaClick.Api.Modules.Onboarding;
 public sealed class PublicCatalogController : ControllerBase
 {
     private readonly CoreDbContext _db;
+    private readonly IProductInventoryService _inventoryService;
 
-    public PublicCatalogController(CoreDbContext db)
+    public PublicCatalogController(CoreDbContext db, IProductInventoryService inventoryService)
     {
         _db = db;
+        _inventoryService = inventoryService;
     }
 
     [HttpGet("categories")]
@@ -263,7 +266,8 @@ public sealed class PublicCatalogController : ControllerBase
         [FromQuery] double latitude,
         [FromQuery] double longitude,
         [FromQuery] int limit = 24,
-        [FromQuery] string? subcode = null)
+        [FromQuery] string? subcode = null,
+        [FromQuery] double maxDistanceKm = 50)
     {
         if (string.IsNullOrWhiteSpace(categoryCode))
         {
@@ -276,6 +280,7 @@ public sealed class PublicCatalogController : ControllerBase
         }
 
         limit = Math.Clamp(limit, 1, 60);
+        maxDistanceKm = Math.Clamp(maxDistanceKm, 1, 200);
 
         var category = await _db.ProductCategories.AsNoTracking()
             .FirstOrDefaultAsync(x => x.IsActive && x.Code.ToLower() == categoryCode.Trim().ToLower());
@@ -317,45 +322,70 @@ public sealed class PublicCatalogController : ControllerBase
             }
         }
 
-        var nearbyBusinesses = await _db.Partners.AsNoTracking()
+        var candidatePartners = await _db.Partners.AsNoTracking()
             .Include(x => x.Subcategory)
             .ThenInclude(x => x!.Category)
-            .Join(
-                _db.Comunas.AsNoTracking().Where(x => x.IsActive && x.Latitude != null && x.Longitude != null),
-                partner => partner.ComunaId,
-                comuna => comuna.Id,
-                (partner, comuna) => new
-                {
-                    Partner = partner,
-                    Comuna = comuna
-                })
-            .Where(x => x.Partner.IsVisible
-                && businessIds.Contains(x.Partner.Id)
-                && (subFilter == null || x.Partner.SubcategoryId == subFilter.Id))
+            .Where(x => x.IsVisible
+                && businessIds.Contains(x.Id)
+                && (subFilter == null || x.SubcategoryId == subFilter.Id))
             .ToListAsync();
 
-        var items = nearbyBusinesses
-            .Select(x => new
+        var comunaIds = candidatePartners
+            .Where(x => x.ComunaId.HasValue)
+            .Select(x => x.ComunaId!.Value)
+            .Distinct()
+            .ToList();
+
+        var comunasById = await _db.Comunas.AsNoTracking()
+            .Where(x => x.IsActive && comunaIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id);
+
+        var items = candidatePartners
+            .Select(partner =>
             {
-                x.Partner.Id,
-                x.Partner.Type,
-                x.Partner.Name,
-                x.Partner.Address,
-                x.Partner.Phone,
-                x.Partner.Email,
-                CategoryName = x.Partner.Subcategory != null ? x.Partner.Subcategory.Category != null ? x.Partner.Subcategory.Category.Name : null : null,
-                SubcategoryName = x.Partner.Subcategory != null ? x.Partner.Subcategory.Name : null,
-                ComunaId = x.Comuna.Id,
-                ComunaName = x.Comuna.Name,
-                Latitude = x.Partner.Latitude ?? x.Comuna.Latitude!.Value,
-                Longitude = x.Partner.Longitude ?? x.Comuna.Longitude!.Value,
-                UsesExactLocation = x.Partner.Latitude.HasValue && x.Partner.Longitude.HasValue,
-                DistanceKm = CalculateDistanceKm(
+                var comuna = partner.ComunaId is Guid comunaId && comunasById.TryGetValue(comunaId, out var c)
+                    ? c
+                    : null;
+
+                var itemLatitude = partner.Latitude ?? comuna?.Latitude;
+                var itemLongitude = partner.Longitude ?? comuna?.Longitude;
+                if (itemLatitude is null || itemLongitude is null)
+                {
+                    return null;
+                }
+
+                var distanceKm = CalculateDistanceKm(
                     latitude,
                     longitude,
-                    x.Partner.Latitude ?? x.Comuna.Latitude.Value,
-                    x.Partner.Longitude ?? x.Comuna.Longitude.Value)
+                    itemLatitude.Value,
+                    itemLongitude.Value);
+
+                if (distanceKm > maxDistanceKm)
+                {
+                    return null;
+                }
+
+                return new
+                {
+                    partner.Id,
+                    partner.Type,
+                    partner.Name,
+                    partner.Address,
+                    partner.Phone,
+                    partner.Email,
+                    partner.LogoUrl,
+                    CategoryName = partner.Subcategory?.Category?.Name,
+                    SubcategoryName = partner.Subcategory?.Name,
+                    ComunaId = comuna?.Id,
+                    ComunaName = comuna?.Name,
+                    Latitude = itemLatitude.Value,
+                    Longitude = itemLongitude.Value,
+                    UsesExactLocation = partner.Latitude.HasValue && partner.Longitude.HasValue,
+                    DistanceKm = distanceKm
+                };
             })
+            .Where(x => x is not null)
+            .Select(x => x!)
             .OrderBy(x => x.DistanceKm)
             .ThenBy(x => x.Name)
             .Take(limit)
@@ -374,7 +404,118 @@ public sealed class PublicCatalogController : ControllerBase
                 Latitude = latitude,
                 Longitude = longitude
             },
+            MaxDistanceKm = maxDistanceKm,
             Businesses = items
+        });
+    }
+
+    [HttpGet("home-feed")]
+    public async Task<ActionResult<object>> HomeFeed(
+        [FromQuery] double? latitude,
+        [FromQuery] double? longitude,
+        [FromQuery] int limit = 12,
+        [FromQuery] double maxDistanceKm = 50)
+    {
+        limit = Math.Clamp(limit, 1, 40);
+        maxDistanceKm = Math.Clamp(maxDistanceKm, 1, 200);
+        var hasLocation = latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180;
+
+        var partners = await _db.Partners.AsNoTracking()
+            .Include(x => x.Subcategory)
+            .ThenInclude(x => x!.Category)
+            .Where(x => x.IsVisible)
+            .Where(x =>
+                (x.Type == "A" && (
+                    _db.Products.Any(p => p.PartnerId == x.Id && p.IsActive)
+                    || (x.OffersServices && _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive && s.DeletedAt == null))))
+                || (x.Type == "B" && _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive && s.DeletedAt == null))
+                || (x.Type == "C" && _db.Professionals.Any(p =>
+                    (p.ComunaId == x.ComunaId || (p.ComunaId == null && p.TenantId == x.TenantId))
+                    && p.IsActive && p.IsVerified)))
+            .ToListAsync();
+
+        var comunaIds = partners.Where(x => x.ComunaId.HasValue).Select(x => x.ComunaId!.Value).Distinct().ToList();
+        var comunasById = await _db.Comunas.AsNoTracking()
+            .Where(x => x.IsActive && comunaIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id);
+
+        var rankedPartners = partners
+            .Select(partner =>
+            {
+                comunasById.TryGetValue(partner.ComunaId ?? Guid.Empty, out var comuna);
+                var itemLatitude = partner.Latitude ?? comuna?.Latitude;
+                var itemLongitude = partner.Longitude ?? comuna?.Longitude;
+                double? distanceKm = null;
+                if (hasLocation && itemLatitude.HasValue && itemLongitude.HasValue)
+                {
+                    distanceKm = CalculateDistanceKm(
+                        latitude!.Value,
+                        longitude!.Value,
+                        itemLatitude.Value,
+                        itemLongitude.Value);
+                }
+
+                return new
+                {
+                    Partner = partner,
+                    ComunaName = comuna?.Name,
+                    DistanceKm = distanceKm,
+                    HasCoordinates = itemLatitude.HasValue && itemLongitude.HasValue
+                };
+            })
+            .Where(x => !hasLocation
+                || (x.DistanceKm.HasValue && x.DistanceKm.Value <= maxDistanceKm))
+            .OrderBy(x => hasLocation ? x.DistanceKm ?? double.MaxValue : double.MaxValue)
+            .ThenByDescending(x => x.Partner.UpdatedAt)
+            .Take(limit)
+            .ToList();
+
+        var partnerIds = rankedPartners.Select(x => x.Partner.Id).ToHashSet();
+        var services = await _db.Services.AsNoTracking()
+            .Where(x => x.IsActive && partnerIds.Contains(x.PartnerId))
+            .OrderByDescending(x => x.UpdatedAt)
+            .ThenBy(x => x.Name)
+            .Take(limit)
+            .ToListAsync();
+
+        var partnerNameById = rankedPartners.ToDictionary(x => x.Partner.Id, x => x.Partner.Name);
+        var partnerDistanceById = rankedPartners.ToDictionary(x => x.Partner.Id, x => x.DistanceKm);
+
+        return Ok(new
+        {
+            Mode = hasLocation ? "nearby" : "recent",
+            MaxDistanceKm = hasLocation ? maxDistanceKm : (double?)null,
+            UserLocation = hasLocation
+                ? new { Latitude = latitude, Longitude = longitude }
+                : null,
+            Businesses = rankedPartners.Select(x => new
+            {
+                x.Partner.Id,
+                x.Partner.Type,
+                x.Partner.Name,
+                x.Partner.Address,
+                x.Partner.Phone,
+                x.Partner.Email,
+                CategoryName = x.Partner.Subcategory?.Category?.Name,
+                CategoryCode = x.Partner.Subcategory?.Category?.Code,
+                SubcategoryName = x.Partner.Subcategory?.Name,
+                x.ComunaName,
+                x.DistanceKm,
+                CtaHref = $"/buyer/detail/partner/{x.Partner.Id}"
+            }),
+            Services = services.Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.Description,
+                x.Category,
+                x.Price,
+                x.Currency,
+                x.PartnerId,
+                PartnerName = partnerNameById.TryGetValue(x.PartnerId, out var partnerName) ? partnerName : null,
+                DistanceKm = partnerDistanceById.TryGetValue(x.PartnerId, out var distance) ? distance : null,
+                CtaHref = $"/buyer/detail/service/{x.Id}"
+            })
         });
     }
 
@@ -401,34 +542,101 @@ public sealed class PublicCatalogController : ControllerBase
             return NotFound();
         }
 
-        var products = await _db.Products.AsNoTracking()
-            .Where(x => x.PartnerId == id && x.IsActive)
-            .OrderBy(x => x.Name)
-            .Select(x => new
-            {
-                x.Id,
-                x.Name,
-                x.Description,
-                x.Category,
-                x.Price,
-                x.Currency
-            })
-            .ToListAsync();
+        var isServiceOnlyPartner = string.Equals(partner.Type, "B", StringComparison.OrdinalIgnoreCase);
+        var productEntities = isServiceOnlyPartner
+            ? new List<Product>()
+            : await _db.Products.AsNoTracking()
+                .Include(x => x.Inventory)
+                .Where(x => x.PartnerId == id && x.IsActive)
+                .OrderBy(x => x.Name)
+                .ToListAsync();
+        if (productEntities.Count > 0)
+        {
+            await ProductMediaSync.EnrichManyAsync(_db, productEntities, HttpContext.RequestAborted);
+        }
 
-        var services = await _db.Services.AsNoTracking()
-            .Where(x => x.PartnerId == id && x.IsActive)
-            .OrderBy(x => x.Name)
-            .Select(x => new
+        var productIds = productEntities.Select(x => x.Id).ToList();
+        var availableByProduct = productIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : await _inventoryService.GetAvailableQuantitiesAsync(productIds, cancellationToken: HttpContext.RequestAborted);
+        var products = productEntities.Select(x =>
+        {
+            var available = availableByProduct.TryGetValue(x.Id, out var qty) ? qty : 0;
+            return new
             {
                 x.Id,
                 x.Name,
                 x.Description,
                 x.Category,
-                x.Price,
+                x.PartnerCatalogCategoryId,
+                CatalogCategoryName = x.CatalogCategoryName,
+                Price = (double)x.Price,
                 x.Currency,
-                x.DurationMinutes
-            })
-            .ToListAsync();
+                x.ImageUrl,
+                ImageUrls = x.ImageUrls,
+                InStock = ProductInventoryRules.IsInStock(available),
+                StockQuantity = ProductInventoryRules.GetOnHandQuantity(x.Inventory),
+                AvailableQuantity = available
+            };
+        }).ToList();
+
+        var includeServices = string.Equals(partner.Type, "B", StringComparison.OrdinalIgnoreCase)
+                              || (string.Equals(partner.Type, "A", StringComparison.OrdinalIgnoreCase) && partner.OffersServices);
+
+        var serviceRows = !includeServices
+            ? new List<ServiceProfileRow>()
+            : await _db.Services.AsNoTracking()
+                .Where(x => x.PartnerId == id && x.IsActive && x.DeletedAt == null)
+                .OrderBy(x => x.Name)
+                .Select(x => new ServiceProfileRow(
+                    x.Id,
+                    x.Name,
+                    x.Description,
+                    x.Category,
+                    (double)x.Price,
+                    x.Currency,
+                    x.DurationMinutes,
+                    x.ImageUrl,
+                    x.ServiceAddress,
+                    x.IsBookable,
+                    x.RequiresOnlinePayment))
+                .ToListAsync();
+
+        var serviceIds = serviceRows.Select(x => x.Id).ToList();
+        var imageRows = serviceIds.Count == 0
+            ? new List<ServiceImageRow>()
+            : await _db.ServiceImages.AsNoTracking()
+                .Where(x => serviceIds.Contains(x.ServiceId))
+                .OrderBy(x => x.SortOrder)
+                .ThenBy(x => x.CreatedAt)
+                .Select(x => new ServiceImageRow(x.ServiceId, x.Url))
+                .ToListAsync();
+
+        var imagesByService = imageRows
+            .GroupBy(x => x.ServiceId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Url).ToList());
+
+        var services = serviceRows.Select(s =>
+        {
+            imagesByService.TryGetValue(s.Id, out var urls);
+            var imageUrls = urls ?? Array.Empty<string>();
+            var cover = imageUrls.Count > 0 ? imageUrls[0] : s.ImageUrl;
+            return new
+            {
+                s.Id,
+                s.Name,
+                s.Description,
+                s.Category,
+                s.Price,
+                s.Currency,
+                s.DurationMinutes,
+                ImageUrl = cover,
+                ImageUrls = imageUrls,
+                ServiceAddress = s.ServiceAddress,
+                s.IsBookable,
+                s.RequiresOnlinePayment
+            };
+        }).ToList();
 
         var professionals = await _db.Professionals.AsNoTracking()
             .Where(x => x.TenantId == partner.TenantId && x.IsActive && x.IsVerified)
@@ -440,8 +648,19 @@ public sealed class PublicCatalogController : ControllerBase
                 x.Name,
                 x.Specialty,
                 x.Bio,
+                x.BannerUrl,
+                x.ProfileHeadline,
                 x.Email,
-                x.Phone
+                x.Phone,
+                x.WebsiteUrl,
+                x.InstagramUrl,
+                x.FacebookUrl,
+                x.LinkedInUrl,
+                x.XUrl,
+                x.TikTokUrl,
+                x.YouTubeUrl,
+                x.OtherLinkLabel,
+                x.OtherLinkUrl
             })
             .ToListAsync();
 
@@ -455,15 +674,33 @@ public sealed class PublicCatalogController : ControllerBase
                 partner.Address,
                 partner.Phone,
                 partner.Email,
+                partner.BannerUrl,
+                partner.LogoUrl,
+                partner.StorefrontTagline,
+                partner.StorefrontAbout,
+                partner.StorefrontHighlight1,
+                partner.StorefrontHighlight2,
+                partner.StorefrontHighlight3,
+                partner.WebsiteUrl,
+                partner.InstagramUrl,
+                partner.FacebookUrl,
+                partner.LinkedInUrl,
+                partner.XUrl,
+                partner.TikTokUrl,
+                partner.YouTubeUrl,
+                partner.OtherLinkLabel,
+                partner.OtherLinkUrl,
                 CategoryName = partner.Subcategory?.Category?.Name,
                 CategoryCode = partner.Subcategory?.Category?.Code,
                 SubcategoryName = partner.Subcategory?.Name,
-                OfferLabel = partner.Type switch
-                {
-                    "B" => "Servicios activos",
-                    "C" => "Profesionales activos",
-                    _ => "Productos activos"
-                }
+                OfferLabel = !string.IsNullOrWhiteSpace(partner.StorefrontTagline)
+                    ? partner.StorefrontTagline.Trim()
+                    : partner.Type switch
+                    {
+                        "B" => "Servicios activos",
+                        "C" => "Profesionales activos",
+                        _ => "Productos activos"
+                    }
             },
             Products = products,
             Services = services,
@@ -613,4 +850,19 @@ public sealed class PublicCatalogController : ControllerBase
 
     private static string NormalizeCatalogScope(string? scope)
         => string.Equals(scope, "service", StringComparison.OrdinalIgnoreCase) ? "service" : "commerce";
+
+    private sealed record ServiceImageRow(Guid ServiceId, string Url);
+
+    private sealed record ServiceProfileRow(
+        Guid Id,
+        string Name,
+        string? Description,
+        string? Category,
+        double Price,
+        string Currency,
+        int DurationMinutes,
+        string? ImageUrl,
+        string? ServiceAddress,
+        bool IsBookable,
+        bool RequiresOnlinePayment);
 }

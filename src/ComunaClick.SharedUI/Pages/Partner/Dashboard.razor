@@ -18,7 +18,7 @@
             <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.dashboard.hub.subtitle")</p>
             @if (!string.IsNullOrWhiteSpace(_userLabel))
             {
-                <p class="mt-3 text-sm text-[#3b6700] font-semibold">Sesión activa: @_userLabel</p>
+                <p class="mt-3 text-sm text-[#3b6700] font-semibold">@L.T("partner.dashboard.sessionActive") @_userLabel</p>
             }
         </div>
 
@@ -33,6 +33,54 @@
     {
         <section class="rounded-2xl border border-[#a7f255]/60 bg-[#a7f255]/15 p-5">
             <p class="text-sm font-semibold text-[#325800]">@_welcomeMessage</p>
+        </section>
+    }
+
+    @if (_activeBusiness is not null)
+    {
+        <section class="rounded-3xl bg-white p-6 md:p-8 border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">@L.T("partner.dashboard.business.badge")</p>
+                    <h2 class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@_activeBusiness.Name</h2>
+                    <p class="mt-1 text-sm text-[#595c5d]">@CompanySubtitle</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-[#f0fdf4] px-4 py-2 text-xs font-bold text-[#14532d]">
+                    <span class="material-symbols-outlined text-[18px]">@CompanyTypeIcon</span>
+                    @CompanyTypeLabel
+                </span>
+            </div>
+
+            <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <article class="rounded-2xl border border-[#dbe6e2] bg-[#fafafa] p-5">
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@L.T("buyer.profile.company.metric.catalog")</p>
+                    <p class="mt-2 text-3xl font-black text-[#2c2f30]">@_catalogCount</p>
+                </article>
+                <article class="rounded-2xl border border-[#dbe6e2] bg-[#fafafa] p-5">
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@L.T("buyer.profile.company.metric.visibility")</p>
+                    <p class="mt-2 text-lg font-black text-[#2c2f30]">@VisibilityLabel</p>
+                </article>
+                <article class="rounded-2xl border border-[#dbe6e2] bg-[#fafafa] p-5">
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@L.T("buyer.profile.company.metric.category")</p>
+                    <p class="mt-2 text-sm font-bold text-[#2c2f30]">@CategoryLabel</p>
+                </article>
+            </div>
+
+            <div class="mt-5 flex flex-wrap gap-3">
+                <a href="@PublicPreviewHref" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-2.5 text-sm font-bold hover:border-[#3b6700]/40">
+                    <span class="material-symbols-outlined text-[18px]">visibility</span>
+                    @(_activeBusiness.IsVisible ? L.T("buyer.profile.company.panel.viewPublic") : L.T("buyer.profile.company.panel.previewDraft"))
+                </a>
+                @if (_businesses.Count > 1)
+                {
+                    <a href="/my-businesses"
+                       class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-2.5 text-sm font-bold hover:border-[#3b6700]/40">
+                        <span class="material-symbols-outlined text-[18px]">store</span>
+                        @L.T("partner.userMenu.businesses")
+                    </a>
+                }
+            </div>
         </section>
     }
 
@@ -59,14 +107,14 @@
         <section class="rounded-3xl bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] border border-[#e3e6e8]">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
                 <div>
-                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Activación etapa 1</p>
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">@L.T("partner.dashboard.activation.badge")</p>
                     <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@_activation.StatusLabel</h2>
                     <p class="mt-2 text-sm text-[#595c5d]">@_activation.NextStep</p>
                 </div>
                 <div class="rounded-2xl bg-[#f5f6f7] px-6 py-5 border border-[#e3e6e8] min-w-[180px]">
-                    <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">Checklist</p>
+                    <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">@L.T("partner.dashboard.activation.checklist")</p>
                     <p class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_activation.CompletionPercent%</p>
-                    <p class="text-xs text-[#595c5d] mt-1">Completado</p>
+                    <p class="text-xs text-[#595c5d] mt-1">@L.T("partner.dashboard.activation.completed")</p>
                 </div>
             </div>
 
@@ -101,7 +149,7 @@
                             @onclick="() => ToggleVisibilityAsync(false)"
                             disabled="@_isUpdatingVisibility">
                         <span class="material-symbols-outlined text-[18px]">visibility_off</span>
-                        Despublicar negocio
+                        @L.T("partner.dashboard.action.unpublish")
                     </button>
                 }
                 else if (_activation.CanPublish)
@@ -110,7 +158,7 @@
                             @onclick="() => ToggleVisibilityAsync(true)"
                             disabled="@_isUpdatingVisibility">
                         <span class="material-symbols-outlined text-[18px]">publish</span>
-                        Publicar negocio
+                        @L.T("partner.dashboard.action.publish")
                     </button>
                 }
                 else
@@ -118,20 +166,20 @@
                     <a href="/register/business"
                        class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm">
                         <span class="material-symbols-outlined text-[18px]">edit_square</span>
-                        Completar negocio
+                        @L.T("partner.dashboard.action.completeBusiness")
                     </a>
                 }
 
                 <a href="/partner/catalog"
                    class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm">
                     <span class="material-symbols-outlined text-[18px]">inventory_2</span>
-                    Revisar catálogo
+                    @L.T("partner.dashboard.action.reviewCatalog")
                 </a>
 
                 <a href="@PublicPreviewHref"
                    class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm">
                     <span class="material-symbols-outlined text-[18px]">open_in_new</span>
-                    Ver en público
+                    @L.T("partner.dashboard.action.viewPublic")
                 </a>
             </div>
         </section>
@@ -141,15 +189,15 @@
     {
         <section class="rounded-3xl bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] border border-[#e3e6e8] space-y-6">
             <div>
-                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Perfil del negocio</p>
-                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Editar datos públicos</h2>
-                <p class="mt-2 text-sm text-[#595c5d]">Actualiza el nombre, dirección y canales de contacto que ve buyer.</p>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">@L.T("partner.dashboard.profile.badge")</p>
+                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.dashboard.profile.heading")</h2>
+                <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.dashboard.profile.desc")</p>
             </div>
 
             @if (_businesses.Count > 1)
             {
                 <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">Negocio a editar</label>
+                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.selectBusiness")</label>
                     <select class="mt-2 w-full md:max-w-xl h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
                             value="@(_editingBusinessId?.ToString())"
                             @onchange="HandleBusinessSelectionChanged">
@@ -163,22 +211,22 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">Nombre del negocio</label>
+                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.name")</label>
                     <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
                            @bind="_profileEditor.Name" />
                 </div>
                 <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">Dirección</label>
+                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.address")</label>
                     <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
                            @bind="_profileEditor.Address" />
                 </div>
                 <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">Teléfono</label>
+                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.phone")</label>
                     <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
                            @bind="_profileEditor.Phone" />
                 </div>
                 <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">Correo de contacto</label>
+                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.email")</label>
                     <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
                            @bind="_profileEditor.Email" />
                 </div>
@@ -189,13 +237,13 @@
                         @onclick="SaveBusinessProfileAsync"
                         disabled="@_isSavingProfile">
                     <span class="material-symbols-outlined text-[18px]">save</span>
-                    @(_isSavingProfile ? "Guardando..." : "Guardar cambios")
+                    @(_isSavingProfile ? L.T("partner.dashboard.profile.saving") : L.T("partner.dashboard.profile.save"))
                 </button>
                 <button class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm"
                         @onclick="ResetBusinessProfileEditor"
                         disabled="@_isSavingProfile">
                     <span class="material-symbols-outlined text-[18px]">restart_alt</span>
-                    Restaurar
+                    @L.T("partner.dashboard.profile.reset")
                 </button>
             </div>
         </section>
@@ -243,10 +291,10 @@
                     <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)]">
                         <span class="material-symbols-outlined text-[#3b6700] text-3xl">query_stats</span>
                     </div>
-                    <p class="text-[#2c2f30] font-bold text-lg mb-2">Datos comerciales en preparación</p>
+                    <p class="text-[#2c2f30] font-bold text-lg mb-2">@L.T("partner.dashboard.charts.preparing")</p>
                     <p class="text-sm text-[#595c5d] max-w-md">@_statusMessage</p>
                     <a class="mt-4 text-[#3b6700] font-bold hover:underline inline-flex items-center gap-1" href="@PrimaryActionHref">
-                        Acceder ahora
+                        @L.T("partner.dashboard.charts.accessNow")
                         <span class="material-symbols-outlined text-[18px]">arrow_right_alt</span>
                     </a>
                 </div>
@@ -257,7 +305,7 @@
             <section class="bg-white p-8 rounded-3xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
                 <div class="flex justify-between items-center mb-8">
                     <h4 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.dashboard.section.bookings")</h4>
-                    <a class="text-[#3b6700] text-xs font-bold hover:underline" href="/partner/agenda">Ver todo</a>
+                    <a class="text-[#3b6700] text-xs font-bold hover:underline" href="/partner/agenda">@L.T("partner.dashboard.bookings.viewAll")</a>
                 </div>
 
                 <div class="space-y-4">
@@ -283,9 +331,9 @@
                     <div class="flex gap-3">
                         <span class="material-symbols-outlined text-[#3b6700]">lightbulb</span>
                         <div>
-                            <p class="text-xs font-bold text-[#325800]">Tip Editorial</p>
+                            <p class="text-xs font-bold text-[#325800]">@L.T("partner.dashboard.tip.title")</p>
                             <p class="text-[11px] text-[#325800]/85 leading-relaxed mt-1">
-                                Aumenta tus reservas destacando horarios con menor demanda y productos de entrada.
+                                @L.T("partner.dashboard.tip.body")
                             </p>
                         </div>
                     </div>
@@ -297,10 +345,10 @@
                 <section class="bg-[#eff1f2] p-6 rounded-3xl border border-[#dadddf]">
                     <div class="flex items-center justify-between gap-3 mb-6">
                         <div>
-                            <h4 class="text-xs font-bold tracking-[0.15em] text-[#7b8081] uppercase">Mis negocios</h4>
-                            <p class="mt-2 text-lg font-black tracking-[-0.03em] text-[#2c2f30]">Todos los negocios registrados</p>
+                            <h4 class="text-xs font-bold tracking-[0.15em] text-[#7b8081] uppercase">@L.T("partner.dashboard.businesses.title")</h4>
+                            <p class="mt-2 text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.dashboard.businesses.subtitle")</p>
                         </div>
-                        <a class="text-sm font-bold text-[#3b6700] hover:underline" href="/my-businesses">Administrar</a>
+                        <a class="text-sm font-bold text-[#3b6700] hover:underline" href="/my-businesses">@L.T("partner.dashboard.businesses.manage")</a>
                     </div>
 
                     <div class="space-y-3">
@@ -310,21 +358,21 @@
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
                                         <p class="font-bold text-[#2c2f30]">@business.Name</p>
-                                        <p class="text-xs text-[#595c5d]">Tipo @business.Type</p>
+                                        <p class="text-xs text-[#595c5d]">@string.Format(L.T("partner.dashboard.businesses.type"), business.Type)</p>
                                     </div>
                                     @if (business.Id == AuthState.PartnerId)
                                     {
-                                        <span class="text-[11px] px-2 py-1 rounded-full bg-[#a7f255]/20 text-[#3b6700] font-semibold">Activo</span>
+                                        <span class="text-[11px] px-2 py-1 rounded-full bg-[#a7f255]/20 text-[#3b6700] font-semibold">@L.T("partner.dashboard.businesses.active")</span>
                                     }
                                 </div>
-                                <p class="mt-2 text-sm text-[#595c5d]">@(business.Email ?? business.Phone ?? business.Address ?? "Sin contacto")</p>
-                                <p class="mt-1 text-xs text-[#7b8081]">@(business.Activation?.StatusLabel ?? (business.IsVisible ? "Publicado" : "Pendiente"))</p>
+                                <p class="mt-2 text-sm text-[#595c5d]">@(business.Email ?? business.Phone ?? business.Address ?? L.T("partner.dashboard.businesses.noContact"))</p>
+                                <p class="mt-1 text-xs text-[#7b8081]">@(business.Activation?.StatusLabel ?? (business.IsVisible ? L.T("partner.dashboard.businesses.published") : L.T("partner.dashboard.businesses.pending")))</p>
                                 <div class="mt-3 flex items-center gap-2 text-xs font-bold @(HasExactLocation(business) ? "text-[#3b6700]" : "text-[#7b8081]")">
                                     <span class="material-symbols-outlined text-[16px]">@(HasExactLocation(business) ? "my_location" : "location_on")</span>
-                                    @(HasExactLocation(business) ? "Ubicación exacta configurada" : "Usando referencia por comuna")
+                                    @(HasExactLocation(business) ? L.T("partner.dashboard.businesses.exactLocation") : L.T("partner.dashboard.businesses.comunaLocation"))
                                 </div>
                                 <a class="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#3b6700] hover:underline" href="@($"/buyer/detail/partner/{business.Id}")">
-                                    Ver en público
+                                    @L.T("partner.dashboard.action.viewPublic")
                                     <span class="material-symbols-outlined text-[16px]">arrow_right_alt</span>
                                 </a>
                             </article>
@@ -334,15 +382,15 @@
             }
 
             <section class="bg-[#eff1f2] p-6 rounded-3xl border border-[#dadddf]">
-                <h4 class="text-xs font-bold tracking-[0.15em] text-[#7b8081] uppercase mb-6">Acciones rápidas</h4>
+                <h4 class="text-xs font-bold tracking-[0.15em] text-[#7b8081] uppercase mb-6">@L.T("partner.dashboard.quickActions.title")</h4>
                 <div class="grid grid-cols-2 gap-3">
                     <a href="/partner/quickstart" class="flex flex-col items-center justify-center p-4 bg-white rounded-2xl hover:shadow-md transition-shadow border border-[#e3e6e8]">
                         <span class="material-symbols-outlined text-[#3b6700] mb-2">person_add</span>
-                        <span class="text-[11px] font-bold text-[#2c2f30]">Nueva oferta</span>
+                        <span class="text-[11px] font-bold text-[#2c2f30]">@L.T("partner.dashboard.quickActions.newOffer")</span>
                     </a>
                     <a href="/my-businesses" class="flex flex-col items-center justify-center p-4 bg-white rounded-2xl hover:shadow-md transition-shadow border border-[#e3e6e8]">
                         <span class="material-symbols-outlined text-[#3b6700] mb-2">history</span>
-                        <span class="text-[11px] font-bold text-[#2c2f30]">Mis negocios</span>
+                        <span class="text-[11px] font-bold text-[#2c2f30]">@L.T("partner.dashboard.businesses.title")</span>
                     </a>
                 </div>
             </section>
@@ -351,10 +399,11 @@
 </div>
 
 @code {
-    private string _statusMessage = "Aún no hay suficientes eventos para mostrar una curva de ventas diaria.";
+    private string _statusMessage = string.Empty;
     private string _ordersTotal = "$0";
     private int _bookingsCount;
     private int _leadsCount;
+    private int _catalogCount;
     private string? _welcomeMessage;
     private string? _userLabel;
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
@@ -363,12 +412,7 @@
     private bool _isSavingProfile;
     private Guid? _editingBusinessId;
     private readonly BusinessProfileEditor _profileEditor = new();
-    private readonly List<BookingCard> _upcomingBookings =
-    [
-        new("calendar_today", "Corte de cabello", "Juan R.", "12:30", "Hoy"),
-        new("self_improvement", "Yoga básico", "Camila P.", "15:00", "Hoy"),
-        new("spa", "Masaje relajante", "Pablo M.", "18:10", "Hoy")
-    ];
+    private List<BookingCard> _upcomingBookings = new();
 
     private string PrimaryActionHref => _activation is null
         ? "/partner/quickstart"
@@ -379,23 +423,52 @@
                 : "/register/business";
 
     private string PrimaryActionLabel => _activation?.IsVisible == true
-        ? "Gestionar catálogo"
+        ? L.T("partner.dashboard.primary.manageCatalog")
         : _activation?.CanPublish == true
-            ? "Publicar negocio"
+            ? L.T("partner.dashboard.primary.publish")
             : _activation?.PartnerType switch
         {
-            "B" => "Crear primer servicio",
-            "C" => "Registrar primer profesional",
-            _ => "Crear primer producto"
+            "B" => L.T("partner.dashboard.primary.firstService"),
+            "C" => L.T("partner.dashboard.primary.firstProfessional"),
+            _ => L.T("partner.dashboard.primary.firstProduct")
         };
 
     private string PublicPreviewHref => AuthState.PartnerId is Guid partnerId && partnerId != Guid.Empty
         ? $"/buyer/detail/partner/{partnerId}"
         : "/categorias";
 
+    private ComunaClick.Shared.Api.Partner.PartnerDto? _activeBusiness => GetEditableBusiness();
+
+    private bool IsCommerce => string.Equals(_activeBusiness?.Type, "A", StringComparison.OrdinalIgnoreCase);
+    private bool IsService => string.Equals(_activeBusiness?.Type, "B", StringComparison.OrdinalIgnoreCase);
+
+    private string CompanyTypeIcon => IsCommerce ? "storefront" : IsService ? "home_repair_service" : "store";
+
+    private string CompanyTypeLabel => IsCommerce
+        ? L.T("buyer.profile.company.type.commerce")
+        : IsService
+            ? L.T("buyer.profile.company.type.service")
+            : L.T("buyer.profile.company.type.generic");
+
+    private string CompanySubtitle => IsCommerce
+        ? L.T("buyer.profile.company.subtitle.commerce")
+        : IsService
+            ? L.T("buyer.profile.company.subtitle.service")
+            : L.T("buyer.profile.company.subtitle.generic");
+
+    private string VisibilityLabel => (_activation?.IsVisible ?? _activeBusiness?.IsVisible) == true
+        ? L.T("buyer.profile.company.visible")
+        : L.T("buyer.profile.company.hidden");
+
+    private string CategoryLabel => _activeBusiness?.SubcategoryName
+        ?? _activeBusiness?.CategoryName
+        ?? "—";
+
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        _upcomingBookings = BuildDemoBookings();
+        SetDefaultStatusMessage();
     }
 
     protected override async Task OnInitializedAsync()
@@ -436,19 +509,60 @@
 
             _bookingsCount = bookings?.Count ?? 0;
             _ordersTotal = orders is null ? "$0" : $"${orders.Sum(x => x.TotalAmount):N0}";
-            _leadsCount = 0;
+            await LoadBusinessMetricsAsync(partnerId.Value);
+            SetDefaultStatusMessage();
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
-            _statusMessage = "No tienes permisos para ver el dashboard de este partner.";
+            _statusMessage = L.T("partner.dashboard.status.forbidden");
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            _statusMessage = "Aún no hay datos suficientes para mostrar el dashboard.";
+            _statusMessage = L.T("partner.dashboard.status.notFound");
         }
         catch (HttpRequestException ex)
         {
-            _statusMessage = $"No se pudo cargar el dashboard ({(int?)ex.StatusCode ?? 0}).";
+            _statusMessage = string.Format(L.T("partner.dashboard.status.loadFailed"), (int?)ex.StatusCode ?? 0);
+        }
+    }
+
+    private async Task LoadBusinessMetricsAsync(Guid partnerId)
+    {
+        _catalogCount = 0;
+        _leadsCount = 0;
+
+        var business = _businesses.FirstOrDefault(x => x.Id == partnerId) ?? _businesses.FirstOrDefault();
+        if (business is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (string.Equals(business.Type, "A", StringComparison.OrdinalIgnoreCase))
+            {
+                var products = await PartnerApi.GetPartnerProductsAsync(partnerId);
+                _catalogCount = products?.Count ?? 0;
+            }
+            else if (string.Equals(business.Type, "B", StringComparison.OrdinalIgnoreCase))
+            {
+                var services = await PartnerApi.GetPartnerServicesAsync(partnerId);
+                _catalogCount = services?.Count ?? 0;
+
+                try
+                {
+                    var leads = await PartnerApi.GetPartnerLeadsAsync(partnerId);
+                    _leadsCount = leads?.Count ?? 0;
+                }
+                catch (HttpRequestException)
+                {
+                    _leadsCount = 0;
+                }
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _catalogCount = 0;
         }
     }
 
@@ -461,7 +575,9 @@
         }
 
         _isUpdatingVisibility = true;
-        _statusMessage = isVisible ? "Publicando negocio..." : "Despublicando negocio...";
+        _statusMessage = isVisible
+            ? L.T("partner.dashboard.status.publishing")
+            : L.T("partner.dashboard.status.unpublishing");
 
         try
         {
@@ -478,12 +594,17 @@
             }
 
             _statusMessage = isVisible
-                ? "Tu negocio ya está publicado y visible para buyer."
-                : "Tu negocio quedó en borrador y ya no es visible públicamente.";
+                ? L.T("partner.dashboard.status.published")
+                : L.T("partner.dashboard.status.unpublished");
+
+            if (AuthState.PartnerId is Guid pid)
+            {
+                await LoadBusinessMetricsAsync(pid);
+            }
         }
         catch (HttpRequestException ex)
         {
-            _statusMessage = $"No se pudo actualizar la publicación ({(int?)ex.StatusCode ?? 0}).";
+            _statusMessage = string.Format(L.T("partner.dashboard.status.visibilityFailed"), (int?)ex.StatusCode ?? 0);
         }
         finally
         {
@@ -494,6 +615,7 @@
 
     private void HandleChange()
     {
+        _upcomingBookings = BuildDemoBookings();
         InvokeAsync(StateHasChanged);
     }
 
@@ -577,19 +699,19 @@
         var business = GetEditableBusiness();
         if (business is null)
         {
-            _statusMessage = "No hay negocio seleccionado para actualizar.";
+            _statusMessage = L.T("partner.dashboard.status.noBusinessSelected");
             return;
         }
 
         var normalizedName = (_profileEditor.Name ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(normalizedName))
         {
-            _statusMessage = "El nombre del negocio es obligatorio.";
+            _statusMessage = L.T("partner.dashboard.status.nameRequired");
             return;
         }
 
         _isSavingProfile = true;
-        _statusMessage = "Guardando datos del negocio...";
+        _statusMessage = L.T("partner.dashboard.status.savingBusiness");
         try
         {
             var updated = await PartnerApi.UpdatePartnerAsync(business.Id, new ComunaClick.Shared.Api.Partner.PartnerUpdateRequest(
@@ -602,7 +724,8 @@
                 business.SubcategoryId,
                 business.Latitude,
                 business.Longitude,
-                business.IsVisible));
+                business.IsVisible,
+                null));
 
             if (updated is not null)
             {
@@ -620,15 +743,15 @@
                 PopulateEditor(updated);
             }
 
-            _statusMessage = "Datos de negocio actualizados correctamente.";
+            _statusMessage = L.T("partner.dashboard.status.businessSaved");
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
         {
-            _statusMessage = "Ya existe otro negocio con ese nombre en tu tenant.";
+            _statusMessage = L.T("partner.dashboard.status.businessConflict");
         }
         catch (HttpRequestException ex)
         {
-            _statusMessage = $"No se pudo actualizar el negocio ({(int?)ex.StatusCode ?? 0}).";
+            _statusMessage = string.Format(L.T("partner.dashboard.status.businessUpdateFailed"), (int?)ex.StatusCode ?? 0);
         }
         finally
         {
@@ -638,6 +761,28 @@
 
     private static string NormalizeOptional(string? value)
         => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+
+    private void SetDefaultStatusMessage()
+        => _statusMessage = L.T("partner.dashboard.status.salesEmpty");
+
+    private List<BookingCard> BuildDemoBookings() =>
+    [
+        new("calendar_today",
+            L.T("partner.dashboard.demo.booking1.title"),
+            L.T("partner.dashboard.demo.booking1.client"),
+            L.T("partner.dashboard.demo.booking1.time"),
+            L.T("partner.dashboard.demo.booking1.day")),
+        new("self_improvement",
+            L.T("partner.dashboard.demo.booking2.title"),
+            L.T("partner.dashboard.demo.booking2.client"),
+            L.T("partner.dashboard.demo.booking2.time"),
+            L.T("partner.dashboard.demo.booking2.day")),
+        new("spa",
+            L.T("partner.dashboard.demo.booking3.title"),
+            L.T("partner.dashboard.demo.booking3.client"),
+            L.T("partner.dashboard.demo.booking3.time"),
+            L.T("partner.dashboard.demo.booking3.day"))
+    ];
 
     public void Dispose()
     {

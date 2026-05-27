@@ -5,7 +5,10 @@ public sealed record ProductCreateRequest(
     string Name,
     string? Description,
     string? Category,
+    Guid? PartnerCatalogCategoryId,
     string? ImageUrl,
     decimal Price,
+    decimal? CostPrice,
     string? Currency,
-    bool? IsActive);
+    bool? IsActive,
+    int? InitialStock);

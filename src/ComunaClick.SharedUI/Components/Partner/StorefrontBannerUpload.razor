@@ -1,0 +1,133 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject ApiMediaUrl MediaUrl
+@inject LocaleService L
+
+<div class="space-y-3">
+    @if (!string.IsNullOrWhiteSpace(BannerUrl))
+    {
+        <div class="relative overflow-hidden rounded-2xl border border-[#dadddf] aspect-[21/9] max-h-48">
+            <img src="@MediaUrl.Resolve(BannerUrl)" alt="" class="h-full w-full object-cover" />
+            <button type="button"
+                    class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                    disabled="@_busy"
+                    @onclick="RemoveBannerAsync">
+                <span class="material-symbols-outlined text-[18px]">close</span>
+            </button>
+        </div>
+    }
+
+    <InputFile id="@_inputId" class="hidden" OnChange="OnFileSelectedAsync" accept="image/jpeg,image/png,image/webp" />
+    <label for="@_inputId"
+           class="@(_busy ? "pointer-events-none opacity-60 " : "")inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-[#3b6700]/40 bg-white px-4 py-3 text-sm font-bold text-[#3b6700] hover:bg-[#eff8e0]">
+        <span class="material-symbols-outlined">panorama</span>
+        @(_busy ? L.T("partner.storefront.banner.uploading") : L.T("partner.storefront.banner.upload"))
+    </label>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <p class="text-xs font-medium @(_ok ? "text-[#3b6700]" : "text-red-600")">@_message</p>
+    }
+</div>
+
+@code {
+    private const int MaxBytes = 5 * 1024 * 1024;
+
+    [Parameter] public Guid PartnerId { get; set; }
+    [Parameter] public Guid? ProfessionalId { get; set; }
+    [Parameter] public string? BannerUrl { get; set; }
+    [Parameter] public EventCallback<string?> BannerUrlChanged { get; set; }
+
+    private readonly string _inputId = $"banner-{Guid.NewGuid():N}";
+    private bool _busy;
+    private string? _message;
+    private bool _ok;
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file.Size > MaxBytes)
+        {
+            _message = L.T("partner.storefront.banner.tooLarge");
+            _ok = false;
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+
+            string? url;
+            if (ProfessionalId.HasValue)
+            {
+                var result = await PartnerApi.UploadProfessionalBannerAsync(
+                    ProfessionalId.Value, buffer, file.Name, file.ContentType);
+                url = result?.BannerUrl;
+            }
+            else
+            {
+                var result = await PartnerApi.UploadPartnerBannerAsync(
+                    PartnerId, buffer, file.Name, file.ContentType);
+                url = result?.BannerUrl;
+            }
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                _message = L.T("partner.storefront.banner.failed");
+                _ok = false;
+                return;
+            }
+
+            await BannerUrlChanged.InvokeAsync(url);
+            _message = L.T("partner.storefront.banner.uploaded");
+            _ok = true;
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.storefront.banner.failed");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RemoveBannerAsync()
+    {
+        _busy = true;
+        try
+        {
+            if (ProfessionalId.HasValue)
+            {
+                await PartnerApi.UpdateProfessionalStorefrontAsync(
+                    ProfessionalId.Value,
+                    new PartnerApiModels.ProfessionalStorefrontUpdateRequest(null, null, true));
+            }
+            else
+            {
+                await PartnerApi.UpdatePartnerStorefrontAsync(
+                    PartnerId,
+                    new PartnerApiModels.PartnerStorefrontUpdateRequest(null, null, null, null, null, true, null));
+            }
+
+            await BannerUrlChanged.InvokeAsync(null);
+            _message = L.T("partner.storefront.banner.removed");
+            _ok = true;
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.storefront.banner.failed");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

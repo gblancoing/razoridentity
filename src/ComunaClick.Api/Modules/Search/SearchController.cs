@@ -42,7 +42,9 @@ public sealed class SearchController : ControllerBase
                 .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
                 .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
                 .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
-                .Where(x => x.Type != "A" || _db.Products.Any(p => p.PartnerId == x.Id && p.IsActive))
+                .Where(x => x.Type != "A"
+                            || _db.Products.Any(p => p.PartnerId == x.Id && p.IsActive)
+                            || (x.OffersServices && _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive && s.DeletedAt == null)))
                 .Where(x => x.Type != "B" || _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive))
                 .Where(x => x.Type != "C" || _db.Professionals.Any(p => (p.ComunaId == x.ComunaId || (p.ComunaId == null && p.TenantId == x.TenantId)) && p.IsActive && p.IsVerified));
 
@@ -144,7 +146,9 @@ public sealed class SearchController : ControllerBase
             .Where(x => !countryId.HasValue || x.CountryId == countryId.Value)
             .Where(x => !regionId.HasValue || x.RegionId == regionId.Value)
             .Where(x => !comunaId.HasValue || x.ComunaId == comunaId.Value)
-            .Where(x => x.Type != "A" || _db.Products.Any(p => p.PartnerId == x.Id && p.IsActive))
+            .Where(x => x.Type != "A"
+                        || _db.Products.Any(p => p.PartnerId == x.Id && p.IsActive)
+                        || (x.OffersServices && _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive && s.DeletedAt == null)))
             .Where(x => x.Type != "B" || _db.Services.Any(s => s.PartnerId == x.Id && s.IsActive))
             .Where(x => x.Type != "C" || _db.Professionals.Any(p => (p.ComunaId == x.ComunaId || (p.ComunaId == null && p.TenantId == x.TenantId)) && p.IsActive && p.IsVerified))
             .Where(x => EF.Functions.ILike(x.Name, filter))

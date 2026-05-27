@@ -1,3 +1,4 @@
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Modules.Payments.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -16,12 +17,18 @@ public sealed class PaymentsController : ControllerBase
     private readonly CoreDbContext _db;
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
+    private readonly IProductInventoryService _inventoryService;
 
-    public PaymentsController(CoreDbContext db, IConfiguration configuration, ITenantContext tenantContext)
+    public PaymentsController(
+        CoreDbContext db,
+        IConfiguration configuration,
+        ITenantContext tenantContext,
+        IProductInventoryService inventoryService)
     {
         _db = db;
         _configuration = configuration;
         _tenantContext = tenantContext;
+        _inventoryService = inventoryService;
     }
 
     [HttpGet("{id:guid}")]
@@ -123,11 +130,36 @@ public sealed class PaymentsController : ControllerBase
         };
 
         _db.PaymentEvents.Add(paymentEvent);
-        payment.Status = request.Status.Trim();
+        var previousPaymentStatus = payment.Status;
+        var newPaymentStatus = request.Status.Trim();
+        payment.Status = newPaymentStatus;
         payment.LastEventId = request.ProviderEventId.Trim();
         payment.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        if (payment.OrderId.HasValue && OrderInventoryFulfillment.IsPaidStatus(newPaymentStatus))
+        {
+            var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value);
+            if (order is not null)
+            {
+                var orderPreviousStatus = order.Status;
+                if (!OrderInventoryFulfillment.IsPaidStatus(orderPreviousStatus))
+                {
+                    order.Status = "paid";
+                    order.UpdatedAt = DateTimeOffset.UtcNow;
+                    await _db.SaveChangesAsync();
+                }
+
+                await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
+                    _db,
+                    _inventoryService,
+                    payment.OrderId.Value,
+                    orderPreviousStatus,
+                    "paid");
+            }
+        }
+
         return Ok();
     }
 

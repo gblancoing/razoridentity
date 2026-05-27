@@ -26,7 +26,9 @@ public sealed class CoreDbContext : DbContext
     public DbSet<ShoppingCartItem> ShoppingCartItems => Set<ShoppingCartItem>();
     public DbSet<DeliveryProvider> DeliveryProviders => Set<DeliveryProvider>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ProductInventory> ProductInventories => Set<ProductInventory>();
+    public DbSet<PartnerCatalogCategory> PartnerCatalogCategories => Set<PartnerCatalogCategory>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<ProductSubcategory> ProductSubcategories => Set<ProductSubcategory>();
     public DbSet<SiteContentSetting> SiteContentSettings => Set<SiteContentSetting>();
@@ -36,8 +38,12 @@ public sealed class CoreDbContext : DbContext
     public DbSet<Interaction> Interactions => Set<Interaction>();
     public DbSet<Professional> Professionals => Set<Professional>();
     public DbSet<Service> Services => Set<Service>();
+    public DbSet<ServiceProfessional> ServiceProfessionals => Set<ServiceProfessional>();
+    public DbSet<ServiceImage> ServiceImages => Set<ServiceImage>();
     public DbSet<ServiceSlot> ServiceSlots => Set<ServiceSlot>();
     public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<InboxThread> InboxThreads => Set<InboxThread>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
@@ -68,7 +74,9 @@ public sealed class CoreDbContext : DbContext
         modelBuilder.Entity<ShoppingCartItem>().HasQueryFilter(x => !tenantId.HasValue || x.Cart.TenantId == tenantId.Value);
         modelBuilder.Entity<DeliveryProvider>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value || x.TenantId == null);
         modelBuilder.Entity<Product>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<ProductImage>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<ProductInventory>().HasQueryFilter(x => !tenantId.HasValue || x.Product.TenantId == tenantId.Value);
+        modelBuilder.Entity<PartnerCatalogCategory>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<Customer>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<BuyerFavorite>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<CustomerPartnerLink>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
@@ -77,6 +85,8 @@ public sealed class CoreDbContext : DbContext
         modelBuilder.Entity<Service>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<ServiceSlot>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<Lead>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<InboxThread>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<InboxMessage>().HasQueryFilter(x => !tenantId.HasValue || x.Thread.TenantId == tenantId.Value);
         modelBuilder.Entity<Booking>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<Payment>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<PaymentEvent>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
@@ -168,6 +178,28 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Latitude).HasColumnName("latitude").HasColumnType("double precision");
             entity.Property(x => x.Longitude).HasColumnName("longitude").HasColumnType("double precision");
             entity.Property(x => x.IsVisible).HasColumnName("is_visible").HasDefaultValue(false);
+            entity.Property(x => x.OffersServices).HasColumnName("offers_services").HasDefaultValue(false);
+            entity.Property(x => x.BannerUrl).HasColumnName("banner_url");
+            entity.Property(x => x.LogoUrl).HasColumnName("logo_url");
+            entity.Property(x => x.StorefrontTagline).HasColumnName("storefront_tagline");
+            entity.Property(x => x.StorefrontAbout).HasColumnName("storefront_about");
+            entity.Property(x => x.StorefrontHighlight1).HasColumnName("storefront_highlight_1");
+            entity.Property(x => x.StorefrontHighlight2).HasColumnName("storefront_highlight_2");
+            entity.Property(x => x.StorefrontHighlight3).HasColumnName("storefront_highlight_3");
+            entity.Property(x => x.BankName).HasColumnName("bank_name");
+            entity.Property(x => x.BankAccountType).HasColumnName("bank_account_type");
+            entity.Property(x => x.BankAccountNumber).HasColumnName("bank_account_number");
+            entity.Property(x => x.BankAccountHolder).HasColumnName("bank_account_holder");
+            entity.Property(x => x.BankAccountHolderRut).HasColumnName("bank_account_holder_rut");
+            entity.Property(x => x.WebsiteUrl).HasColumnName("website_url");
+            entity.Property(x => x.InstagramUrl).HasColumnName("instagram_url");
+            entity.Property(x => x.FacebookUrl).HasColumnName("facebook_url");
+            entity.Property(x => x.LinkedInUrl).HasColumnName("linkedin_url");
+            entity.Property(x => x.XUrl).HasColumnName("x_url");
+            entity.Property(x => x.TikTokUrl).HasColumnName("tiktok_url");
+            entity.Property(x => x.YouTubeUrl).HasColumnName("youtube_url");
+            entity.Property(x => x.OtherLinkLabel).HasColumnName("other_link_label");
+            entity.Property(x => x.OtherLinkUrl).HasColumnName("other_link_url");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
@@ -369,12 +401,47 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Description).HasColumnName("description");
             entity.Property(x => x.Category).HasColumnName("category");
+            entity.Property(x => x.PartnerCatalogCategoryId).HasColumnName("partner_catalog_category_id");
             entity.Property(x => x.ImageUrl).HasColumnName("image_url");
             entity.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.CostPrice).HasColumnName("cost_price").HasColumnType("numeric(14,2)");
             entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
             entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasOne(x => x.PartnerCatalogCategory).WithMany().HasForeignKey(x => x.PartnerCatalogCategoryId);
+            entity.Ignore(x => x.ImageUrls);
+            entity.Ignore(x => x.Images);
+            entity.Ignore(x => x.CatalogCategoryName);
+        });
+
+        modelBuilder.Entity<PartnerCatalogCategory>(entity =>
+        {
+            entity.ToTable("partner_catalog_categories");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
+            entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.PartnerId, x.SortOrder });
+            entity.HasOne(x => x.Partner).WithMany().HasForeignKey(x => x.PartnerId);
+        });
+
+        modelBuilder.Entity<ProductImage>(entity =>
+        {
+            entity.ToTable("product_images");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.ProductId).HasColumnName("product_id");
+            entity.Property(x => x.Url).HasColumnName("url").IsRequired();
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.ProductId, x.SortOrder });
         });
 
         modelBuilder.Entity<ProductInventory>(entity =>
@@ -463,6 +530,7 @@ public sealed class CoreDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
             entity.Property(x => x.CountryId).HasColumnName("country_id");
             entity.Property(x => x.RegionId).HasColumnName("region_id");
             entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
@@ -471,6 +539,17 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Phone).HasColumnName("phone");
             entity.Property(x => x.Specialty).HasColumnName("specialty");
             entity.Property(x => x.Bio).HasColumnName("bio");
+            entity.Property(x => x.BannerUrl).HasColumnName("banner_url");
+            entity.Property(x => x.ProfileHeadline).HasColumnName("profile_headline");
+            entity.Property(x => x.WebsiteUrl).HasColumnName("website_url");
+            entity.Property(x => x.InstagramUrl).HasColumnName("instagram_url");
+            entity.Property(x => x.FacebookUrl).HasColumnName("facebook_url");
+            entity.Property(x => x.LinkedInUrl).HasColumnName("linkedin_url");
+            entity.Property(x => x.XUrl).HasColumnName("x_url");
+            entity.Property(x => x.TikTokUrl).HasColumnName("tiktok_url");
+            entity.Property(x => x.YouTubeUrl).HasColumnName("youtube_url");
+            entity.Property(x => x.OtherLinkLabel).HasColumnName("other_link_label");
+            entity.Property(x => x.OtherLinkUrl).HasColumnName("other_link_url");
             entity.Property(x => x.IsVerified).HasColumnName("is_verified").HasDefaultValue(false);
             entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
@@ -486,15 +565,49 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.CountryId).HasColumnName("country_id");
             entity.Property(x => x.RegionId).HasColumnName("region_id");
             entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
+            entity.Property(x => x.Latitude).HasColumnName("latitude").HasColumnType("double precision");
+            entity.Property(x => x.Longitude).HasColumnName("longitude").HasColumnType("double precision");
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Description).HasColumnName("description");
             entity.Property(x => x.Category).HasColumnName("category");
             entity.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(14,2)");
             entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
             entity.Property(x => x.DurationMinutes).HasColumnName("duration_minutes").HasDefaultValue(30);
+            entity.Property(x => x.IsBookable).HasColumnName("is_bookable").HasDefaultValue(false);
+            entity.Property(x => x.RequiresOnlinePayment).HasColumnName("requires_online_payment").HasDefaultValue(false);
+            entity.Property(x => x.ImageUrl).HasColumnName("image_url");
+            entity.Property(x => x.ServiceAddress).HasColumnName("service_address");
             entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(x => x.DeletedAt).HasColumnName("deleted_at");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.Ignore(x => x.ProfessionalIds);
+            entity.Ignore(x => x.ImageUrls);
+            entity.Ignore(x => x.ImageIds);
+            entity.Ignore(x => x.Images);
+            entity.Ignore(x => x.PartnerAddress);
+        });
+
+        modelBuilder.Entity<ServiceImage>(entity =>
+        {
+            entity.ToTable("service_images");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.ServiceId).HasColumnName("service_id");
+            entity.Property(x => x.Url).HasColumnName("url").IsRequired();
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.ServiceId, x.SortOrder });
+        });
+
+        modelBuilder.Entity<ServiceProfessional>(entity =>
+        {
+            entity.ToTable("service_professionals");
+            entity.HasKey(x => new { x.ServiceId, x.ProfessionalId });
+            entity.Property(x => x.ServiceId).HasColumnName("service_id");
+            entity.Property(x => x.ProfessionalId).HasColumnName("professional_id");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<ServiceSlot>(entity =>
@@ -505,6 +618,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.TenantId).HasColumnName("tenant_id");
             entity.Property(x => x.PartnerId).HasColumnName("partner_id");
             entity.Property(x => x.ServiceId).HasColumnName("service_id");
+            entity.Property(x => x.ProfessionalId).HasColumnName("professional_id");
             entity.Property(x => x.StartAt).HasColumnName("start_at");
             entity.Property(x => x.EndAt).HasColumnName("end_at");
             entity.Property(x => x.Capacity).HasColumnName("capacity").HasDefaultValue(1);
@@ -534,6 +648,42 @@ public sealed class CoreDbContext : DbContext
             entity.HasIndex(x => new { x.TenantId, x.NextFollowUpAt });
         });
 
+        modelBuilder.Entity<InboxThread>(entity =>
+        {
+            entity.ToTable("inbox_threads");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.ProfessionalId).HasColumnName("professional_id");
+            entity.Property(x => x.Subject).HasColumnName("subject").IsRequired();
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired().HasDefaultValue("open");
+            entity.Property(x => x.LastMessageAt).HasColumnName("last_message_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.CustomerLastReadAt).HasColumnName("customer_last_read_at");
+            entity.Property(x => x.PartnerLastReadAt).HasColumnName("partner_last_read_at");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.TenantId, x.CustomerId, x.LastMessageAt });
+            entity.HasIndex(x => new { x.TenantId, x.PartnerId, x.LastMessageAt });
+            entity.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
+            entity.HasOne(x => x.Partner).WithMany().HasForeignKey(x => x.PartnerId);
+            entity.HasOne(x => x.Professional).WithMany().HasForeignKey(x => x.ProfessionalId);
+        });
+
+        modelBuilder.Entity<InboxMessage>(entity =>
+        {
+            entity.ToTable("inbox_messages");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.ThreadId).HasColumnName("thread_id");
+            entity.Property(x => x.SenderRole).HasColumnName("sender_role").IsRequired();
+            entity.Property(x => x.Body).HasColumnName("body").IsRequired();
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.ThreadId, x.CreatedAt });
+            entity.HasOne(x => x.Thread).WithMany(x => x.Messages).HasForeignKey(x => x.ThreadId);
+        });
+
         modelBuilder.Entity<Booking>(entity =>
         {
             entity.ToTable("bookings");
@@ -543,6 +693,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.PartnerId).HasColumnName("partner_id");
             entity.Property(x => x.ServiceId).HasColumnName("service_id");
             entity.Property(x => x.SlotId).HasColumnName("slot_id");
+            entity.Property(x => x.ProfessionalId).HasColumnName("professional_id");
             entity.Property(x => x.CustomerId).HasColumnName("customer_id");
             entity.Property(x => x.Status).HasColumnName("status").IsRequired();
             entity.Property(x => x.StartAt).HasColumnName("start_at");

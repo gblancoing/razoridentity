@@ -1,5 +1,6 @@
 @using ComunaClick.SharedUI.Data
 @using ComunaClick.SharedUI.Services
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 
 <main class="max-w-7xl mx-auto px-4 py-10 space-y-8">
     <header class="space-y-3">
@@ -8,64 +9,109 @@
         <p class="text-sm text-[#595c5d]">@Description</p>
     </header>
 
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        @foreach (var item in Items)
-        {
-            <a href="@GetHubHref(item)"
-               class="group rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:translate-y-[-2px] transition-transform">
-                @* img + src: Blazor escapa & en la URL; en style/background-image:url('...&fit=...') el & rompía el atributo y dejaba el recuadro en blanco. *@
-                @if (!string.IsNullOrWhiteSpace(GetHubImage(item)))
-                {
-                    <div class="h-56 w-full overflow-hidden bg-[#e8ebea]">
-                        <img src="@GetHubImage(item)"
-                             alt="@item.Title"
-                             class="h-full w-full object-cover"
-                             loading="lazy"
-                             decoding="async" />
+    @if (_isLoading)
+    {
+        <BrandedLoading Title="Cargando sectores" Message="Estamos preparando las categorías de servicios." />
+    }
+    else if (_items.Count == 0)
+    {
+        <StatusBanner Message="No hay categorías de servicios disponibles por ahora." Level="warning" />
+    }
+    else
+    {
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            @foreach (var item in _items)
+            {
+                <a href="@GetHubHref(item)"
+                   class="group rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:translate-y-[-2px] transition-transform">
+                    @if (!string.IsNullOrWhiteSpace(GetHubImage(item)))
+                    {
+                        <div class="h-56 w-full overflow-hidden bg-[#e8ebea]">
+                            <img src="@GetHubImage(item)"
+                                 alt="@item.Title"
+                                 class="h-full w-full object-cover"
+                                 loading="lazy"
+                                 decoding="async" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="h-56 bg-cover bg-center" style="@GetFallbackStyle(item)"></div>
+                    }
+                    <div class="p-5">
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">@CardLabel</p>
+                        <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@item.Title</h2>
                     </div>
-                }
-                else
-                {
-                    <div class="h-56 bg-cover bg-center" style="@GetFallbackStyle(item)"></div>
-                }
-                <div class="p-5">
-                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">@CardLabel</p>
-                    <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@item.Title</h2>
-                </div>
-            </a>
-        }
-    </section>
+                </a>
+            }
+        </section>
+    }
 </main>
 
 @code {
     [Parameter, EditorRequired]
     public string Mode { get; set; } = "services";
 
-    private IReadOnlyList<DiscoveryHubItem> Items =>
-        string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
-            ? DiscoveryHubCatalog.ProfessionalSectors
-            : DiscoveryHubCatalog.ServiceSectors;
+    private readonly List<DiscoveryHubItem> _items = new();
+    private bool _isLoading = true;
 
-    private string Eyebrow => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
-        ? "Profesionales"
-        : "Servicios de negocio";
+    private bool IsProfessionalMode =>
+        string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase);
 
-    private string Title => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
+    private string Eyebrow => IsProfessionalMode ? "Profesionales" : "Servicios de negocio";
+
+    private string Title => IsProfessionalMode
         ? "Especialidades profesionales"
         : "Servicios por sector de negocio";
 
-    private string Description => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
+    private string Description => IsProfessionalMode
         ? "Explorá por tipo de oficio: ingeniería, salud, derecho, obras, etc. Cada tarjeta abre una búsqueda o categoría vinculada al tema."
-        : "Explorá por rubro: constructores, farmacias, peluquerías, agro, tecnología, etc. Cada tarjeta abre resultados o la categoría equivalente en el mapa de ComunaClic.";
+        : "Explorá por rubro: constructores, farmacias, peluquerías, agro, tecnología, etc. Cada tarjeta abre el mapa de negocios en tu zona (hasta 50 km).";
 
-    private string CardLabel => string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase)
-        ? "Especialidad"
-        : "Sector";
+    private string CardLabel => IsProfessionalMode ? "Especialidad" : "Sector";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items.Clear();
+        if (IsProfessionalMode)
+        {
+            _items.AddRange(DiscoveryHubCatalog.ProfessionalSectors);
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            var categories = await BuyerApi.GetServiceCategoriesAsync();
+            if (categories is { Count: > 0 })
+            {
+                foreach (var category in categories.OrderBy(x => x.Name))
+                {
+                    _items.Add(new DiscoveryHubItem(
+                        category.Name,
+                        CategoryVisualService.ToSlug(category.Code, category.Name),
+                        category.Code,
+                        SearchQuery: category.Name,
+                        ImageUrl: string.IsNullOrWhiteSpace(category.ImageUrl) ? null : category.ImageUrl.Trim()));
+                }
+            }
+            else
+            {
+                _items.AddRange(DiscoveryHubCatalog.ServiceSectors);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _items.AddRange(DiscoveryHubCatalog.ServiceSectors);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
 
     private string? GetHubImage(DiscoveryHubItem item) =>
-        CategoryVisualService.ResolveHubItemImage(
-            item,
-            string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase));
+        CategoryVisualService.ResolveHubItemImage(item, IsProfessionalMode);
 
     private string GetFallbackStyle(DiscoveryHubItem item)
     {
@@ -80,7 +126,7 @@
 
     private string GetHubHref(DiscoveryHubItem item)
     {
-        if (string.Equals(Mode, "professionals", StringComparison.OrdinalIgnoreCase))
+        if (IsProfessionalMode)
         {
             var q = new List<string>();
             if (!string.IsNullOrWhiteSpace(item.CategoryCode))

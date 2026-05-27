@@ -1,0 +1,263 @@
+@using System.Net
+@using System.Text.Json
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject AuthStateService AuthState
+@inject LocaleService L
+
+<section id="bancario" class="scroll-mt-8 rounded-[2rem] border border-[#e3e6e8] bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+    <div>
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@L.T("partner.settings.bank.badge")</p>
+        <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.settings.bank.title")</h2>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.settings.bank.subtitle")</p>
+    </div>
+
+    @if (_partner is null && !_isLoading)
+    {
+        <p class="text-sm text-[#595c5d]">@L.T("partner.settings.org.missing")</p>
+    }
+    else if (_isLoading)
+    {
+        <BrandedLoading Compact="true" Title="@L.T("ui.loading")" Message="@L.T("partner.settings.bank.loading")" />
+    }
+    else
+    {
+        <div class="rounded-2xl border border-[#eff8e0] bg-[#fafcf8] px-4 py-3 text-sm text-[#595c5d]">
+            <span class="material-symbols-outlined align-middle text-[18px] text-[#3b6700] mr-1">info</span>
+            @L.T("partner.settings.bank.notice")
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="text-xs font-bold text-[#2c2f30]" for="partner-bank-name">@L.T("partner.settings.bank.field.bank")</label>
+                <input id="partner-bank-name"
+                       class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                       list="partner-bank-names"
+                       value="@_editor.BankName"
+                       @oninput="OnBankNameInput"
+                       placeholder="@L.T("partner.settings.bank.field.bank.placeholder")" />
+                <datalist id="partner-bank-names">
+                    @foreach (var bank in _bankSuggestions)
+                    {
+                        <option value="@bank"></option>
+                    }
+                </datalist>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-[#2c2f30]" for="partner-bank-type">@L.T("partner.settings.bank.field.type")</label>
+                <select id="partner-bank-type"
+                        class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                        value="@_editor.BankAccountType"
+                        @onchange="OnBankAccountTypeChanged">
+                    <option value="">@L.T("partner.settings.bank.field.type.placeholder")</option>
+                    <option value="checking">@L.T("partner.settings.bank.type.checking")</option>
+                    <option value="vista">@L.T("partner.settings.bank.type.vista")</option>
+                    <option value="savings">@L.T("partner.settings.bank.type.savings")</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-[#2c2f30]" for="partner-bank-number">@L.T("partner.settings.bank.field.number")</label>
+                <input id="partner-bank-number"
+                       class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                       inputmode="numeric"
+                       value="@_editor.BankAccountNumber"
+                       @oninput="OnBankAccountNumberInput"
+                       placeholder="@L.T("partner.settings.bank.field.number.placeholder")" />
+            </div>
+            <div>
+                <label class="text-xs font-bold text-[#2c2f30]" for="partner-bank-holder">@L.T("partner.settings.bank.field.holder")</label>
+                <input id="partner-bank-holder"
+                       class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                       value="@_editor.BankAccountHolder"
+                       @oninput="OnBankAccountHolderInput"
+                       placeholder="@L.T("partner.settings.bank.field.holder.placeholder")" />
+            </div>
+            <div class="md:col-span-2">
+                <label class="text-xs font-bold text-[#2c2f30]" for="partner-bank-rut">@L.T("partner.settings.bank.field.holderRut")</label>
+                <input id="partner-bank-rut"
+                       class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm max-w-md"
+                       value="@_editor.BankAccountHolderRut"
+                       @oninput="OnBankAccountHolderRutInput"
+                       placeholder="@L.T("partner.settings.bank.field.holderRut.placeholder")" />
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+            <button type="button"
+                    class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm disabled:opacity-60"
+                    disabled="@_saving"
+                    @onclick="SaveAsync">
+                <span class="material-symbols-outlined text-[18px]">account_balance</span>
+                @(_saving ? L.T("partner.dashboard.profile.saving") : L.T("partner.settings.bank.save"))
+            </button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_status))
+        {
+            <p class="text-sm font-semibold @(_statusOk ? "text-[#3b6700]" : "text-red-600")">@_status</p>
+        }
+    }
+</section>
+
+@code {
+    private ComunaClick.Shared.Api.Partner.PartnerDto? _partner;
+    private readonly BankEditor _editor = new();
+    private bool _isLoading = true;
+    private bool _saving;
+    private string? _status;
+    private bool _statusOk;
+
+    private static readonly string[] _bankSuggestions =
+    [
+        "Banco de Chile",
+        "BancoEstado",
+        "Banco Santander",
+        "BCI",
+        "Scotiabank",
+        "Itaú",
+        "Banco Security",
+        "Banco Falabella",
+        "Banco Ripley",
+        "Coopeuch"
+    ];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (AuthState.PartnerId is Guid id && id != Guid.Empty)
+            {
+                _partner = await PartnerApi.GetPartnerAsync(id);
+                if (_partner is not null)
+                {
+                    _editor.BankName = _partner.BankName ?? string.Empty;
+                    _editor.BankAccountType = _partner.BankAccountType ?? string.Empty;
+                    _editor.BankAccountNumber = _partner.BankAccountNumber ?? string.Empty;
+                    _editor.BankAccountHolder = _partner.BankAccountHolder ?? string.Empty;
+                    _editor.BankAccountHolderRut = _partner.BankAccountHolderRut ?? string.Empty;
+                }
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OnBankNameInput(ChangeEventArgs e) => _editor.BankName = e.Value?.ToString() ?? string.Empty;
+    private void OnBankAccountTypeChanged(ChangeEventArgs e) => _editor.BankAccountType = e.Value?.ToString() ?? string.Empty;
+    private void OnBankAccountNumberInput(ChangeEventArgs e) => _editor.BankAccountNumber = e.Value?.ToString() ?? string.Empty;
+    private void OnBankAccountHolderInput(ChangeEventArgs e) => _editor.BankAccountHolder = e.Value?.ToString() ?? string.Empty;
+    private void OnBankAccountHolderRutInput(ChangeEventArgs e) => _editor.BankAccountHolderRut = e.Value?.ToString() ?? string.Empty;
+
+    private async Task SaveAsync()
+    {
+        if (_partner is null)
+        {
+            return;
+        }
+
+        _status = null;
+        var bankName = (_editor.BankName ?? string.Empty).Trim();
+        var accountType = (_editor.BankAccountType ?? string.Empty).Trim();
+        var accountNumber = new string((_editor.BankAccountNumber ?? string.Empty).Where(char.IsDigit).ToArray());
+        var holder = (_editor.BankAccountHolder ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(bankName)
+            || string.IsNullOrWhiteSpace(accountType)
+            || string.IsNullOrWhiteSpace(accountNumber)
+            || string.IsNullOrWhiteSpace(holder))
+        {
+            _status = L.T("partner.settings.bank.validation");
+            _statusOk = false;
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var updated = await PartnerApi.UpdatePartnerBankAccountAsync(
+                _partner.Id,
+                new ComunaClick.Shared.Api.Partner.PartnerBankAccountUpdateRequest(
+                    bankName,
+                    accountType,
+                    accountNumber,
+                    holder,
+                    Null(_editor.BankAccountHolderRut)));
+
+            if (updated is not null)
+            {
+                _partner = updated;
+                _editor.BankName = updated.BankName ?? bankName;
+                _editor.BankAccountType = updated.BankAccountType ?? accountType;
+                _editor.BankAccountNumber = updated.BankAccountNumber ?? accountNumber;
+                _editor.BankAccountHolder = updated.BankAccountHolder ?? holder;
+                _editor.BankAccountHolderRut = updated.BankAccountHolderRut ?? Null(_editor.BankAccountHolderRut);
+                _status = L.T("partner.settings.bank.saved");
+                _statusOk = true;
+            }
+            else
+            {
+                _status = L.T("partner.settings.bank.saveFailed");
+                _statusOk = false;
+            }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
+        {
+            _status = TryReadApiMessage(ex.Message) ?? L.T("partner.settings.bank.validation");
+            _statusOk = false;
+        }
+        catch (HttpRequestException)
+        {
+            _status = L.T("partner.settings.bank.saveFailed");
+            _statusOk = false;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string? Null(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    private static string? TryReadApiMessage(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var jsonStart = raw.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                return message.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return null;
+    }
+
+    private sealed class BankEditor
+    {
+        public string BankName { get; set; } = string.Empty;
+        public string BankAccountType { get; set; } = string.Empty;
+        public string BankAccountNumber { get; set; } = string.Empty;
+        public string BankAccountHolder { get; set; } = string.Empty;
+        public string? BankAccountHolderRut { get; set; }
+    }
+}
+

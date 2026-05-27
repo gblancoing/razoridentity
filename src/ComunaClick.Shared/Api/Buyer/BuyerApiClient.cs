@@ -88,6 +88,24 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<Lead?> CreateLeadAsync(LeadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Lead>("/v1/leads", request, cancellationToken);
 
+    public Task<IReadOnlyList<InboxThreadListItem>?> GetMyInboxThreadsAsync(string folder = "inbox", CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<InboxThreadListItem>>($"/v1/inbox/threads/mine?folder={Uri.EscapeDataString(folder)}", cancellationToken);
+
+    public Task<InboxThreadDetailResponse?> GetInboxThreadAsync(Guid threadId, CancellationToken cancellationToken = default)
+        => GetAsync<InboxThreadDetailResponse>($"/v1/inbox/threads/{threadId}", cancellationToken);
+
+    public Task<InboxThreadCreateResult?> CreateInboxThreadAsync(InboxThreadCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<InboxThreadCreateResult>("/v1/inbox/threads", request, cancellationToken);
+
+    public Task<InboxMessageItem?> ReplyInboxThreadAsync(Guid threadId, string body, CancellationToken cancellationToken = default)
+        => PostAsync<InboxMessageItem>($"/v1/inbox/threads/{threadId}/messages", new InboxMessageCreateRequest(body), cancellationToken);
+
+    public Task MarkInboxThreadReadAsync(Guid threadId, CancellationToken cancellationToken = default)
+        => SendAsync(new HttpRequestMessage(HttpMethod.Patch, $"/v1/inbox/threads/{threadId}/read"), cancellationToken);
+
+    public Task UpdateInboxThreadStatusAsync(Guid threadId, string status, CancellationToken cancellationToken = default)
+        => PatchAsync<object>($"/v1/inbox/threads/{threadId}/status", new InboxThreadStatusRequest(status), cancellationToken);
+
     public Task<Customer?> EnsureBuyerCustomerAsync(Guid? tenantId, CancellationToken cancellationToken = default)
     {
         var message = new HttpRequestMessage(HttpMethod.Post, "/v1/buyer/customer/ensure")
@@ -289,12 +307,17 @@ public sealed class BuyerApiClient : ApiClientBase
         double longitude,
         int? limit = null,
         string? subcode = null,
+        double? maxDistanceKm = null,
         CancellationToken cancellationToken = default)
     {
         var path = $"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}/nearby?latitude={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&longitude={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&limit={(limit ?? 24)}";
         if (!string.IsNullOrWhiteSpace(subcode))
         {
             path += $"&subcode={Uri.EscapeDataString(subcode)}";
+        }
+        if (maxDistanceKm is > 0)
+        {
+            path += $"&maxDistanceKm={maxDistanceKm.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
         }
         return GetAsync<CategoryNearbyResponse>(path, cancellationToken);
     }
@@ -621,7 +644,16 @@ public sealed record BuyerProfessionalProfile(
     string? Specialty,
     string? Bio,
     bool IsVerified,
-    bool IsActive);
+    bool IsActive,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null);
 
 public sealed record BuyerProfessionalProfileUpsertRequest(
     Guid? TenantId,
@@ -629,7 +661,16 @@ public sealed record BuyerProfessionalProfileUpsertRequest(
     string? Phone,
     string? Specialty,
     string? Bio,
-    bool? Activate);
+    bool? Activate,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null);
 
 public sealed record BuyerFavoriteCreateRequest(
     string Type,
@@ -660,11 +701,20 @@ public sealed record Product(
     string? Name,
     string? Description,
     string? Category,
+    Guid? PartnerCatalogCategoryId,
+    string? CatalogCategoryName,
+    string? ImageUrl,
     double Price,
     string? Currency,
     bool IsActive,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    bool InStock = true,
+    int? StockQuantity = null,
+    int? AvailableQuantity = null,
+    IReadOnlyList<string>? ImageUrls = null,
+    string? PartnerName = null,
+    string? PartnerLogoUrl = null
 );
 
 public sealed record Service(
@@ -679,8 +729,19 @@ public sealed record Service(
     int DurationMinutes,
     bool IsActive,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    bool IsBookable = false,
+    bool RequiresOnlinePayment = false,
+    string? ImageUrl = null,
+    string? ServiceAddress = null,
+    string? PartnerAddress = null,
+    IReadOnlyList<string>? ImageUrls = null,
+    IReadOnlyList<BuyerServiceImageInfo>? Images = null,
+    string? PartnerName = null,
+    string? PartnerLogoUrl = null
 );
+
+public sealed record BuyerServiceImageInfo(Guid Id, string Url, int SortOrder);
 
 public sealed record Partner(
     Guid Id,
@@ -706,7 +767,18 @@ public sealed record Professional(
     string? Bio,
     bool IsVerified,
     bool IsActive,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? BannerUrl = null,
+    string? ProfileHeadline = null,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null
 );
 
 public sealed record PublicCountryItem(
@@ -776,6 +848,55 @@ public sealed record PublicSubcategoryItem(
     string Name
 );
 
+public sealed record InboxThreadCreateRequest(
+    Guid? TenantId,
+    Guid? PartnerId,
+    Guid? ProfessionalId,
+    string Subject,
+    string Body);
+
+public sealed record InboxMessageCreateRequest(string Body);
+
+public sealed record InboxThreadStatusRequest(string Status);
+
+public sealed record InboxThreadCreateResult(Guid ThreadId, bool Reused);
+
+public sealed record InboxThreadListItem(
+    Guid Id,
+    string? Subject,
+    string? Status,
+    DateTimeOffset LastMessageAt,
+    string? Preview,
+    bool Unread,
+    string? CounterpartyName,
+    string? CounterpartySubtitle,
+    Guid? PartnerId,
+    Guid? ProfessionalId);
+
+public sealed record InboxThreadDetail(
+    Guid Id,
+    string? Subject,
+    string? Status,
+    DateTimeOffset LastMessageAt,
+    string? CounterpartyName,
+    string? CounterpartySubtitle,
+    string? CustomerName,
+    Guid? PartnerId,
+    Guid? ProfessionalId,
+    string? CustomerPhone = null,
+    string? PartnerPhone = null,
+    string? ProfessionalPhone = null);
+
+public sealed record InboxThreadDetailResponse(
+    InboxThreadDetail? Thread,
+    IReadOnlyList<InboxMessageItem>? Messages);
+
+public sealed record InboxMessageItem(
+    Guid Id,
+    string? SenderRole,
+    string? Body,
+    DateTimeOffset CreatedAt);
+
 public sealed record CategoryDiscoveryResponse(
     PublicCategoryItem Category,
     IReadOnlyList<PublicSubcategoryItem>? Subcategories,
@@ -833,6 +954,7 @@ public sealed record CategoryNearbyBusinessItem(
     string? Address,
     string? Phone,
     string? Email,
+    string? LogoUrl,
     string? CategoryName,
     string? SubcategoryName,
     Guid? ComunaId,
@@ -861,7 +983,23 @@ public sealed record PartnerProfileSummary(
     string? SubcategoryName,
     string? OfferLabel,
     /// <summary>Código de categoría (misma clave que en <c>/categorias/{slug}</c>).</summary>
-    string? CategoryCode = null
+    string? CategoryCode = null,
+    string? BannerUrl = null,
+    string? LogoUrl = null,
+    string? StorefrontTagline = null,
+    string? StorefrontAbout = null,
+    string? StorefrontHighlight1 = null,
+    string? StorefrontHighlight2 = null,
+    string? StorefrontHighlight3 = null,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null
 );
 
 public sealed record PartnerProfileProduct(
@@ -880,7 +1018,12 @@ public sealed record PartnerProfileService(
     string? Category,
     double Price,
     string? Currency,
-    int DurationMinutes
+    int DurationMinutes,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null,
+    string? ServiceAddress = null,
+    bool IsBookable = false,
+    bool RequiresOnlinePayment = false
 );
 
 public sealed record PartnerProfileProfessional(
@@ -889,7 +1032,18 @@ public sealed record PartnerProfileProfessional(
     string? Specialty,
     string? Bio,
     string? Email,
-    string? Phone
+    string? Phone,
+    string? BannerUrl = null,
+    string? ProfileHeadline = null,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null
 );
 
 public sealed class SupportTicketRequest

@@ -1,5 +1,6 @@
 using ComunaClick.Api.Modules.Orders.Contracts;
 using ComunaClick.Api.Integrations.Notifications;
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using ComunaClick.Common.Types;
@@ -17,12 +18,18 @@ public sealed class OrdersController : ControllerBase
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IOrderNotificationService _orderNotificationService;
+    private readonly IProductInventoryService _inventoryService;
 
-    public OrdersController(CoreDbContext db, ITenantContext tenantContext, IOrderNotificationService orderNotificationService)
+    public OrdersController(
+        CoreDbContext db,
+        ITenantContext tenantContext,
+        IOrderNotificationService orderNotificationService,
+        IProductInventoryService inventoryService)
     {
         _db = db;
         _tenantContext = tenantContext;
         _orderNotificationService = orderNotificationService;
+        _inventoryService = inventoryService;
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -187,6 +194,14 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { message = "One or more products are not available for purchase." });
         }
 
+        var stockCheck = await _inventoryService.ValidateLineItemsAsync(
+            request.Items.Select(x => (x.ProductId, x.Quantity)).ToList(),
+            cancellationToken: HttpContext.RequestAborted);
+        if (!stockCheck.Ok)
+        {
+            return BadRequest(new { message = stockCheck.Message });
+        }
+
         var partnerIds = products.Select(x => x.PartnerId).Distinct().ToList();
         if (partnerIds.Count != 1)
         {
@@ -309,9 +324,23 @@ public sealed class OrdersController : ControllerBase
             return Forbid();
         }
 
-        order.Status = request.Status.Trim();
+        var previousStatus = order.Status;
+        var newStatus = request.Status.Trim();
+        order.Status = newStatus;
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
+
+        var orderWithItems = await _db.Orders
+            .Include(x => x.Items)
+            .FirstAsync(x => x.Id == order.Id, HttpContext.RequestAborted);
+        await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
+            _db,
+            _inventoryService,
+            orderWithItems,
+            previousStatus,
+            newStatus,
+            HttpContext.RequestAborted);
+
         return Ok(order);
     }
 

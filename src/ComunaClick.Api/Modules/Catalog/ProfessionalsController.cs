@@ -1,5 +1,7 @@
 using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Catalog.Contracts;
+using ComunaClick.Api.Modules.Onboarding;
+using ComunaClick.Api.Modules.Onboarding.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using ComunaClick.Api.Security;
@@ -64,18 +66,13 @@ public sealed class ProfessionalsController : ControllerBase
             return NotFound();
         }
 
+        var partnerEmail = partner.Email?.Trim().ToLowerInvariant();
         var query = _db.Professionals.AsNoTracking()
-            .Where(x => x.TenantId == partner.TenantId);
-
-        if (!string.IsNullOrWhiteSpace(partner.Email))
-        {
-            var partnerEmail = partner.Email.Trim().ToLowerInvariant();
-            query = query.Where(x => x.Email != null && x.Email.ToLower() == partnerEmail);
-        }
-        else
-        {
-            query = query.Where(x => x.Name == partner.Name);
-        }
+            .Where(x => x.TenantId == partner.TenantId)
+            .Where(x =>
+                x.PartnerId == partnerId
+                || (x.PartnerId == null && partnerEmail != null && x.Email != null && x.Email.ToLower() == partnerEmail)
+                || (x.PartnerId == null && partnerEmail == null && x.Name == partner.Name));
 
         var professionals = await query
             .OrderByDescending(x => x.CreatedAt)
@@ -128,9 +125,11 @@ public sealed class ProfessionalsController : ControllerBase
         }
 
         var geo = await GeoContextResolver.ResolveFromTenantAsync(_db, tenantId.Value);
+        var partnerId = _tenantContext.PartnerId ?? request.PartnerId;
         var professional = new Professional
         {
             TenantId = tenantId.Value,
+            PartnerId = partnerId == Guid.Empty ? null : partnerId,
             CountryId = geo.CountryId,
             RegionId = geo.RegionId,
             ComunaId = geo.ComunaId,
@@ -193,6 +192,46 @@ public sealed class ProfessionalsController : ControllerBase
             professional.IsActive = request.IsActive.Value;
         }
 
+        await _db.SaveChangesAsync();
+        return Ok(professional);
+    }
+
+    [HttpPatch("{id:guid}/web-links")]
+    public async Task<ActionResult<Professional>> UpdateWebLinks(Guid id, ProfileWebLinksUpdateRequest request)
+    {
+        var professional = await _db.Professionals.FirstOrDefaultAsync(x => x.Id == id);
+        if (professional is null)
+        {
+            return NotFound();
+        }
+
+        if (professional.PartnerId.HasValue)
+        {
+            var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+                _db,
+                User,
+                professional.PartnerId.Value,
+                _tenantContext.TenantId,
+                _tenantContext.PartnerId,
+                HttpContext.RequestAborted);
+
+            if (access == PartnerAccessResult.Forbidden)
+            {
+                return Forbid();
+            }
+        }
+        else if (_tenantContext.TenantId != professional.TenantId)
+        {
+            return Forbid();
+        }
+
+        var validationError = ProfileWebLinksNormalizer.Validate(request);
+        if (validationError is not null)
+        {
+            return BadRequest(new { message = validationError });
+        }
+
+        ProfileWebLinksNormalizer.ApplyToProfessional(professional, request);
         await _db.SaveChangesAsync();
         return Ok(professional);
     }

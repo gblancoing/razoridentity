@@ -1,0 +1,22 @@
+---
+description: Reglas de catálogo, avisos y agendamiento para partners tipo B (empresa de servicios)
+globs: src/ComunaClick.SharedUI/Pages/Partner/Catalog.razor,src/ComunaClick.Api/Modules/Catalog/ServicesController.cs,src/ComunaClick.Api/Modules/Catalog/Contracts/Service*.cs,src/ComunaClick.Api/Modules/Bookings/**,src/ComunaClick.Api/Persistence/Entities/Service*.cs,src/ComunaClick.Api/Persistence/Entities/Booking*.cs,src/ComunaClick.Shared/Api/Partner/PartnerApiClient.cs,docs/empresa-tipo-b.md
+alwaysApply: false
+---
+
+# Empresa de servicios (Partner tipo `B`)
+
+Especificación completa: `docs/empresa-tipo-b.md`
+
+## Resumen para el agente
+
+- Partner `B` = **solo avisos de servicio** en `/partner/catalog` (vitrina tipo ficha empresa), no productos (`A`) ni catálogo solo-profesionales (`C`).
+- **Sin inventario de productos:** capacidad = profesionales + slots + reservas; **no** usar `ProductInventory` ni reglas de stock de `empresa-tipo-a.md` en avisos. Híbrido `A`+`OffersServices`: pestaña Productos = tipo A (stock); pestaña Servicios = este doc.
+- **Sin precio** → aviso informativo; **sin** agendamiento ni slots; contacto por inbox/WhatsApp.
+- **Con precio (> 0)** → motor de **agenda + pago en línea obligatorio** para confirmar reserva; duración obligatoria; reagendo permitido si ya pagó.
+- **Varios profesionales:** disponibilidad y reservas **por profesional** (misma hora: uno ocupado, otro libre). Extender modelo si `ServiceSlot`/`Booking` no tienen `ProfessionalId`.
+- Todo aviso: **activar/desactivar** (`IsActive`), **editar**, **eliminar** (con reglas si hay reservas pagadas).
+- Localizar con `partner.catalog.*` en `LocaleService`.
+- No romper flujos de tipos `A` y `C`; cambios acotados a catálogo/reservas tipo B.
+
+Al implementar, seguir fases en `docs/empresa-tipo-b.md` (modelo → UI partner → reservas → ficha comprador).

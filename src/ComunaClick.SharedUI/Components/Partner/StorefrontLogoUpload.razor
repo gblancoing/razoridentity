@@ -1,0 +1,148 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject ApiMediaUrl MediaUrl
+@inject LocaleService L
+
+<div class="space-y-3">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#dadddf] bg-white shadow-sm">
+            @if (!string.IsNullOrWhiteSpace(LogoUrl))
+            {
+                <img src="@MediaUrl.Resolve(LogoUrl)" alt="" class="h-full w-full object-cover" />
+            }
+            else if (!string.IsNullOrWhiteSpace(PartnerName))
+            {
+                <span class="text-xl font-black text-[#2c2f30]">@Initials</span>
+            }
+            else
+            {
+                <span class="material-symbols-outlined text-[28px] text-[#7b8081]">store</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(LogoUrl))
+            {
+                <button type="button"
+                        class="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#2c2f30] text-white hover:bg-black"
+                        disabled="@_busy"
+                        title="@L.T("partner.storefront.logo.remove")"
+                        @onclick="RemoveLogoAsync">
+                    <span class="material-symbols-outlined text-[16px]">close</span>
+                </button>
+            }
+        </div>
+
+        <div class="flex-1 space-y-2">
+            <InputFile id="@_inputId" class="hidden" OnChange="OnFileSelectedAsync" accept="image/jpeg,image/png,image/webp,image/gif" />
+            <label for="@_inputId"
+                   class="@(_busy ? "pointer-events-none opacity-60 " : "")inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#3b6700]/50 bg-white px-4 py-2.5 text-sm font-bold text-[#3b6700] hover:bg-[#eff8e0]">
+                <span class="material-symbols-outlined text-[18px]">photo_library</span>
+                @(_busy ? L.T("partner.storefront.logo.uploading") : L.T("partner.storefront.logo.upload"))
+            </label>
+            <p class="text-xs text-[#7b8081]">@L.T("partner.storefront.logo.hint")</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <p class="text-xs font-medium @(_ok ? "text-[#3b6700]" : "text-red-600")">@_message</p>
+    }
+</div>
+
+@code {
+    private const int MaxBytes = 4 * 1024 * 1024;
+
+    [Parameter] public Guid PartnerId { get; set; }
+    [Parameter] public string? PartnerName { get; set; }
+    [Parameter] public string? LogoUrl { get; set; }
+    [Parameter] public EventCallback<string?> LogoUrlChanged { get; set; }
+
+    private readonly string _inputId = $"logo-{Guid.NewGuid():N}";
+    private bool _busy;
+    private string? _message;
+    private bool _ok;
+
+    private string Initials
+    {
+        get
+        {
+            var name = (PartnerName ?? string.Empty).Trim();
+            if (name.Length == 0)
+            {
+                return "?";
+            }
+
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2
+                ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
+                : name.Length >= 2 ? name[..2].ToUpperInvariant() : name[0].ToString().ToUpperInvariant();
+        }
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file.Size > MaxBytes)
+        {
+            _message = L.T("partner.storefront.logo.tooLarge");
+            _ok = false;
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+
+            var result = await PartnerApi.UploadPartnerLogoAsync(
+                PartnerId, buffer, file.Name, file.ContentType);
+
+            var url = result?.LogoUrl;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                _message = L.T("partner.storefront.logo.failed");
+                _ok = false;
+                return;
+            }
+
+            await LogoUrlChanged.InvokeAsync(url);
+            _message = L.T("partner.storefront.logo.uploaded");
+            _ok = true;
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.storefront.logo.failed");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RemoveLogoAsync()
+    {
+        _busy = true;
+        try
+        {
+            await PartnerApi.UpdatePartnerStorefrontAsync(
+                PartnerId,
+                new PartnerApiModels.PartnerStorefrontUpdateRequest(null, null, null, null, null, null, true));
+
+            await LogoUrlChanged.InvokeAsync(null);
+            _message = L.T("partner.storefront.logo.removed");
+            _ok = true;
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.storefront.logo.failed");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -14,9 +14,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ComunaClick.Common\ComunaClick.Common.csproj" />
     <ProjectReference Include="..\ComunaClick.Shared\ComunaClick.Shared.csproj" />
   </ItemGroup>
 

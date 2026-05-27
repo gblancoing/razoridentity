@@ -1,4 +1,4 @@
-﻿@page "/login"
+@page "/login"
 @using Microsoft.Extensions.Logging
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
@@ -282,7 +282,8 @@
 
         try
         {
-            var callbackUrl = Navigation.ToAbsoluteUri(Navigation.Uri).GetLeftPart(UriPartial.Path) + Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+            await JSRuntime.InvokeVoidAsync("comunaclic.setGoogleLoginReturnUrl", _returnUrl ?? string.Empty);
+            var callbackUrl = Navigation.ToAbsoluteUri("/login").GetLeftPart(UriPartial.Path);
             await JSRuntime.InvokeVoidAsync("comunaclic.beginGoogleSignIn", callbackUrl);
         }
         catch (Exception ex)
@@ -314,7 +315,9 @@
                 PartnerId: null));
             await AuthState.SetTokensAsync(tokens);
             var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
-            var destination = isPersonalAccount ? "/buyer" : "/my-businesses";
+            var storedReturnUrl = await JSRuntime.InvokeAsync<string>("comunaclic.consumeGoogleLoginReturnUrl");
+            var returnUrl = string.IsNullOrWhiteSpace(storedReturnUrl) ? _returnUrl : storedReturnUrl;
+            var destination = ResolvePostLoginTarget(isPersonalAccount, returnUrl);
             Navigation.NavigateTo(destination, true);
             return true;
         }

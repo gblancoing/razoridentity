@@ -1,0 +1,156 @@
+@using System.Net
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject AuthStateService AuthState
+@inject LocaleService L
+@inject NavigationManager Navigation
+
+<section id="publicacion" class="scroll-mt-8 rounded-[2rem] border border-[#e3e6e8] bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+    <div>
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@L.T("partner.settings.publish.badge")</p>
+        <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.settings.publish.title")</h2>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.settings.publish.subtitle")</p>
+    </div>
+
+    @if (_isLoading)
+    {
+        <BrandedLoading Compact="true" Title="@L.T("ui.loading")" Message="@L.T("partner.settings.publish.loading")" />
+    }
+    else if (_activation is null)
+    {
+        <p class="text-sm text-[#595c5d]">@L.T("partner.settings.publish.missing")</p>
+    }
+    else
+    {
+        <div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf9] p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm font-bold text-[#2c2f30]">@_activation.StatusLabel</p>
+                    <p class="mt-1 text-sm text-[#595c5d]">@_activation.NextStep</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-3xl font-black text-[#3b6700]">@_activation.CompletionPercent%</p>
+                    <p class="text-xs text-[#7b8081]">@L.T("partner.dashboard.activation.completed")</p>
+                </div>
+            </div>
+            <div class="h-2 rounded-full bg-[#e6e8ea] overflow-hidden">
+                <div class="h-full rounded-full bg-[#3b6700]" style="width:@($"{_activation.CompletionPercent}%")"></div>
+            </div>
+            <p class="text-sm">
+                <span class="font-bold">@L.T("partner.settings.publish.visibility"):</span>
+                @(_activation.IsVisible ? L.T("buyer.profile.company.visible") : L.T("buyer.profile.company.hidden"))
+            </p>
+        </div>
+
+        @if (_activation.Checklist is { Count: > 0 })
+        {
+            <ul class="grid gap-2 md:grid-cols-2">
+                @foreach (var item in _activation.Checklist)
+                {
+                    <li class="flex items-start gap-2 rounded-xl bg-[#fafafa] px-3 py-2 text-sm">
+                        <span class="material-symbols-outlined text-[18px] @(item.IsComplete ? "text-[#3b6700]" : "text-[#b58c00]")">
+                            @(item.IsComplete ? "check_circle" : "pending")
+                        </span>
+                        <span class="font-semibold text-[#2c2f30]">@item.Label</span>
+                    </li>
+                }
+            </ul>
+        }
+
+        <div class="flex flex-wrap gap-3">
+            @if (_activation.IsVisible)
+            {
+                <button type="button"
+                        class="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 font-bold text-sm"
+                        disabled="@_busy"
+                        @onclick="() => SetVisibilityAsync(false)">
+                    <span class="material-symbols-outlined text-[18px]">visibility_off</span>
+                    @L.T("partner.dashboard.action.unpublish")
+                </button>
+            }
+            else if (_activation.CanPublish)
+            {
+                <button type="button"
+                        class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm"
+                        disabled="@_busy"
+                        @onclick="() => SetVisibilityAsync(true)">
+                    <span class="material-symbols-outlined text-[18px]">publish</span>
+                    @L.T("partner.dashboard.action.publish")
+                </button>
+            }
+            else
+            {
+                <a href="/partner/quickstart" class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-5 py-3 text-sm font-bold text-[#2c2f30]">
+                    @L.T("partner.dashboard.action.completeBusiness")
+                </a>
+            }
+            @if (_partnerId.HasValue)
+            {
+                <a href="@($"/buyer/detail/partner/{_partnerId}")" target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-5 py-3 text-sm font-bold text-[#3b6700]">
+                    <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                    @L.T("partner.dashboard.action.viewPublic")
+                </a>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_status))
+        {
+            <p class="text-sm font-semibold @(_statusOk ? "text-[#3b6700]" : "text-red-600")">@_status</p>
+        }
+    }
+</section>
+
+@code {
+    private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
+    private Guid? _partnerId;
+    private bool _isLoading = true;
+    private bool _busy;
+    private string? _status;
+    private bool _statusOk;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            _partnerId = AuthState.PartnerId;
+            if (_partnerId is Guid id && id != Guid.Empty)
+            {
+                _activation = await PartnerApi.GetActivationStatusAsync(id);
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SetVisibilityAsync(bool visible)
+    {
+        if (_partnerId is not Guid id || id == Guid.Empty)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var updated = await PartnerApi.UpdateVisibilityAsync(id, visible);
+            _activation = updated?.Activation ?? _activation;
+            _status = visible ? L.T("partner.dashboard.status.published") : L.T("partner.dashboard.status.unpublished");
+            _statusOk = true;
+        }
+        catch (HttpRequestException)
+        {
+            _status = L.T("partner.dashboard.status.visibilityFailed");
+            _statusOk = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

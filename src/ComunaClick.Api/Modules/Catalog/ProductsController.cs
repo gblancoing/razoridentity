@@ -17,20 +17,34 @@ public sealed class ProductsController : ControllerBase
 {
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly ProductImageStorage _imageStorage;
+    private readonly IProductInventoryService _inventoryService;
 
-    public ProductsController(CoreDbContext db, ITenantContext tenantContext)
+    public ProductsController(
+        CoreDbContext db,
+        ITenantContext tenantContext,
+        ProductImageStorage imageStorage,
+        IProductInventoryService inventoryService)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _imageStorage = imageStorage;
+        _inventoryService = inventoryService;
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Product>> Get(Guid id)
+    public async Task<ActionResult<object>> Get(Guid id)
     {
         var product = await _db.Products.AsNoTracking()
             .Include(x => x.Inventory)
             .FirstOrDefaultAsync(x => x.Id == id);
-        return product is null ? NotFound() : Ok(product);
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        await ProductMediaSync.EnrichAsync(_db, product, HttpContext.RequestAborted);
+        return Ok(ProductResponses.ToPartnerResponse(product, includeCost: true));
     }
 
     [AllowAnonymous]
@@ -65,30 +79,13 @@ public sealed class ProductsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(new
-        {
-            product.Id,
-            product.TenantId,
-            product.PartnerId,
-            product.Name,
-            product.Description,
-            product.Category,
-            product.Price,
-            product.Currency,
-            product.IsActive,
-            product.CreatedAt,
-            product.UpdatedAt,
-            Inventory = product.Inventory is null ? null : new
-            {
-                product.Inventory.ProductId,
-                product.Inventory.Quantity,
-                product.Inventory.UpdatedAt
-            }
-        });
+        await ProductMediaSync.EnrichAsync(_db, product, HttpContext.RequestAborted);
+        var available = await _inventoryService.GetAvailableQuantityAsync(product.Id, cancellationToken: HttpContext.RequestAborted);
+        return Ok(ProductResponses.ToPublicResponse(product, partner.Name, partner.LogoUrl, available));
     }
 
     [HttpGet("/v1/partners/{partnerId:guid}/products")]
-    public async Task<ActionResult<IEnumerable<Product>>> ListByPartner(Guid partnerId)
+    public async Task<ActionResult<IEnumerable<object>>> ListByPartner(Guid partnerId)
     {
         var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
             _db,
@@ -113,11 +110,13 @@ public sealed class ProductsController : ControllerBase
             .Where(x => x.PartnerId == partnerId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
-        return Ok(products);
+
+        await ProductMediaSync.EnrichManyAsync(_db, products, HttpContext.RequestAborted);
+        return Ok(products.Select(x => ProductResponses.ToPartnerResponse(x, includeCost: true)));
     }
 
     [HttpPost]
-    public async Task<ActionResult<Product>> Create(ProductCreateRequest request)
+    public async Task<ActionResult<object>> Create(ProductCreateRequest request)
     {
         var tenantId = _tenantContext.TenantId;
         if (!tenantId.HasValue)
@@ -136,7 +135,14 @@ public sealed class ProductsController : ControllerBase
             return Forbid();
         }
 
+        if (request.Price < 0)
+        {
+            return BadRequest(new { message = "El precio de venta no puede ser negativo." });
+        }
+
         var geo = await GeoContextResolver.ResolveFromTenantAsync(_db, tenantId.Value);
+        var categoryLabel = await ResolveCategoryLabelAsync(request.Category, request.PartnerCatalogCategoryId, partnerId);
+
         var product = new Product
         {
             TenantId = tenantId.Value,
@@ -146,9 +152,11 @@ public sealed class ProductsController : ControllerBase
             ComunaId = geo.ComunaId,
             Name = request.Name.Trim(),
             Description = request.Description,
-            Category = request.Category,
-            ImageUrl = NormalizeImageUrl(request.ImageUrl),
+            Category = categoryLabel,
+            PartnerCatalogCategoryId = request.PartnerCatalogCategoryId,
+            ImageUrl = null,
             Price = request.Price,
+            CostPrice = request.CostPrice,
             Currency = string.IsNullOrWhiteSpace(request.Currency) ? "CLP" : request.Currency.Trim(),
             IsActive = request.IsActive ?? true,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -157,20 +165,26 @@ public sealed class ProductsController : ControllerBase
 
         _db.Products.Add(product);
         await _db.SaveChangesAsync();
-        return Created($"/v1/products/{product.Id}", product);
+
+        var initialStock = Math.Max(0, request.InitialStock ?? 0);
+        await _inventoryService.EnsureInventoryRowAsync(product.Id, initialStock, HttpContext.RequestAborted);
+        product.Inventory = await _db.ProductInventories.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.ProductId == product.Id, HttpContext.RequestAborted);
+
+        await ProductMediaSync.EnrichAsync(_db, product, HttpContext.RequestAborted);
+        return Created($"/v1/products/{product.Id}", ProductResponses.ToPartnerResponse(product, includeCost: true));
     }
 
     [HttpPatch("{id:guid}")]
-    public async Task<ActionResult<Product>> Update(Guid id, ProductUpdateRequest request)
+    public async Task<ActionResult<object>> Update(Guid id, ProductUpdateRequest request)
     {
-        var product = await _db.Products.FirstOrDefaultAsync(x => x.Id == id);
+        var product = await _db.Products.Include(x => x.Inventory).FirstOrDefaultAsync(x => x.Id == id);
         if (product is null)
         {
             return NotFound();
         }
 
-        var scopedPartner = _tenantContext.PartnerId;
-        if (scopedPartner.HasValue && scopedPartner.Value != product.PartnerId)
+        if (!await CanManageProductAsync(product))
         {
             return Forbid();
         }
@@ -185,19 +199,28 @@ public sealed class ProductsController : ControllerBase
             product.Description = request.Description;
         }
 
-        if (request.Category is not null)
+        if (request.PartnerCatalogCategoryId.HasValue || request.Category is not null)
         {
-            product.Category = request.Category;
-        }
-
-        if (request.ImageUrl is not null)
-        {
-            product.ImageUrl = NormalizeImageUrl(request.ImageUrl);
+            product.PartnerCatalogCategoryId = request.PartnerCatalogCategoryId ?? product.PartnerCatalogCategoryId;
+            product.Category = await ResolveCategoryLabelAsync(
+                request.Category ?? product.Category,
+                product.PartnerCatalogCategoryId,
+                product.PartnerId);
         }
 
         if (request.Price.HasValue)
         {
+            if (request.Price.Value < 0)
+            {
+                return BadRequest(new { message = "El precio de venta no puede ser negativo." });
+            }
+
             product.Price = request.Price.Value;
+        }
+
+        if (request.CostPrice.HasValue)
+        {
+            product.CostPrice = request.CostPrice.Value < 0 ? null : request.CostPrice;
         }
 
         if (!string.IsNullOrWhiteSpace(request.Currency))
@@ -212,7 +235,8 @@ public sealed class ProductsController : ControllerBase
 
         product.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
-        return Ok(product);
+        await ProductMediaSync.EnrichAsync(_db, product, HttpContext.RequestAborted);
+        return Ok(ProductResponses.ToPartnerResponse(product, includeCost: true));
     }
 
     [HttpPatch("{id:guid}/inventory")]
@@ -224,14 +248,19 @@ public sealed class ProductsController : ControllerBase
             return NotFound();
         }
 
-        var scopedPartner = _tenantContext.PartnerId;
-        if (scopedPartner.HasValue && scopedPartner.Value != product.PartnerId)
+        if (!await CanManageProductAsync(product))
         {
             return Forbid();
         }
 
+        if (request.Quantity < 0)
+        {
+            return BadRequest(new { message = "El stock no puede ser negativo." });
+        }
+
         var inventory = product.Inventory ?? new ProductInventory { ProductId = id };
-        inventory.Quantity = request.Quantity;
+        var previousQuantity = inventory.Quantity;
+        inventory.Quantity = Math.Max(0, request.Quantity);
         inventory.UpdatedAt = DateTimeOffset.UtcNow;
 
         if (product.Inventory is null)
@@ -240,17 +269,188 @@ public sealed class ProductsController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+        await _inventoryService.NotifyStockLevelsAsync(
+            product,
+            previousQuantity,
+            inventory.Quantity,
+            "manual_update",
+            product.Id,
+            HttpContext.RequestAborted);
         return Ok(inventory);
     }
 
-    private static string? NormalizeImageUrl(string? imageUrl)
+    [HttpPost("{id:guid}/images")]
+    [RequestFormLimits(MultipartBodyLengthLimit = 20_000_000)]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<ActionResult<IReadOnlyList<ProductImageResponse>>> UploadImages(Guid id, [FromForm] List<IFormFile> files)
     {
-        if (imageUrl is null)
+        var product = await _db.Products.FirstOrDefaultAsync(x => x.Id == id);
+        if (product is null)
         {
-            return null;
+            return NotFound();
         }
 
-        var trimmed = imageUrl.Trim();
-        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+        if (!await CanManageProductAsync(product))
+        {
+            return Forbid();
+        }
+
+        if (files.Count == 0)
+        {
+            return BadRequest(new { message = "Seleccioná al menos una imagen." });
+        }
+
+        var existingCount = await _db.ProductImages.CountAsync(x => x.ProductId == id);
+        if (existingCount + files.Count > _imageStorage.MaxImagesPerProductLimit)
+        {
+            return BadRequest(new { message = $"Máximo {_imageStorage.MaxImagesPerProductLimit} imágenes por producto." });
+        }
+
+        var created = new List<ProductImageResponse>();
+        var sortOrder = existingCount;
+        foreach (var file in files)
+        {
+            if (file.Length <= 0)
+            {
+                continue;
+            }
+
+            var imageId = Guid.NewGuid();
+            var url = await _imageStorage.SaveAsync(product.TenantId, product.Id, imageId, file, HttpContext.RequestAborted);
+            if (url is null)
+            {
+                continue;
+            }
+
+            var entity = new ProductImage
+            {
+                Id = imageId,
+                TenantId = product.TenantId,
+                ProductId = product.Id,
+                Url = url,
+                SortOrder = sortOrder++,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            _db.ProductImages.Add(entity);
+            created.Add(new ProductImageResponse(entity.Id, entity.Url, entity.SortOrder));
+        }
+
+        if (created.Count == 0)
+        {
+            return BadRequest(new { message = "No se pudieron guardar las imágenes. Usá JPG, PNG o WebP (máx. 4 MB c/u)." });
+        }
+
+        await _db.SaveChangesAsync();
+        await ProductMediaSync.SyncPrimaryImageUrlAsync(_db, product.Id, HttpContext.RequestAborted);
+        return Ok(created);
+    }
+
+    [HttpDelete("{id:guid}/images/{imageId:guid}")]
+    public async Task<IActionResult> DeleteImage(Guid id, Guid imageId)
+    {
+        var product = await _db.Products.FirstOrDefaultAsync(x => x.Id == id);
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        if (!await CanManageProductAsync(product))
+        {
+            return Forbid();
+        }
+
+        var image = await _db.ProductImages.FirstOrDefaultAsync(x => x.Id == imageId && x.ProductId == id);
+        if (image is null)
+        {
+            return NotFound();
+        }
+
+        _db.ProductImages.Remove(image);
+        await _db.SaveChangesAsync();
+        _imageStorage.DeletePhysical(product.TenantId, product.Id, image.Id, image.Url);
+        await ProductMediaSync.SyncPrimaryImageUrlAsync(_db, product.Id, HttpContext.RequestAborted);
+        return NoContent();
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var product = await _db.Products
+            .Include(x => x.Inventory)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        if (!await CanManageProductAsync(product))
+        {
+            return Forbid();
+        }
+
+        var hasOpenOrders = await (
+            from item in _db.OrderItems.AsNoTracking()
+            join order in _db.Orders.AsNoTracking() on item.OrderId equals order.Id
+            where item.ProductId == id
+                  && (order.Status == "payment_pending" || order.Status == "paid" || order.Status == "processing")
+            select item.Id).AnyAsync();
+
+        if (hasOpenOrders)
+        {
+            return BadRequest(new { message = "No se puede eliminar: hay pedidos activos con este producto. Pausalo en su lugar." });
+        }
+
+        var images = await _db.ProductImages.Where(x => x.ProductId == id).ToListAsync();
+        _db.ProductImages.RemoveRange(images);
+        if (product.Inventory is not null)
+        {
+            _db.ProductInventories.Remove(product.Inventory);
+        }
+
+        _db.Products.Remove(product);
+        await _db.SaveChangesAsync();
+
+        foreach (var image in images)
+        {
+            _imageStorage.DeletePhysical(product.TenantId, product.Id, image.Id, image.Url);
+        }
+
+        return NoContent();
+    }
+
+    private async Task<bool> CanManageProductAsync(Product product)
+    {
+        var scopedPartner = _tenantContext.PartnerId;
+        if (scopedPartner.HasValue && scopedPartner.Value != product.PartnerId)
+        {
+            return false;
+        }
+
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            product.PartnerId,
+            _tenantContext.TenantId,
+            _tenantContext.PartnerId,
+            HttpContext.RequestAborted);
+
+        return access == PartnerAccessResult.Allowed;
+    }
+
+    private async Task<string?> ResolveCategoryLabelAsync(string? category, Guid? categoryId, Guid partnerId)
+    {
+        if (categoryId.HasValue)
+        {
+            var sectionName = await _db.PartnerCatalogCategories.AsNoTracking()
+                .Where(x => x.Id == categoryId.Value && x.PartnerId == partnerId)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(sectionName))
+            {
+                return sectionName.Trim();
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(category) ? null : category.Trim();
     }
 }

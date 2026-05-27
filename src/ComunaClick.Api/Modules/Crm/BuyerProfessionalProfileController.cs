@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ComunaClick.Api.Geo;
 using ComunaClick.Api.Modules.Crm.Contracts;
+using ComunaClick.Api.Modules.Onboarding;
+using ComunaClick.Api.Modules.Onboarding.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -60,6 +62,23 @@ public sealed class BuyerProfessionalProfileController : ControllerBase
             return BadRequest(new { message = "Authenticated email claim is required." });
         }
 
+        var linksRequest = new ProfileWebLinksUpdateRequest(
+            request.WebsiteUrl,
+            request.InstagramUrl,
+            request.FacebookUrl,
+            request.LinkedInUrl,
+            request.XUrl,
+            request.TikTokUrl,
+            request.YouTubeUrl,
+            request.OtherLinkLabel,
+            request.OtherLinkUrl);
+
+        var linksError = ProfileWebLinksNormalizer.Validate(linksRequest);
+        if (linksError is not null)
+        {
+            return BadRequest(new { message = linksError });
+        }
+
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var activate = request.Activate ?? true;
 
@@ -111,6 +130,8 @@ public sealed class BuyerProfessionalProfileController : ControllerBase
             professional.IsActive = true;
         }
 
+        ProfileWebLinksNormalizer.ApplyToProfessional(professional, linksRequest);
+
         await _db.SaveChangesAsync(cancellationToken);
         return Ok(Map(professional));
     }
@@ -153,7 +174,16 @@ public sealed class BuyerProfessionalProfileController : ControllerBase
             Specialty: professional.Specialty,
             Bio: professional.Bio,
             IsVerified: professional.IsVerified,
-            IsActive: professional.IsActive);
+            IsActive: professional.IsActive,
+            WebsiteUrl: professional.WebsiteUrl,
+            InstagramUrl: professional.InstagramUrl,
+            FacebookUrl: professional.FacebookUrl,
+            LinkedInUrl: professional.LinkedInUrl,
+            XUrl: professional.XUrl,
+            TikTokUrl: professional.TikTokUrl,
+            YouTubeUrl: professional.YouTubeUrl,
+            OtherLinkLabel: professional.OtherLinkLabel,
+            OtherLinkUrl: professional.OtherLinkUrl);
     }
 
     private static string? NormalizeOptional(string? value)

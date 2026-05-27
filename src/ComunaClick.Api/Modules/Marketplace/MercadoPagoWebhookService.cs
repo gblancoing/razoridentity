@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,19 +15,22 @@ public sealed class MercadoPagoWebhookService
     private readonly MercadoPagoOAuthService _oauthService;
     private readonly MarketplaceAuditService _auditService;
     private readonly MarketplaceMetricsService _metrics;
+    private readonly IProductInventoryService _inventoryService;
 
     public MercadoPagoWebhookService(
         CoreDbContext db,
         MercadoPagoMarketplaceClient client,
         MercadoPagoOAuthService oauthService,
         MarketplaceAuditService auditService,
-        MarketplaceMetricsService metrics)
+        MarketplaceMetricsService metrics,
+        IProductInventoryService inventoryService)
     {
         _db = db;
         _client = client;
         _oauthService = oauthService;
         _auditService = auditService;
         _metrics = metrics;
+        _inventoryService = inventoryService;
     }
 
     public async Task<WebhookEvent> HandleAsync(HttpRequest request, string payloadJson, CancellationToken cancellationToken)
@@ -195,6 +199,29 @@ public sealed class MercadoPagoWebhookService
                 webhookEvent.Action
             },
             cancellationToken);
+
+        if (payment.OrderId.HasValue && OrderInventoryFulfillment.IsPaidStatus(payment.Status))
+        {
+            var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value, cancellationToken);
+            if (order is not null)
+            {
+                var orderPreviousStatus = order.Status;
+                if (!OrderInventoryFulfillment.IsPaidStatus(orderPreviousStatus))
+                {
+                    order.Status = "paid";
+                    order.UpdatedAt = DateTimeOffset.UtcNow;
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+
+                await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
+                    _db,
+                    _inventoryService,
+                    payment.OrderId.Value,
+                    orderPreviousStatus,
+                    "paid",
+                    cancellationToken);
+            }
+        }
     }
 
     private static string NormalizeMercadoPagoStatus(string? status)
