@@ -99,4 +99,30 @@ public static class SearchDisplayHelper
             _ => l.T("search.result.cta.view")
         };
     }
+
+    public static string? ResolveCardImageUrl(SearchResultItem item, Func<string, string>? mediaResolve = null)
+    {
+        var raw = PublicOfferVisuals.ResolveImage(item.ImageUrl, item.Category, item.Name, item.ImageUrls);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            raw = item.LogoUrl;
+        }
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            raw = CategoryVisualService.ResolveImage(item.Category, item.Category);
+        }
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return mediaResolve is null ? raw.Trim() : mediaResolve(raw.Trim());
+    }
+
+    public static string BuildCardBackgroundStyle(string? imageUrl)
+        => string.IsNullOrWhiteSpace(imageUrl)
+            ? "background-image: linear-gradient(135deg, rgba(220,252,231,0.95) 0%, rgba(250,244,234,0.98) 55%, rgba(255,255,255,1) 100%);"
+            : $"background-image: url('{imageUrl}');";
 }

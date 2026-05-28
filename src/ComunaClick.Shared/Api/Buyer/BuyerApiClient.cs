@@ -449,7 +449,9 @@ public sealed record SearchResultItem(
     double? DistanceKm = null,
     double? Latitude = null,
     double? Longitude = null,
-    string? LogoUrl = null);
+    string? LogoUrl = null,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null);
 
 public sealed record Order(
     Guid Id,
@@ -1137,7 +1139,9 @@ public sealed record PartnerProfileProduct(
     string? Description,
     string? Category,
     double Price,
-    string? Currency
+    string? Currency,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null
 );
 
 public sealed record PartnerProfileService(

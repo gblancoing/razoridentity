@@ -30,6 +30,13 @@
                 {
                     <div class="my-2 border-t border-[#e3e6e8]" aria-hidden="true"></div>
                 }
+                <a class="@GetNavLinkClass("/")" href="/" title="@L.T("nav.home")">
+                    <span class="material-symbols-outlined text-[22px] shrink-0">home</span>
+                    @if (!_sidebarCollapsed)
+                    {
+                        <span>@L.T("nav.home")</span>
+                    }
+                </a>
                 <a class="@GetNavLinkClass("/partner")" href="/partner" title="@L.T("partner.nav.dashboard")">
                     <span class="material-symbols-outlined text-[22px] shrink-0">dashboard</span>
                     @if (!_sidebarCollapsed)
@@ -67,6 +74,16 @@
                         <span>
                             @L.T("partner.nav.agenda")
                             <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("partner.nav.agenda.hint")</span>
+                        </span>
+                    }
+                </a>
+                <a class="@GetNavLinkClass("/partner/orders")" href="/partner/orders" title="@L.T("partner.nav.orders")">
+                    <span class="material-symbols-outlined text-[22px] shrink-0">shopping_bag</span>
+                    @if (!_sidebarCollapsed)
+                    {
+                        <span>
+                            @L.T("partner.nav.orders")
+                            <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("partner.nav.orders.hint")</span>
                         </span>
                     }
                 </a>

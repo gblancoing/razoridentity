@@ -72,6 +72,7 @@ builder.Services.Configure<BusinessRulesOptions>(builder.Configuration.GetSectio
 builder.Services.Configure<InventoryOptions>(builder.Configuration.GetSection(InventoryOptions.SectionName));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<IInboxNotificationService, InboxNotificationService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<IGuestCustomerService, GuestCustomerService>();
 builder.Services.AddScoped<ICustomerLinkService, CustomerLinkService>();

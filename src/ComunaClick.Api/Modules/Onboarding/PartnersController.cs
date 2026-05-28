@@ -7,6 +7,7 @@ using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using ComunaClick.Api.Security;
 using ComunaClick.Common.Auth;
+using ComunaClick.Common.Contact;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -294,7 +295,7 @@ public sealed class PartnersController : ControllerBase
 
         if (request.Phone is not null)
         {
-            partner.Phone = request.Phone;
+            partner.Phone = ChilePhoneNumbers.NormalizeForStorage(request.Phone);
         }
 
         if (request.Email is not null)
@@ -662,6 +663,9 @@ public sealed class PartnersController : ControllerBase
             partner.Address,
             partner.Phone,
             partner.Email,
+            partner.CountryId,
+            partner.RegionId,
+            partner.ComunaId,
             partner.Latitude,
             partner.Longitude,
             partner.IsVisible,

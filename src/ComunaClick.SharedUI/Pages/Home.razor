@@ -1,6 +1,7 @@
 ﻿@page "/"
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ApiMediaUrl MediaUrl
 @inject IJSRuntime JSRuntime
 @using ComunaClick.SharedUI.Services
 @using Microsoft.AspNetCore.Components.Web
@@ -48,12 +49,6 @@
     <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none"></div>
 
     <div class="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 pt-16 pb-28 sm:pt-20 sm:pb-32 text-center max-w-5xl mx-auto w-full gap-6 sm:gap-8">
-
-        <!-- Floating trust badge -->
-        <div class="cc-badge-float inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/95">
-            <span class="cc-pulse-dot w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-            @L.T("home.hero.badge")
-        </div>
 
         <!-- Headline -->
         <h1 class="text-white text-[2.4rem] sm:text-5xl md:text-[3.6rem] lg:text-[4.2rem] font-extrabold font-headline leading-[1.06] tracking-[-0.04em] text-balance drop-shadow-lg max-w-4xl">
@@ -1036,13 +1031,8 @@
             : "background-image: linear-gradient(135deg, rgba(45,158,79,0.95) 0%, rgba(34,197,94,0.8) 55%, rgba(220,252,231,0.65) 100%);";
     }
 
-    private static string BuildFeaturedImageOnlyStyle(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
-    {
-        var image = CategoryVisualService.ResolveImage(item.Category, item.Category);
-        return !string.IsNullOrWhiteSpace(image)
-            ? $"background-image: url('{image}');"
-            : "background-image: linear-gradient(135deg, rgba(220,252,231,0.95) 0%, rgba(250,244,234,0.98) 55%, rgba(255,255,255,1) 100%);";
-    }
+    private string BuildFeaturedImageOnlyStyle(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
+        => SearchDisplayHelper.BuildCardBackgroundStyle(SearchDisplayHelper.ResolveCardImageUrl(item, MediaUrl.Resolve));
 
     private static string? FormatPriceLine(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
     {

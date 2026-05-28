@@ -1,4 +1,5 @@
 using ComunaClick.Api.Geo;
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Modules.Search.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -238,6 +239,10 @@ public sealed class SearchController : ControllerBase
 
         var fetchLimit = useGeo ? MaxFetchWhenGeo : take;
         var products = await productsQuery.OrderBy(x => x.Name).Take(fetchLimit).ToListAsync();
+        if (products.Count > 0)
+        {
+            await ProductMediaSync.EnrichManyAsync(_db, products, HttpContext.RequestAborted);
+        }
 
         Dictionary<Guid, Partner>? partnersById = null;
         if (products.Count > 0)
@@ -253,9 +258,10 @@ public sealed class SearchController : ControllerBase
         {
             SearchGeoResolver.Coordinates? coords = null;
             double? distanceKm = null;
-            if (partnersById is not null && partnersById.TryGetValue(product.PartnerId, out var partner))
+            Partner? productPartner = null;
+            if (partnersById is not null && partnersById.TryGetValue(product.PartnerId, out productPartner))
             {
-                coords = SearchGeoResolver.ResolvePartnerCoordinates(partner, comunasById);
+                coords = SearchGeoResolver.ResolveProductCoordinates(product, productPartner, comunasById);
             }
 
             if (useGeo)
@@ -267,11 +273,8 @@ public sealed class SearchController : ControllerBase
                 }
             }
 
-            string? productLogo = null;
-            if (partnersById is not null && partnersById.TryGetValue(product.PartnerId, out var productPartner))
-            {
-                productLogo = productPartner.LogoUrl;
-            }
+            var coverImage = product.ImageUrls.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))
+                ?? product.ImageUrl;
 
             items.Add(BuildSearchResult(
                 "product",
@@ -285,7 +288,9 @@ public sealed class SearchController : ControllerBase
                 $"/buyer/detail/product/{product.Id}",
                 coords,
                 distanceKm,
-                productLogo));
+                productPartner?.LogoUrl,
+                coverImage,
+                product.ImageUrls));
         }
 
         return OrderAndTake(items, useGeo, take);
@@ -320,12 +325,25 @@ public sealed class SearchController : ControllerBase
         var services = await servicesQuery.OrderBy(x => x.Name).Take(fetchLimit).ToListAsync();
 
         Dictionary<Guid, Partner>? partnersById = null;
+        Dictionary<Guid, IReadOnlyList<string>> serviceImagesByService = new();
         if (services.Count > 0)
         {
             var partnerIds = services.Select(x => x.PartnerId).Distinct().ToList();
             partnersById = await _db.Partners.AsNoTracking()
                 .Where(x => partnerIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id);
+
+            var serviceIds = services.Select(x => x.Id).ToList();
+            var imageRows = await _db.ServiceImages.AsNoTracking()
+                .Where(x => serviceIds.Contains(x.ServiceId))
+                .OrderBy(x => x.SortOrder)
+                .ThenBy(x => x.CreatedAt)
+                .Select(x => new { x.ServiceId, x.Url })
+                .ToListAsync();
+
+            serviceImagesByService = imageRows
+                .GroupBy(x => x.ServiceId)
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Url).ToList());
         }
 
         var items = new List<SearchResultItem>();
@@ -348,10 +366,15 @@ public sealed class SearchController : ControllerBase
             }
 
             string? serviceLogo = null;
-            if (partnersById is not null && partnersById.TryGetValue(service.PartnerId, out var servicePartner))
+            Partner? servicePartner = null;
+            if (partnersById is not null && partnersById.TryGetValue(service.PartnerId, out servicePartner))
             {
                 serviceLogo = servicePartner.LogoUrl;
             }
+
+            var serviceCover = serviceImagesByService.TryGetValue(service.Id, out var urls) && urls.Count > 0
+                ? urls[0]
+                : service.ImageUrl;
 
             items.Add(BuildSearchResult(
                 "service",
@@ -365,7 +388,9 @@ public sealed class SearchController : ControllerBase
                 $"/buyer/detail/service/{service.Id}",
                 coords,
                 distanceKm,
-                serviceLogo));
+                serviceLogo,
+                serviceCover,
+                serviceImagesByService.TryGetValue(service.Id, out var allUrls) ? allUrls : null));
         }
 
         return OrderAndTake(items, useGeo, take);
@@ -474,7 +499,9 @@ public sealed class SearchController : ControllerBase
         string ctaHref,
         SearchGeoResolver.Coordinates? coords,
         double? distanceKm,
-        string? logoUrl = null)
+        string? logoUrl = null,
+        string? imageUrl = null,
+        IReadOnlyList<string>? imageUrls = null)
         => new(
             type,
             id,
@@ -488,7 +515,9 @@ public sealed class SearchController : ControllerBase
             distanceKm,
             coords?.Latitude,
             coords?.Longitude,
-            logoUrl);
+            logoUrl,
+            imageUrl,
+            imageUrls);
 
     private static List<SearchResultItem> OrderAndTake(List<SearchResultItem> items, bool useGeo, int take)
     {

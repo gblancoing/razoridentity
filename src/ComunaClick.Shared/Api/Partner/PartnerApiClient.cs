@@ -28,6 +28,12 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<IReadOnlyList<Order>?> GetPartnerOrdersAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Order>>($"/v1/partners/{partnerId}/orders", cancellationToken);
 
+    public Task<Order?> UpdateOrderStatusAsync(Guid orderId, OrderStatusUpdateRequest request, CancellationToken cancellationToken = default)
+        => PatchAsync<Order>($"/v1/orders/{orderId}/status", request, cancellationToken);
+
+    public Task<Order?> CancelOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
+        => PostAsync<Order>($"/v1/orders/{orderId}/cancel", new { }, cancellationToken);
+
     public Task<IReadOnlyList<Booking>?> GetPartnerBookingsAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Booking>>($"/v1/partners/{partnerId}/bookings", cancellationToken);
 
@@ -390,7 +396,18 @@ public sealed record Product(
     DateTimeOffset UpdatedAt,
     ProductInventory? Inventory,
     IReadOnlyList<string>? ImageUrls = null,
-    IReadOnlyList<ProductImageInfo>? Images = null
+    IReadOnlyList<ProductImageInfo>? Images = null,
+    bool? InStock = null,
+    int? StockQuantity = null,
+    int? AvailableQuantity = null,
+    int? ReservedQuantity = null,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null
 );
 
 public sealed record ProductImageInfo(Guid Id, string Url, int SortOrder);
@@ -455,7 +472,10 @@ public sealed record Order(
     string? Currency,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<OrderItem>? Items
+    IReadOnlyList<OrderItem>? Items,
+    double GrossAmount = 0,
+    double PlatformFeeAmount = 0,
+    double NetAmount = 0
 );
 
 public sealed record OrderItem(
@@ -466,6 +486,8 @@ public sealed record OrderItem(
     double UnitPrice,
     double TotalPrice
 );
+
+public sealed record OrderStatusUpdateRequest(string Status);
 
 public sealed record Booking(
     Guid Id,
@@ -589,6 +611,9 @@ public sealed record PartnerDto(
     string? Address,
     string? Phone,
     string? Email,
+    Guid? CountryId,
+    Guid? RegionId,
+    Guid? ComunaId,
     double? Latitude,
     double? Longitude,
     bool IsVisible,
@@ -684,7 +709,14 @@ public sealed record ProductCreateRequest(
     double? CostPrice,
     string? Currency,
     bool? IsActive,
-    int? InitialStock
+    int? InitialStock,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null
 );
 
 public sealed record ProductUpdateRequest(
@@ -696,7 +728,14 @@ public sealed record ProductUpdateRequest(
     double? Price,
     double? CostPrice,
     string? Currency,
-    bool? IsActive
+    bool? IsActive,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null
 );
 
 public sealed record ProductInventoryUpdateRequest(

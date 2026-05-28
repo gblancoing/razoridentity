@@ -20,6 +20,8 @@ MIGRATIONS=(
   20260531_partner_logo_url.sql
   20260601_profile_web_links.sql
   20260602_service_geo_coordinates.sql
+  20260603_commerce_home_improvement_gardening.sql
+  20260604_product_geo_discovery.sql
 )
 
 remote() { ssh "${ssh_opts[@]}" "${SSH_USER}@${HOST}" "$@"; }

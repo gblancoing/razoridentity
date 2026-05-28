@@ -184,6 +184,23 @@ public sealed class PublicCatalogController : ControllerBase
             businessIds.Add(product.PartnerId);
         }
 
+        var discoveryPartnerIdsForPage = await (
+            from link in _db.ProductDiscoverySubcategories.AsNoTracking()
+            join sub in _db.ProductSubcategories.AsNoTracking() on link.SubcategoryId equals sub.Id
+            join product in _db.Products.AsNoTracking() on link.ProductId equals product.Id
+            where sub.IsActive
+                  && familyCategoryIds.Contains(sub.CategoryId)
+                  && product.IsActive
+                  && visiblePartnerIds.Contains(product.PartnerId)
+            select product.PartnerId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var partnerId in discoveryPartnerIdsForPage)
+        {
+            businessIds.Add(partnerId);
+        }
+
         foreach (var service in matchingServices)
         {
             businessIds.Add(service.PartnerId);
@@ -553,6 +570,7 @@ public sealed class PublicCatalogController : ControllerBase
         if (productEntities.Count > 0)
         {
             await ProductMediaSync.EnrichManyAsync(_db, productEntities, HttpContext.RequestAborted);
+            await ProductDiscoverySync.EnrichDiscoveryIdsAsync(_db, productEntities, HttpContext.RequestAborted);
         }
 
         var productIds = productEntities.Select(x => x.Id).ToList();
@@ -574,6 +592,7 @@ public sealed class PublicCatalogController : ControllerBase
                 x.Currency,
                 x.ImageUrl,
                 ImageUrls = x.ImageUrls,
+                DiscoverySubcategoryIds = x.DiscoverySubcategoryIds,
                 InStock = ProductInventoryRules.IsInStock(available),
                 StockQuantity = ProductInventoryRules.GetOnHandQuantity(x.Inventory),
                 AvailableQuantity = available
@@ -800,6 +819,23 @@ public sealed class PublicCatalogController : ControllerBase
             businessIds.Add(product.PartnerId);
         }
 
+        var discoveryPartnerIds = await (
+            from link in _db.ProductDiscoverySubcategories.AsNoTracking()
+            join sub in _db.ProductSubcategories.AsNoTracking() on link.SubcategoryId equals sub.Id
+            join product in _db.Products.AsNoTracking() on link.ProductId equals product.Id
+            where sub.IsActive
+                  && familyCategoryIds.Contains(sub.CategoryId)
+                  && product.IsActive
+                  && visiblePartnerIds.Contains(product.PartnerId)
+            select product.PartnerId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var partnerId in discoveryPartnerIds)
+        {
+            businessIds.Add(partnerId);
+        }
+
         foreach (var service in matchingServices)
         {
             businessIds.Add(service.PartnerId);
@@ -846,7 +882,29 @@ public sealed class PublicCatalogController : ControllerBase
     private static double DegreesToRadians(double degrees) => degrees * (Math.PI / 180d);
 
     private static string NormalizeKey(string? value)
-        => value?.Trim().ToLowerInvariant() ?? string.Empty;
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        // Normalize for dedup across minor variations (diacritics, NBSP, extra whitespace).
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace('\u00A0', ' ')
+            .Replace("á", "a", StringComparison.Ordinal)
+            .Replace("é", "e", StringComparison.Ordinal)
+            .Replace("í", "i", StringComparison.Ordinal)
+            .Replace("ó", "o", StringComparison.Ordinal)
+            .Replace("ú", "u", StringComparison.Ordinal)
+            .Replace("ñ", "n", StringComparison.Ordinal);
+
+        while (normalized.Contains("  ", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("  ", " ", StringComparison.Ordinal);
+        }
+
+        return normalized;
+    }
 
     private static string NormalizeCatalogScope(string? scope)
         => string.Equals(scope, "service", StringComparison.OrdinalIgnoreCase) ? "service" : "commerce";

@@ -8,6 +8,9 @@ public sealed class Product
     public Guid? CountryId { get; set; }
     public Guid? RegionId { get; set; }
     public Guid? ComunaId { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? ProductAddress { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? Category { get; set; }
@@ -31,4 +34,7 @@ public sealed class Product
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string? CatalogCategoryName { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public IReadOnlyList<Guid> DiscoverySubcategoryIds { get; set; } = Array.Empty<Guid>();
 }

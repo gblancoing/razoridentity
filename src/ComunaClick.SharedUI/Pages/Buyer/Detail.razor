@@ -588,17 +588,19 @@
             _ => "Comercio local"
         };
 
-    private static string ProductCardBackground(BuyerModels.PartnerProfileProduct p)
+    private string ProductCardBackground(BuyerModels.PartnerProfileProduct p)
     {
-        var url = ResolveHeroImage(p.Category, p.Name) ?? "";
+        var raw = PublicOfferVisuals.ResolveImage(p.ImageUrl, p.Category, p.Name, p.ImageUrls);
+        var url = string.IsNullOrWhiteSpace(raw) ? null : MediaUrl.Resolve(raw);
         return string.IsNullOrEmpty(url)
             ? "background: linear-gradient(135deg, #e8f5e0 0%, #f5f6f7 100%);"
             : $"background-image: linear-gradient(0deg, rgba(0,0,0,0.2), rgba(0,0,0,0.05)), url('{url}');";
     }
 
-    private static string ServiceCardBackground(BuyerModels.PartnerProfileService s)
+    private string ServiceCardBackground(BuyerModels.PartnerProfileService s)
     {
-        var url = ResolveHeroImage(s.Category, s.Name) ?? "";
+        var raw = PublicOfferVisuals.ResolveImage(s.ImageUrl, s.Category, s.Name, s.ImageUrls);
+        var url = string.IsNullOrWhiteSpace(raw) ? null : MediaUrl.Resolve(raw);
         return string.IsNullOrEmpty(url)
             ? "background: linear-gradient(135deg, #e3edf5 0%, #f5f6f7 100%);"
             : $"background-image: linear-gradient(0deg, rgba(0,0,0,0.2), rgba(0,0,0,0.05)), url('{url}');";
@@ -727,8 +729,15 @@
             product.Category,
             FormatMoney(product.Price, product.Currency)
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
-        _statusMessage = "Oferta lista para compra.";
-        _ctaSubtitle = "Continúa al checkout o revisa el negocio que publica este producto.";
+        var onHand = product.StockQuantity ?? 0;
+        var available = product.AvailableQuantity ?? onHand;
+        var reserved = Math.Max(0, onHand - available);
+        _statusMessage = reserved > 0
+            ? "Hay unidades reservadas en pedidos pendientes de pago. Si cancelas esos pedidos en tu panel, el stock vuelve a estar disponible."
+            : "Oferta lista para compra.";
+        _ctaSubtitle = reserved > 0
+            ? $"Disponible para venta: {available} de {onHand} en bodega."
+            : "Continúa al checkout o revisa el negocio que publica este producto.";
         _primaryCtaLabel = product.InStock ? "Comprar ahora" : L.T("public.product.outOfStock");
         _primaryCtaHref = product.InStock ? $"/buyer/checkout?productId={id}" : "#";
         _secondaryCtaLabel = product.PartnerId != Guid.Empty ? "Ver negocio" : null;

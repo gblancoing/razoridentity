@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ComunaClick.Api.Modules.Crm.Contracts;
+using ComunaClick.Common.Contact;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -194,7 +195,9 @@ public sealed class BuyerCustomerController : ControllerBase
 
         if (request.Phone is not null)
         {
-            customer.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+            customer.Phone = string.IsNullOrWhiteSpace(request.Phone)
+                ? null
+                : ChilePhoneNumbers.NormalizeForStorage(request.Phone);
         }
 
         if (request.FullName is not null)

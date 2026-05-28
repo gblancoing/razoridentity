@@ -223,7 +223,8 @@
                 <div>
                     <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.phone")</label>
                     <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
-                           @bind="_profileEditor.Phone" />
+                           @bind="_profileEditor.Phone" type="tel" autocomplete="tel" />
+                    <PhoneFieldHint Value="@_profileEditor.Phone" />
                 </div>
                 <div>
                     <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.email")</label>

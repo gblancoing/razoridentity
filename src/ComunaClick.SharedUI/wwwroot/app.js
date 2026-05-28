@@ -1310,7 +1310,8 @@ window.comunaclic.profileAddressUseCurrentLocation = function (elementId) {
   return window.comunaclic
     .getCurrentPosition({ forceFresh: true, timeout: 15000 })
     .then(function (pos) {
-      picker.applyCoords(pos.latitude, pos.longitude, 16);
+      picker.userAdjusted = false;
+      picker.applyCoords(pos.latitude, pos.longitude, 16, true);
       return picker.notify(pos.latitude, pos.longitude).then(function () {
         if (dotNetHelper) {
           return dotNetHelper.invokeMethodAsync("OnGeolocationFinished", true, "");

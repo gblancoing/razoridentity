@@ -143,6 +143,7 @@ public sealed class OrdersController : ControllerBase
 
         var orders = await _db.Orders
             .AsNoTracking()
+            .Include(x => x.Items)
             .Where(x => x.TenantId == tenantId.Value && x.PartnerId == partnerId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();

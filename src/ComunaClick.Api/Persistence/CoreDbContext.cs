@@ -28,6 +28,7 @@ public sealed class CoreDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ProductInventory> ProductInventories => Set<ProductInventory>();
+    public DbSet<ProductDiscoverySubcategory> ProductDiscoverySubcategories => Set<ProductDiscoverySubcategory>();
     public DbSet<PartnerCatalogCategory> PartnerCatalogCategories => Set<PartnerCatalogCategory>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<ProductSubcategory> ProductSubcategories => Set<ProductSubcategory>();
@@ -398,6 +399,9 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.CountryId).HasColumnName("country_id");
             entity.Property(x => x.RegionId).HasColumnName("region_id");
             entity.Property(x => x.ComunaId).HasColumnName("comuna_id");
+            entity.Property(x => x.Latitude).HasColumnName("latitude");
+            entity.Property(x => x.Longitude).HasColumnName("longitude");
+            entity.Property(x => x.ProductAddress).HasColumnName("product_address");
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Description).HasColumnName("description");
             entity.Property(x => x.Category).HasColumnName("category");
@@ -413,6 +417,18 @@ public sealed class CoreDbContext : DbContext
             entity.Ignore(x => x.ImageUrls);
             entity.Ignore(x => x.Images);
             entity.Ignore(x => x.CatalogCategoryName);
+            entity.Ignore(x => x.DiscoverySubcategoryIds);
+        });
+
+        modelBuilder.Entity<ProductDiscoverySubcategory>(entity =>
+        {
+            entity.ToTable("product_discovery_subcategories");
+            entity.HasKey(x => new { x.ProductId, x.SubcategoryId });
+            entity.Property(x => x.ProductId).HasColumnName("product_id");
+            entity.Property(x => x.SubcategoryId).HasColumnName("subcategory_id");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId);
+            entity.HasOne(x => x.Subcategory).WithMany().HasForeignKey(x => x.SubcategoryId);
         });
 
         modelBuilder.Entity<PartnerCatalogCategory>(entity =>

@@ -421,7 +421,7 @@
 
         if (success)
         {
-            await SyncCoordinatesFromMapAsync();
+            await PublishCoordinatesAsync();
         }
 
         await InvokeAsync(StateHasChanged);

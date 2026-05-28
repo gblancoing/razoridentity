@@ -350,6 +350,7 @@
         {
             "stock_out" => L.T("partner.notifications.stockOut"),
             "stock_low" => L.T("partner.notifications.stockLow"),
+            "order_notification" => L.T("partner.notifications.orderNew"),
             _ => type.Replace("_", " ", StringComparison.Ordinal).Trim()
         };
     }
@@ -364,10 +365,33 @@
         try
         {
             using var document = JsonDocument.Parse(payload);
-            if (document.RootElement.ValueKind == JsonValueKind.Object &&
-                document.RootElement.TryGetProperty("message", out var messageElement))
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return payload;
+            }
+
+            var root = document.RootElement;
+            if (root.TryGetProperty("message", out var messageElement))
             {
                 return messageElement.GetString() ?? payload;
+            }
+
+            if (root.TryGetProperty("TotalAmount", out var amountElement))
+            {
+                var amount = amountElement.GetDouble();
+                var currency = root.TryGetProperty("Currency", out var currencyElement)
+                    ? currencyElement.GetString() ?? "CLP"
+                    : "CLP";
+                var detail = root.TryGetProperty("detail", out var detailElement)
+                    ? detailElement.GetString()
+                    : null;
+                var formatted = amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("es-CL"));
+                if (string.Equals(detail, "notifications_disabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"Nuevo pedido por {currency} {formatted}. Las alertas por correo/WhatsApp están desactivadas; gestiona el pedido aquí.";
+                }
+
+                return $"Nuevo pedido por {currency} {formatted}.";
             }
         }
         catch (JsonException)
@@ -464,6 +488,11 @@
                 return "Actualiza el stock del producto en Catálogo para volver a venderlo.";
             }
 
+            if (type.Contains("order", StringComparison.Ordinal))
+            {
+                return "Confirma el pago o cancela el pedido para liberar stock reservado.";
+            }
+
             return "Prioriza esta alerta en la operación diaria: puede impactar atención al cliente o cumplimiento.";
         }
 
@@ -491,6 +520,11 @@
         if (type.Contains("stock", StringComparison.Ordinal))
         {
             return "/partner/catalog";
+        }
+
+        if (type.Contains("order", StringComparison.Ordinal))
+        {
+            return $"/partner/orders?orderId={note.ReferenceId.Value}";
         }
 
         if (type.Contains("payout", StringComparison.Ordinal) || type.Contains("payment", StringComparison.Ordinal))

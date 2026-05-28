@@ -4,8 +4,10 @@ namespace ComunaClick.Api.Modules.Catalog;
 
 internal static class ProductResponses
 {
-    public static object ToPartnerResponse(Product product, bool includeCost)
+    public static object ToPartnerResponse(Product product, bool includeCost, int? availableQuantity = null)
     {
+        var onHand = ProductInventoryRules.GetOnHandQuantity(product.Inventory);
+        var available = availableQuantity ?? onHand;
         var images = product.Images.Select(x => new { x.Id, x.Url, x.SortOrder }).ToList();
         return new
         {
@@ -17,6 +19,13 @@ internal static class ProductResponses
             product.Category,
             product.PartnerCatalogCategoryId,
             CatalogCategoryName = product.CatalogCategoryName,
+            DiscoverySubcategoryIds = product.DiscoverySubcategoryIds,
+            product.ProductAddress,
+            product.CountryId,
+            product.RegionId,
+            product.ComunaId,
+            product.Latitude,
+            product.Longitude,
             product.ImageUrl,
             ImageUrls = product.ImageUrls,
             Images = images,
@@ -26,6 +35,10 @@ internal static class ProductResponses
             product.IsActive,
             product.CreatedAt,
             product.UpdatedAt,
+            InStock = ProductInventoryRules.IsInStock(available),
+            StockQuantity = onHand,
+            AvailableQuantity = available,
+            ReservedQuantity = Math.Max(0, onHand - available),
             Inventory = product.Inventory is null ? null : new
             {
                 product.Inventory.ProductId,
@@ -56,6 +69,13 @@ internal static class ProductResponses
             product.Category,
             product.PartnerCatalogCategoryId,
             CatalogCategoryName = product.CatalogCategoryName,
+            DiscoverySubcategoryIds = product.DiscoverySubcategoryIds,
+            product.ProductAddress,
+            product.CountryId,
+            product.RegionId,
+            product.ComunaId,
+            product.Latitude,
+            product.Longitude,
             product.ImageUrl,
             ImageUrls = product.ImageUrls,
             Price = product.Price,

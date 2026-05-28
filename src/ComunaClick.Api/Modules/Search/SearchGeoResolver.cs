@@ -33,6 +33,22 @@ internal static class SearchGeoResolver
         return ResolvePartnerCoordinates(partner, comunasById);
     }
 
+    internal static Coordinates? ResolveProductCoordinates(Product product, Partner partner, IReadOnlyDictionary<Guid, Comuna> comunasById)
+    {
+        if (product.Latitude is double lat && product.Longitude is double lng)
+        {
+            return new Coordinates(lat, lng);
+        }
+
+        if (product.ComunaId is Guid comunaId && comunasById.TryGetValue(comunaId, out var comuna)
+            && comuna.Latitude is double cLat && comuna.Longitude is double cLng)
+        {
+            return new Coordinates(cLat, cLng);
+        }
+
+        return ResolvePartnerCoordinates(partner, comunasById);
+    }
+
     internal static Coordinates? ResolveProfessionalCoordinates(Professional professional, IReadOnlyDictionary<Guid, Comuna> comunasById)
     {
         if (professional.ComunaId is Guid comunaId && comunasById.TryGetValue(comunaId, out var comuna)

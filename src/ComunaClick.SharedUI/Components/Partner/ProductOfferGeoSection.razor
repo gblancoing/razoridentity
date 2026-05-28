@@ -1,0 +1,13 @@
+@inject LocaleService L
+
+<div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4 space-y-3">
+    <FormFieldHelp Label="@L.T("partner.catalog.a.productGeo.title")"
+                   Tooltip="@L.T("partner.catalog.a.productGeo.tooltip")"
+                   Help="@L.T("partner.catalog.a.productGeo.help")">
+        @ChildContent
+    </FormFieldHelp>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

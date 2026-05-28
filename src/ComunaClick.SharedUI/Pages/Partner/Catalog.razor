@@ -42,7 +42,7 @@
         </div>
     </header>
 
-    @if (IsProductPartner && OffersHybridServices)
+    @if (IsProductPartner)
     {
         <div class="flex flex-wrap gap-2">
             <button type="button"
@@ -50,10 +50,18 @@
                     @onclick='() => SetCommerceTab("products")'>
                 @L.T("partner.catalog.a.tab.products")
             </button>
+            @if (OffersHybridServices)
+            {
+                <button type="button"
+                        class="@(_commerceTab == "services" ? "rounded-2xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad]" : "rounded-2xl border border-[#dadddf] bg-white px-5 py-2.5 text-sm font-bold text-[#2c2f30]")"
+                        @onclick='() => SetCommerceTab("services")'>
+                    @L.T("partner.catalog.a.tab.services")
+                </button>
+            }
             <button type="button"
-                    class="@(_commerceTab == "services" ? "rounded-2xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad]" : "rounded-2xl border border-[#dadddf] bg-white px-5 py-2.5 text-sm font-bold text-[#2c2f30]")"
-                    @onclick='() => SetCommerceTab("services")'>
-                @L.T("partner.catalog.a.tab.services")
+                    class="@(_commerceTab == "sales" ? "rounded-2xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad]" : "rounded-2xl border border-[#dadddf] bg-white px-5 py-2.5 text-sm font-bold text-[#2c2f30]")"
+                    @onclick='() => SetCommerceTab("sales")'>
+                @L.T("partner.catalog.a.tab.sales")
             </button>
         </div>
     }
@@ -62,14 +70,14 @@
     {
         <div class="rounded-2xl border border-[#dbe6e2] bg-white p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <p class="text-sm font-bold text-[#2c2f30]">@L.T("partner.catalog.a.hybrid.enable")</p>
-                <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.catalog.a.hybrid.hint")</p>
+                <p class="text-sm font-bold text-[#2c2f30]">@(OffersHybridServices ? L.T("partner.catalog.a.hybrid.activeTitle") : L.T("partner.catalog.a.hybrid.enable"))</p>
+                <p class="mt-1 text-xs text-[#595c5d]">@(OffersHybridServices ? L.T("partner.catalog.a.hybrid.activeHint") : L.T("partner.catalog.a.hybrid.hint"))</p>
             </div>
             <button type="button"
                     class="@(OffersHybridServices ? "rounded-2xl bg-[#eff1f2] px-5 py-2.5 text-sm font-bold text-[#2c2f30]" : "rounded-2xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad]")"
                     disabled="@_isUpdatingHybrid"
                     @onclick="ToggleOffersServicesAsync">
-                @(OffersHybridServices ? L.T("partner.catalog.badge.listing") : L.T("partner.catalog.a.hybrid.enable"))
+                @(OffersHybridServices ? L.T("partner.catalog.a.hybrid.disable") : L.T("partner.catalog.a.hybrid.enableAction"))
             </button>
         </div>
     }
@@ -120,14 +128,39 @@
                                 </FormFieldHelp>
                             </div>
                             <div class="md:col-span-2">
-                                <label class="text-sm font-semibold">@L.T("partner.catalog.a.storeSection")</label>
+                                <ProductMarketplaceCategoryPicker Groups="_commerceCategoryGroups"
+                                                                  SelectedIds="_createDiscoverySubcategoryIds"
+                                                                  SelectedIdsChanged="OnCreateDiscoveryIdsChanged"
+                                                                  CompanyCategoryHint="@PartnerCompanyCategoryLabel"
+                                                                  InputClass="@InputClass" />
+                            </div>
+                            <div class="md:col-span-2">
+                                <ProductOfferGeoSection>
+                                    <ServiceGeoPicker @key="@CreateProductMapElementId"
+                                                      @ref="_createProductGeoPicker"
+                                                      MapElementId="@CreateProductMapElementId"
+                                                      Active="@(_showCreatePanel && _editingProductId is null)"
+                                                      @bind-CountryId="_createProduct.CountryId"
+                                                      @bind-RegionId="_createProduct.RegionId"
+                                                      @bind-ComunaId="_createProduct.ComunaId"
+                                                      Latitude="_createProduct.Latitude"
+                                                      LatitudeChanged="OnCreateProductLatitudeChanged"
+                                                      Longitude="_createProduct.Longitude"
+                                                      LongitudeChanged="OnCreateProductLongitudeChanged" />
+                                </ProductOfferGeoSection>
+                            </div>
+                            <div class="md:col-span-2">
+                                <FormFieldHelp Label="@L.T("partner.catalog.a.storeSection")"
+                                               Tooltip="@L.T("partner.catalog.a.storeSection.tooltip")"
+                                               Help="@L.T("partner.catalog.a.storeSection.help")">
                                 <select class="@InputClass" value="@(_createProduct.PartnerCatalogCategoryId?.ToString() ?? "")" @onchange="OnCreateProductSectionChanged">
-                                    <option value="">@L.T("partner.catalog.a.sections.placeholder")</option>
+                                    <option value="">@L.T("partner.catalog.a.storeSection.placeholder")</option>
                                     @foreach (var cat in _storeCategories)
                                     {
                                         <option value="@cat.Id">@cat.Name</option>
                                     }
                                 </select>
+                                </FormFieldHelp>
                             </div>
                             <div>
                                 <FormFieldHelp Label="@L.T("partner.catalog.a.salePrice")" Help="@L.T("partner.catalog.a.salePrice.help")">
@@ -305,6 +338,109 @@
         </section>
     }
 
+    @if (ShowSalesTab)
+    {
+        <section class="space-y-6">
+            <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.badge")</p>
+                    <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.catalog.a.sales.heading")</h2>
+                    <p class="mt-1 text-sm text-[#595c5d]">@L.T("partner.catalog.a.sales.subtitle")</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var period in SalesPeriodFilters)
+                    {
+                        <button type="button" class="@GetSalesChipClass(_salesPeriod, period.Key)" @onclick="() => _salesPeriod = period.Key">@period.Label</button>
+                    }
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                @foreach (var filter in SalesStatusFilters)
+                {
+                    <button type="button" class="@GetSalesChipClass(_salesStatusFilter, filter.Key)" @onclick="() => _salesStatusFilter = filter.Key">@filter.Label</button>
+                }
+                @foreach (var group in SalesGroupFilters)
+                {
+                    <button type="button" class="@GetSalesChipClass(_salesGroupBy, group.Key)" @onclick="() => _salesGroupBy = group.Key">@group.Label</button>
+                }
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.gross")</p>
+                    <p class="text-2xl font-black text-[#2c2f30]">@Money(SalesSummary.Gross)</p>
+                </article>
+                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.margin")</p>
+                    <p class="text-2xl font-black text-[#3b6700]">@Money(SalesSummary.Margin)</p>
+                </article>
+                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.commission")</p>
+                    <p class="text-2xl font-black text-[#8a5b00]">@Money(SalesSummary.Commission)</p>
+                </article>
+                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.net")</p>
+                    <p class="text-2xl font-black text-[#2c2f30]">@Money(SalesSummary.Net)</p>
+                </article>
+            </div>
+
+            <div class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                    <p class="text-sm font-bold text-[#2c2f30]">@L.T("partner.catalog.a.sales.tableTitle")</p>
+                    <a href="/partner/orders" class="text-sm font-bold text-[#3b6700] hover:underline">@L.T("partner.catalog.a.sales.manageOrders")</a>
+                </div>
+                @if (_isLoadingSales)
+                {
+                    <div class="bg-white rounded-3xl p-8">
+                        <BrandedLoading Title="@(L.T("ui.loading"))" Message="@L.T("partner.catalog.a.sales.loading")" Compact="true" />
+                    </div>
+                }
+                else if (SalesRows.Count == 0)
+                {
+                    <div class="bg-white rounded-3xl p-8 text-center space-y-2">
+                        <p class="text-lg font-bold text-[#2c2f30]">@L.T("partner.catalog.a.sales.empty")</p>
+                        <p class="text-sm text-[#595c5d]">@L.T("partner.catalog.a.sales.emptyHint")</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="overflow-x-auto rounded-3xl bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                        <table class="min-w-full text-sm">
+                            <thead class="text-left text-[10px] uppercase tracking-[0.14em] text-[#7b8081] border-b border-[#e3e6e8]">
+                                <tr>
+                                    <th class="px-5 py-4">@(_salesGroupBy == "category" ? L.T("partner.catalog.a.sales.col.category") : L.T("partner.catalog.a.sales.col.product"))</th>
+                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.units")</th>
+                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.gross")</th>
+                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.cost")</th>
+                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.margin")</th>
+                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.commission")</th>
+                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.net")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in SalesRows)
+                                {
+                                    <tr class="border-b border-[#f0f2f3] last:border-0">
+                                        <td class="px-5 py-4 font-bold text-[#2c2f30]">@row.Label</td>
+                                        <td class="px-5 py-4 text-[#595c5d]">@row.Units</td>
+                                        <td class="px-5 py-4">@Money(row.Gross)</td>
+                                        <td class="px-5 py-4 text-[#595c5d]">@Money(row.Cost)</td>
+                                        <td class="px-5 py-4 font-semibold text-[#3b6700]">@Money(row.Margin)</td>
+                                        <td class="px-5 py-4 text-[#8a5b00]">@Money(row.Commission)</td>
+                                        <td class="px-5 py-4 font-bold">@Money(row.Net)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mt-4 text-xs text-[#7b8081]">@L.T("partner.catalog.a.sales.footnote")</p>
+                }
+            </div>
+        </section>
+    }
+    else
+    {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
             <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@(IsServicePartner ? L.T("partner.catalog.b.count") : IsProductPartner ? L.T("partner.catalog.a.count") : CountLabel)</p>
@@ -404,7 +540,20 @@
                                 <div class="flex flex-wrap items-center gap-2">
                                     <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@item.Name</p>
                                     <span class="@BadgeClass(item.IsActive)">@BadgeText(item.IsActive)</span>
-                                    <span class="inline-flex items-center rounded-full bg-[#eff1f2] px-3 py-1 text-[11px] font-bold text-[#2c2f30]">Stock: @(item.Inventory?.Quantity ?? 0)</span>
+                                    @{
+                                        var onHand = item.StockQuantity ?? item.Inventory?.Quantity ?? 0;
+                                        var available = item.AvailableQuantity ?? onHand;
+                                        var reserved = item.ReservedQuantity ?? Math.Max(0, onHand - available);
+                                    }
+                                    <span class="inline-flex items-center rounded-full bg-[#eff1f2] px-3 py-1 text-[11px] font-bold text-[#2c2f30]">Stock: @onHand</span>
+                                    @if (reserved > 0)
+                                    {
+                                        <span class="inline-flex items-center rounded-full bg-[#fff4d6] px-3 py-1 text-[11px] font-bold text-[#8a5b00]">@available disponible · @reserved reservado</span>
+                                    }
+                                    else if (!item.InStock.GetValueOrDefault(available > 0))
+                                    {
+                                        <span class="inline-flex items-center rounded-full bg-[#fecaca] px-3 py-1 text-[11px] font-bold text-[#b42318]">Sin stock disponible</span>
+                                    }
                                 </div>
                                 <p class="text-sm text-[#595c5d]">@(string.IsNullOrWhiteSpace(item.Description) ? "Sin descripcion comercial todavia." : item.Description)</p>
                                 <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@(string.IsNullOrWhiteSpace(item.Category) ? "Categoria pendiente" : item.Category)</p>
@@ -422,7 +571,7 @@
 
                         <div class="flex flex-wrap gap-3">
                             <PartnerPublicPreviewLink Href="@($"/buyer/detail/product/{item.Id}")" Label="@L.T("partner.catalog.preview.item")" />
-                            <button class="@PrimaryButtonClass" @onclick="() => BeginEditProduct(item)" disabled="@IsBusy(item.Id)">
+                            <button class="@PrimaryButtonClass" @onclick="() => BeginEditProductAsync(item)" disabled="@IsBusy(item.Id)">
                                 <span class="material-symbols-outlined text-[18px]">edit</span>
                                 @L.T("partner.catalog.edit")
                             </button>
@@ -451,14 +600,39 @@
                                         <textarea class="@TextAreaClass" @bind="_productEditor.Description"></textarea>
                                     </div>
                                     <div class="md:col-span-2">
-                                        <label class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.catalog.a.storeSection")</label>
-                                        <select class="@InputClass" value="@(_productEditor.PartnerCatalogCategoryId?.ToString() ?? "")" @onchange="OnEditProductSectionChanged">
-                                            <option value="">—</option>
-                                            @foreach (var cat in _storeCategories)
-                                            {
-                                                <option value="@cat.Id">@cat.Name</option>
-                                            }
-                                        </select>
+                                        <ProductMarketplaceCategoryPicker Groups="_commerceCategoryGroups"
+                                                                          SelectedIds="_editDiscoverySubcategoryIds"
+                                                                          SelectedIdsChanged="OnEditDiscoveryIdsChanged"
+                                                                          CompanyCategoryHint="@PartnerCompanyCategoryLabel"
+                                                                          InputClass="@InputClass" />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <ProductOfferGeoSection>
+                                            <ServiceGeoPicker @key="@EditProductMapElementId(item.Id)"
+                                                              @ref="_editProductGeoPicker"
+                                                              MapElementId="@EditProductMapElementId(item.Id)"
+                                                              Active="@(_editingProductId == item.Id)"
+                                                              @bind-CountryId="_productEditor.CountryId"
+                                                              @bind-RegionId="_productEditor.RegionId"
+                                                              @bind-ComunaId="_productEditor.ComunaId"
+                                                              Latitude="_productEditor.Latitude"
+                                                              LatitudeChanged="OnProductEditorLatitudeChanged"
+                                                              Longitude="_productEditor.Longitude"
+                                                              LongitudeChanged="OnProductEditorLongitudeChanged" />
+                                        </ProductOfferGeoSection>
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <FormFieldHelp Label="@L.T("partner.catalog.a.storeSection")"
+                                                       Tooltip="@L.T("partner.catalog.a.storeSection.tooltip")"
+                                                       Help="@L.T("partner.catalog.a.storeSection.help")">
+                                            <select class="@InputClass" value="@(_productEditor.PartnerCatalogCategoryId?.ToString() ?? "")" @onchange="OnEditProductSectionChanged">
+                                                <option value="">@L.T("partner.catalog.a.storeSection.placeholder")</option>
+                                                @foreach (var cat in _storeCategories)
+                                                {
+                                                    <option value="@cat.Id">@cat.Name</option>
+                                                }
+                                            </select>
+                                        </FormFieldHelp>
                                     </div>
                                     <div>
                                         <label class="text-sm font-semibold text-[#2c2f30]">Stock</label>
@@ -784,12 +958,24 @@
             }
         </div>
     </section>
+    }
 </div>
 
 @code {
     private readonly List<PartnerProduct> _products = new();
+    private readonly List<ComunaClick.Shared.Api.Partner.Order> _orders = new();
     private ServiceGeoPicker? _createServiceGeoPicker;
     private ServiceGeoPicker? _editServiceGeoPicker;
+    private ServiceGeoPicker? _createProductGeoPicker;
+    private ServiceGeoPicker? _editProductGeoPicker;
+    private double? _createProductGeoLatitude;
+    private double? _createProductGeoLongitude;
+    private double? _editProductGeoLatitude;
+    private double? _editProductGeoLongitude;
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicSubcategoryItem> _commerceSubcategories = new();
+    private readonly List<ProductMarketplaceCategoryPicker.CommerceCategoryGroup> _commerceCategoryGroups = new();
+    private readonly HashSet<Guid> _createDiscoverySubcategoryIds = new();
+    private readonly HashSet<Guid> _editDiscoverySubcategoryIds = new();
     private double? _createServiceGeoLatitude;
     private double? _createServiceGeoLongitude;
     private double? _editServiceGeoLatitude;
@@ -825,13 +1011,51 @@
     private readonly List<PartnerStoreCategory> _storeCategories = new();
     private string _commerceTab = "products";
     private bool _isUpdatingHybrid;
+    private bool _isLoadingSales;
+    private string _salesStatusFilter = "paid";
+    private string _salesGroupBy = "category";
+    private string _salesPeriod = "30d";
 
     private bool IsProductPartner => string.Equals(_partner?.Type, "A", StringComparison.OrdinalIgnoreCase);
     private bool IsServicePartner => string.Equals(_partner?.Type, "B", StringComparison.OrdinalIgnoreCase);
     private bool OffersHybridServices => _partner?.OffersServices == true;
     private bool ShowProductCatalog => IsProductPartner && _commerceTab == "products";
     private bool ShowServiceCatalog => IsServicePartner || (IsProductPartner && OffersHybridServices && _commerceTab == "services");
-    private int OutOfStockProductCount => _products.Count(x => x.IsActive && (x.Inventory?.Quantity ?? 0) <= 0);
+    private bool ShowSalesTab => IsProductPartner && _commerceTab == "sales";
+
+    private IReadOnlyList<FilterChip> SalesStatusFilters { get; } =
+    [
+        new("paid", "Pagadas"),
+        new("pending", "Pendientes"),
+        new("all", "Todas")
+    ];
+
+    private IReadOnlyList<FilterChip> SalesGroupFilters { get; } =
+    [
+        new("category", "Por categoría"),
+        new("product", "Por producto")
+    ];
+
+    private IReadOnlyList<FilterChip> SalesPeriodFilters { get; } =
+    [
+        new("7d", "7 días"),
+        new("30d", "30 días"),
+        new("90d", "90 días"),
+        new("all", "Todo")
+    ];
+
+    private SalesTotals SalesSummary => ComputeSalesTotals();
+    private List<SalesRow> SalesRows => BuildSalesRows();
+    private int OutOfStockProductCount => _products.Count(x =>
+    {
+        if (!x.IsActive)
+        {
+            return false;
+        }
+
+        var available = x.AvailableQuantity ?? x.Inventory?.Quantity ?? 0;
+        return available <= 0;
+    });
     private int BookableServiceCount => _services.Count(IsServiceBookable);
     private string ServiceDurationMetric
     {
@@ -928,6 +1152,9 @@
                 }
 
                 await LoadStoreCategoriesAsync(partnerId);
+                await LoadCommerceSubcategoriesAsync();
+                ApplyDefaultCreateProductDiscovery();
+                await ApplyDefaultCreateProductGeoAsync();
 
                 _statusMessage = _products.Count == 0
                     ? L.T("partner.catalog.a.emptyHint")
@@ -946,6 +1173,8 @@
                     ApplyDefaultCreateServiceCategory();
                     ApplyDefaultCreateServiceGeo();
                 }
+
+                await LoadOrdersAsync(partnerId);
             }
             else if (IsServicePartner)
             {
@@ -999,6 +1228,21 @@
     {
         if (_createService.ComunaId is Guid existing && existing != Guid.Empty)
         {
+            return;
+        }
+
+        if (TryApplyPartnerGeo(
+                out var countryId,
+                out var regionId,
+                out var comunaId,
+                out var latitude,
+                out var longitude))
+        {
+            _createService.CountryId = countryId;
+            _createService.RegionId = regionId;
+            _createService.ComunaId = comunaId;
+            _createService.Latitude = latitude;
+            _createService.Longitude = longitude;
             return;
         }
 
@@ -1081,9 +1325,23 @@
             return;
         }
 
+        if (_createDiscoverySubcategoryIds.Count == 0)
+        {
+            _statusMessage = L.T("partner.catalog.a.marketplaceCategory.required");
+            return;
+        }
+
+        var geoError = await PrepareProductGeoForSaveAsync(_createProduct, _createProductGeoPicker);
+        if (geoError is not null)
+        {
+            _statusMessage = L.T(geoError);
+            return;
+        }
+
         _isCreating = true;
         try
         {
+            var (createLat, createLng) = await ResolveProductCoordinatesAsync(_createProduct, _createProductGeoPicker);
             var sectionLabel = CreateProductSectionLabel;
             var created = await PartnerApi.CreateProductAsync(new ComunaClick.Shared.Api.Partner.ProductCreateRequest(
                 _partner.Id,
@@ -1096,7 +1354,14 @@
                 _createProduct.CostPrice > 0 ? _createProduct.CostPrice : null,
                 "CLP",
                 true,
-                _createProduct.StockQuantity));
+                _createProduct.StockQuantity,
+                null,
+                _createProduct.CountryId,
+                _createProduct.RegionId,
+                _createProduct.ComunaId,
+                createLat,
+                createLng,
+                _createDiscoverySubcategoryIds.Count > 0 ? _createDiscoverySubcategoryIds.ToList() : null));
             if (created is not null)
             {
                 if (_createPendingProductImages.Count > 0)
@@ -1128,6 +1393,9 @@
                 _createProduct.StockQuantity = 0;
                 _createProduct.PartnerCatalogCategoryId = null;
                 _createPendingProductImages = Array.Empty<ProductImageUpload.PendingProductImageFile>();
+                _createDiscoverySubcategoryIds.Clear();
+                ApplyDefaultCreateProductDiscovery();
+                await ApplyDefaultCreateProductGeoAsync();
             }
         }
         catch (HttpRequestException ex)
@@ -1249,7 +1517,7 @@
         }
     }
 
-    private void BeginEditProduct(PartnerProduct item)
+    private async Task BeginEditProductAsync(PartnerProduct item)
     {
         _editingServiceId = null;
         _editingProfessionalId = null;
@@ -1261,6 +1529,23 @@
         _productEditor.Price = item.Price;
         _productEditor.CostPrice = item.CostPrice ?? 0;
         _productEditor.StockQuantity = item.Inventory?.Quantity ?? 0;
+        _productEditor.CountryId = item.CountryId;
+        _productEditor.RegionId = item.RegionId;
+        _productEditor.ComunaId = item.ComunaId;
+        _productEditor.Latitude = item.Latitude;
+        _productEditor.Longitude = item.Longitude;
+        await NormalizeEditorGeoCascadeAsync(_productEditor);
+        _editProductGeoLatitude = _productEditor.Latitude;
+        _editProductGeoLongitude = _productEditor.Longitude;
+        _editDiscoverySubcategoryIds.Clear();
+        if (item.DiscoverySubcategoryIds is { Count: > 0 } discoveryIds)
+        {
+            foreach (var id in discoveryIds)
+            {
+                _editDiscoverySubcategoryIds.Add(id);
+            }
+        }
+
         _editProductImages = item.Images is { Count: > 0 } images
             ? images.ToList()
             : EmptyProductImages;
@@ -1310,6 +1595,9 @@
         _editingProfessionalId = null;
         _editServiceGeoLatitude = null;
         _editServiceGeoLongitude = null;
+        _editProductGeoLatitude = null;
+        _editProductGeoLongitude = null;
+        _editDiscoverySubcategoryIds.Clear();
         _editServiceImages = EmptyServiceImages;
         _editProductImages = EmptyProductImages;
         ClearEditFormMessage();
@@ -1543,9 +1831,23 @@
             return;
         }
 
+        if (_editDiscoverySubcategoryIds.Count == 0)
+        {
+            _statusMessage = L.T("partner.catalog.a.marketplaceCategory.required");
+            return;
+        }
+
+        var geoError = await PrepareProductGeoForSaveAsync(_productEditor, _editProductGeoPicker);
+        if (geoError is not null)
+        {
+            _statusMessage = L.T(geoError);
+            return;
+        }
+
         _busyItemId = _editingProductId;
         try
         {
+            var (saveLat, saveLng) = await ResolveProductCoordinatesAsync(_productEditor, _editProductGeoPicker);
             var updated = await PartnerApi.UpdateProductAsync(_editingProductId.Value, new ComunaClick.Shared.Api.Partner.ProductUpdateRequest(
                 Clean(_productEditor.Name),
                 Clean(_productEditor.Description),
@@ -1555,7 +1857,14 @@
                 _productEditor.Price,
                 _productEditor.CostPrice > 0 ? _productEditor.CostPrice : null,
                 "CLP",
-                null));
+                null,
+                null,
+                _productEditor.CountryId,
+                _productEditor.RegionId,
+                _productEditor.ComunaId,
+                saveLat,
+                saveLng,
+                _editDiscoverySubcategoryIds.ToList()));
             if (updated is not null)
             {
                 var inventory = await PartnerApi.UpdateProductInventoryAsync(_editingProductId.Value, new ComunaClick.Shared.Api.Partner.ProductInventoryUpdateRequest(_productEditor.StockQuantity));
@@ -1945,15 +2254,18 @@
     }
 
     private static bool ValidateServiceGeo(ServiceEditor editor, out string? localeKey)
+        => ValidateCatalogGeo(editor.ComunaId, editor.Latitude, editor.Longitude, out localeKey);
+
+    private static bool ValidateCatalogGeo(Guid? comunaId, double? latitude, double? longitude, out string? localeKey)
     {
-        if (editor.ComunaId is not Guid comunaId || comunaId == Guid.Empty)
+        if (comunaId is not Guid cid || cid == Guid.Empty)
         {
             localeKey = "partner.catalog.b.geo.required";
             return false;
         }
 
-        if (editor.Latitude is not double lat
-            || editor.Longitude is not double lng
+        if (latitude is not double lat
+            || longitude is not double lng
             || lat is < -90 or > 90
             || lng is < -180 or > 180)
         {
@@ -1963,6 +2275,296 @@
 
         localeKey = null;
         return true;
+    }
+
+    private async Task LoadCommerceSubcategoriesAsync()
+    {
+        _commerceSubcategories.Clear();
+        _commerceCategoryGroups.Clear();
+        try
+        {
+            var categories = await BuyerApi.GetCatalogCategoriesAsync("commerce");
+            if (categories is null)
+            {
+                return;
+            }
+
+            foreach (var category in categories)
+            {
+                var subs = await BuyerApi.GetProductSubcategoriesAsync(category.Id);
+                if (subs is null || subs.Count == 0)
+                {
+                    continue;
+                }
+
+                var orderedSubs = subs
+                    .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                _commerceCategoryGroups.Add(new ProductMarketplaceCategoryPicker.CommerceCategoryGroup(
+                    category.Id,
+                    category.Name,
+                    orderedSubs));
+
+                foreach (var sub in orderedSubs)
+                {
+                    if (!_commerceSubcategories.Any(x => x.Id == sub.Id))
+                    {
+                        _commerceSubcategories.Add(sub);
+                    }
+                }
+            }
+
+            _commerceCategoryGroups.Sort((a, b) =>
+                string.Compare(a.CategoryName, b.CategoryName, StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+        }
+    }
+
+    private void ApplyDefaultCreateProductDiscovery()
+    {
+        if (_createDiscoverySubcategoryIds.Count > 0)
+        {
+            return;
+        }
+
+        if (_partner?.SubcategoryId is Guid partnerSubId
+            && partnerSubId != Guid.Empty
+            && _commerceSubcategories.Any(x => x.Id == partnerSubId))
+        {
+            _createDiscoverySubcategoryIds.Add(partnerSubId);
+        }
+    }
+
+    private Task OnCreateDiscoveryIdsChanged(HashSet<Guid> _) => InvokeAsync(StateHasChanged);
+
+    private Task OnEditDiscoveryIdsChanged(HashSet<Guid> _) => InvokeAsync(StateHasChanged);
+
+    private async Task ApplyDefaultCreateProductGeoAsync()
+    {
+        if (_createProduct.ComunaId is not Guid existing || existing == Guid.Empty)
+        {
+            if (TryApplyPartnerGeo(
+                    out var countryId,
+                    out var regionId,
+                    out var comunaId,
+                    out var latitude,
+                    out var longitude))
+            {
+                _createProduct.CountryId = countryId;
+                _createProduct.RegionId = regionId;
+                _createProduct.ComunaId = comunaId;
+                _createProduct.Latitude = latitude;
+                _createProduct.Longitude = longitude;
+            }
+            else
+            {
+                var sample = _products.FirstOrDefault(x => x.ComunaId is Guid c && c != Guid.Empty);
+                if (sample is not null)
+                {
+                    _createProduct.CountryId = sample.CountryId;
+                    _createProduct.RegionId = sample.RegionId;
+                    _createProduct.ComunaId = sample.ComunaId;
+                    _createProduct.Latitude = sample.Latitude;
+                    _createProduct.Longitude = sample.Longitude;
+                }
+                else if (_partner?.Latitude is double partnerLat && _partner.Longitude is double partnerLng)
+                {
+                    _createProduct.Latitude = partnerLat;
+                    _createProduct.Longitude = partnerLng;
+                }
+            }
+        }
+
+        await NormalizeEditorGeoCascadeAsync(_createProduct);
+    }
+
+    private async Task NormalizeEditorGeoCascadeAsync(ProductEditor editor)
+    {
+        if (editor.ComunaId is not Guid comunaId || comunaId == Guid.Empty)
+        {
+            return;
+        }
+
+        var countries = await BuyerApi.GetCountriesAsync() ?? Array.Empty<ComunaClick.Shared.Api.Buyer.PublicCountryItem>();
+        foreach (var country in countries)
+        {
+            var regions = await BuyerApi.GetRegionsAsync(country.Id) ?? Array.Empty<ComunaClick.Shared.Api.Buyer.PublicRegionItem>();
+            foreach (var region in regions)
+            {
+                var comunas = await BuyerApi.GetComunasAsync(region.Id) ?? Array.Empty<ComunaClick.Shared.Api.Buyer.PublicComunaItem>();
+                var match = comunas.FirstOrDefault(x => x.Id == comunaId);
+                if (match is null)
+                {
+                    continue;
+                }
+
+                editor.CountryId = country.Id;
+                editor.RegionId = region.Id;
+                editor.ComunaId = comunaId;
+                if (editor.Latitude is not double || editor.Longitude is not double)
+                {
+                    if (match.Latitude is double clat && match.Longitude is double clng)
+                    {
+                        editor.Latitude = clat;
+                        editor.Longitude = clng;
+                    }
+                }
+
+                return;
+            }
+        }
+    }
+
+    private bool TryApplyPartnerGeo(
+        out Guid? countryId,
+        out Guid? regionId,
+        out Guid? comunaId,
+        out double? latitude,
+        out double? longitude)
+    {
+        countryId = null;
+        regionId = null;
+        comunaId = null;
+        latitude = null;
+        longitude = null;
+
+        if (_partner?.ComunaId is not Guid partnerComuna || partnerComuna == Guid.Empty)
+        {
+            return false;
+        }
+
+        countryId = _partner.CountryId;
+        regionId = _partner.RegionId;
+        comunaId = partnerComuna;
+        if (_partner.Latitude is double lat && _partner.Longitude is double lng)
+        {
+            latitude = lat;
+            longitude = lng;
+        }
+
+        return true;
+    }
+
+    private async Task<string?> PrepareProductGeoForSaveAsync(ProductEditor editor, ServiceGeoPicker? picker)
+    {
+        if (editor.ComunaId is not Guid comunaId || comunaId == Guid.Empty)
+        {
+            return "partner.catalog.b.geo.required";
+        }
+
+        ApplyResolvedProductCoordinates(editor, await ResolveProductCoordinatesAsync(editor, picker));
+
+        if (!ValidateCatalogGeo(editor.ComunaId, editor.Latitude, editor.Longitude, out var localeKey))
+        {
+            return localeKey;
+        }
+
+        return null;
+    }
+
+    private async Task<(double? Latitude, double? Longitude)> ResolveProductCoordinatesAsync(
+        ProductEditor editor,
+        ServiceGeoPicker? picker)
+    {
+        if (picker is not null)
+        {
+            await picker.SyncCoordinatesFromMapAsync();
+            await picker.PublishCoordinatesAsync();
+            var (pickerLat, pickerLng) = picker.GetCoordinatesForSave();
+            if (pickerLat is double lat && pickerLng is double lng)
+            {
+                return (lat, lng);
+            }
+        }
+
+        if (ReferenceEquals(editor, _productEditor)
+            && _editProductGeoLatitude is double editLat
+            && _editProductGeoLongitude is double editLng)
+        {
+            return (editLat, editLng);
+        }
+
+        if (ReferenceEquals(editor, _createProduct)
+            && _createProductGeoLatitude is double createLat
+            && _createProductGeoLongitude is double createLng)
+        {
+            return (createLat, createLng);
+        }
+
+        if (editor.Latitude is double editorLat && editor.Longitude is double editorLng)
+        {
+            return (editorLat, editorLng);
+        }
+
+        var mapElementId = ReferenceEquals(editor, _productEditor) && _editingProductId is Guid editId
+            ? EditProductMapElementId(editId)
+            : ReferenceEquals(editor, _createProduct)
+                ? CreateProductMapElementId
+                : null;
+
+        if (mapElementId is not null)
+        {
+            return await TryReadGeoFromMapElementAsync(mapElementId);
+        }
+
+        return (editor.Latitude, editor.Longitude);
+    }
+
+    private void ApplyResolvedProductCoordinates(ProductEditor editor, (double? Latitude, double? Longitude) coords)
+    {
+        if (coords.Latitude is not double lat || coords.Longitude is not double lng)
+        {
+            return;
+        }
+
+        editor.Latitude = lat;
+        editor.Longitude = lng;
+
+        if (ReferenceEquals(editor, _productEditor))
+        {
+            _editProductGeoLatitude = lat;
+            _editProductGeoLongitude = lng;
+        }
+        else if (ReferenceEquals(editor, _createProduct))
+        {
+            _createProductGeoLatitude = lat;
+            _createProductGeoLongitude = lng;
+        }
+    }
+
+    private static string EditProductMapElementId(Guid productId) => $"product-geo-map-edit-{productId}";
+
+    private const string CreateProductMapElementId = "product-geo-map-create";
+
+    private Task OnCreateProductLatitudeChanged(double? value)
+    {
+        _createProduct.Latitude = value;
+        _createProductGeoLatitude = value;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnCreateProductLongitudeChanged(double? value)
+    {
+        _createProduct.Longitude = value;
+        _createProductGeoLongitude = value;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnProductEditorLatitudeChanged(double? value)
+    {
+        _productEditor.Latitude = value;
+        _editProductGeoLatitude = value;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnProductEditorLongitudeChanged(double? value)
+    {
+        _productEditor.Longitude = value;
+        _editProductGeoLongitude = value;
+        return InvokeAsync(StateHasChanged);
     }
 
     private bool ValidateBookableStaff(ServiceEditor editor, out string? localeKey)
@@ -1990,6 +2592,18 @@
     }
 
     private static string Money(double value) => $"${value:N0}";
+    private static string Money(decimal value) => $"${value:N0}";
+
+    private sealed record FilterChip(string Key, string Label);
+    private sealed record SalesRow(string Label, int Units = 0, decimal Gross = 0, decimal Cost = 0, decimal Commission = 0, decimal Net = 0)
+    {
+        public decimal Margin => Gross - Cost;
+    }
+
+    private sealed record SalesTotals(decimal Gross, decimal Cost, decimal Commission, decimal Net)
+    {
+        public decimal Margin => Gross - Cost;
+    }
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -2025,7 +2639,139 @@
         _commerceTab = tab;
         _showCreatePanel = false;
         CancelEdit();
+        if (tab == "sales" && _partner is not null && _orders.Count == 0)
+        {
+            _ = LoadOrdersAsync(_partner.Id);
+        }
     }
+
+    private async Task LoadOrdersAsync(Guid partnerId)
+    {
+        _isLoadingSales = true;
+        try
+        {
+            _orders.Clear();
+            var orders = await PartnerApi.GetPartnerOrdersAsync(partnerId);
+            if (orders is not null)
+            {
+                _orders.AddRange(orders);
+            }
+        }
+        catch
+        {
+            // Sales tab can still render catalog rows with zero sales.
+        }
+        finally
+        {
+            _isLoadingSales = false;
+        }
+    }
+
+    private IEnumerable<ComunaClick.Shared.Api.Partner.Order> FilteredSalesOrders()
+    {
+        var from = _salesPeriod switch
+        {
+            "7d" => DateTimeOffset.UtcNow.AddDays(-7),
+            "30d" => DateTimeOffset.UtcNow.AddDays(-30),
+            "90d" => DateTimeOffset.UtcNow.AddDays(-90),
+            _ => (DateTimeOffset?)null
+        };
+
+        IEnumerable<ComunaClick.Shared.Api.Partner.Order> query = _orders;
+        if (from.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt >= from.Value);
+        }
+
+        return query.Where(order =>
+        {
+            var status = order.Status?.Trim().ToLowerInvariant() ?? string.Empty;
+            return _salesStatusFilter switch
+            {
+                "paid" => status == "paid",
+                "pending" => status is "payment_pending" or "processing",
+                _ => true
+            };
+        });
+    }
+
+    private List<SalesRow> BuildSalesRows()
+    {
+        var productMap = _products.ToDictionary(x => x.Id);
+        var buckets = new Dictionary<string, SalesRow>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var order in FilteredSalesOrders())
+        {
+            if (order.Items is null || order.Items.Count == 0)
+            {
+                continue;
+            }
+
+            var orderGross = (decimal)(order.GrossAmount > 0 ? order.GrossAmount : order.TotalAmount);
+            var orderFee = (decimal)order.PlatformFeeAmount;
+            var orderNet = order.NetAmount > 0 ? (decimal)order.NetAmount : decimal.Max(0m, orderGross - orderFee);
+            var itemsTotal = order.Items.Sum(x => (decimal)x.TotalPrice);
+            if (itemsTotal <= 0)
+            {
+                itemsTotal = orderGross;
+            }
+
+            foreach (var item in order.Items)
+            {
+                if (!productMap.TryGetValue(item.ProductId, out var product))
+                {
+                    continue;
+                }
+
+                var share = itemsTotal > 0 ? (decimal)item.TotalPrice / itemsTotal : 1m / order.Items.Count;
+                var lineGross = (decimal)item.TotalPrice;
+                var unitCost = (decimal)(product.CostPrice ?? 0);
+                var lineCost = unitCost * item.Quantity;
+                var lineCommission = orderFee * share;
+                var lineNet = orderNet * share;
+                var key = _salesGroupBy == "category"
+                    ? product.Category ?? "Sin categoría"
+                    : product.Id.ToString();
+                var label = _salesGroupBy == "category"
+                    ? product.Category ?? "Sin categoría"
+                    : product.Name ?? "Producto";
+
+                if (!buckets.TryGetValue(key, out var row))
+                {
+                    row = new SalesRow(label);
+                    buckets[key] = row;
+                }
+
+                buckets[key] = row with
+                {
+                    Units = row.Units + item.Quantity,
+                    Gross = row.Gross + lineGross,
+                    Cost = row.Cost + lineCost,
+                    Commission = row.Commission + lineCommission,
+                    Net = row.Net + lineNet
+                };
+            }
+        }
+
+        return buckets.Values
+            .OrderByDescending(x => x.Gross)
+            .ToList();
+    }
+
+    private SalesTotals ComputeSalesTotals()
+    {
+        var rows = BuildSalesRows();
+        return new SalesTotals(
+            rows.Sum(x => x.Gross),
+            rows.Sum(x => x.Cost),
+            rows.Sum(x => x.Commission),
+            rows.Sum(x => x.Net));
+    }
+
+    private string GetSalesChipClass(string active, string key)
+        => string.Equals(active, key, StringComparison.Ordinal)
+            ? "rounded-2xl bg-[#2c2f30] px-4 py-2 text-xs font-bold text-white"
+            : "rounded-2xl border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#595c5d]";
 
     private async Task ToggleOffersServicesAsync()
     {
@@ -2144,6 +2890,11 @@
         public string? Description { get; set; }
         public string? Category { get; set; }
         public Guid? PartnerCatalogCategoryId { get; set; }
+        public Guid? CountryId { get; set; }
+        public Guid? RegionId { get; set; }
+        public Guid? ComunaId { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
         [Range(0, int.MaxValue)] public int StockQuantity { get; set; }
         [Range(0, 999999999)] public double Price { get; set; }
         [Range(0, 999999999)] public double CostPrice { get; set; }
