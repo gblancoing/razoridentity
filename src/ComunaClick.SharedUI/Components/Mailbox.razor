@@ -6,16 +6,21 @@
 @inject AuthStateService AuthState
 @inject ApiSessionService ApiSession
 @inject NavigationManager Navigation
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @implements IDisposable
 
 <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#dadddf] bg-white shadow-[0_12px_40px_-24px_rgba(0,0,0,0.25)]">
     <header class="flex shrink-0 items-center justify-between gap-4 border-b border-[#e3e6e8] bg-[#fafbfc] px-4 py-3 sm:px-6">
         <div>
             <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">@L.T("inbox.badge")</p>
-            <h1 class="text-lg font-black tracking-[-0.03em] text-[#2c2f30] sm:text-xl">@L.T("inbox.title")</h1>
-            @if (!IsCustomerMode)
+            <h1 class="text-lg font-black tracking-[-0.03em] text-[#2c2f30] sm:text-xl">@L.T(InboxTitleKey)</h1>
+            @if (IsPartnerMode)
             {
                 <p class="mt-1 max-w-xl text-sm text-[#595c5d]">@L.T("inbox.partnerSubtitle")</p>
+            }
+            else if (IsProfessionalMode)
+            {
+                <p class="mt-1 max-w-xl text-sm text-[#595c5d]">@L.T("inbox.professionalSubtitle")</p>
             }
         </div>
         @if (IsCustomerMode && !_composeOpen)
@@ -73,7 +78,7 @@
                 else if (!FilteredThreads.Any())
                 {
                     <div class="p-8 text-center text-sm text-[#595c5d]">
-                        @(IsCustomerMode ? L.T("inbox.emptyList") : L.T("inbox.emptyList.partner"))
+                        @(IsCustomerMode ? L.T("inbox.emptyList") : IsProfessionalMode ? L.T("inbox.emptyList.professional") : L.T("inbox.emptyList.partner"))
                     </div>
                 }
                 else
@@ -291,6 +296,18 @@
 
     private bool IsCustomerMode => string.Equals(Mode, "customer", StringComparison.OrdinalIgnoreCase);
 
+    private bool IsPartnerMode => string.Equals(Mode, "partner", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsProfessionalMode => string.Equals(Mode, "professional", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsBusinessInboxMode => IsPartnerMode || IsProfessionalMode;
+
+    private string InboxTitleKey => IsProfessionalMode
+        ? "inbox.title.professional"
+        : IsPartnerMode
+            ? "inbox.title.partner"
+            : "inbox.title";
+
     /// <summary>On small screens: true = thread list, false = conversation or compose.</summary>
     private bool _mobileListMode = true;
 
@@ -307,6 +324,7 @@
     private string? _bannerMessage;
     private Guid? _partnerId;
     private string? _partnerPhone;
+    private string? _professionalPhone;
     private Guid? _composePartnerId;
     private Guid? _composeProfessionalId;
     private Guid? _composeProductId;
@@ -365,7 +383,7 @@
         try
         {
             await AuthState.InitializeAsync();
-            if (!IsCustomerMode)
+            if (IsPartnerMode)
             {
                 if (!await ApiSession.EnsureReadyAsync())
                 {
@@ -384,6 +402,33 @@
 
                 var partner = await PartnerApi.GetPartnerAsync(_partnerId.Value);
                 _partnerPhone = partner?.Phone;
+            }
+            else if (IsProfessionalMode)
+            {
+                if (!await ApiSession.EnsureReadyAsync())
+                {
+                    _bannerMessage = L.T("inbox.sessionRequired");
+                    _loadingList = false;
+                    return;
+                }
+
+                var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
+                if (tenantId == Guid.Empty)
+                {
+                    _bannerMessage = L.T("inbox.professionalRequired");
+                    _loadingList = false;
+                    return;
+                }
+
+                var profile = await BuyerApi.GetBuyerProfessionalProfileAsync(tenantId);
+                if (profile?.HasProfile != true)
+                {
+                    _bannerMessage = L.T("inbox.professionalRequired");
+                    _loadingList = false;
+                    return;
+                }
+
+                _professionalPhone = profile.Phone;
             }
 
             await ApplyDeepLinkFromQueryAsync();
@@ -499,7 +544,7 @@
                 return;
             }
 
-            if (IsCustomerMode && (_composePartnerId.HasValue || _composeProfessionalId.HasValue))
+            if (IsCustomerMode && !IsProfessionalMode && (_composePartnerId.HasValue || _composeProfessionalId.HasValue))
             {
                 await LoadComposeCounterpartyAsync();
                 await EnrichComposeBodyFromOfferAsync();
@@ -643,6 +688,11 @@
                 var list = await BuyerApi.GetMyInboxThreadsAsync(_folder);
                 _threads = list?.ToList() ?? new List<InboxThreadListItem>();
             }
+            else if (IsProfessionalMode)
+            {
+                var list = await BuyerApi.GetProfessionalInboxThreadsAsync(_folder);
+                _threads = list?.ToList() ?? new List<InboxThreadListItem>();
+            }
             else if (_partnerId.HasValue)
             {
                 var list = await PartnerApi.GetPartnerInboxThreadsAsync(_partnerId.Value, _folder);
@@ -692,7 +742,7 @@
         try
         {
             InboxThreadDetailResponse? detail;
-            if (IsCustomerMode)
+            if (IsCustomerMode || IsProfessionalMode)
             {
                 detail = await BuyerApi.GetInboxThreadAsync(threadId);
             }
@@ -723,7 +773,7 @@
     {
         try
         {
-            if (IsCustomerMode)
+            if (IsCustomerMode || IsProfessionalMode)
             {
                 await BuyerApi.MarkInboxThreadReadAsync(threadId);
             }
@@ -748,7 +798,7 @@
         _sending = true;
         try
         {
-            if (IsCustomerMode)
+            if (IsCustomerMode || IsProfessionalMode)
             {
                 await BuyerApi.ReplyInboxThreadAsync(_selectedThreadId.Value, _replyBody.Trim());
             }
@@ -827,7 +877,7 @@
 
         try
         {
-            if (IsCustomerMode)
+            if (IsCustomerMode || IsProfessionalMode)
             {
                 await BuyerApi.UpdateInboxThreadStatusAsync(_selectedThreadId.Value, status);
             }
@@ -1036,7 +1086,9 @@
     private string? ResolveOwnPhone(InboxThreadDetail thread)
         => IsCustomerMode
             ? thread.CustomerPhone
-            : _partnerPhone ?? thread.PartnerPhone ?? thread.ProfessionalPhone;
+            : IsProfessionalMode
+                ? _professionalPhone ?? thread.ProfessionalPhone
+                : _partnerPhone ?? thread.PartnerPhone ?? thread.ProfessionalPhone;
 
     private string? ResolveCounterpartyPhone(InboxThreadDetail thread)
         => IsCustomerMode

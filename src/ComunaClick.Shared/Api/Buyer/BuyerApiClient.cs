@@ -133,6 +133,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<IReadOnlyList<InboxThreadListItem>?> GetMyInboxThreadsAsync(string folder = "inbox", CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<InboxThreadListItem>>($"/v1/inbox/threads/mine?folder={Uri.EscapeDataString(folder)}", cancellationToken);
 
+    public Task<IReadOnlyList<InboxThreadListItem>?> GetProfessionalInboxThreadsAsync(string folder = "inbox", CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<InboxThreadListItem>>($"/v1/inbox/threads/as-professional?folder={Uri.EscapeDataString(folder)}", cancellationToken);
+
     public Task<InboxThreadDetailResponse?> GetInboxThreadAsync(Guid threadId, CancellationToken cancellationToken = default)
         => GetAsync<InboxThreadDetailResponse>($"/v1/inbox/threads/{threadId}", cancellationToken);
 

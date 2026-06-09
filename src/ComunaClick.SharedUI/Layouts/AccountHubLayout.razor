@@ -3,6 +3,8 @@
 @inject AuthStateService AuthState
 @inject ApiSessionService ApiSession
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @implements IDisposable
@@ -36,16 +38,50 @@
                         <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.messages.hint")</span>
                     </span>
                 </a>
-                @if (_hasPartnerPanel)
+                @if (_showCompanyNav || _hasPartnerPanel)
                 {
                     <p class="px-4 pt-5 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-[#8a8f90]">@L.T("account.nav.partnerSection")</p>
-                    <a class="@NavClass("/partner")" href="/partner">
-                        <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                    @if (_showCompanyNav)
+                    {
+                        <a class="@NavClass(AccountRoutes.CompanyNavHref(_hasPartnerPanel))" href="@AccountRoutes.CompanyNavHref(_hasPartnerPanel)">
+                            <span class="material-symbols-outlined text-[20px]">storefront</span>
+                            <span>
+                                @L.T("account.nav.company")
+                                <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.company.hint")</span>
+                            </span>
+                        </a>
+                    }
+                    @if (_hasPartnerPanel)
+                    {
+                        <a class="@NavClass("/partner")" href="/partner">
+                            <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                            <span>
+                                @L.T("account.nav.partnerPanel")
+                                <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.partnerPanel.hint")</span>
+                            </span>
+                        </a>
+                    }
+                }
+                @if (_showProfessionalNav)
+                {
+                    <p class="px-4 pt-5 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-[#8a8f90]">@L.T("account.nav.professionalSection")</p>
+                    <a class="@NavClassExact(AccountRoutes.Professional)" href="@AccountRoutes.Professional">
+                        <span class="material-symbols-outlined text-[20px]">work</span>
                         <span>
-                            @L.T("account.nav.partnerPanel")
-                            <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.partnerPanel.hint")</span>
+                            @L.T("account.nav.professional")
+                            <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.professional.hint")</span>
                         </span>
                     </a>
+                    @if (_showProfessionalInboxNav)
+                    {
+                        <a class="@NavClass(AccountRoutes.ProfessionalMessages)" href="@AccountRoutes.ProfessionalMessages">
+                            <span class="material-symbols-outlined text-[20px]">forum</span>
+                            <span>
+                                @L.T("account.nav.professionalMessages")
+                                <span class="block text-[10px] font-normal text-[#8a8f90] mt-0.5">@L.T("account.nav.professionalMessages.hint")</span>
+                            </span>
+                        </a>
+                    }
                 }
             </nav>
         </div>
@@ -66,7 +102,8 @@
                 <LanguageToggle />
                 <AccountUserMenu HasPartnerPanel="_hasPartnerPanel"
                                  ShowCompanyNav="_showCompanyNav"
-                                 ShowProfessionalNav="_showProfessionalNav" />
+                                 ShowProfessionalNav="_showProfessionalNav"
+                                 ShowProfessionalInboxNav="_showProfessionalInboxNav" />
                 <button type="button" class="inline-flex items-center gap-2 rounded-full bg-[#eff1f2] px-4 py-2 text-sm font-semibold text-[#3b6700]" @onclick="HandleLogout">
                     <span class="material-symbols-outlined text-[18px]">logout</span>
                     @L.T("nav.logout")
@@ -81,7 +118,8 @@
 </div>
 
 @code {
-    private bool _showProfessionalNav = true;
+    private bool _showProfessionalNav;
+    private bool _showProfessionalInboxNav;
     private bool _showCompanyNav;
     private bool _hasPartnerPanel;
 
@@ -113,10 +151,9 @@
             }
 
             _showCompanyNav = string.Equals(role, RegistrationFlow.RoleCommerce, StringComparison.OrdinalIgnoreCase);
-            _showProfessionalNav = string.Equals(role, RegistrationFlow.RoleProfessional, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(role, RegistrationFlow.RoleNatural, StringComparison.OrdinalIgnoreCase);
+            _showProfessionalNav = string.Equals(role, RegistrationFlow.RoleProfessional, StringComparison.OrdinalIgnoreCase);
 
-            if (_hasPartnerPanel && await ApiSession.EnsureReadyAsync())
+            if (await ApiSession.EnsureReadyAsync())
             {
                 try
                 {
@@ -124,6 +161,23 @@
                     if (mine is { Count: > 0 })
                     {
                         _showCompanyNav = true;
+                    }
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
+                    if (tenantId != Guid.Empty)
+                    {
+                        var pro = await BuyerApi.GetBuyerProfessionalProfileAsync(tenantId);
+                        if (pro?.HasProfile == true)
+                        {
+                            _showProfessionalNav = true;
+                            _showProfessionalInboxNav = true;
+                        }
                     }
                 }
                 catch
@@ -144,10 +198,19 @@
         var active = string.Equals(path, href, StringComparison.OrdinalIgnoreCase)
             || (href != "/partner" && path.StartsWith(href, StringComparison.OrdinalIgnoreCase)
                 && (path.Length == href.Length || path[href.Length] == '/'));
-        return active
+        return NavItemClass(active);
+    }
+
+    private string NavClassExact(string href)
+    {
+        var path = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+        return NavItemClass(string.Equals(path, href, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NavItemClass(bool active)
+        => active
             ? "flex items-center gap-3 px-4 py-3 text-[#76BC21] border-l-4 border-[#76BC21] bg-[#a7f255]/10 font-semibold"
             : "flex items-center gap-3 px-4 py-3 text-[#5c5b5b] hover:bg-[#f5f6f7] transition-colors";
-    }
 
     private async Task HandleLogout()
     {

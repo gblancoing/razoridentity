@@ -73,9 +73,9 @@
                         </span>
                     </a>
                 }
-                @if (ShowCompanyNav && !HasPartnerPanel)
+                @if (ShowCompanyNav)
                 {
-                    <a href="@AccountRoutes.Company" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                    <a href="@AccountRoutes.CompanyNavHref(HasPartnerPanel)" role="menuitem" class="@MenuItemClass" @onclick="Close">
                         <span class="material-symbols-outlined text-[20px]">storefront</span>
                         <span>
                             @L.T("account.nav.company")
@@ -90,6 +90,16 @@
                         <span>
                             @L.T("account.nav.professional")
                             <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.professional.hint")</span>
+                        </span>
+                    </a>
+                }
+                @if (ShowProfessionalInboxNav)
+                {
+                    <a href="@AccountRoutes.ProfessionalMessages" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">mail</span>
+                        <span>
+                            @L.T("account.nav.professionalMessages")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.professionalMessages.hint")</span>
                         </span>
                     </a>
                 }
@@ -109,6 +119,7 @@
   [Parameter] public bool HasPartnerPanel { get; set; }
   [Parameter] public bool ShowCompanyNav { get; set; }
   [Parameter] public bool ShowProfessionalNav { get; set; }
+  [Parameter] public bool ShowProfessionalInboxNav { get; set; }
 
   private bool _open;
 
@@ -135,7 +146,10 @@
 
           return path.StartsWith(AccountRoutes.Profile, StringComparison.OrdinalIgnoreCase)
               || path.StartsWith(AccountRoutes.Company, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.PartnerSettings, StringComparison.OrdinalIgnoreCase)
               || path.StartsWith(AccountRoutes.Professional, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.ProfessionalMessages, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.Messages, StringComparison.OrdinalIgnoreCase)
               || (HasPartnerPanel && string.Equals(path, "/partner", StringComparison.OrdinalIgnoreCase));
       }
   }

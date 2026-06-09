@@ -64,6 +64,42 @@ public sealed class InboxController : ControllerBase
         return Ok(threads.Select(x => MapThreadListItem(x, "customer")));
     }
 
+    /// <summary>Threads where the authenticated user is the professional recipient (independent profile).</summary>
+    [Authorize]
+    [HttpGet("threads/as-professional")]
+    public async Task<ActionResult<IEnumerable<object>>> ListForProfessional(
+        [FromQuery] string? folder = "inbox",
+        [FromQuery] int limit = 50)
+    {
+        limit = Math.Clamp(limit, 1, 100);
+        var email = ResolveEmail(User);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { message = "Authenticated email is required." });
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var professionalIds = await _db.Professionals.AsNoTracking()
+            .Where(x => x.Email != null && x.Email.ToLower() == normalizedEmail)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        if (professionalIds.Count == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var archived = string.Equals(folder, "archived", StringComparison.OrdinalIgnoreCase);
+        var threads = await BuildThreadListQuery()
+            .Where(x => x.ProfessionalId.HasValue && professionalIds.Contains(x.ProfessionalId.Value))
+            .Where(x => archived ? x.Status == "archived" : x.Status != "archived")
+            .OrderByDescending(x => x.LastMessageAt)
+            .Take(limit)
+            .ToListAsync();
+
+        return Ok(threads.Select(x => MapThreadListItem(x, "business")));
+    }
+
     [Authorize(Policy = "partner.staff")]
     [HttpGet("threads/partner/{partnerId:guid}")]
     public async Task<ActionResult<IEnumerable<object>>> ListForPartner(
@@ -546,6 +582,19 @@ public sealed class InboxController : ControllerBase
         }
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        if (thread.ProfessionalId.HasValue)
+        {
+            var ownsProfessional = await _db.Professionals.AsNoTracking()
+                .AnyAsync(x => x.Id == thread.ProfessionalId.Value
+                    && x.Email != null
+                    && x.Email.ToLower() == normalizedEmail);
+            if (ownsProfessional)
+            {
+                return "business";
+            }
+        }
+
         var isCustomer = await _db.Customers.IgnoreQueryFilters().AsNoTracking()
             .AnyAsync(x => x.Id == thread.CustomerId && x.Email != null && x.Email.ToLower() == normalizedEmail);
 
