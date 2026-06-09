@@ -30,8 +30,7 @@ public sealed class MercadoPagoMarketplaceClient
             ["response_type"] = "code",
             ["platform_id"] = "mp",
             ["state"] = state,
-            ["redirect_uri"] = _options.RedirectUri,
-            ["seller_id"] = sellerId.ToString()
+            ["redirect_uri"] = _options.RedirectUri
         };
 
         var queryString = string.Join("&", query
@@ -191,7 +190,7 @@ public sealed record MercadoPagoOAuthTokenResponse(
     [property: JsonPropertyName("refresh_token")] string? RefreshToken,
     [property: JsonPropertyName("expires_in")] int? ExpiresIn,
     [property: JsonPropertyName("scope")] string? Scope,
-    [property: JsonPropertyName("user_id")] string? UserId,
+    [property: JsonPropertyName("user_id")] long? UserId,
     [property: JsonPropertyName("public_key")] string? PublicKey);
 
 public sealed record MercadoPagoUserInfoResponse(

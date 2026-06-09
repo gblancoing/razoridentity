@@ -59,7 +59,7 @@ else
             </div>
         }
 
-        @if (!_isPersonal && _successBookingId is null)
+        @if (!_isPersonal && !AuthState.IsAuthenticated && _successBookingId is null)
         {
             <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-[#fafafa] px-4 py-3 text-sm">
                 <span class="text-[#595c5d]">@L.T("buyer.booking.guestLoginHint")</span>
@@ -245,13 +245,16 @@ else
         {
             await AuthState.InitializeAsync();
             _isPersonal = AuthState.IsPersonalAccount;
-            _isPartnerBlocked = AuthState.IsAuthenticated && !_isPersonal;
+            _isPartnerBlocked = false;
             _initializing = false;
 
-            if (!_isPartnerBlocked)
+            if (!_isPersonal && AuthState.IsPartnerAccount)
             {
-                await LoadBookingAsync();
+                if (string.IsNullOrEmpty(GuestFullName)) GuestFullName = AuthState.DisplayName ?? string.Empty;
+                if (string.IsNullOrEmpty(GuestEmail)) GuestEmail = AuthState.Email ?? string.Empty;
             }
+
+            await LoadBookingAsync();
 
             StateHasChanged();
         }

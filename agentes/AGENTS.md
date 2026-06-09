@@ -24,6 +24,11 @@ ComunaClic es una solución .NET 8 con un monolito modular de negocio, un servic
 - [docs/objetivo_y_ramas_de_negocio_comunaclic.md](docs/objetivo_y_ramas_de_negocio_comunaclic.md) para el contexto funcional A/B/C.
 - [docs/pasarela_pagos_multi_provider.md](docs/pasarela_pagos_multi_provider.md) para el diseño de pagos.
 - [docs/empresa-tipo-a.md](docs/empresa-tipo-a.md) y [docs/empresa-tipo-b.md](docs/empresa-tipo-b.md) para reglas de catálogo por tipo de partner.
+- [.agents/skills/ui-ux-pro-max/SKILL.md](.agents/skills/ui-ux-pro-max/SKILL.md) para tareas de UI, accesibilidad, responsive, animación y revisión visual.
+
+## Skills de diseño disponibles
+
+- `/stitch-design` — Skill end-to-end para Google Stitch. Genera pantallas desde texto o imágenes, edita y refina diseños existentes, gestiona design systems, genera variantes, y exporta assets a `.stitch/`. Punto de entrada único para todo el flujo de diseño con Stitch MCP. Instalada globalmente en `~/.claude/skills/stitch-design/SKILL.md`.
 
 ## Pistas de edición
 

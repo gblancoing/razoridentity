@@ -55,7 +55,7 @@ else
                     }
                     <div class="flex flex-col sm:flex-row gap-3">
                         <a href="@TrackingHref" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">@L.T("buyer.checkout.success.track")</a>
-                        @if (!_isPersonal)
+                        @if (!_isPersonal && !AuthState.IsAuthenticated)
                         {
                             <a href="@RegisterHref" class="inline-flex items-center justify-center rounded-2xl border border-[#3b6700] px-5 py-3 text-sm font-bold text-[#3b6700]">@L.T("buyer.checkout.success.register")</a>
                         }
@@ -64,7 +64,7 @@ else
                 </div>
             }
 
-            @if (!_isPersonal && _successOrderId is null)
+            @if (!_isPersonal && !AuthState.IsAuthenticated && _successOrderId is null)
             {
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-[#fafafa] px-4 py-3 text-sm">
                     <span class="text-[#595c5d]">@L.T("buyer.checkout.guestLoginHint")</span>
@@ -328,13 +328,16 @@ else
         {
             await AuthState.InitializeAsync();
             _isPersonal = AuthState.IsPersonalAccount;
-            _isPartnerBlocked = AuthState.IsAuthenticated && !_isPersonal;
+            _isPartnerBlocked = false;
             _initializing = false;
 
-            if (!_isPartnerBlocked)
+            if (!_isPersonal && AuthState.IsPartnerAccount)
             {
-                await LoadCheckoutAsync();
+                if (string.IsNullOrEmpty(GuestFullName)) GuestFullName = AuthState.DisplayName ?? string.Empty;
+                if (string.IsNullOrEmpty(GuestEmail)) GuestEmail = AuthState.Email ?? string.Empty;
             }
+
+            await LoadCheckoutAsync();
 
             StateHasChanged();
         }
