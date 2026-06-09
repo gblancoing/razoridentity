@@ -3,7 +3,7 @@ namespace ComunaClick.Api.Modules.Orders.Contracts;
 public sealed record GuestContactRequest(
     string FullName,
     string Email,
-    string? Phone);
+    string Phone);
 
 public sealed record GuestOrderCreateRequest(
     Guid TenantId,

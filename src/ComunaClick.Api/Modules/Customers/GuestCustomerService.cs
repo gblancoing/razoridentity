@@ -45,7 +45,7 @@ public sealed class GuestCustomerService : IGuestCustomerService
                 TenantId = tenantId,
                 Email = normalizedEmail,
                 FullName = guest.FullName.Trim(),
-                Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
+                Phone = guest.Phone.Trim(),
                 Address = string.IsNullOrWhiteSpace(deliveryAddress) ? null : deliveryAddress.Trim(),
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -107,6 +107,11 @@ public sealed class GuestCustomerService : IGuestCustomerService
         if (string.IsNullOrWhiteSpace(guest.Email) || !guest.Email.Contains('@'))
         {
             return "A valid email is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(guest.Phone))
+        {
+            return "A phone number is required.";
         }
 
         return null;

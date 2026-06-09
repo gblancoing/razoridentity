@@ -48,7 +48,7 @@ else
                     {
                         <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.mp.offlineDetail")</p>
                     }
-                    @if (IsPaymentPendingSuccess && string.IsNullOrWhiteSpace(_mercadoPagoCheckoutUrl))
+                    @if (IsPaymentPendingSuccess)
                     {
                         <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.cartKeptUntilPaid")</p>
                         <a href="/buyer/cart" class="inline-flex text-sm font-bold text-[#3b6700] underline">@L.T("buyer.cart.view")</a>
@@ -113,12 +113,13 @@ else
                                autocomplete="email" />
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.guest.phone")</label>
+                        <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.guest.phone") *</label>
                         <input type="tel"
                                class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
                                @bind="GuestPhone"
                                disabled="@_isSubmitting"
-                               autocomplete="tel" />
+                               autocomplete="tel"
+                               placeholder="+56 9 1234 5678" />
                     </div>
                 </div>
             }
@@ -571,6 +572,13 @@ else
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(GuestPhone))
+        {
+            _statusMessage = L.T("buyer.checkout.guest.phoneRequired");
+            _statusLevel = "warning";
+            return;
+        }
+
         var request = new GuestOrderCreateRequest(
             tenantId,
             partnerId,
@@ -578,7 +586,7 @@ else
             new GuestContactRequest(
                 GuestFullName.Trim(),
                 GuestEmail.Trim(),
-                string.IsNullOrWhiteSpace(GuestPhone) ? null : GuestPhone.Trim()),
+                GuestPhone.Trim()),
             0,
             "CLP",
             BuildDeliveryAddress());
@@ -620,6 +628,13 @@ else
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(GuestPhone))
+        {
+            _statusMessage = L.T("buyer.checkout.guest.phoneRequired");
+            _statusLevel = "warning";
+            return;
+        }
+
         var items = _cartLines
             .Select(x => new OrderItemCreateRequest(x.ProductId, x.Quantity, x.UnitPrice))
             .ToList();
@@ -631,7 +646,7 @@ else
             new GuestContactRequest(
                 GuestFullName.Trim(),
                 GuestEmail.Trim(),
-                string.IsNullOrWhiteSpace(GuestPhone) ? null : GuestPhone.Trim()),
+                GuestPhone.Trim()),
             0,
             "CLP",
             BuildDeliveryAddress());
@@ -761,6 +776,7 @@ else
             _partnerAcceptsOnlinePayment = status?.MercadoPagoReady == true;
             if (!_partnerAcceptsOnlinePayment)
             {
+                _statusMessage = L.T("buyer.checkout.guestSuccess");
                 return;
             }
 
