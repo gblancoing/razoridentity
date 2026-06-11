@@ -5,7 +5,7 @@
 
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("api", "acl", "app")]
+    [ValidateSet("api", "acl", "app", "admin")]
     [string[]] $Targets,
 
     [string] $HostName = "3.92.248.0",

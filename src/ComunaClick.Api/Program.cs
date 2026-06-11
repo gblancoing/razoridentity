@@ -42,6 +42,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("app", policy =>
         policy.WithOrigins(
+                "https://comunaclic.cl",
+                "https://www.comunaclic.cl",
                 "https://app.comunaclic.cl",
                 "https://admin.comunaclic.cl",
                 "https://localhost:5001",
@@ -92,6 +94,7 @@ builder.Services.Configure<MercadoPagoMarketplaceOptions>(options =>
     options.WebhookSecret = builder.Configuration["MP_WEBHOOK_SECRET"] ?? options.WebhookSecret;
     options.ApiBaseUrl = builder.Configuration["MP_API_BASE_URL"] ?? options.ApiBaseUrl;
     options.AppBaseUrl = builder.Configuration["APP_BASE_URL"] ?? options.AppBaseUrl;
+    options.WebhookBaseUrl = builder.Configuration["MP_WEBHOOK_BASE_URL"] ?? options.WebhookBaseUrl;
     options.EncryptionKey = builder.Configuration["ENCRYPTION_KEY"] ?? options.EncryptionKey;
 });
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
@@ -100,6 +103,7 @@ builder.Services.AddScoped<SellerMarketplaceService>();
 builder.Services.AddScoped<MercadoPagoOAuthService>();
 builder.Services.AddScoped<MarketplacePaymentService>();
 builder.Services.AddScoped<MercadoPagoWebhookService>();
+builder.Services.AddScoped<PaymentReconciliationJob>();
 builder.Services.AddHttpClient<MercadoPagoMarketplaceClient>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Crm.CustomerAvatarStorage>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Catalog.ServiceImageStorage>();

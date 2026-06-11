@@ -57,6 +57,7 @@ public sealed class CoreDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<PayoutBatch> PayoutBatches => Set<PayoutBatch>();
     public DbSet<PayoutItem> PayoutItems => Set<PayoutItem>();
+    public DbSet<ProfessionalFollow> ProfessionalFollows => Set<ProfessionalFollow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -556,6 +557,9 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Specialty).HasColumnName("specialty");
             entity.Property(x => x.Bio).HasColumnName("bio");
             entity.Property(x => x.BannerUrl).HasColumnName("banner_url");
+            entity.Property(x => x.ProfilePhotoUrl).HasColumnName("profile_photo_url");
+            entity.Property(x => x.ProfileViewCount).HasColumnName("profile_view_count").HasDefaultValue(0L);
+            entity.Property(x => x.CertificationsJson).HasColumnName("certifications_json");
             entity.Property(x => x.ProfileHeadline).HasColumnName("profile_headline");
             entity.Property(x => x.WebsiteUrl).HasColumnName("website_url");
             entity.Property(x => x.InstagramUrl).HasColumnName("instagram_url");
@@ -892,6 +896,19 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.PeriodEnd).HasColumnName("period_end").HasColumnType("date");
             entity.Property(x => x.Status).HasColumnName("status").IsRequired();
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<ProfessionalFollow>(entity =>
+        {
+            entity.ToTable("professional_follows");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.FollowerProfessionalId).HasColumnName("follower_professional_id");
+            entity.Property(x => x.FollowedType).HasColumnName("followed_type").HasMaxLength(20).IsRequired();
+            entity.Property(x => x.FollowedId).HasColumnName("followed_id");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.FollowerProfessionalId);
+            entity.HasIndex(x => new { x.FollowedType, x.FollowedId });
         });
 
         modelBuilder.Entity<PayoutItem>(entity =>

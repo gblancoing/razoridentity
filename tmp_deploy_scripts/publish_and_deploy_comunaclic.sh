@@ -15,6 +15,7 @@ declare -A PROJECTS=(
   [api]="src/ComunaClick.Api/ComunaClick.Api.csproj"
   [acl]="src/ComunaClick.Acl/ComunaClick.Acl.csproj"
   [app]="src/ComunaClick/ComunaClick.App.csproj"
+  [admin]="src/ComunaClick.Admin/ComunaClick.Admin.csproj"
 )
 
 usage() {

@@ -19,7 +19,10 @@ public static class DatabaseSchemaBootstrap
         ("core", "partners", "20260531_partner_logo_url.sql", "logo_url"),
         ("core", "partners", "20260601_profile_web_links.sql", "website_url"),
         ("core", "services", "20260602_service_geo_coordinates.sql", "latitude"),
-        ("core", "sellers", "2026-04-23_marketplace_mercadopago.sql", null)
+        ("core", "sellers", "2026-04-23_marketplace_mercadopago.sql", null),
+        ("core", "professionals", "20260609_professional_photo_url.sql", "profile_photo_url"),
+        ("core", "professionals", "20260609_professional_stats_certifications.sql", "profile_view_count"),
+        ("core", "professional_follows", "20260609_professional_follows.sql", null)
     ];
 
     public static async Task ApplyPendingAsync(string? connectionString, IHostEnvironment env, ILogger logger, CancellationToken cancellationToken = default)

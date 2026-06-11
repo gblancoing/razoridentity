@@ -509,7 +509,8 @@
             }
 
             _bookingsCount = bookings?.Count ?? 0;
-            _ordersTotal = orders is null ? "$0" : $"${orders.Sum(x => x.TotalAmount):N0}";
+            _ordersTotal = orders is null ? "$0"
+                : $"${orders.Where(x => string.Equals(x.Status, "paid", StringComparison.OrdinalIgnoreCase)).Sum(x => x.TotalAmount):N0}";
             await LoadBusinessMetricsAsync(partnerId.Value);
             SetDefaultStatusMessage();
         }

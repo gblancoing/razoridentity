@@ -1,8 +1,8 @@
 ﻿@page "/"
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
-@inject ApiMediaUrl MediaUrl
 @inject IJSRuntime JSRuntime
+@inject UserMapLocationService MapLocation
 @using ComunaClick.SharedUI.Services
 @using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
@@ -183,8 +183,35 @@
 <!-- MAIN CONTENT -->
 <div class="w-full max-w-full min-w-0 overflow-x-clip bg-gradient-to-b from-slate-50 via-[#f0f4f3] to-slate-50">
 
+    <!-- Featured events -->
+    <section class="max-w-[1400px] mx-auto px-4 sm:px-6 pt-8 mb-10" id="home-events">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-amber-400 to-orange-500 shrink-0"></div>
+            <div>
+                <p class="text-xs font-bold uppercase tracking-widest text-orange-600">@L.T("home.events.eyebrow")</p>
+                <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.events.title")</h2>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            @foreach (var ev in _eventCards)
+            {
+                <a href="@ev.Href" class="cc-card-lift relative rounded-2xl overflow-hidden h-56 group block" style="@BuildEventImageStyle(ev)">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
+                    <div class="absolute top-3 left-3 bg-white rounded-lg px-3 py-1 text-center shadow">
+                        <p class="text-[10px] font-bold uppercase text-orange-600 leading-none">@ev.MonthLabel</p>
+                        <p class="text-lg font-black text-[#0f1714] leading-none mt-0.5">@ev.DayLabel</p>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 p-4">
+                        <h3 class="text-white font-bold text-lg leading-tight mb-1">@ev.Title</h3>
+                        <p class="text-white/80 text-xs">@ev.TimeLabel</p>
+                    </div>
+                </a>
+            }
+        </div>
+    </section>
+
     <!-- Search results panel (conditional) -->
-    <div id="home-search-results" class="max-w-7xl mx-auto px-4 sm:px-6 pt-8 scroll-mt-24">
+    <div id="home-search-results" class="max-w-[1400px] mx-auto px-4 sm:px-6 pt-8 scroll-mt-24">
         @if (_searchLoading)
         {
             <div class="rounded-2xl bg-white border border-gray-200/80 p-5 shadow-sm mb-4 animate-pulse">
@@ -260,40 +287,8 @@
         }
     </div>
 
-    <!-- Value propositions -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="group flex items-center gap-4 rounded-2xl bg-white border border-gray-200/70 px-5 py-5 shadow-sm hover:shadow-lg hover:border-emerald-200 hover:-translate-y-1 transition-all duration-300">
-                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 shadow-md shadow-emerald-500/25">
-                    <span class="material-symbols-outlined text-white text-[24px]">storefront</span>
-                </div>
-                <div>
-                    <p class="text-sm font-extrabold text-[#111816]">@L.T("home.value1.title")</p>
-                    <p class="text-xs text-[#5f7369] leading-snug mt-0.5">@L.T("home.value1.desc")</p>
-                </div>
-            </div>
-            <div class="group flex items-center gap-4 rounded-2xl bg-white border border-gray-200/70 px-5 py-5 shadow-sm hover:shadow-lg hover:border-sky-200 hover:-translate-y-1 transition-all duration-300">
-                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-500/25">
-                    <span class="material-symbols-outlined text-white text-[24px]">bolt</span>
-                </div>
-                <div>
-                    <p class="text-sm font-extrabold text-[#111816]">@L.T("home.value2.title")</p>
-                    <p class="text-xs text-[#5f7369] leading-snug mt-0.5">@L.T("home.value2.desc")</p>
-                </div>
-            </div>
-            <div class="group flex items-center gap-4 rounded-2xl bg-white border border-gray-200/70 px-5 py-5 shadow-sm hover:shadow-lg hover:border-amber-200 hover:-translate-y-1 transition-all duration-300">
-                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-md shadow-amber-500/25">
-                    <span class="material-symbols-outlined text-white text-[24px]">location_on</span>
-                </div>
-                <div>
-                    <p class="text-sm font-extrabold text-[#111816]">@L.T("home.value3.title")</p>
-                    <p class="text-xs text-[#5f7369] leading-snug mt-0.5">@L.T("home.value3.desc")</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <main class="w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 pb-16">
+    <main class="w-full min-w-0 max-w-[1400px] mx-auto px-4 sm:px-6 pb-16">
+    <FriendlyErrorBoundary>
     <div class="flex w-full min-w-0 flex-col items-stretch gap-8 lg:flex-row">
         <div class="min-w-0 flex-1">
 
@@ -302,7 +297,10 @@
                 <div class="flex items-center justify-between mb-5 px-1">
                     <div class="flex items-center gap-3">
                         <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-emerald-400 to-green-600 shrink-0"></div>
-                        <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.categories.title")</h2>
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-widest text-emerald-600">@L.T("home.categories.eyebrow")</p>
+                            <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.categories.title")</h2>
+                        </div>
                     </div>
                     <a class="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all duration-200 shrink-0" href="/categorias">
                         @L.T("home.categories.viewAll")
@@ -320,7 +318,7 @@
                 }
                 else if (_categories.Count == 0)
                 {
-                    <StatusBanner Message="@_categoriesStatusMessage" Level="warning" />
+                    <EmptyState Icon="category" Title="@L.T("home.empty.categories.title")" Description="@_categoriesStatusMessage" />
                 }
                 else
                 {
@@ -340,35 +338,69 @@
                 }
             </section>
 
-            <!-- PROMOTIONAL BANNER -->
-            <div class="mb-12 overflow-hidden rounded-3xl relative">
-                <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-6 sm:p-8 relative">
-                    <div class="cc-promo-dots absolute inset-0 opacity-10 pointer-events-none"></div>
-                    <div class="absolute -right-8 -top-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none"></div>
-                    <div class="absolute -right-4 -bottom-12 w-32 h-32 rounded-full bg-white/5 pointer-events-none"></div>
-                    <div class="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-                        <div>
-                            <div class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white mb-3">
-                                <span class="material-symbols-outlined text-yellow-300 text-[13px]">star</span>
-                                Destaca tu negocio
-                            </div>
-                            <h3 class="text-xl sm:text-2xl font-black text-white leading-tight">¿Tienes un negocio local?</h3>
-                            <p class="text-white/75 text-sm mt-1.5 max-w-sm">Llega a más clientes en tu comunidad. Gratis para empezar.</p>
-                        </div>
-                        <a href="/register?role=commerce"
-                           class="shrink-0 rounded-2xl bg-white text-emerald-700 px-7 py-3.5 text-sm font-extrabold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200 whitespace-nowrap">
-                            Publicar Gratis →
-                        </a>
+            <!-- BUSINESSES NEAR YOU (MAP) -->
+            <section class="mb-12">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-emerald-400 to-green-600 shrink-0"></div>
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-widest text-emerald-600">@L.T("home.nearby.eyebrow")</p>
+                        <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.featured.nearbyTitle")</h2>
                     </div>
                 </div>
-            </div>
+                <p class="text-[#4b5f57] text-sm sm:text-base mb-4">@L.T("home.nearby.subtitle")</p>
+
+                @if (_nearbyDeviceLocation.HasValue && _nearbyBusinesses.Count > 0)
+                {
+                    <div class="flex flex-wrap gap-2 mb-4" role="group" aria-label="@L.T("home.nearby.filter.aria")">
+                        <button type="button" @onclick="@(() => _nearbySelectedTypes.Clear())"
+                                class="@ChipClass(_nearbySelectedTypes.Count == 0)">@L.T("home.nearby.filter.all")</button>
+                        @foreach (var code in new[] { "A", "B", "C" })
+                        {
+                            <button type="button" @onclick="@(() => ToggleNearbyType(code))"
+                                    class="@ChipClass(_nearbySelectedTypes.Contains(code))"
+                                    aria-pressed="@_nearbySelectedTypes.Contains(code)">@NearbyTypeLabel(code)</button>
+                        }
+                    </div>
+                }
+
+                @if (_nearbyDeviceLocation.HasValue)
+                {
+                    @if (_nearbyFilteredBusinesses.Count > 0 || _nearbyBusinesses.Count == 0)
+                    {
+                        <div class="rounded-2xl overflow-hidden shadow-lg border border-[#e3ece7]">
+                            <SearchResultsMap AllItems="_nearbyFilteredBusinesses" Geo="_nearbyGeoFilter" DeviceLocation="_nearbyDeviceLocation.Value" />
+                        </div>
+                    }
+                    else
+                    {
+                        <EmptyState Icon="storefront" Title="@L.T("home.nearby.filter.empty.title")" Description="@L.T("home.nearby.filter.empty.desc")"
+                                    CtaLabel="@L.T("home.nearby.filter.empty.cta")" OnCtaClick="@(() => _nearbySelectedTypes.Clear())" />
+                    }
+                }
+                else
+                {
+                    <div class="rounded-2xl bg-[#eef6f1] border border-[#dbeae1] p-8 text-center">
+                        <span class="material-symbols-outlined text-4xl text-emerald-600 mb-2">location_on</span>
+                        <p class="text-[#0f1714] font-semibold mb-1">@L.T("home.nearby.locationPromptTitle")</p>
+                        <p class="text-[#4b5f57] text-sm mb-4">@L.T("home.nearby.locationPromptDesc")</p>
+                        <button @onclick="HandleEnableNearbyLocationAsync" disabled="@_nearbyLoading"
+                                class="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-5 py-2.5 transition-colors disabled:opacity-60">
+                            <span class="material-symbols-outlined text-base">my_location</span>
+                            @L.T("home.nearby.enableLocation")
+                        </button>
+                    </div>
+                }
+            </section>
 
             <!-- FEATURED BUSINESSES -->
             <section class="mb-12">
                 <div class="flex items-center justify-between mb-5 px-1">
                     <div class="flex items-center gap-3">
                         <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-amber-400 to-orange-500 shrink-0"></div>
-                        <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.featured.title")</h2>
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-widest text-orange-600">@L.T("home.featured.eyebrow")</p>
+                            <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.featured.title")</h2>
+                        </div>
                     </div>
                     <a class="flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-50 px-4 py-1.5 text-sm font-bold text-amber-700 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all duration-200 shrink-0" href="/buyer/home">
                         @L.T("home.featured.viewAll")
@@ -392,38 +424,15 @@
                 }
                 else if (_featuredBusinesses.Count == 0)
                 {
-                    <StatusBanner Message="@_featuredStatusMessage" Level="warning" />
+                    <EmptyState Icon="storefront" Title="@L.T("home.empty.businesses.title")" Description="@_featuredStatusMessage"
+                                CtaLabel="@L.T("home.empty.businesses.cta")" CtaHref="/categorias" />
                 }
                 else
                 {
                     <div class="grid min-w-0 grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                         @foreach (var business in _featuredBusinesses)
                         {
-                            <a href="@GetSearchResultHref(business)"
-                               class="cc-card-lift group min-w-0 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                                <div class="relative h-40 overflow-hidden">
-                                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="@BuildFeaturedImageOnlyStyle(business)"></div>
-                                    <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
-                                    <span class="absolute top-2.5 left-2.5 rounded-lg bg-amber-100/95 text-amber-900 text-[10px] font-black px-2.5 py-0.5 uppercase tracking-wide border border-amber-200/70">@L.T("home.market.badge.local")</span>
-                                    <span class="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-primary shadow-md">
-                                        Ver →
-                                    </span>
-                                </div>
-                                <div class="p-3.5">
-                                    <h3 class="text-[13px] font-extrabold text-[#111816] line-clamp-2 min-h-[2.5rem] font-headline leading-snug">@business.Name</h3>
-                                    @if (!string.IsNullOrWhiteSpace(FormatPriceLine(business)))
-                                    {
-                                        <p class="mt-1.5 text-lg font-black text-primary font-headline leading-none">@FormatPriceLine(business)</p>
-                                    }
-                                    else
-                                    {
-                                        <p class="mt-1.5 text-xs font-bold text-primary flex items-center gap-0.5">
-                                            @L.T("home.market.viewStore")
-                                            <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
-                                        </p>
-                                    }
-                                </div>
-                            </a>
+                            <BusinessOfferCard Item="business" Badge="BusinessOfferCardBadge.Local" />
                         }
                     </div>
                 }
@@ -434,7 +443,10 @@
                 <div class="flex items-center justify-between mb-5 px-1">
                     <div class="flex items-center gap-3">
                         <div class="w-1.5 h-7 rounded-full bg-gradient-to-b from-sky-400 to-blue-600 shrink-0"></div>
-                        <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.services.title")</h2>
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-widest text-sky-600">@L.T("home.services.eyebrow")</p>
+                            <h2 class="text-[#0f1714] text-2xl sm:text-3xl font-black font-headline tracking-tight">@L.T("home.services.title")</h2>
+                        </div>
                     </div>
                     <a class="flex items-center gap-1 rounded-full border border-sky-300/50 bg-sky-50 px-4 py-1.5 text-sm font-bold text-sky-700 hover:bg-sky-500 hover:text-white hover:border-sky-500 transition-all duration-200 shrink-0" href="/buyer/home">
                         @L.T("home.services.viewAll")
@@ -458,38 +470,15 @@
                 }
                 else if (_featuredServices.Count == 0)
                 {
-                    <StatusBanner Message="@_featuredServicesStatusMessage" Level="warning" />
+                    <EmptyState Icon="home_repair_service" Title="@L.T("home.empty.services.title")" Description="@_featuredServicesStatusMessage"
+                                CtaLabel="@L.T("home.empty.services.cta")" CtaHref="/services" />
                 }
                 else
                 {
                     <div class="grid min-w-0 grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                         @foreach (var service in _featuredServices)
                         {
-                            <a href="@GetSearchResultHref(service)"
-                               class="cc-card-lift group min-w-0 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                                <div class="relative h-40 overflow-hidden">
-                                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="@BuildFeaturedImageOnlyStyle(service)"></div>
-                                    <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
-                                    <span class="absolute top-2.5 left-2.5 rounded-lg bg-primary/95 text-white text-[10px] font-black px-2.5 py-0.5 uppercase tracking-wide shadow-sm">@L.T("home.market.badge.service")</span>
-                                    <span class="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-primary shadow-md">
-                                        Ver →
-                                    </span>
-                                </div>
-                                <div class="p-3.5">
-                                    <h3 class="text-[13px] font-extrabold text-[#111816] line-clamp-2 min-h-[2.5rem] font-headline leading-snug">@service.Name</h3>
-                                    @if (!string.IsNullOrWhiteSpace(FormatPriceLine(service)))
-                                    {
-                                        <p class="mt-1.5 text-xs text-[#61897c] font-medium">@L.T("home.market.from") <span class="text-lg font-black text-primary font-headline leading-none">@FormatPriceLine(service)</span></p>
-                                    }
-                                    else
-                                    {
-                                        <p class="mt-1.5 text-xs font-bold text-primary flex items-center gap-0.5">
-                                            @L.T("home.market.viewService")
-                                            <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
-                                        </p>
-                                    }
-                                </div>
-                            </a>
+                            <BusinessOfferCard Item="service" Badge="BusinessOfferCardBadge.Service" />
                         }
                     </div>
                 }
@@ -516,13 +505,16 @@
                         <div class="flex flex-col gap-4">
                             @foreach (var news in _newsCards)
                             {
-                                <a href="@news.Href" target="_blank" rel="noopener noreferrer" class="group cursor-pointer border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                                    <span class="@news.TagCss">@news.Tag</span>
-                                    <h4 class="break-words text-sm font-bold leading-snug group-hover:text-primary transition-colors">@news.Title</h4>
-                                    <p class="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-[11px]">schedule</span>
-                                        @news.TimeLabel
-                                    </p>
+                                <a href="@news.Href" target="_blank" rel="noopener noreferrer" class="group cursor-pointer flex gap-3 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                                    <div class="w-16 h-16 rounded-lg shrink-0 bg-cover bg-center" style="background-image:url('@news.ImageUrl')"></div>
+                                    <div class="min-w-0 flex-1">
+                                        <span class="@news.TagCss">@news.Tag</span>
+                                        <h4 class="break-words text-sm font-bold leading-snug group-hover:text-primary transition-colors">@news.Title</h4>
+                                        <p class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[11px]">schedule</span>
+                                            @news.TimeLabel
+                                        </p>
+                                    </div>
                                 </a>
                             }
                         </div>
@@ -535,39 +527,29 @@
                 </div>
             </div>
 
-            <!-- Upcoming Events -->
-            <div class="bg-white border border-gray-200/70 rounded-2xl overflow-hidden shadow-sm">
-                <div class="bg-gradient-to-r from-primary to-emerald-600 px-5 py-4 flex items-center gap-2.5">
-                    <span class="material-symbols-outlined text-white/90 text-[20px]">event</span>
-                    <h3 class="text-[15px] font-black text-white">@L.T("home.events.title")</h3>
+            <!-- 3 free months promo -->
+            <div class="rounded-2xl bg-gradient-to-br from-primary to-primary-dim p-5 text-white shadow-sm">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="material-symbols-outlined text-emerald-200 text-[20px]">redeem</span>
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-emerald-100">@L.T("home.banner.eyebrow")</p>
                 </div>
-                <div class="p-5">
-                    @if (_eventCards.Count == 0)
-                    {
-                        <p class="text-sm text-gray-500">No hay eventos próximos por ahora.</p>
-                    }
-                    else
-                    {
-                        <div class="flex flex-col gap-4">
-                            @foreach (var eventCard in _eventCards)
-                            {
-                                <div class="flex gap-3.5 items-center group">
-                                    <div class="flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-emerald-100 rounded-xl w-14 h-14 shrink-0 border border-primary/15">
-                                        <span class="text-[9px] uppercase font-black text-primary tracking-wider">@eventCard.MonthLabel</span>
-                                        <span class="text-xl font-black text-[#111816] leading-none mt-0.5">@eventCard.DayLabel</span>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-bold leading-snug group-hover:text-primary transition-colors">@eventCard.Title</h4>
-                                        <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[11px]">schedule</span>
-                                            @eventCard.TimeLabel
-                                        </p>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
+                <h3 class="text-lg font-black font-headline tracking-tight mb-2 leading-snug">@L.T("home.banner.title")</h3>
+                <p class="text-emerald-50 text-xs mb-4">@L.T("home.banner.subtitle")</p>
+                <a href="/precios" class="inline-flex items-center justify-center gap-2 w-full rounded-full bg-white text-primary-dim font-bold px-4 py-2.5 text-sm shadow-sm hover:bg-emerald-50 transition-colors">
+                    @L.T("home.banner.cta")
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </a>
+            </div>
+
+            <!-- Featured events teaser -->
+            <div class="rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 p-5 text-center">
+                <span class="material-symbols-outlined text-3xl text-orange-500 mb-2">event</span>
+                <p class="text-sm font-bold text-[#0f1714] mb-1">@L.T("home.events.sidebarTeaserTitle")</p>
+                <p class="text-xs text-[#7a8c84] mb-3">@L.T("home.events.sidebarTeaserDesc")</p>
+                <a href="#home-events" class="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700">
+                    @L.T("home.events.sidebarTeaserCta")
+                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                </a>
             </div>
 
             <!-- Trust badge card -->
@@ -576,13 +558,14 @@
                     <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/25">
                         <span class="material-symbols-outlined text-white text-[20px]">verified_user</span>
                     </div>
-                    <p class="text-sm font-extrabold text-[#111816]">Comercio Verificado</p>
+                    <p class="text-sm font-extrabold text-[#111816]">@L.T("home.trust.title")</p>
                 </div>
-                <p class="text-xs text-[#5f7369] leading-relaxed">Todos los negocios en ComunaClic pasan por un proceso de verificación para garantizar una experiencia confiable.</p>
+                <p class="text-xs text-[#5f7369] leading-relaxed">@L.T("home.trust.desc")</p>
             </div>
 
         </aside>
     </div>
+    </FriendlyErrorBoundary>
     </main>
 </div>
 
@@ -605,6 +588,11 @@
     private bool _hasMoreProfessionals;
     private readonly List<HomeNewsCard> _newsCards = new();
     private readonly List<HomeEventCard> _eventCards = new();
+    private UserMapLocationResult? _nearbyDeviceLocation;
+    private IReadOnlyList<SearchResultItem> _nearbyBusinesses = Array.Empty<SearchResultItem>();
+    private GeoFilter? _nearbyGeoFilter;
+    private bool _nearbyLoading;
+    private readonly HashSet<string> _nearbySelectedTypes = new(StringComparer.OrdinalIgnoreCase);
     private bool _categoriesLoading = true;
     private bool _featuredLoading = true;
     private bool _featuredServicesLoading = true;
@@ -987,10 +975,67 @@
         }
     }
 
-    private Task HandleSearchGeoChanged(HomeSearchLocationBar.HomeSearchGeoContext context)
+    private async Task HandleSearchGeoChanged(HomeSearchLocationBar.HomeSearchGeoContext context)
     {
         _searchGeoContext = context;
-        return Task.CompletedTask;
+
+        if (_nearbyDeviceLocation is null && context.HasCoordinates
+            && context.Latitude is double lat && context.Longitude is double lng)
+        {
+            var location = new UserMapLocationResult(lat, lng, FromDevice: context.Mode == HomeSearchLocationBar.NearbyMode, ErrorMessage: null);
+            await EnsureNearbyBusinessesAsync(location, context.RadiusKm);
+        }
+    }
+
+    private async Task EnsureNearbyBusinessesAsync(UserMapLocationResult location, double? radiusKm = null)
+    {
+        _nearbyDeviceLocation = location;
+        var radius = radiusKm ?? _searchGeoContext?.RadiusKm ?? 10;
+        _nearbyGeoFilter = new GeoFilter(Latitude: location.Latitude, Longitude: location.Longitude, RadiusKm: radius);
+        var results = await BuyerApi.SearchAsync(null, "partners", 12, _nearbyGeoFilter);
+        _nearbyBusinesses = results ?? Array.Empty<SearchResultItem>();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private IReadOnlyList<SearchResultItem> _nearbyFilteredBusinesses
+        => _nearbySelectedTypes.Count == 0
+            ? _nearbyBusinesses
+            : _nearbyBusinesses.Where(b => b.Category is not null && _nearbySelectedTypes.Contains(b.Category)).ToList();
+
+    private void ToggleNearbyType(string code)
+    {
+        if (!_nearbySelectedTypes.Remove(code))
+        {
+            _nearbySelectedTypes.Add(code);
+        }
+    }
+
+    private static string ChipClass(bool active) => active
+        ? "rounded-full px-4 py-1.5 text-xs font-bold bg-primary text-white transition-colors"
+        : "rounded-full px-4 py-1.5 text-xs font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors";
+
+    private string NearbyTypeLabel(string code) => code switch
+    {
+        "A" => L.T("home.nearby.filter.commerce"),
+        "B" => L.T("home.nearby.filter.services"),
+        "C" => L.T("home.nearby.filter.professionals"),
+        _ => code
+    };
+
+    private async Task HandleEnableNearbyLocationAsync()
+    {
+        _nearbyLoading = true;
+        StateHasChanged();
+        var location = await MapLocation.GetCurrentAsync();
+        _nearbyLoading = false;
+        if (string.IsNullOrEmpty(location.ErrorMessage))
+        {
+            await EnsureNearbyBusinessesAsync(location);
+        }
+        else
+        {
+            StateHasChanged();
+        }
     }
 
     private ComunaClick.Shared.Api.Buyer.GeoFilter? BuildSearchGeoFilter()
@@ -1021,9 +1066,6 @@
     private string BuildSearchSectionUrl(string type)
         => SearchQueryHelper.BuildBuscarUrl(_searchQuery, type, _lastSearchGeo);
 
-    private static string GetSearchResultHref(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
-        => SearchDisplayHelper.GetResultHref(item);
-
     private static string BuildCategoryStyle(string? image)
     {
         return !string.IsNullOrWhiteSpace(image)
@@ -1031,27 +1073,8 @@
             : "background-image: linear-gradient(135deg, rgba(45,158,79,0.95) 0%, rgba(34,197,94,0.8) 55%, rgba(220,252,231,0.65) 100%);";
     }
 
-    private string BuildFeaturedImageOnlyStyle(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
-        => SearchDisplayHelper.BuildCardBackgroundStyle(SearchDisplayHelper.ResolveCardImageUrl(item, MediaUrl.Resolve));
-
-    private static string? FormatPriceLine(ComunaClick.Shared.Api.Buyer.SearchResultItem item)
-    {
-        if (item.Price is null)
-        {
-            return null;
-        }
-
-        var cur = (item.Currency ?? string.Empty).Trim().ToUpperInvariant();
-        var n = item.Price.Value;
-        return cur switch
-        {
-            "CLP" or "CL$" => $"$ {n:N0}",
-            "USD" or "US$" or "USD $" => $"US$ {n:N2}",
-            _ => string.IsNullOrWhiteSpace(item.Currency)
-                ? $"$ {n:N0}"
-                : $"{item.Currency} {n:N0}"
-        };
-    }
+    private static string BuildEventImageStyle(HomeEventCard ev)
+        => $"background-image:url('{ev.ImageUrl}');background-size:cover;background-position:center;";
 
     private static string NormalizeCategoryName(string? value)
     {
@@ -1098,19 +1121,22 @@
                 SafeLocale("home.news1.title", "La renovación de la Calle Principal comienza el próximo martes"),
                 SafeLocale("home.news1.time", "hace 2 horas"),
                 "https://news.google.com/topics/CAAqIAgKIh9DQkFTRVFvSUwyMHZNRGx1YkMxbkVnSmhiaWdBUAE?hl=es-419&gl=CL&ceid=CL:es-419",
-                "inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] text-emerald-700 font-bold mb-2 uppercase tracking-wider"),
+                "inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] text-emerald-700 font-bold mb-2 uppercase tracking-wider",
+                "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=200&q=70"),
             new HomeNewsCard(
                 secondTag,
                 SafeLocale("home.news2.title", "Nuevo mercado orgánico abre en el Distrito Norte"),
                 SafeLocale("home.news2.time", "ayer"),
                 "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREk0ZHpBU0FtVnVLQUFQAQ?hl=es-419&gl=CL&ceid=CL:es-419",
-                "inline-flex rounded-full bg-amber-100 px-3 py-1 text-[10px] text-amber-700 font-bold mb-2 uppercase tracking-wider"),
+                "inline-flex rounded-full bg-amber-100 px-3 py-1 text-[10px] text-amber-700 font-bold mb-2 uppercase tracking-wider",
+                "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=70"),
             new HomeNewsCard(
                 thirdTag,
                 SafeLocale("home.news3.title", "Reunión de seguridad vecinal: la seguridad primero"),
                 SafeLocale("home.news3.time", "hace 2 días"),
                 "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFkxTjJ3U0FtVnVLQUFQAQ?hl=es-419&gl=CL&ceid=CL:es-419",
-                "inline-flex rounded-full bg-sky-100 px-3 py-1 text-[10px] text-sky-700 font-bold mb-2 uppercase tracking-wider")
+                "inline-flex rounded-full bg-sky-100 px-3 py-1 text-[10px] text-sky-700 font-bold mb-2 uppercase tracking-wider",
+                "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=200&q=70")
         };
     }
 
@@ -1122,17 +1148,23 @@
                 SafeLocale("home.event1.title", "Feria de agricultores de fin de semana"),
                 SafeLocale("home.event1.time", "08:00 - Plaza Central"),
                 "Oct",
-                "12"),
+                "12",
+                "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=900&q=75",
+                "#home-events"),
             new HomeEventCard(
                 SafeLocale("home.event2.title", "Taller de tecnología para personas mayores"),
                 SafeLocale("home.event2.time", "16:00 - Biblioteca Pública"),
                 "Oct",
-                "15"),
+                "15",
+                "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=75",
+                "#home-events"),
             new HomeEventCard(
                 SafeLocale("home.event3.title", "Exhibición de artistas locales"),
                 SafeLocale("home.event3.time", "18:30 - Centro de Artes"),
                 "Oct",
-                "20")
+                "20",
+                "https://images.unsplash.com/photo-1531913764164-f85c52e6e654?auto=format&fit=crop&w=900&q=75",
+                "#home-events")
         };
     }
 
@@ -1160,14 +1192,17 @@
         string Title,
         string TimeLabel,
         string Href,
-        string TagCss
+        string TagCss,
+        string ImageUrl
     );
 
     private sealed record HomeEventCard(
         string Title,
         string TimeLabel,
         string MonthLabel,
-        string DayLabel
+        string DayLabel,
+        string ImageUrl,
+        string Href
     );
 
     public void Dispose()

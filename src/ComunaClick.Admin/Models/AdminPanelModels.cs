@@ -99,6 +99,13 @@ public sealed record AdminRoleDto(
     Guid Id,
     string Name);
 
+public sealed record AdminSellerFeeItemDto(
+    Guid SellerId,
+    string SellerName,
+    decimal FixedFeeAmount,
+    decimal PercentageFee,
+    bool IsActive);
+
 public sealed record AdminDeliveryProviderDto(
     Guid Id,
     Guid? TenantId,

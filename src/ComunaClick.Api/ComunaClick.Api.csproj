@@ -36,6 +36,9 @@
     <Content Include="..\..\infra\migrations\20260602_service_geo_coordinates.sql" Link="migrations\20260602_service_geo_coordinates.sql" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\infra\migrations\20260603_commerce_home_improvement_gardening.sql" Link="migrations\20260603_commerce_home_improvement_gardening.sql" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\infra\migrations\20260604_product_geo_discovery.sql" Link="migrations\20260604_product_geo_discovery.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\infra\migrations\20260609_professional_photo_url.sql" Link="migrations\20260609_professional_photo_url.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\infra\migrations\20260609_professional_stats_certifications.sql" Link="migrations\20260609_professional_stats_certifications.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\infra\migrations\20260609_professional_follows.sql" Link="migrations\20260609_professional_follows.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

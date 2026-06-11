@@ -45,6 +45,9 @@ public sealed class MarketplacePaymentService
         _options = options.Value;
     }
 
+    private string ResolveWebhookBaseUrl()
+        => (string.IsNullOrWhiteSpace(_options.WebhookBaseUrl) ? _options.AppBaseUrl : _options.WebhookBaseUrl).TrimEnd('/');
+
     public async Task<MarketplacePaymentResponse> CreateAsync(CreateMarketplacePaymentRequest request, CancellationToken cancellationToken)
     {
         ValidateCreateRequest(request);
@@ -123,7 +126,7 @@ public sealed class MarketplacePaymentService
                         return new MercadoPagoPreferenceItem(sku, title, x.Quantity, order.Currency, x.UnitPrice);
                     }).ToArray(),
                     new MercadoPagoPreferencePayer(order.BuyerEmail ?? request.Buyer.Email, order.BuyerName ?? request.Buyer.Name),
-                    $"{_options.AppBaseUrl.TrimEnd('/')}/api/webhooks/mercadopago"),
+                    $"{ResolveWebhookBaseUrl()}/api/webhooks/mercadopago"),
                 cancellationToken);
 
             payment.ProviderToken = preference.Id;
@@ -435,7 +438,7 @@ public sealed class MarketplacePaymentService
             {
                 SellerId = sellerId,
                 FixedFeeAmount = 0m,
-                PercentageFee = 0m,
+                PercentageFee = 2.61m,
                 IsActive = true
             };
         }
@@ -570,7 +573,7 @@ public sealed class MarketplacePaymentService
                         grossAmount)
                 },
                 new MercadoPagoPreferencePayer(buyerEmail, buyerName),
-                $"{baseUrl}/api/webhooks/mercadopago"),
+                $"{ResolveWebhookBaseUrl()}/api/webhooks/mercadopago"),
             cancellationToken);
 
         payment.ProviderToken = preference.Id;

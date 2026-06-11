@@ -1,0 +1,70 @@
+@inject ApiMediaUrl MediaUrl
+@inject LocaleService L
+
+<a href="@SearchDisplayHelper.GetResultHref(Item)"
+   class="cc-card-lift group min-w-0 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm flex flex-col h-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2">
+    <div class="relative h-40 overflow-hidden">
+        @if (_imageUrl is not null)
+        {
+            <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                 style="background-image:url('@_imageUrl');"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
+        }
+        else
+        {
+            <div class="absolute inset-0 flex items-center justify-center @_avatarBgClass">
+                <span class="text-4xl font-black text-white/90 font-headline">@_initials</span>
+            </div>
+        }
+        @if (Badge != BusinessOfferCardBadge.None)
+        {
+            <span class="absolute top-2.5 left-2.5 rounded-lg @_badgeCss text-[10px] font-black px-2.5 py-0.5 uppercase tracking-wide">@_badgeLabel</span>
+        }
+        <span class="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-primary shadow-md">Ver →</span>
+    </div>
+    <div class="p-3.5 flex flex-col flex-1">
+        <h3 class="text-[13px] font-extrabold text-[#111816] line-clamp-2 min-h-[2.5rem] font-headline leading-snug">@Item.Name</h3>
+        <p class="text-xs text-[#7a8c84] mt-0.5 truncate">@SearchDisplayHelper.FormatCategorySubtitle(L, Item)</p>
+        <div class="mt-auto pt-1.5">
+            @if (_priceLine is not null)
+            {
+                @if (Badge == BusinessOfferCardBadge.Service)
+                {
+                    <p class="text-xs text-[#61897c] font-medium">@L.T("home.market.from") <span class="text-lg font-black text-primary font-headline leading-none">@_priceLine</span></p>
+                }
+                else
+                {
+                    <p class="text-lg font-black text-primary font-headline leading-none">@_priceLine</p>
+                }
+            }
+            else
+            {
+                <p class="text-xs font-bold text-primary flex items-center gap-0.5">@_ctaLabel <span class="material-symbols-outlined text-[13px]">arrow_forward</span></p>
+            }
+        </div>
+    </div>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public SearchResultItem Item { get; set; } = default!;
+    [Parameter] public BusinessOfferCardBadge Badge { get; set; } = BusinessOfferCardBadge.Local;
+
+    private string? _imageUrl;
+    private string? _priceLine;
+    private string _initials = "";
+    private string _avatarBgClass = "";
+    private string _badgeLabel = "";
+    private string _badgeCss = "";
+    private string _ctaLabel = "";
+
+    protected override void OnParametersSet()
+    {
+        _imageUrl = SearchDisplayHelper.ResolveCardImageUrl(Item, MediaUrl.Resolve);
+        _priceLine = SearchDisplayHelper.FormatPrice(Item);
+        _initials = SearchDisplayHelper.GetInitials(Item.Name);
+        _avatarBgClass = SearchDisplayHelper.GetAvatarColorClass(Item.Name);
+        _badgeLabel = Badge == BusinessOfferCardBadge.Service ? L.T("home.market.badge.service") : L.T("home.market.badge.local");
+        _badgeCss = Badge == BusinessOfferCardBadge.Service ? "bg-primary/95 text-white" : "bg-amber-100/95 text-amber-900";
+        _ctaLabel = Badge == BusinessOfferCardBadge.Service ? L.T("home.market.viewService") : L.T("home.market.viewStore");
+    }
+}

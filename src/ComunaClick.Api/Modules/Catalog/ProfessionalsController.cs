@@ -112,7 +112,40 @@ public sealed class ProfessionalsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(professional);
+        await _db.Database.ExecuteSqlAsync(
+            $"UPDATE core.professionals SET profile_view_count = profile_view_count + 1 WHERE id = {id}");
+
+        var followerCount = await _db.ProfessionalFollows.AsNoTracking()
+            .CountAsync(x => x.FollowedType == "professional" && x.FollowedId == id);
+
+        return Ok(new
+        {
+            professional.Id,
+            professional.TenantId,
+            professional.Name,
+            professional.Email,
+            professional.Phone,
+            professional.Specialty,
+            professional.Bio,
+            professional.IsVerified,
+            professional.IsActive,
+            professional.CreatedAt,
+            professional.BannerUrl,
+            professional.ProfileHeadline,
+            professional.WebsiteUrl,
+            professional.InstagramUrl,
+            professional.FacebookUrl,
+            professional.LinkedInUrl,
+            professional.XUrl,
+            professional.TikTokUrl,
+            professional.YouTubeUrl,
+            professional.OtherLinkLabel,
+            professional.OtherLinkUrl,
+            professional.ProfilePhotoUrl,
+            professional.ProfileViewCount,
+            professional.CertificationsJson,
+            FollowerCount = followerCount
+        });
     }
 
     [HttpPost]

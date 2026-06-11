@@ -200,6 +200,11 @@ check_api_public() {
   assert_status "api_discovery" 200
   assert_body_contains "api_discovery" "category"
   pass "Discovery público responde 200"
+
+  http_request "api_mp_webhook" POST "${API_BASE_URL}/api/webhooks/mercadopago" '{"type":"payment","action":"smoke.test","data":{"id":"0"}}'
+  assert_status "api_mp_webhook" 200
+  assert_body_contains "api_mp_webhook" "signatureValid"
+  pass "Webhook MercadoPago alcanzable en API y responde 200"
 }
 
 check_authenticated_flow() {

@@ -18,4 +18,8 @@ public sealed record BuyerProfessionalProfileResponse(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null);
+    string? OtherLinkUrl = null,
+    string? BannerUrl = null,
+    string? ProfilePhotoUrl = null,
+    long ProfileViewCount = 0,
+    string? CertificationsJson = null);

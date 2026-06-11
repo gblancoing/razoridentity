@@ -1,0 +1,25 @@
+@inject LocaleService L
+
+<ErrorBoundary @ref="_errorBoundary">
+    <ChildContent>
+        @ChildContent
+    </ChildContent>
+    <ErrorContent Context="ex">
+        <div class="max-w-2xl mx-auto my-12 px-4 text-center" role="alert">
+            <span class="material-symbols-outlined text-5xl text-amber-500 mb-3" aria-hidden="true">error_outline</span>
+            <h2 class="text-xl font-black text-[#111816] font-headline mb-2">@L.T("home.error.title")</h2>
+            <p class="text-sm text-[#61897c] mb-5">@L.T("home.error.desc")</p>
+            <button type="button" @onclick="Recover" class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white hover:brightness-110 transition-all">
+                <span class="material-symbols-outlined text-[18px]">refresh</span>@L.T("home.error.retry")
+            </button>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private ErrorBoundary? _errorBoundary;
+
+    private void Recover() => _errorBoundary?.Recover();
+}

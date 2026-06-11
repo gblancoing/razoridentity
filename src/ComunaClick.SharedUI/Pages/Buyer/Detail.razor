@@ -95,6 +95,15 @@
                                          Title="@store.Name"
                                          OpenAbove="true"
                                          ButtonClass="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20" />
+                        @if (AuthState.IsPersonalAccount)
+                        {
+                            <button type="button" @onclick="HandlePartnerFollowToggled" disabled="@_partnerFollowBusy"
+                                    class="inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-2.5 text-sm font-bold text-white transition disabled:opacity-60"
+                                    style="@(_isFollowingPartner ? "border-color:rgba(167,242,85,0.7);background:rgba(167,242,85,0.15)" : "border-color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.1)")">
+                                <span class="material-symbols-outlined" style="font-size:18px">@(_isFollowingPartner ? "how_to_reg" : "person_add")</span>
+                                @(_isFollowingPartner ? "Siguiendo" : "Seguir")
+                            </button>
+                        }
                         <a href="@PartnerExploreBackHref" class="inline-flex items-center justify-center rounded-2xl border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20">Volver a explorar</a>
                     </div>
                 </div>
@@ -235,6 +244,16 @@
                                ShareRelativePath="@($"/buyer/detail/product/{_productDetail.Id}")"
                                ShareTitle="@_productDetail.Name"
                                Facts="@ProductOfferingFacts" />
+    }
+    else if (IsProfessionalDetail && _professionalDetail is not null)
+    {
+        <ProfessionalPublicProfile Professional="_professionalDetail"
+                                   ConsultHref="@_primaryCtaHref"
+                                   SharePath="@_shareRelativePath"
+                                   IsOwner="@(!string.IsNullOrWhiteSpace(AuthState.Email) && string.Equals(AuthState.Email, _professionalDetail.Email, StringComparison.OrdinalIgnoreCase))"
+                                   IsFollowing="@_isFollowingProfessional"
+                                   OnFollowToggled="@HandleFollowToggled"
+                                   OwnerFollows="@_ownerFollows" />
     }
     else if (IsServiceDetail && _serviceDetail is not null)
     {
@@ -392,6 +411,11 @@
     private readonly List<DetailFact> _detailFacts = new();
     private BuyerModels.PartnerProfileResponse? _partnerProfile;
     private BuyerModels.Product? _productDetail;
+    private BuyerModels.Professional? _professionalDetail;
+    private bool _isFollowingProfessional;
+    private IReadOnlyList<ComunaClick.Shared.Api.Buyer.ProfessionalFollowItem>? _ownerFollows;
+    private bool _isFollowingPartner;
+    private bool _partnerFollowBusy;
     private bool _showAddToCart;
     private bool _addingToCart;
     private string? _cartStatusMessage;
@@ -402,7 +426,9 @@
 
     private string PageShellClass => (IsPartnerStore && IsServiceCompanyStore) || IsServiceDetail
         ? "mx-auto max-w-[88rem] space-y-8 px-4 sm:px-6"
-        : "mx-auto max-w-7xl space-y-8 px-4 sm:px-6";
+        : IsProfessionalDetail
+            ? ""
+            : "mx-auto max-w-7xl space-y-8 px-4 sm:px-6";
 
     private string HeroImageStyle => PublicOfferVisuals.BackgroundStyle(MediaUrl.Resolve(_heroImageUrl));
     private bool CanShowFavoriteAction => ResolveFavoriteType() is not null && Id.HasValue;
@@ -519,6 +545,9 @@
     private bool IsServiceDetail
         => string.Equals(Type, "service", StringComparison.OrdinalIgnoreCase) && _serviceDetail is not null;
 
+    private bool IsProfessionalDetail
+        => string.Equals(Type, "professional", StringComparison.OrdinalIgnoreCase) && _professionalDetail is not null;
+
     private IReadOnlyList<string> PartnerCategoryKeys
     {
         get
@@ -631,6 +660,7 @@
         _partnerProfile = null;
         _productDetail = null;
         _serviceDetail = null;
+        _professionalDetail = null;
         _partnerCategoryFilter = null;
         _consultHref = null;
         _badges.Clear();
@@ -666,6 +696,9 @@
             return;
         }
 
+        _isFollowingPartner = false;
+        _partnerFollowBusy = false;
+        _ownerFollows = null;
         _isLoading = true;
         try
         {
@@ -955,6 +988,16 @@
         AddFact("Tipo de oferta", partner.OfferLabel ?? "No informado");
         AddFact("Categoría", partner.CategoryName ?? "Sin categoría informada");
         AddFact("Subcategoría", partner.SubcategoryName ?? "Sin subcategoría informada");
+
+        if (!string.IsNullOrWhiteSpace(AuthState.Email))
+        {
+            try
+            {
+                var follows = await BuyerApi.GetProfessionalFollowsAsync();
+                _isFollowingPartner = follows?.Any(f => f.FollowedType == "partner" && f.FollowedId == id) ?? false;
+            }
+            catch { }
+        }
     }
 
     private async Task LoadProfessionalAsync(Guid id)
@@ -998,6 +1041,54 @@
 
         _displayWebLinks = ProfileWebLinksHelper.FromProfessional(professional);
         _shareRelativePath = $"/buyer/detail/professional/{id}";
+        _professionalDetail = professional;
+
+        if (!string.IsNullOrWhiteSpace(AuthState.Email))
+        {
+            try
+            {
+                var follows = await BuyerApi.GetProfessionalFollowsAsync();
+                _isFollowingProfessional = follows?.Any(f => f.FollowedType == "professional" && f.FollowedId == id) ?? false;
+                var isOwner = string.Equals(AuthState.Email, professional.Email, StringComparison.OrdinalIgnoreCase);
+                if (isOwner) _ownerFollows = follows;
+            }
+            catch { }
+        }
+    }
+
+    private async Task HandleFollowToggled(bool nowFollowing)
+    {
+        if (_professionalDetail is null) return;
+        try
+        {
+            if (nowFollowing)
+                await BuyerApi.FollowProfessionalEntityAsync("professional", _professionalDetail.Id);
+            else
+                await BuyerApi.UnfollowProfessionalEntityAsync("professional", _professionalDetail.Id);
+            _isFollowingProfessional = nowFollowing;
+        }
+        catch { }
+    }
+
+    private async Task HandlePartnerFollowToggled()
+    {
+        if (_partnerProfile is null || _partnerFollowBusy) return;
+        _partnerFollowBusy = true;
+        StateHasChanged();
+        try
+        {
+            var partnerId = _partnerProfile.Partner.Id;
+            if (_isFollowingPartner)
+                await BuyerApi.UnfollowProfessionalEntityAsync("partner", partnerId);
+            else
+                await BuyerApi.FollowProfessionalEntityAsync("partner", partnerId);
+            _isFollowingPartner = !_isFollowingPartner;
+        }
+        catch { }
+        finally
+        {
+            _partnerFollowBusy = false;
+        }
     }
 
     private void AddBadge(string? badge)

@@ -1,0 +1,86 @@
+@inject LocaleService L
+@inject NavigationManager Navigation
+@inject AuthStateService AuthState
+@implements IDisposable
+
+<nav class="lg:hidden fixed bottom-0 left-0 right-0 z-[1040] border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-2px_12px_rgba(0,0,0,.06)]"
+     role="navigation" aria-label="@L.T("nav.bottom.aria")">
+    <div class="grid grid-cols-4">
+        <a href="/" class="@TabClass("/")" aria-current="@(IsActive("/") ? "page" : null)">
+            <span class="material-symbols-outlined text-[22px]">home</span>
+            <span class="text-[10px] font-bold">@L.T("nav.home")</span>
+        </a>
+        <a href="/buscar" class="@TabClass("/buscar")" aria-current="@(IsActive("/buscar") ? "page" : null)">
+            <span class="material-symbols-outlined text-[22px]">search</span>
+            <span class="text-[10px] font-bold">@L.T("nav.bottom.search")</span>
+        </a>
+        <a href="/buyer/favorites" class="@TabClass("/buyer/favorites")" aria-current="@(IsActive("/buyer/favorites") ? "page" : null)">
+            <span class="material-symbols-outlined text-[22px]">favorite</span>
+            <span class="text-[10px] font-bold">@L.T("nav.favorites")</span>
+        </a>
+        <a href="@AccountHref" class="@TabClass(AccountHref)" aria-current="@(IsActive(AccountHref) ? "page" : null)">
+            <span class="material-symbols-outlined text-[22px]">@(AuthState.IsAuthenticated ? "person" : "login")</span>
+            <span class="text-[10px] font-bold">@(AuthState.IsAuthenticated ? L.T("nav.myAccount") : L.T("nav.login"))</span>
+        </a>
+    </div>
+</nav>
+<div class="lg:hidden h-[calc(3.75rem+env(safe-area-inset-bottom,0px))] shrink-0" aria-hidden="true"></div>
+
+@code {
+    private bool _authInitialized;
+
+    private string AccountHref => AuthState.IsAuthenticated
+        ? AccountRoutes.MyAccountLink(AuthState.IsPartnerAccount)
+        : "/login";
+
+    private bool IsActive(string href)
+    {
+        var path = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+        if (href == "/")
+        {
+            return string.IsNullOrEmpty(path);
+        }
+
+        return path.Equals(href.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(href.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string TabClass(string href) => IsActive(href)
+        ? "flex flex-col items-center justify-center gap-0.5 py-2 text-primary-dim"
+        : "flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-primary transition-colors";
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_authInitialized)
+        {
+            return;
+        }
+
+        try
+        {
+            await AuthState.InitializeAsync();
+            _authInitialized = true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop unavailable during prerender.
+        }
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

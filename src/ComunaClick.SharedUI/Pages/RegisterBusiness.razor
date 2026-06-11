@@ -39,6 +39,11 @@
                                 <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
                             }
 
+                            <label class="flex items-start gap-3 rounded-2xl border border-[#dbe6e2] p-4 dark:border-white/10">
+                                <input type="checkbox" class="mt-1 rounded border-gray-300" @bind="_model.AcceptFlow" />
+                                <span class="text-sm leading-relaxed text-[#111816] dark:text-gray-200">@AcceptLabel</span>
+                            </label>
+
                             <div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4 dark:border-white/10 dark:bg-[#10221c]">
                                 <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#3b6700]">@L.T("registerAccount.social.eyebrow")</p>
                                 <p class="mt-2 text-xs leading-relaxed text-[#4a5c52] dark:text-gray-300">@SocialHint</p>
@@ -115,11 +120,6 @@
                                     <ValidationMessage For="@(() => _model.ConfirmPassword)" class="text-xs text-red-500" />
                                 </div>
                             </div>
-
-                            <label class="flex items-start gap-3 rounded-2xl border border-[#dbe6e2] p-4 dark:border-white/10">
-                                <input type="checkbox" class="mt-1 rounded border-gray-300" @bind="_model.AcceptFlow" />
-                                <span class="text-sm leading-relaxed text-[#111816] dark:text-gray-200">@AcceptLabel</span>
-                            </label>
 
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <a href="/login" class="text-sm font-semibold text-[#61897c] hover:text-[#3b6700]">@L.T("registerAccount.preferLogin")</a>

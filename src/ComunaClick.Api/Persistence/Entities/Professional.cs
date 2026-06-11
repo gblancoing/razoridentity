@@ -14,7 +14,10 @@ public sealed class Professional
     public string? Specialty { get; set; }
     public string? Bio { get; set; }
     public string? BannerUrl { get; set; }
+    public string? ProfilePhotoUrl { get; set; }
     public string? ProfileHeadline { get; set; }
+    public long ProfileViewCount { get; set; }
+    public string? CertificationsJson { get; set; }
     public string? WebsiteUrl { get; set; }
     public string? InstagramUrl { get; set; }
     public string? FacebookUrl { get; set; }

@@ -424,7 +424,10 @@ public sealed class SearchController : ControllerBase
 
         if (hasQuery)
         {
-            professionalsQuery = professionalsQuery.Where(x => EF.Functions.ILike(x.Name, filter!));
+            professionalsQuery = professionalsQuery.Where(x =>
+                EF.Functions.ILike(x.Name, filter!)
+                || (x.Specialty != null && EF.Functions.ILike(x.Specialty, filter!))
+                || (x.Bio != null && EF.Functions.ILike(x.Bio, filter!)));
         }
 
         var fetchLimit = useGeo ? MaxFetchWhenGeo : take;
@@ -460,7 +463,7 @@ public sealed class SearchController : ControllerBase
                 }
             }
 
-            var professionalLogo = professional.BannerUrl;
+            var professionalLogo = professional.ProfilePhotoUrl ?? professional.BannerUrl;
             if (professional.PartnerId is Guid profPartnerId
                 && professionalPartnersById is not null
                 && professionalPartnersById.TryGetValue(profPartnerId, out var profPartner)

@@ -252,7 +252,8 @@ public sealed class PublicCatalogController : ControllerBase
                 x.Specialty,
                 x.Bio,
                 x.Email,
-                x.Phone
+                x.Phone,
+                x.ProfilePhotoUrl
             })
             .ToList();
 

@@ -286,6 +286,122 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
     }
 
+    public async Task<BuyerProfessionalProfile?> UploadBuyerProfessionalBannerAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(streamContent, "file", fileName);
+        var path = "/v1/buyer/professional-profile/banner";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = multipart };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public Task<BuyerProfessionalProfile?> RemoveBuyerProfessionalBannerAsync(
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/banner";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> AddBuyerProfessionalCertificationAsync(
+        BuyerAddCertificationRequest request,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/certifications";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(request) };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> RemoveBuyerProfessionalCertificationAsync(
+        string certId,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/buyer/professional-profile/certifications/{certId}";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> UploadBuyerProfessionalPhotoAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(streamContent, "file", fileName);
+        var path = "/v1/buyer/professional-profile/photo";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = multipart };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<ProfessionalFollowItem>?> GetProfessionalFollowsAsync(Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/follows";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        return GetAsync<IReadOnlyList<ProfessionalFollowItem>>(path, cancellationToken);
+    }
+
+    public async Task<bool> FollowProfessionalEntityAsync(string followedType, Guid followedId, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/follows";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(new { followedType, followedId })
+        };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        var result = await SendAsync<FollowStatusResponse>(message, cancellationToken);
+        return result?.IsFollowing ?? false;
+    }
+
+    public async Task<bool> UnfollowProfessionalEntityAsync(string followedType, Guid followedId, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/buyer/professional-profile/follows/{followedType}/{followedId}";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        var result = await SendAsync<FollowStatusResponse>(message, cancellationToken);
+        return result?.IsFollowing ?? false;
+    }
+
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
@@ -787,7 +903,11 @@ public sealed record BuyerProfessionalProfile(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null);
+    string? OtherLinkUrl = null,
+    string? BannerUrl = null,
+    string? ProfilePhotoUrl = null,
+    long ProfileViewCount = 0,
+    string? CertificationsJson = null);
 
 public sealed record BuyerProfessionalProfileUpsertRequest(
     Guid? TenantId,
@@ -912,8 +1032,39 @@ public sealed record Professional(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null
+    string? OtherLinkUrl = null,
+    string? ProfilePhotoUrl = null,
+    long ProfileViewCount = 0,
+    string? CertificationsJson = null,
+    long FollowerCount = 0
 );
+
+public sealed record ProfessionalCertification(
+    string Id,
+    string Name,
+    string? Institution = null,
+    int? Year = null,
+    string? Url = null
+);
+
+public sealed record BuyerAddCertificationRequest(
+    string Name,
+    string? Institution = null,
+    int? Year = null,
+    string? Url = null
+);
+
+public sealed record ProfessionalFollowItem(
+    Guid FollowId,
+    string FollowedType,
+    Guid FollowedId,
+    string? Name,
+    string? Subtitle,
+    string? PhotoUrl,
+    DateTimeOffset FollowedAt
+);
+
+public sealed record FollowStatusResponse(bool IsFollowing);
 
 public sealed record PublicCountryItem(
     Guid Id,
@@ -1067,7 +1218,8 @@ public sealed record CategoryProfessionalItem(
     string? Specialty,
     string? Bio,
     string? Email,
-    string? Phone
+    string? Phone,
+    string? ProfilePhotoUrl = null
 );
 
 public sealed record CategoryNearbyResponse(

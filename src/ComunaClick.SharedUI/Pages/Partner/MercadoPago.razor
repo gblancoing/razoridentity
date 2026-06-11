@@ -153,7 +153,8 @@
                                 <th class="px-8 py-3 font-bold">Fecha</th>
                                 <th class="px-4 py-3 font-bold">Orden</th>
                                 <th class="px-4 py-3 font-bold text-right">Bruto</th>
-                                <th class="px-4 py-3 font-bold text-right">Comisión</th>
+                                <th class="px-4 py-3 font-bold text-right">Comisión MP</th>
+                                <th class="px-4 py-3 font-bold text-right">Comisión ComunaClic</th>
                                 <th class="px-4 py-3 font-bold text-right">Neto</th>
                                 <th class="px-4 py-3 font-bold">Estado</th>
                                 <th class="px-4 py-3 font-bold">Acciones</th>
@@ -166,6 +167,9 @@
                                     <td class="px-8 py-4 text-[#595c5d] text-xs">@payment.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                                     <td class="px-4 py-4 font-mono text-xs text-[#7b8081]">@ShortId(payment.OrderId)</td>
                                     <td class="px-4 py-4 text-right font-semibold text-[#2c2f30]">@FormatMoney(payment.GrossAmount)</td>
+                                    <td class="px-4 py-4 text-right text-[#595c5d] font-semibold">
+                                        @(payment.MercadoPagoFeeAmount.HasValue ? $"-{FormatMoney(payment.MercadoPagoFeeAmount.Value)}" : "—")
+                                    </td>
                                     <td class="px-4 py-4 text-right text-[#e65100] font-semibold">-@FormatMoney(payment.PlatformFeeAmount)</td>
                                     <td class="px-4 py-4 text-right font-black text-[#3b6700]">@FormatMoney(payment.NetAmount)</td>
                                     <td class="px-4 py-4">

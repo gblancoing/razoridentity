@@ -60,6 +60,15 @@ public sealed class AdminApiClient
     public Task<List<AdminAuditEventDto>?> GetAuditAsync(CancellationToken cancellationToken = default)
         => GetAsync<List<AdminAuditEventDto>>("v1/admin/audit", cancellationToken);
 
+    public Task<List<AdminSellerFeeItemDto>?> GetSellerFeesAsync(CancellationToken cancellationToken = default)
+        => GetAsync<List<AdminSellerFeeItemDto>>("v1/admin/marketplace/fees", cancellationToken);
+
+    public Task<object?> UpdateGlobalFeeAsync(decimal percentageFee, decimal fixedFeeAmount = 0m, CancellationToken cancellationToken = default)
+        => PutAsync<object>("v1/admin/marketplace/fees", new { percentageFee, fixedFeeAmount }, cancellationToken);
+
+    public Task<object?> UpdateSellerFeeAsync(Guid sellerId, decimal percentageFee, decimal fixedFeeAmount = 0m, CancellationToken cancellationToken = default)
+        => PutAsync<object>($"v1/admin/marketplace/fees/{sellerId}", new { percentageFee, fixedFeeAmount }, cancellationToken);
+
     private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
     {
         using var request = CreateRequest(HttpMethod.Get, path);

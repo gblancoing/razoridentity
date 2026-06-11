@@ -53,11 +53,21 @@ public sealed class StorefrontBannerStorage
     CancellationToken cancellationToken = default)
     => await SaveAsync("professional-banners", tenantId, professionalId, file, MaxBannerBytes, AllowedBannerContentTypes, cancellationToken);
 
+  public async Task<string?> SaveProfessionalPhotoAsync(
+    Guid tenantId,
+    Guid professionalId,
+    IFormFile file,
+    CancellationToken cancellationToken = default)
+    => await SaveAsync("professional-photos", tenantId, professionalId, file, MaxLogoBytes, AllowedLogoContentTypes, cancellationToken);
+
   public void DeletePartnerBanner(Guid tenantId, Guid partnerId, string url)
     => DeletePhysical("partner-banners", tenantId, partnerId, url);
 
   public void DeleteProfessionalBanner(Guid tenantId, Guid professionalId, string url)
     => DeletePhysical("professional-banners", tenantId, professionalId, url);
+
+  public void DeleteProfessionalPhoto(Guid tenantId, Guid professionalId, string url)
+    => DeletePhysical("professional-photos", tenantId, professionalId, url);
 
   private async Task<string?> SaveAsync(
     string folderName,
