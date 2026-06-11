@@ -150,17 +150,12 @@
                                 </ProductOfferGeoSection>
                             </div>
                             <div class="md:col-span-2">
-                                <FormFieldHelp Label="@L.T("partner.catalog.a.storeSection")"
-                                               Tooltip="@L.T("partner.catalog.a.storeSection.tooltip")"
-                                               Help="@L.T("partner.catalog.a.storeSection.help")">
-                                <select class="@InputClass" value="@(_createProduct.PartnerCatalogCategoryId?.ToString() ?? "")" @onchange="OnCreateProductSectionChanged">
-                                    <option value="">@L.T("partner.catalog.a.storeSection.placeholder")</option>
-                                    @foreach (var cat in _storeCategories)
-                                    {
-                                        <option value="@cat.Id">@cat.Name</option>
-                                    }
-                                </select>
-                                </FormFieldHelp>
+                                <PartnerStoreSectionPicker PartnerId="@_partner!.Id"
+                                                           Categories="_storeCategories"
+                                                           SelectedId="@_createProduct.PartnerCatalogCategoryId"
+                                                           SelectedIdChanged="OnCreateProductSectionSelected"
+                                                           CategoriesRefreshRequested="RefreshStoreCategoriesAsync"
+                                                           InputClass="@InputClass" />
                             </div>
                             <div>
                                 <FormFieldHelp Label="@L.T("partner.catalog.a.salePrice")" Help="@L.T("partner.catalog.a.salePrice.help")">
@@ -616,17 +611,12 @@
                                         </ProductOfferGeoSection>
                                     </div>
                                     <div class="md:col-span-2">
-                                        <FormFieldHelp Label="@L.T("partner.catalog.a.storeSection")"
-                                                       Tooltip="@L.T("partner.catalog.a.storeSection.tooltip")"
-                                                       Help="@L.T("partner.catalog.a.storeSection.help")">
-                                            <select class="@InputClass" value="@(_productEditor.PartnerCatalogCategoryId?.ToString() ?? "")" @onchange="OnEditProductSectionChanged">
-                                                <option value="">@L.T("partner.catalog.a.storeSection.placeholder")</option>
-                                                @foreach (var cat in _storeCategories)
-                                                {
-                                                    <option value="@cat.Id">@cat.Name</option>
-                                                }
-                                            </select>
-                                        </FormFieldHelp>
+                                        <PartnerStoreSectionPicker PartnerId="@_partner!.Id"
+                                                                   Categories="_storeCategories"
+                                                                   SelectedId="@_productEditor.PartnerCatalogCategoryId"
+                                                                   SelectedIdChanged="OnEditProductSectionSelected"
+                                                                   CategoriesRefreshRequested="RefreshStoreCategoriesAsync"
+                                                                   InputClass="@InputClass" />
                                     </div>
                                     <div>
                                         <label class="text-sm font-semibold text-[#2c2f30]">Stock</label>
@@ -1325,6 +1315,12 @@
             return;
         }
 
+        if (_createProduct.PartnerCatalogCategoryId is null)
+        {
+            _statusMessage = L.T("partner.catalog.a.storeSection.required");
+            return;
+        }
+
         var geoError = await PrepareProductGeoForSaveAsync(_createProduct, _createProductGeoPicker);
         if (geoError is not null)
         {
@@ -1394,7 +1390,7 @@
         }
         catch (HttpRequestException ex)
         {
-            _statusMessage = $"No se pudo crear el producto ({(int?)ex.StatusCode ?? 0}).";
+            _statusMessage = FormatApiErrorMessage(ex, $"No se pudo crear el producto ({(int?)ex.StatusCode ?? 0}).");
         }
         finally
         {
@@ -1828,6 +1824,12 @@
         if (_editDiscoverySubcategoryIds.Count == 0)
         {
             _statusMessage = L.T("partner.catalog.a.marketplaceCategory.required");
+            return;
+        }
+
+        if (_productEditor.PartnerCatalogCategoryId is null)
+        {
+            SetEditFormMessage(L.T("partner.catalog.a.storeSection.required"));
             return;
         }
 
@@ -2846,14 +2848,22 @@
         return Task.CompletedTask;
     }
 
-    private void OnCreateProductSectionChanged(ChangeEventArgs e)
+    private void OnCreateProductSectionSelected(Guid? categoryId)
     {
-        _createProduct.PartnerCatalogCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _createProduct.PartnerCatalogCategoryId = categoryId;
     }
 
-    private void OnEditProductSectionChanged(ChangeEventArgs e)
+    private void OnEditProductSectionSelected(Guid? categoryId)
     {
-        _productEditor.PartnerCatalogCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _productEditor.PartnerCatalogCategoryId = categoryId;
+    }
+
+    private async Task RefreshStoreCategoriesAsync()
+    {
+        if (_partner is not null)
+        {
+            await LoadStoreCategoriesAsync(_partner.Id);
+        }
     }
 
     private string? PreviewImageForCreateProduct()
@@ -2863,9 +2873,24 @@
         => ResolveProductSectionLabel(_createProduct.PartnerCatalogCategoryId);
 
     private string? ResolveProductSectionLabel(Guid? categoryId)
-        => categoryId is Guid id
-            ? _storeCategories.FirstOrDefault(x => x.Id == id)?.Name
+    {
+        if (categoryId is not Guid id)
+        {
+            return null;
+        }
+
+        var item = _storeCategories.FirstOrDefault(x => x.Id == id);
+        if (item is null)
+        {
+            return null;
+        }
+
+        // Subcategoría: etiqueta jerárquica "Padre · Hijo" (ej. "Calzado · Varón").
+        var parent = item.ParentId is Guid parentId
+            ? _storeCategories.FirstOrDefault(x => x.Id == parentId)
             : null;
+        return parent is null ? item.Name : $"{parent.Name} · {item.Name}";
+    }
 
     private static string FormatMargin(PartnerProduct item)
     {

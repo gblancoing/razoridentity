@@ -34,7 +34,7 @@ public sealed class PartnerCatalogCategoriesController : ControllerBase
             .Where(x => x.PartnerId == partnerId)
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
-            .Select(x => new PartnerCatalogCategoryResponse(x.Id, x.PartnerId, x.Name, x.SortOrder, x.IsActive))
+            .Select(x => new PartnerCatalogCategoryResponse(x.Id, x.PartnerId, x.Name, x.ParentId, x.SortOrder, x.IsActive))
             .ToListAsync();
 
         return Ok(items);
@@ -61,6 +61,16 @@ public sealed class PartnerCatalogCategoriesController : ControllerBase
             return NotFound();
         }
 
+        if (request.ParentId is { } parentId)
+        {
+            var parentCheck = await PartnerCatalogCategoryRules.ValidateParentAsync(
+                _db, partnerId, parentId, cancellationToken: HttpContext.RequestAborted);
+            if (!parentCheck.Ok)
+            {
+                return BadRequest(new { message = parentCheck.Message });
+            }
+        }
+
         var sortOrder = request.SortOrder ?? await _db.PartnerCatalogCategories
             .Where(x => x.PartnerId == partnerId)
             .Select(x => (int?)x.SortOrder)
@@ -73,6 +83,7 @@ public sealed class PartnerCatalogCategoriesController : ControllerBase
             TenantId = partner.TenantId,
             PartnerId = partnerId,
             Name = request.Name.Trim(),
+            ParentId = request.ParentId,
             SortOrder = sortOrder,
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -84,7 +95,7 @@ public sealed class PartnerCatalogCategoriesController : ControllerBase
 
         return Created(
             $"/v1/partners/{partnerId}/catalog-categories/{entity.Id}",
-            new PartnerCatalogCategoryResponse(entity.Id, entity.PartnerId, entity.Name, entity.SortOrder, entity.IsActive));
+            new PartnerCatalogCategoryResponse(entity.Id, entity.PartnerId, entity.Name, entity.ParentId, entity.SortOrder, entity.IsActive));
     }
 
     [HttpPatch("{categoryId:guid}")]
@@ -119,10 +130,26 @@ public sealed class PartnerCatalogCategoriesController : ControllerBase
             entity.IsActive = request.IsActive.Value;
         }
 
+        if (request.ClearParent == true)
+        {
+            entity.ParentId = null;
+        }
+        else if (request.ParentId is { } parentId && parentId != entity.ParentId)
+        {
+            var parentCheck = await PartnerCatalogCategoryRules.ValidateParentAsync(
+                _db, partnerId, parentId, entity.Id, HttpContext.RequestAborted);
+            if (!parentCheck.Ok)
+            {
+                return BadRequest(new { message = parentCheck.Message });
+            }
+
+            entity.ParentId = parentId;
+        }
+
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(new PartnerCatalogCategoryResponse(entity.Id, entity.PartnerId, entity.Name, entity.SortOrder, entity.IsActive));
+        return Ok(new PartnerCatalogCategoryResponse(entity.Id, entity.PartnerId, entity.Name, entity.ParentId, entity.SortOrder, entity.IsActive));
     }
 
     [HttpDelete("{categoryId:guid}")]
@@ -139,10 +166,10 @@ public sealed class PartnerCatalogCategoriesController : ControllerBase
             return NotFound();
         }
 
-        var hasProducts = await _db.Products.AnyAsync(x => x.PartnerCatalogCategoryId == categoryId);
-        if (hasProducts)
+        var deleteCheck = await PartnerCatalogCategoryRules.CanDeleteAsync(_db, categoryId, HttpContext.RequestAborted);
+        if (!deleteCheck.Ok)
         {
-            return BadRequest(new { message = "No se puede eliminar: hay productos en esta sección. Reasignalos primero." });
+            return BadRequest(new { message = deleteCheck.Message });
         }
 
         _db.PartnerCatalogCategories.Remove(entity);

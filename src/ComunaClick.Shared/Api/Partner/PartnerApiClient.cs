@@ -167,6 +167,13 @@ public sealed class PartnerApiClient : ApiClientBase
         CancellationToken cancellationToken = default)
         => PostAsync<PartnerCatalogCategoryInfo>($"/v1/partners/{partnerId}/catalog-categories", request, cancellationToken);
 
+    public Task<PartnerCatalogCategoryInfo?> UpdatePartnerCatalogCategoryAsync(
+        Guid partnerId,
+        Guid categoryId,
+        PartnerCatalogCategoryUpdateRequest request,
+        CancellationToken cancellationToken = default)
+        => PatchAsync<PartnerCatalogCategoryInfo>($"/v1/partners/{partnerId}/catalog-categories/{categoryId}", request, cancellationToken);
+
     public Task DeletePartnerCatalogCategoryAsync(Guid partnerId, Guid categoryId, CancellationToken cancellationToken = default)
         => DeleteAsync($"/v1/partners/{partnerId}/catalog-categories/{categoryId}", cancellationToken);
 
@@ -418,10 +425,18 @@ public sealed record PartnerCatalogCategoryInfo(
     Guid Id,
     Guid PartnerId,
     string Name,
+    Guid? ParentId,
     int SortOrder,
     bool IsActive);
 
-public sealed record PartnerCatalogCategoryCreateRequest(string Name, int? SortOrder = null);
+public sealed record PartnerCatalogCategoryCreateRequest(string Name, int? SortOrder = null, Guid? ParentId = null);
+
+public sealed record PartnerCatalogCategoryUpdateRequest(
+    string? Name = null,
+    int? SortOrder = null,
+    bool? IsActive = null,
+    Guid? ParentId = null,
+    bool? ClearParent = null);
 
 public sealed record ProductInventory(
     Guid ProductId,

@@ -148,6 +148,16 @@ public sealed class ProductsController : ControllerBase
             return BadRequest(new { message = "El precio de venta no puede ser negativo." });
         }
 
+        var categoriesCheck = await ValidateRequiredCategoriesAsync(
+            request.PartnerCatalogCategoryId,
+            request.DiscoverySubcategoryIds,
+            partnerId,
+            HttpContext.RequestAborted);
+        if (!categoriesCheck.Ok)
+        {
+            return BadRequest(new { message = categoriesCheck.Message });
+        }
+
         var geo = await GeoContextResolver.ResolveFromTenantAsync(_db, tenantId.Value);
         var categoryLabel = await ResolveCategoryLabelAsync(request.Category, request.PartnerCatalogCategoryId, partnerId);
 
@@ -215,6 +225,16 @@ public sealed class ProductsController : ControllerBase
 
         if (request.PartnerCatalogCategoryId.HasValue || request.Category is not null)
         {
+            if (request.PartnerCatalogCategoryId is { } newCategoryId && newCategoryId != Guid.Empty)
+            {
+                var categoryOk = await _db.PartnerCatalogCategories.AsNoTracking()
+                    .AnyAsync(x => x.Id == newCategoryId && x.PartnerId == product.PartnerId && x.IsActive);
+                if (!categoryOk)
+                {
+                    return BadRequest(new { message = "La categoría de tienda seleccionada no existe o está inactiva." });
+                }
+            }
+
             product.PartnerCatalogCategoryId = request.PartnerCatalogCategoryId ?? product.PartnerCatalogCategoryId;
             product.Category = await ResolveCategoryLabelAsync(
                 request.Category ?? product.Category,
@@ -275,6 +295,13 @@ public sealed class ProductsController : ControllerBase
         if (request.Longitude.HasValue)
         {
             product.Longitude = request.Longitude;
+        }
+
+        // Editar no puede dejar el producto sin categoría de búsqueda del marketplace.
+        if (request.DiscoverySubcategoryIds is not null
+            && !request.DiscoverySubcategoryIds.Any(x => x != Guid.Empty))
+        {
+            return BadRequest(new { message = "Seleccioná al menos una categoría de búsqueda del marketplace." });
         }
 
         product.UpdatedAt = DateTimeOffset.UtcNow;
@@ -493,16 +520,57 @@ public sealed class ProductsController : ControllerBase
     {
         if (categoryId.HasValue)
         {
-            var sectionName = await _db.PartnerCatalogCategories.AsNoTracking()
+            var section = await _db.PartnerCatalogCategories.AsNoTracking()
                 .Where(x => x.Id == categoryId.Value && x.PartnerId == partnerId)
-                .Select(x => x.Name)
+                .Select(x => new { x.Name, ParentName = x.Parent != null ? x.Parent.Name : null })
                 .FirstOrDefaultAsync();
-            if (!string.IsNullOrWhiteSpace(sectionName))
+            if (section is not null && !string.IsNullOrWhiteSpace(section.Name))
             {
-                return sectionName.Trim();
+                // Subcategoría: etiqueta jerárquica "Padre · Hijo" (ej. "Calzado · Varón").
+                return string.IsNullOrWhiteSpace(section.ParentName)
+                    ? section.Name.Trim()
+                    : $"{section.ParentName.Trim()} · {section.Name.Trim()}";
             }
         }
 
         return string.IsNullOrWhiteSpace(category) ? null : category.Trim();
+    }
+
+    /// <summary>
+    /// Al crear un producto se exige una categoría propia del local (existente, del
+    /// partner y activa) y al menos una subcategoría de marketplace válida.
+    /// </summary>
+    private async Task<(bool Ok, string? Message)> ValidateRequiredCategoriesAsync(
+        Guid? partnerCatalogCategoryId,
+        IReadOnlyList<Guid>? discoverySubcategoryIds,
+        Guid partnerId,
+        CancellationToken cancellationToken)
+    {
+        if (partnerCatalogCategoryId is not { } categoryId || categoryId == Guid.Empty)
+        {
+            return (false, "Seleccioná una categoría de tu tienda para el producto.");
+        }
+
+        var categoryOk = await _db.PartnerCatalogCategories.AsNoTracking()
+            .AnyAsync(x => x.Id == categoryId && x.PartnerId == partnerId && x.IsActive, cancellationToken);
+        if (!categoryOk)
+        {
+            return (false, "La categoría de tienda seleccionada no existe o está inactiva.");
+        }
+
+        var requestedDiscovery = (discoverySubcategoryIds ?? [])
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToList();
+        if (requestedDiscovery.Count == 0)
+        {
+            return (false, "Seleccioná al menos una categoría de búsqueda del marketplace.");
+        }
+
+        var hasValidDiscovery = await _db.ProductSubcategories.AsNoTracking()
+            .AnyAsync(x => x.IsActive && requestedDiscovery.Contains(x.Id), cancellationToken);
+        return hasValidDiscovery
+            ? (true, null)
+            : (false, "La categoría de búsqueda del marketplace seleccionada no es válida.");
     }
 }

@@ -94,6 +94,13 @@
                         </select>
                         <ValidationMessage For="@(() => _product.SubcategoryId)" class="text-xs text-red-500" />
                     </div>
+                    <div class="md:col-span-2">
+                        <PartnerStoreSectionPicker PartnerId="@_partner.Id"
+                                                   Categories="_storeCategories"
+                                                   SelectedId="@_product.PartnerCatalogCategoryId"
+                                                   SelectedIdChanged="OnProductStoreSectionSelected"
+                                                   CategoriesRefreshRequested="RefreshStoreCategoriesAsync" />
+                    </div>
                     <div>
                         <label class="text-sm font-semibold">Precio</label>
                         <input type="number" step="1" min="0" class="mt-1 w-full rounded-lg border border-[#dbe6e2] px-4 h-12" @bind="_product.Price" />
@@ -226,6 +233,7 @@
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
     private readonly List<ComunaClick.Shared.Api.Buyer.PublicSubcategoryItem> _subcategories = new();
+    private readonly List<ComunaClick.Shared.Api.Partner.PartnerCatalogCategoryInfo> _storeCategories = new();
     private readonly List<string> _serviceCategorySuggestions = new();
     private string? _statusMessage;
     private string _statusLevel = "info";
@@ -259,6 +267,7 @@
 
         _partner = await PartnerApi.GetPartnerAsync(AuthState.PartnerId.Value);
         _activation = await PartnerApi.GetActivationStatusAsync(AuthState.PartnerId.Value);
+        await LoadStoreCategoriesAsync();
 
         if (_partner?.Type == "A")
         {
@@ -348,6 +357,20 @@
             return;
         }
 
+        if (_product.SubcategoryId is null)
+        {
+            _statusLevel = "warning";
+            _statusMessage = L.T("partner.catalog.a.marketplaceCategory.required");
+            return;
+        }
+
+        if (_product.PartnerCatalogCategoryId is null)
+        {
+            _statusLevel = "warning";
+            _statusMessage = L.T("partner.catalog.a.storeSection.required");
+            return;
+        }
+
         _submitting = true;
         _statusMessage = null;
         try
@@ -358,13 +381,14 @@
                 _product.Name.Trim(),
                 NullIfWhiteSpace(_product.Description),
                 visibleCategory,
-                null,
+                _product.PartnerCatalogCategoryId,
                 null,
                 _product.Price,
                 null,
                 "CLP",
                 true,
-                _product.StockQuantity));
+                _product.StockQuantity,
+                DiscoverySubcategoryIds: [_product.SubcategoryId.Value]));
 
             if (created is not null)
             {
@@ -531,6 +555,34 @@
         }
     }
 
+    private async Task LoadStoreCategoriesAsync()
+    {
+        _storeCategories.Clear();
+        if (_partner is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var list = await PartnerApi.GetPartnerCatalogCategoriesAsync(_partner.Id);
+            if (list is not null)
+            {
+                _storeCategories.AddRange(list);
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private Task RefreshStoreCategoriesAsync() => LoadStoreCategoriesAsync();
+
+    private void OnProductStoreSectionSelected(Guid? categoryId)
+    {
+        _product.PartnerCatalogCategoryId = categoryId;
+    }
+
     private string? SelectedProductCategoryName
         => _product.CategoryId.HasValue ? _categories.FirstOrDefault(x => x.Id == _product.CategoryId.Value)?.Name : null;
 
@@ -549,6 +601,7 @@
         public string? Description { get; set; }
         [Required(ErrorMessage = "Selecciona una categoría.")]
         public Guid? CategoryId { get; set; }
+        public Guid? PartnerCatalogCategoryId { get; set; }
         [Required(ErrorMessage = "Selecciona una subcategoría.")]
         public Guid? SubcategoryId { get; set; }
         [Range(0, int.MaxValue)] public int StockQuantity { get; set; }

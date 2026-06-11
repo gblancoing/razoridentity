@@ -443,12 +443,14 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.TenantId).HasColumnName("tenant_id");
             entity.Property(x => x.PartnerId).HasColumnName("partner_id");
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.ParentId).HasColumnName("parent_id");
             entity.Property(x => x.SortOrder).HasColumnName("sort_order").HasDefaultValue(0);
             entity.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.PartnerId, x.SortOrder });
             entity.HasOne(x => x.Partner).WithMany().HasForeignKey(x => x.PartnerId);
+            entity.HasOne(x => x.Parent).WithMany(x => x.Children).HasForeignKey(x => x.ParentId);
         });
 
         modelBuilder.Entity<ProductImage>(entity =>

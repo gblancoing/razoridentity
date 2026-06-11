@@ -24,7 +24,8 @@ public static class DatabaseSchemaBootstrap
         ("core", "professionals", "20260609_professional_stats_certifications.sql", "profile_view_count"),
         ("core", "professional_follows", "20260609_professional_follows.sql", null),
         ("core", "orders", "20260610_order_inventory_fulfilled.sql", "inventory_fulfilled_at"),
-        ("core", "notification_outbox", "20260611_notification_outbox.sql", null)
+        ("core", "notification_outbox", "20260611_notification_outbox.sql", null),
+        ("core", "partner_catalog_categories", "20260611_partner_catalog_subcategories.sql", "parent_id")
     ];
 
     public static async Task ApplyPendingAsync(string? connectionString, IHostEnvironment env, ILogger logger, CancellationToken cancellationToken = default)

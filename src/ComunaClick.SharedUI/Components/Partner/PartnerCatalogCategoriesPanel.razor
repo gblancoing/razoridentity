@@ -8,19 +8,59 @@
         <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.catalog.a.sections.help")</p>
     </div>
 
-    @if (_categories.Count > 0)
+    @if (RootCategories.Count > 0)
     {
         <ul class="space-y-2">
-            @foreach (var cat in _categories.OrderBy(x => x.SortOrder))
+            @foreach (var cat in RootCategories)
             {
-                <li class="flex items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-white px-3 py-2">
-                    <span class="text-sm font-semibold text-[#2c2f30]">@cat.Name</span>
-                    <button type="button"
-                            class="text-xs font-bold text-red-700"
-                            disabled="@_busy"
-                            @onclick="() => DeleteAsync(cat)">
-                        @L.T("partner.catalog.a.sections.remove")
-                    </button>
+                <li class="rounded-xl border border-[#dadddf] bg-white px-3 py-2 space-y-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-sm font-semibold text-[#2c2f30]">@cat.Name</span>
+                        <div class="flex items-center gap-3">
+                            <button type="button"
+                                    class="text-xs font-bold text-[#3b6700]"
+                                    disabled="@_busy"
+                                    @onclick="() => ToggleAddSub(cat.Id)">
+                                @L.T("partner.catalog.a.sections.addSub")
+                            </button>
+                            <button type="button"
+                                    class="text-xs font-bold text-red-700"
+                                    disabled="@_busy"
+                                    @onclick="() => DeleteAsync(cat)">
+                                @L.T("partner.catalog.a.sections.remove")
+                            </button>
+                        </div>
+                    </div>
+
+                    @foreach (var child in ChildrenOf(cat.Id))
+                    {
+                        <div class="ml-4 flex items-center justify-between gap-3 rounded-lg bg-[#f5f6f7] px-3 py-1.5">
+                            <span class="text-sm text-[#2c2f30]">
+                                <span class="text-[#7b8081]">↳</span> @child.Name
+                            </span>
+                            <button type="button"
+                                    class="text-xs font-bold text-red-700"
+                                    disabled="@_busy"
+                                    @onclick="() => DeleteAsync(child)">
+                                @L.T("partner.catalog.a.sections.remove")
+                            </button>
+                        </div>
+                    }
+
+                    @if (_addingSubFor == cat.Id)
+                    {
+                        <div class="ml-4 flex flex-wrap gap-2">
+                            <input class="flex-1 min-w-[120px] rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                                   placeholder="@L.T("partner.catalog.a.sections.subPlaceholder")"
+                                   @bind="_newSubName" />
+                            <button type="button"
+                                    class="rounded-xl bg-[#3b6700] px-4 py-2 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                                    disabled="@(_busy || string.IsNullOrWhiteSpace(_newSubName))"
+                                    @onclick="() => CreateAsync(cat.Id)">
+                                @L.T("partner.catalog.a.sections.add")
+                            </button>
+                        </div>
+                    }
                 </li>
             }
         </ul>
@@ -33,7 +73,7 @@
         <button type="button"
                 class="rounded-xl bg-[#3b6700] px-4 py-2 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
                 disabled="@(_busy || string.IsNullOrWhiteSpace(_newName))"
-                @onclick="CreateAsync">
+                @onclick="() => CreateAsync(null)">
             @L.T("partner.catalog.a.sections.add")
         </button>
     </div>
@@ -50,9 +90,23 @@
 
     private readonly List<PartnerApiModels.PartnerCatalogCategoryInfo> _categories = new();
     private string _newName = string.Empty;
+    private string _newSubName = string.Empty;
+    private Guid? _addingSubFor;
     private string? _message;
     private bool _ok;
     private bool _busy;
+
+    private List<PartnerApiModels.PartnerCatalogCategoryInfo> RootCategories => _categories
+        .Where(x => x.ParentId is null)
+        .OrderBy(x => x.SortOrder)
+        .ThenBy(x => x.Name)
+        .ToList();
+
+    private List<PartnerApiModels.PartnerCatalogCategoryInfo> ChildrenOf(Guid parentId) => _categories
+        .Where(x => x.ParentId == parentId)
+        .OrderBy(x => x.SortOrder)
+        .ThenBy(x => x.Name)
+        .ToList();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -60,6 +114,12 @@
         {
             await ReloadAsync();
         }
+    }
+
+    private void ToggleAddSub(Guid categoryId)
+    {
+        _addingSubFor = _addingSubFor == categoryId ? null : categoryId;
+        _newSubName = string.Empty;
     }
 
     private async Task ReloadAsync()
@@ -74,15 +134,21 @@
         await CategoriesChanged.InvokeAsync(_categories);
     }
 
-    private async Task CreateAsync()
+    private async Task CreateAsync(Guid? parentId)
     {
+        var name = parentId is null ? _newName : _newSubName;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
         _busy = true;
         _message = null;
         try
         {
             var created = await PartnerApi.CreatePartnerCatalogCategoryAsync(
                 PartnerId,
-                new PartnerApiModels.PartnerCatalogCategoryCreateRequest(_newName.Trim()));
+                new PartnerApiModels.PartnerCatalogCategoryCreateRequest(name.Trim(), ParentId: parentId));
             if (created is null)
             {
                 _message = L.T("partner.catalog.a.sections.failed");
@@ -90,14 +156,23 @@
                 return;
             }
 
-            _newName = string.Empty;
+            if (parentId is null)
+            {
+                _newName = string.Empty;
+            }
+            else
+            {
+                _newSubName = string.Empty;
+                _addingSubFor = null;
+            }
+
             await ReloadAsync();
             _message = L.T("partner.catalog.a.sections.created");
             _ok = true;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            _message = L.T("partner.catalog.a.sections.failed");
+            _message = TryExtractApiMessage(ex.Message) ?? L.T("partner.catalog.a.sections.failed");
             _ok = false;
         }
         finally
@@ -117,14 +192,43 @@
             _message = L.T("partner.catalog.a.sections.deleted");
             _ok = true;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            _message = L.T("partner.catalog.a.sections.deleteBlocked");
+            _message = TryExtractApiMessage(ex.Message) ?? L.T("partner.catalog.a.sections.deleteBlocked");
             _ok = false;
         }
         finally
         {
             _busy = false;
         }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
     }
 }
