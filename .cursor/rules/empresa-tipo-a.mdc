@@ -1,0 +1,23 @@
+---
+description: Reglas de catálogo, productos, inventario y modo híbrido para partners tipo A (comercio)
+globs: src/ComunaClick.SharedUI/Pages/Partner/Catalog.razor,src/ComunaClick.Api/Modules/Catalog/**,src/ComunaClick.Api/Modules/Cart/CartController.cs,src/ComunaClick.Api/Modules/Orders/OrdersController.cs,src/ComunaClick.Shared/Api/Partner/PartnerApiClient.cs,src/ComunaClick.SharedUI/Pages/Buyer/Detail.razor,src/ComunaClick.SharedUI/Pages/Buyer/Checkout.razor,src/ComunaClick.SharedUI/Pages/Partner/Notifications.razor,docs/empresa-tipo-a.md
+alwaysApply: false
+---
+
+# Empresa de comercio (Partner tipo `A`)
+
+Especificación completa: `docs/empresa-tipo-a.md`
+
+## Resumen para el agente
+
+- Partner `A` = **catálogo principal de productos** en `/partner/catalog` (stock + **precio de venta** público).
+- **Stock:** siempre `product_inventory`; **disponible** = físico − reservas (`payment_pending`/`processing`); validar en carrito/pedidos; descontar al `paid`; alertas `stock_low`/`stock_out` en `/partner/notifications` — ver `docs/empresa-tipo-a.md` § Control de stock.
+- **Precio de costo** (`CostPrice`): solo panel partner; **nunca** en API pública ni ficha comprador.
+- **Categorías de tienda:** secciones que crea el partner para agrupar productos (distinto del rubro global de registro).
+- **Publicación:** `Product.IsActive` por ítem + `Partner.IsVisible` para el negocio (banner si hay productos activos y negocio no visible).
+- **Híbrido:** partner `A` puede tener `OffersServices` y además gestionar **avisos de servicio** con las reglas de `docs/empresa-tipo-b.md` (tabs Productos | Servicios).
+- Reutilizar patrones tipo B donde aplique: subida múltiple de imágenes, galería pública, `CompanySettings` / publicación.
+- Localizar con `partner.catalog.a.*` en `LocaleService`.
+- No romper tipos `B` y `C`; cambios acotados.
+
+Al implementar, seguir fases en `docs/empresa-tipo-a.md` (modelo → categorías tienda → UI partner → ficha comprador → híbrido).

@@ -1,0 +1,390 @@
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<div class="w-full max-w-3xl mx-auto mt-4 space-y-3 text-left">
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button"
+            @onclick="() => SetModeAsync(NearbyMode)"
+            class="@ModeButtonClass(NearbyMode)">
+      <span class="material-symbols-outlined text-[16px]">my_location</span>
+      @L.T("home.search.mode.nearby")
+    </button>
+    <button type="button"
+            @onclick="() => SetModeAsync(AddressMode)"
+            class="@ModeButtonClass(AddressMode)">
+      <span class="material-symbols-outlined text-[16px]">location_on</span>
+      @L.T("home.search.mode.address")
+    </button>
+  </div>
+
+  @if (_mode == NearbyMode)
+  {
+    <div class="rounded-xl bg-white/10 border border-white/20 backdrop-blur-md px-4 py-3 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-xs font-semibold text-white/90">
+          @if (_hasCoordinates)
+          {
+            @L.T("home.search.radius.label") <span class="text-emerald-300 font-bold">@((int)_radiusKm) km</span>
+          }
+          else
+          {
+            @(_locationStatus ?? L.T("home.search.location.pending"))
+          }
+        </p>
+        @if (_locating)
+        {
+          <span class="text-[11px] text-white/70 animate-pulse">@L.T("home.search.location.detecting")</span>
+        }
+        else if (!_hasCoordinates)
+        {
+          <button type="button"
+                  @onclick='() => DetectLocationAsync(forceFresh: true)'
+                  class="text-[11px] font-bold text-emerald-300 hover:text-emerald-200 underline">
+            @L.T("home.search.location.enable")
+          </button>
+        }
+      </div>
+      <input type="range"
+             min="5"
+             max="100"
+             step="5"
+             value="@_radiusKm"
+             @onchange="OnRadiusChangedAsync"
+             disabled="@(!_hasCoordinates)"
+             class="w-full h-2 rounded-lg appearance-none bg-white/20 accent-emerald-400 disabled:opacity-40" />
+      <div class="flex justify-between text-[10px] font-semibold text-white/60">
+        <span>5 km</span>
+        <span>30 km</span>
+        <span>100 km</span>
+      </div>
+    </div>
+  }
+  else
+  {
+    <div class="rounded-xl bg-white/10 border border-white/20 backdrop-blur-md px-4 py-3 space-y-2">
+      <label class="text-xs font-semibold text-white/90">@L.T("home.search.address.label")</label>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input @bind="_addressQuery"
+               @bind:event="oninput"
+               class="flex-1 min-w-0 rounded-lg border border-white/25 bg-white/95 px-3 py-2.5 text-sm text-[#111816] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+               placeholder="@L.T("home.search.address.placeholder")" />
+        <button type="button"
+                @onclick="ApplyAddressAsync"
+                disabled="@(_geocoding || string.IsNullOrWhiteSpace(_addressQuery))"
+                class="shrink-0 rounded-lg bg-white text-primary px-4 py-2.5 text-sm font-bold hover:bg-gray-100 disabled:opacity-50">
+          @(_geocoding ? L.T("home.search.address.geocoding") : L.T("home.search.address.apply"))
+        </button>
+      </div>
+      @if (!string.IsNullOrWhiteSpace(_addressLabel))
+      {
+        <p class="text-[11px] text-emerald-200 font-medium">@L.T("home.search.address.active") @_addressLabel</p>
+      }
+      @if (!string.IsNullOrWhiteSpace(_addressError))
+      {
+        <p class="text-[11px] text-rose-200 font-medium">@_addressError</p>
+      }
+    </div>
+  }
+</div>
+
+@code {
+  public const string NearbyMode = "nearby";
+  public const string AddressMode = "address";
+
+  [Parameter] public EventCallback<HomeSearchGeoContext> OnGeoChanged { get; set; }
+
+  private string _mode = NearbyMode;
+  private double _radiusKm = 30;
+  private double? _latitude;
+  private double? _longitude;
+  private string? _locationStatus;
+  private string? _addressQuery;
+  private string? _addressLabel;
+  private string? _addressError;
+  private bool _locating;
+  private bool _geocoding;
+  private bool _initialized;
+
+  private bool _hasCoordinates => _latitude is double lat && _longitude is double lng
+      && lat is >= -90 and <= 90 && lng is >= -180 and <= 180;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender || _initialized)
+    {
+      return;
+    }
+
+    _initialized = true;
+    await TryRestoreFromStorageAsync();
+    if (_mode == NearbyMode && !_hasCoordinates)
+    {
+      await DetectLocationAsync(forceFresh: false);
+    }
+    else
+    {
+      await NotifyGeoAsync();
+    }
+  }
+
+  public HomeSearchGeoContext GetContext()
+        => new(_hasCoordinates, _latitude, _longitude, _radiusKm, _mode, _addressLabel);
+
+  /// <summary>
+  /// Antes de buscar en modo "Cerca de mí", obtiene GPS fresco y valida que esté en Chile.
+  /// </summary>
+  public async Task<bool> EnsureLocationForSearchAsync()
+  {
+    if (_mode == AddressMode)
+    {
+      if (!_hasCoordinates)
+      {
+        _addressError = L.T("home.search.address.notFound");
+        await NotifyGeoAsync();
+        return false;
+      }
+
+      if (!GeoLocationValidator.IsPlausibleSearchOrigin(_latitude!.Value, _longitude!.Value))
+      {
+        _addressError = L.T("home.search.location.outOfChile");
+        ClearCoordinates();
+        await NotifyGeoAsync();
+        return false;
+      }
+
+      return true;
+    }
+
+    await DetectLocationAsync(forceFresh: true);
+    return _hasCoordinates;
+  }
+
+  private string ModeButtonClass(string mode)
+        => _mode == mode
+            ? "inline-flex items-center gap-1.5 rounded-full bg-white text-primary px-3 py-1.5 text-xs font-bold shadow-sm"
+            : "inline-flex items-center gap-1.5 rounded-full bg-white/12 border border-white/20 text-white/90 px-3 py-1.5 text-xs font-semibold hover:bg-white/20 transition-colors";
+
+  private async Task SetModeAsync(string mode)
+  {
+    _mode = mode;
+    _addressError = null;
+    if (mode == NearbyMode && !_hasCoordinates)
+    {
+      await DetectLocationAsync(forceFresh: true);
+    }
+
+    await NotifyGeoAsync();
+  }
+
+  private async Task DetectLocationAsync(bool forceFresh = true)
+  {
+    _locating = true;
+    _locationStatus = forceFresh
+        ? L.T("home.search.location.refreshingForSearch")
+        : L.T("home.search.location.detecting");
+    StateHasChanged();
+
+    try
+    {
+      var position = await JSRuntime.InvokeAsync<BrowserLocationDto>(
+          "comunaclic.getCurrentPosition",
+          new { forceFresh, timeout = forceFresh ? 20000 : 15000 });
+      if (position is null)
+      {
+        _locationStatus = L.T("home.search.location.denied");
+        ClearCoordinates();
+        return;
+      }
+
+      if (!GeoLocationValidator.IsPlausibleSearchOrigin(position.Latitude, position.Longitude))
+      {
+        _locationStatus = L.T("home.search.location.outOfChile");
+        ClearCoordinates();
+        await NotifyGeoAsync();
+        return;
+      }
+
+      _latitude = position.Latitude;
+      _longitude = position.Longitude;
+      _locationStatus = L.T("home.search.location.ready");
+      await PersistToStorageAsync();
+      await NotifyGeoAsync();
+    }
+    catch
+    {
+      _locationStatus = L.T("home.search.location.denied");
+      ClearCoordinates();
+      await NotifyGeoAsync();
+    }
+    finally
+    {
+      _locating = false;
+      StateHasChanged();
+    }
+  }
+
+  private void ClearCoordinates()
+  {
+    _latitude = null;
+    _longitude = null;
+  }
+
+  private async Task ApplyAddressAsync()
+  {
+    var query = _addressQuery?.Trim();
+    if (string.IsNullOrWhiteSpace(query))
+    {
+      return;
+    }
+
+    _geocoding = true;
+    _addressError = null;
+    StateHasChanged();
+
+    try
+    {
+      var coords = await JSRuntime.InvokeAsync<BrowserLocationDto?>("comunaclic.geocodeAddressQuery", query);
+      if (coords is null)
+      {
+        _addressError = L.T("home.search.address.notFound");
+        return;
+      }
+
+      if (!GeoLocationValidator.IsPlausibleSearchOrigin(coords.Latitude, coords.Longitude))
+      {
+        _addressError = L.T("home.search.location.outOfChile");
+        ClearCoordinates();
+        await NotifyGeoAsync();
+        return;
+      }
+
+      _latitude = coords.Latitude;
+      _longitude = coords.Longitude;
+      _addressLabel = query;
+      await PersistToStorageAsync();
+      await NotifyGeoAsync();
+    }
+    catch
+    {
+      _addressError = L.T("home.search.address.error");
+    }
+    finally
+    {
+      _geocoding = false;
+      StateHasChanged();
+    }
+  }
+
+  private async Task OnRadiusChangedAsync(ChangeEventArgs e)
+  {
+    if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var km))
+    {
+      _radiusKm = Math.Clamp(km, 5, 100);
+      await PersistToStorageAsync();
+      await NotifyGeoAsync();
+    }
+  }
+
+  private async Task NotifyGeoAsync()
+  {
+    if (OnGeoChanged.HasDelegate)
+    {
+      await OnGeoChanged.InvokeAsync(GetContext());
+    }
+  }
+
+  private async Task TryRestoreFromStorageAsync()
+  {
+    try
+    {
+      var json = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "cc.home.search.geo");
+      if (string.IsNullOrWhiteSpace(json))
+      {
+        return;
+      }
+
+      var saved = System.Text.Json.JsonSerializer.Deserialize<SavedGeoState>(json);
+      if (saved is null)
+      {
+        return;
+      }
+
+      _mode = string.IsNullOrWhiteSpace(saved.Mode) ? NearbyMode : saved.Mode;
+      _radiusKm = saved.RadiusKm is > 0 ? saved.RadiusKm : 30;
+      _addressLabel = saved.AddressLabel;
+      _addressQuery = saved.AddressQuery;
+
+      var expired = saved.SavedAtUtc is DateTime savedAt
+          && DateTime.UtcNow - savedAt > TimeSpan.FromMinutes(30);
+
+      if (!expired
+          && saved.Latitude is double lat
+          && saved.Longitude is double lng
+          && GeoLocationValidator.IsPlausibleSearchOrigin(lat, lng))
+      {
+        _latitude = lat;
+        _longitude = lng;
+        _locationStatus = L.T("home.search.location.ready");
+      }
+      else if (saved.Latitude is not null && saved.Longitude is not null)
+      {
+        ClearCoordinates();
+        _locationStatus = expired
+            ? L.T("home.search.location.pending")
+            : L.T("home.search.location.outOfChile");
+      }
+    }
+    catch
+    {
+      // Ignore storage read errors.
+    }
+  }
+
+  private async Task PersistToStorageAsync()
+  {
+    try
+    {
+      var payload = System.Text.Json.JsonSerializer.Serialize(new SavedGeoState(
+          _mode,
+          _radiusKm,
+          _latitude,
+          _longitude,
+          _addressLabel,
+          _addressQuery,
+          DateTime.UtcNow));
+      await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "cc.home.search.geo", payload);
+    }
+    catch
+    {
+      // Ignore storage write errors.
+    }
+  }
+
+  public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+  private sealed class BrowserLocationDto
+  {
+    [System.Text.Json.Serialization.JsonPropertyName("latitude")]
+    public double Latitude { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("longitude")]
+    public double Longitude { get; set; }
+  }
+
+  private sealed record SavedGeoState(
+      string? Mode,
+      double RadiusKm,
+      double? Latitude,
+      double? Longitude,
+      string? AddressLabel,
+      string? AddressQuery,
+      DateTime? SavedAtUtc = null);
+
+  public sealed record HomeSearchGeoContext(
+      bool HasCoordinates,
+      double? Latitude,
+      double? Longitude,
+      double RadiusKm,
+      string Mode,
+      string? AddressLabel);
+}

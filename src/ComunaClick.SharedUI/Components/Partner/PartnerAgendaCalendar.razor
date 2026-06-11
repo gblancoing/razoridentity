@@ -1,0 +1,169 @@
+@using System.Globalization
+@inject LocaleService L
+
+<section class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+            <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@L.T("partner.agenda.calendar")</p>
+            <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30] capitalize">@MonthTitle</h2>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#dadddf] bg-white text-[#3b6700] hover:bg-[#f5f6f7]" @onclick="() => ShiftMonth(-1)" aria-label="@L.T("partner.agenda.month.prev")">
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <button type="button" class="inline-flex items-center rounded-xl border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f5f6f7]" @onclick="GoToToday">
+                @L.T("partner.agenda.today")
+            </button>
+            <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#dadddf] bg-white text-[#3b6700] hover:bg-[#f5f6f7]" @onclick="() => ShiftMonth(1)" aria-label="@L.T("partner.agenda.month.next")">
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="mb-4 flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-[0.12em]">
+        <span class="inline-flex items-center gap-1.5 text-[#325800]"><span class="h-2.5 w-2.5 rounded-full bg-[#76BC21]"></span>@L.T("partner.agenda.legend.pending")</span>
+        <span class="inline-flex items-center gap-1.5 text-[#1e4a8a]"><span class="h-2.5 w-2.5 rounded-full bg-[#3b82f6]"></span>@L.T("partner.agenda.legend.completed")</span>
+        <span class="inline-flex items-center gap-1.5 text-[#8f2200]"><span class="h-2.5 w-2.5 rounded-full bg-[#ef4444]"></span>@L.T("partner.agenda.legend.missed")</span>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] p-4 sm:p-6">
+        <div class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] text-[#7b8081] mb-2">
+            @foreach (var label in WeekdayLabels)
+            {
+                <span>@label</span>
+            }
+        </div>
+        <div class="grid grid-cols-7 gap-1 sm:gap-2">
+            @foreach (var cell in CalendarCells)
+            {
+                <button type="button"
+                        class="@GetDayButtonClass(cell)"
+                        disabled="@(!cell.InCurrentMonth)"
+                        @onclick="() => SelectDay(cell.Date)">
+                    <span class="text-sm font-bold leading-none">@cell.Date.Day</span>
+                    @if (cell.InCurrentMonth && cell.Stats.Total > 0)
+                    {
+                        <div class="mt-1.5 flex flex-wrap justify-center gap-0.5 max-w-full">
+                            @if (cell.Stats.Pending > 0)
+                            {
+                                <span class="inline-flex min-w-[18px] items-center justify-center rounded-md bg-[#76BC21] px-1 py-0.5 text-[9px] font-black text-white" title="@L.T("partner.agenda.legend.pending")">@cell.Stats.Pending</span>
+                            }
+                            @if (cell.Stats.Completed > 0)
+                            {
+                                <span class="inline-flex min-w-[18px] items-center justify-center rounded-md bg-[#3b82f6] px-1 py-0.5 text-[9px] font-black text-white" title="@L.T("partner.agenda.legend.completed")">@cell.Stats.Completed</span>
+                            }
+                            @if (cell.Stats.Missed > 0)
+                            {
+                                <span class="inline-flex min-w-[18px] items-center justify-center rounded-md bg-[#ef4444] px-1 py-0.5 text-[9px] font-black text-white" title="@L.T("partner.agenda.legend.missed")">@cell.Stats.Missed</span>
+                            }
+                        </div>
+                    }
+                </button>
+            }
+        </div>
+        <p class="mt-4 text-xs text-[#595c5d]">@L.T("partner.agenda.calendar.hint")</p>
+    </div>
+</section>
+
+@code {
+    [Parameter] public DateTime Month { get; set; }
+    [Parameter] public DateTime? SelectedDate { get; set; }
+    [Parameter] public IReadOnlyDictionary<DateTime, DayBookingStats> StatsByDay { get; set; } = new Dictionary<DateTime, DayBookingStats>();
+    [Parameter] public EventCallback<DateTime> MonthChanged { get; set; }
+    [Parameter] public EventCallback<DateTime?> SelectedDateChanged { get; set; }
+
+    private static readonly CultureInfo EsCulture = CultureInfo.GetCultureInfo("es-CL");
+
+    private string MonthTitle => new DateTime(Month.Year, Month.Month, 1).ToString("MMMM yyyy", EsCulture);
+
+    private IReadOnlyList<string> WeekdayLabels => new[]
+    {
+        L.T("partner.agenda.weekday.mon"),
+        L.T("partner.agenda.weekday.tue"),
+        L.T("partner.agenda.weekday.wed"),
+        L.T("partner.agenda.weekday.thu"),
+        L.T("partner.agenda.weekday.fri"),
+        L.T("partner.agenda.weekday.sat"),
+        L.T("partner.agenda.weekday.sun")
+    };
+
+    private IEnumerable<CalendarCell> CalendarCells
+    {
+        get
+        {
+            var first = new DateTime(Month.Year, Month.Month, 1);
+            var startOffset = ((int)first.DayOfWeek + 6) % 7;
+            var start = first.AddDays(-startOffset);
+            for (var i = 0; i < 42; i++)
+            {
+                var date = start.AddDays(i);
+                var inMonth = date.Month == Month.Month && date.Year == Month.Year;
+                StatsByDay.TryGetValue(date.Date, out var stats);
+                yield return new CalendarCell(date, inMonth, stats ?? DayBookingStats.Empty);
+            }
+        }
+    }
+
+    private async Task ShiftMonth(int delta)
+    {
+        var next = new DateTime(Month.Year, Month.Month, 1).AddMonths(delta);
+        await MonthChanged.InvokeAsync(next);
+    }
+
+    private async Task GoToToday()
+    {
+        var today = DateTime.Today;
+        await MonthChanged.InvokeAsync(new DateTime(today.Year, today.Month, 1));
+        await SelectedDateChanged.InvokeAsync(today);
+    }
+
+    private async Task SelectDay(DateTime date)
+    {
+        if (SelectedDate?.Date == date.Date)
+        {
+            await SelectedDateChanged.InvokeAsync(null);
+        }
+        else
+        {
+            await SelectedDateChanged.InvokeAsync(date);
+        }
+    }
+
+    private string GetDayButtonClass(CalendarCell cell)
+    {
+        var parts = new List<string>
+        {
+            "min-h-[72px] sm:min-h-[80px] w-full rounded-xl flex flex-col items-center justify-center p-1 transition-colors",
+            cell.InCurrentMonth ? "text-[#2c2f30] hover:bg-[#f5f8f0]" : "text-[#c5c9cb] bg-transparent cursor-default"
+        };
+
+        if (!cell.InCurrentMonth)
+        {
+            return string.Join(' ', parts);
+        }
+
+        if (cell.Date.Date == DateTime.Today)
+        {
+            parts.Add("ring-2 ring-[#a7f255]/60");
+        }
+
+        if (SelectedDate?.Date == cell.Date.Date)
+        {
+            parts.Add("bg-[#eff8e0] ring-2 ring-[#3b6700]");
+        }
+        else if (cell.Stats.Total > 0)
+        {
+            parts.Add("bg-[#f5f6f7]");
+        }
+
+        return string.Join(' ', parts);
+    }
+
+    public sealed record DayBookingStats(int Pending, int Completed, int Missed)
+    {
+        public int Total => Pending + Completed + Missed;
+        public static DayBookingStats Empty => new(0, 0, 0);
+    }
+
+    private sealed record CalendarCell(DateTime Date, bool InCurrentMonth, DayBookingStats Stats);
+}

@@ -7,9 +7,17 @@
 
 <div class="space-y-6">
     <header>
+        <a href="/partner" class="inline-flex items-center gap-1.5 text-sm font-bold text-[#3b6700] hover:underline mb-4">
+            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            @L.T("partner.account.backPanel")
+        </a>
         <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("partner.account.badge")</p>
         <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.account.tab.personal")</h1>
         <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.account.subtitle")</p>
+        <p class="mt-3 text-sm text-[#595c5d]">
+            @L.T("partner.account.orgNote")
+            <a href="/partner/settings" class="ml-1 font-bold text-[#3b6700] underline">@L.T("partner.nav.settings")</a>.
+        </p>
         @if (!string.IsNullOrWhiteSpace(AuthState.DisplayName))
         {
             <p class="mt-2 text-sm font-semibold text-[#3b6700]">@AuthState.DisplayName</p>

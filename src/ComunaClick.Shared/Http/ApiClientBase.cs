@@ -1,12 +1,15 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using ComunaClick.Shared.Auth.Interfaces;
 
 namespace ComunaClick.Shared.Http;
 
 public abstract class ApiClientBase
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     private readonly HttpClient _httpClient;
     private readonly ITokenStore _tokenStore;
     private readonly IAuthClient _authClient;
@@ -28,7 +31,7 @@ public abstract class ApiClientBase
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path)
         {
-            Content = JsonContent.Create(body)
+            Content = JsonContent.Create(body, options: JsonOptions)
         };
         return await SendAsync<T>(request, cancellationToken);
     }
@@ -37,7 +40,7 @@ public abstract class ApiClientBase
     {
         var request = new HttpRequestMessage(HttpMethod.Patch, path)
         {
-            Content = JsonContent.Create(body)
+            Content = JsonContent.Create(body, options: JsonOptions)
         };
         return await SendAsync<T>(request, cancellationToken);
     }
@@ -46,7 +49,7 @@ public abstract class ApiClientBase
     {
         var request = new HttpRequestMessage(HttpMethod.Put, path)
         {
-            Content = JsonContent.Create(body)
+            Content = JsonContent.Create(body, options: JsonOptions)
         };
         return await SendAsync<T>(request, cancellationToken);
     }
@@ -55,9 +58,15 @@ public abstract class ApiClientBase
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path)
         {
-            Content = JsonContent.Create(body)
+            Content = JsonContent.Create(body, options: JsonOptions)
         };
         await SendAsync(request, cancellationToken);
+    }
+
+    protected Task DeleteAsync(string path, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, path);
+        return SendAsync(request, cancellationToken);
     }
 
     protected async Task<T?> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -86,7 +95,7 @@ public abstract class ApiClientBase
                 response.StatusCode);
         }
 
-        return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken);
+        return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken);
     }
 
     protected async Task SendAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)

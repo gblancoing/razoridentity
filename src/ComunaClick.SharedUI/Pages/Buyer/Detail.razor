@@ -1,17 +1,22 @@
 @page "/buyer/detail"
 @page "/buyer/detail/{Type}/{Id:guid}"
 @layout BuyerLayout
+@using System.Net
+@using System.Text.Json
 @using BuyerModels = ComunaClick.Shared.Api.Buyer
+@using ComunaClick.Common
 @using ComunaClick.SharedUI.Services
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject NavigationManager Navigation
+@inject ApiMediaUrl MediaUrl
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>@(_partnerPageTitle)</PageTitle>
 
-<div class="max-w-7xl mx-auto space-y-8 px-4 sm:px-6">
+<div class="@PageShellClass">
     @if (_isLoading)
     {
         <section class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
@@ -26,19 +31,32 @@
             <a href="/categorias" class="inline-flex items-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">Ver categorías</a>
         </section>
     }
+    else if (IsPartnerStore && _partnerProfile is not null && IsServiceCompanyStore)
+    {
+        <PartnerServiceStorefront Profile="_partnerProfile"
+                                 ExploreBackHref="@PartnerExploreBackHref"
+                                 ConsultHref="@PartnerConsultHref" />
+    }
     else if (IsPartnerStore && _partnerProfile is not null)
     {
         var store = _partnerProfile.Partner;
         var productCount = _partnerProfile.Products?.Count ?? 0;
         var serviceCount = _partnerProfile.Services?.Count ?? 0;
         <div class="space-y-8 rounded-3xl bg-[#f7f5f0] p-4 pb-10 sm:p-6 sm:pb-10">
-            <section class="relative overflow-hidden rounded-3xl min-h-[min(44vh,16rem)] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.45)] sm:min-h-[280px] md:min-h-[340px]">
-                <div class="absolute inset-0 bg-[#1a1c1b]"></div>
-                <div class="absolute inset-0 bg-cover bg-center" style="@StorefrontBannerStyle"></div>
-                <div class="absolute inset-0 bg-gradient-to-t from-[#0a0c0a] via-[#0a0c0a]/75 to-[#0a0c0a]/25"></div>
+            <section class="relative overflow-visible rounded-3xl min-h-[min(44vh,16rem)] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.45)] sm:min-h-[280px] md:min-h-[340px]">
+                <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+                    <div class="absolute inset-0 bg-[#1a1c1b]/35"></div>
+                    <div class="absolute inset-0 bg-cover bg-center" style="@StorefrontBannerStyle"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#0a0c0a]/65 via-[#0a0c0a]/35 to-[#0a0c0a]/10"></div>
+                </div>
                 <div class="relative z-10 flex min-h-[min(44vh,16rem)] flex-col justify-end p-6 sm:min-h-[280px] sm:p-8 md:min-h-[340px] md:p-10">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <PartnerBrandMark LogoUrl="@store.LogoUrl" PartnerName="@store.Name" Size="xl" />
+                        <div class="min-w-0 flex-1">
                     <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-white/75">@PartnerTypeEyebrow(store.Type)</p>
                     <h1 class="mt-2 text-3xl font-black leading-tight tracking-[-0.04em] text-white sm:text-4xl md:text-5xl">@store.Name</h1>
+                        </div>
+                    </div>
                     @if (!string.IsNullOrWhiteSpace(store.OfferLabel))
                     {
                         <p class="mt-3 max-w-2xl text-sm font-medium text-white/90">@store.OfferLabel</p>
@@ -66,40 +84,39 @@
                     <p class="mt-3 max-w-2xl text-xs leading-relaxed text-white/70">Navegá por categoría abajo, compará precios y comprá o reservá con la misma experiencia en todo el portal.</p>
                     <div class="mt-6 flex flex-wrap gap-3">
                         <a href="#tienda-comercio" class="inline-flex items-center justify-center rounded-2xl bg-[#a7f255] px-5 py-2.5 text-sm font-bold text-[#1a2e0b] shadow-md hover:brightness-105">Ver tienda</a>
+                        @if (!string.IsNullOrWhiteSpace(PartnerConsultHref))
+                        {
+                            <a href="@PartnerConsultHref" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20">
+                                <span class="material-symbols-outlined text-[18px]">forum</span>
+                                @L.T("inbox.cta.consult")
+                            </a>
+                        }
+                        <SharePublicLink RelativePath="@($"/buyer/detail/partner/{store.Id}")"
+                                         Title="@store.Name"
+                                         OpenAbove="true"
+                                         ButtonClass="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20" />
+                        @if (AuthState.IsPersonalAccount)
+                        {
+                            <button type="button" @onclick="HandlePartnerFollowToggled" disabled="@_partnerFollowBusy"
+                                    class="inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-2.5 text-sm font-bold text-white transition disabled:opacity-60"
+                                    style="@(_isFollowingPartner ? "border-color:rgba(167,242,85,0.7);background:rgba(167,242,85,0.15)" : "border-color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.1)")">
+                                <span class="material-symbols-outlined" style="font-size:18px">@(_isFollowingPartner ? "how_to_reg" : "person_add")</span>
+                                @(_isFollowingPartner ? "Siguiendo" : "Seguir")
+                            </button>
+                        }
                         <a href="@PartnerExploreBackHref" class="inline-flex items-center justify-center rounded-2xl border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20">Volver a explorar</a>
                     </div>
                 </div>
             </section>
 
-            <div class="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-[#e5e0d8] bg-white px-4 py-4 text-sm text-[#2c2f30] shadow-[0_8px_24px_-16px_rgba(0,0,0,0.12)] sm:px-6 sm:py-5">
-                @if (!string.IsNullOrWhiteSpace(store.Address))
-                {
-                    <span class="inline-flex max-w-full items-start gap-3 break-words">
-                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#e8f3dc] text-[#3b6700]">
-                            <span class="material-symbols-outlined text-[20px]">location_on</span>
-                        </span>
-                        <span class="pt-0.5 font-medium">@store.Address</span>
-                    </span>
-                }
-                @if (!string.IsNullOrWhiteSpace(store.Phone))
-                {
-                    <a href="@($"tel:{store.Phone}")" class="inline-flex items-center gap-3 font-semibold text-[#2c2f30] hover:text-[#3b6700]">
-                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#e8f3dc] text-[#3b6700]">
-                            <span class="material-symbols-outlined text-[20px]">call</span>
-                        </span>
-                        @store.Phone
-                    </a>
-                }
-                @if (!string.IsNullOrWhiteSpace(store.Email))
-                {
-                    <a href="@($"mailto:{store.Email}")" class="inline-flex min-w-0 max-w-full items-center gap-3 font-semibold text-[#2c2f30] hover:text-[#3b6700]">
-                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#e8f3dc] text-[#3b6700]">
-                            <span class="material-symbols-outlined text-[20px]">mail</span>
-                        </span>
-                        <span class="truncate">@store.Email</span>
-                    </a>
-                }
-            </div>
+            <PartnerContactSummary Address="@store.Address"
+                                   Phone="@store.Phone"
+                                   Email="@store.Email" />
+
+            @if (ProfileWebLinksHelper.HasAny(PartnerStoreWebLinks))
+            {
+                <ProfileWebLinksDisplay Links="@PartnerStoreWebLinks" />
+            }
 
             <section id="tienda-comercio" class="scroll-mt-24 space-y-6 rounded-3xl border border-[#ebe7df] bg-white p-5 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.1)] sm:p-8">
                 <div>
@@ -213,175 +230,62 @@
             </section>
         </div>
     }
-    else if (IsProductDetail)
+    else if (IsProductDetail && _productDetail is not null)
     {
-        var p = _productDetail!;
-        <div class="space-y-8 pb-10">
-            <section class="overflow-hidden rounded-3xl border border-[#e3e6e8] bg-white shadow-[0_20px_50px_-28px_rgba(0,0,0,0.12)]">
-                <div class="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                    <div class="relative min-h-[min(40vh,18rem)] bg-[#1a1c1b] sm:min-h-[22rem]">
-                        <div class="absolute inset-0 bg-cover bg-center" style="@HeroImageStyle"></div>
-                        <div class="absolute inset-0 bg-gradient-to-t from-[#0a0c0a]/95 via-[#0a0c0a]/45 to-[#0a0c0a]/20"></div>
-                        <div class="relative flex h-full min-h-[min(40vh,18rem)] flex-col justify-end p-6 sm:min-h-[22rem] sm:p-8">
-                            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">@_eyebrow</p>
-                            <h1 class="mt-2 text-3xl font-black leading-tight tracking-[-0.04em] text-white sm:text-4xl">@p.Name</h1>
-                            <p class="mt-4 text-3xl font-black tracking-[-0.03em] text-[#a7f255] sm:text-4xl">@FormatMoney(p.Price, p.Currency)</p>
-                            <div class="mt-4 flex flex-wrap gap-2">
-                                @if (!string.IsNullOrWhiteSpace(p.Category))
-                                {
-                                    <span class="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold text-white">@p.Category</span>
-                                }
-                                <span class="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold text-white">@(p.IsActive ? "Disponible" : "No disponible")</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-center gap-5 bg-gradient-to-b from-[#fbfcfa] to-white p-6 sm:p-8 lg:p-10">
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Comprar en ComunaClic</p>
-                            <p class="mt-2 text-sm leading-6 text-[#595c5d]">@_subtitle</p>
-                        </div>
-                        <div class="space-y-3">
-                            <a href="@_primaryCtaHref" class="block w-full rounded-2xl bg-[#3b6700] px-5 py-3.5 text-center text-sm font-bold text-[#d9ffad] shadow-md hover:brightness-105">@_primaryCtaLabel</a>
-                            @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel) && !string.IsNullOrWhiteSpace(_secondaryCtaHref))
-                            {
-                                <a href="@_secondaryCtaHref" class="block w-full rounded-2xl border-2 border-[#dadddf] bg-white px-5 py-3.5 text-center text-sm font-bold text-[#2c2f30] hover:border-[#3b6700]/40">@_secondaryCtaLabel</a>
-                            }
-                        </div>
-                        <p class="text-xs leading-relaxed text-[#7b8081]">Pagos y entregas se coordinan según las condiciones del comercio. Si necesitás más detalle, abrí la ficha del negocio.</p>
-                    </div>
-                </div>
-            </section>
-
-            <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
-                <article class="rounded-[2rem] border border-[#e8eaec] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] sm:p-8">
-                    <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Sobre este producto</p>
-                    @{
-                        var productDescBlocks = DescriptionParagraphs(p.Description);
-                    }
-                    @if (productDescBlocks.Count > 0)
-                    {
-                        <div class="mt-4 space-y-4 text-base leading-7 text-[#2c2f30] [text-wrap:pretty]">
-                            @foreach (var block in productDescBlocks)
-                            {
-                                <p class="whitespace-pre-line">@block</p>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="mt-4 rounded-2xl border border-dashed border-[#dadddf] bg-[#f9faf8] px-4 py-3 text-sm leading-6 text-[#595c5d]">El comercio aún no publicó una descripción ampliada. Podés ver más información en la página del negocio o al coordinar la compra.</p>
-                    }
-                    <p class="mt-6 text-sm text-[#7b8081]">@string.Join(" · ", new[] { p.Category, FormatMoney(p.Price, p.Currency) }.Where(x => !string.IsNullOrWhiteSpace(x)))</p>
-                </article>
-                <aside class="space-y-6">
-                    <article class="rounded-[2rem] border border-[#e8eaec] bg-white p-6 sm:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Detalles</p>
-                        <div class="mt-4 space-y-3">
-                            @foreach (var fact in _detailFacts)
-                            {
-                                <div class="flex items-baseline justify-between gap-3 border-b border-[#f0f1f2] py-2 last:border-0">
-                                    <span class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@fact.Label</span>
-                                    <span class="text-right text-sm font-semibold text-[#2c2f30]">@fact.Value</span>
-                                </div>
-                            }
-                        </div>
-                    </article>
-                    <article class="rounded-[2rem] bg-[#eff1f2] p-6 sm:p-8">
-                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Estado</p>
-                        <p class="mt-3 text-sm text-[#595c5d]">@_statusMessage</p>
-                        <p class="mt-4 text-base font-bold text-[#2c2f30]">@_ctaSubtitle</p>
-                    </article>
-                </aside>
-            </div>
-        </div>
+        <ProductOfferingDetail Product="_productDetail"
+                               PartnerLogoUrl="@_productDetail.PartnerLogoUrl"
+                               PartnerName="@_productDetail.PartnerName"
+                               PrimaryCtaHref="@_primaryCtaHref"
+                               PrimaryCtaLabel="@_primaryCtaLabel"
+                               ConsultHref="@_consultHref"
+                               SecondaryCtaHref="@_secondaryCtaHref"
+                               SecondaryCtaLabel="@_secondaryCtaLabel"
+                               PartnerHref="@( _productDetail.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{_productDetail.PartnerId}" : null)"
+                               ShareRelativePath="@($"/buyer/detail/product/{_productDetail.Id}")"
+                               ShareTitle="@_productDetail.Name"
+                               Facts="@ProductOfferingFacts" />
     }
-    else if (IsServiceDetail)
+    else if (IsProfessionalDetail && _professionalDetail is not null)
     {
-        var s = _serviceDetail!;
-        <div class="space-y-8 pb-10">
-            <section class="overflow-hidden rounded-3xl border border-[#e3e6e8] bg-white shadow-[0_20px_50px_-28px_rgba(0,0,0,0.12)]">
-                <div class="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                    <div class="relative min-h-[min(40vh,18rem)] bg-[#1a1c1b] sm:min-h-[22rem]">
-                        <div class="absolute inset-0 bg-cover bg-center" style="@HeroImageStyle"></div>
-                        <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a12]/95 via-[#0a0a12]/45 to-[#0a0a12]/20"></div>
-                        <div class="relative flex h-full min-h-[min(40vh,18rem)] flex-col justify-end p-6 sm:min-h-[22rem] sm:p-8">
-                            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">@_eyebrow</p>
-                            <h1 class="mt-2 text-3xl font-black leading-tight tracking-[-0.04em] text-white sm:text-4xl">@s.Name</h1>
-                            <p class="mt-2 text-sm font-medium text-white/90">@s.DurationMinutes min · @FormatMoney(s.Price, s.Currency)</p>
-                            <div class="mt-4 flex flex-wrap gap-2">
-                                @if (!string.IsNullOrWhiteSpace(s.Category))
-                                {
-                                    <span class="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold text-white">@s.Category</span>
-                                }
-                                <span class="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold text-white">@(s.IsActive ? "Agenda disponible" : "Pausada")</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-center gap-5 bg-gradient-to-b from-[#f8f9fc] to-white p-6 sm:p-8 lg:p-10">
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Reservar en ComunaClic</p>
-                            <p class="mt-2 text-sm leading-6 text-[#595c5d]">@_subtitle</p>
-                        </div>
-                        <div class="space-y-3">
-                            <a href="@_primaryCtaHref" class="block w-full rounded-2xl bg-[#3b6700] px-5 py-3.5 text-center text-sm font-bold text-[#d9ffad] shadow-md hover:brightness-105">@_primaryCtaLabel</a>
-                            @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel) && !string.IsNullOrWhiteSpace(_secondaryCtaHref))
-                            {
-                                <a href="@_secondaryCtaHref" class="block w-full rounded-2xl border-2 border-[#dadddf] bg-white px-5 py-3.5 text-center text-sm font-bold text-[#2c2f30] hover:border-[#3b6700]/40">@_secondaryCtaLabel</a>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
-                <article class="rounded-[2rem] border border-[#e8eaec] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] sm:p-8">
-                    <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Sobre este servicio</p>
-                    @{
-                        var serviceDescBlocks = DescriptionParagraphs(s.Description);
-                    }
-                    @if (serviceDescBlocks.Count > 0)
-                    {
-                        <div class="mt-4 space-y-4 text-base leading-7 text-[#2c2f30] [text-wrap:pretty]">
-                            @foreach (var block in serviceDescBlocks)
-                            {
-                                <p class="whitespace-pre-line">@block</p>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="mt-4 rounded-2xl border border-dashed border-[#dadddf] bg-[#f7f8fb] px-4 py-3 text-sm leading-6 text-[#595c5d]">El comercio aún no publicó una descripción ampliada. Revisá la página del negocio o reservá para coordinar detalles.</p>
-                    }
-                    <p class="mt-6 text-sm text-[#7b8081]">@string.Join(" · ", new[] { s.Category, $"{s.DurationMinutes} min", FormatMoney(s.Price, s.Currency) }.Where(x => !string.IsNullOrWhiteSpace(x)))</p>
-                </article>
-                <aside class="space-y-6">
-                    <article class="rounded-[2rem] border border-[#e8eaec] bg-white p-6 sm:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Detalles</p>
-                        <div class="mt-4 space-y-3">
-                            @foreach (var fact in _detailFacts)
-                            {
-                                <div class="flex items-baseline justify-between gap-3 border-b border-[#f0f1f2] py-2 last:border-0">
-                                    <span class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@fact.Label</span>
-                                    <span class="text-right text-sm font-semibold text-[#2c2f30]">@fact.Value</span>
-                                </div>
-                            }
-                        </div>
-                    </article>
-                    <article class="rounded-[2rem] bg-[#eff1f2] p-6 sm:p-8">
-                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">Estado</p>
-                        <p class="mt-3 text-sm text-[#595c5d]">@_statusMessage</p>
-                        <p class="mt-4 text-base font-bold text-[#2c2f30]">@_ctaSubtitle</p>
-                    </article>
-                </aside>
-            </div>
-        </div>
+        <ProfessionalPublicProfile Professional="_professionalDetail"
+                                   ConsultHref="@_primaryCtaHref"
+                                   SharePath="@_shareRelativePath"
+                                   IsOwner="@(!string.IsNullOrWhiteSpace(AuthState.Email) && string.Equals(AuthState.Email, _professionalDetail.Email, StringComparison.OrdinalIgnoreCase))"
+                                   IsFollowing="@_isFollowingProfessional"
+                                   OnFollowToggled="@HandleFollowToggled"
+                                   OwnerFollows="@_ownerFollows" />
+    }
+    else if (IsServiceDetail && _serviceDetail is not null)
+    {
+        <ServiceOfferingDetail Service="_serviceDetail"
+                               PartnerLogoUrl="@_serviceDetail.PartnerLogoUrl"
+                               PartnerName="@_serviceDetail.PartnerName"
+                               PrimaryCtaHref="@_primaryCtaHref"
+                               PrimaryCtaLabel="@_primaryCtaLabel"
+                               ConsultHref="@_consultHref"
+                               SecondaryCtaHref="@_secondaryCtaHref"
+                               SecondaryCtaLabel="@_secondaryCtaLabel"
+                               PartnerHref="@($"/buyer/detail/partner/{_serviceDetail.PartnerId}")"
+                               ShareRelativePath="@($"/buyer/detail/service/{_serviceDetail.Id}")"
+                               ShareTitle="@_serviceDetail.Name"
+                               StatusMessage="@_statusMessage"
+                               CtaSubtitle="@_ctaSubtitle"
+                               Facts="@ServiceOfferingFacts" />
     }
     else
     {
         <section class="rounded-[2rem] bg-gradient-to-br from-[#f5f6f7] via-white to-[#eff1f2] border border-[#dadddf] px-6 py-8 sm:px-8 sm:py-10">
             <div class="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:justify-between">
                 <div class="space-y-3 min-w-0">
-                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@_eyebrow</p>
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@_eyebrow</p>
+                        @if (!string.IsNullOrWhiteSpace(_shareRelativePath))
+                        {
+                            <SharePublicLink RelativePath="@_shareRelativePath"
+                                             Title="@_title"
+                                             Text="@_subtitle" />
+                        }
+                    </div>
                     <h1 class="text-3xl sm:text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@_title</h1>
                     <p class="max-w-3xl text-sm text-[#595c5d]">@_subtitle</p>
                     <div class="flex flex-wrap gap-3 pt-2">
@@ -406,6 +310,23 @@
                         <p class="mt-2 text-sm text-[#595c5d]">@_ctaSubtitle</p>
                         <div class="mt-5 space-y-3">
                             <a href="@_primaryCtaHref" class="block w-full rounded-2xl bg-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#d9ffad]">@_primaryCtaLabel</a>
+                            @if (_showAddToCart)
+                            {
+                                <button type="button"
+                                        class="block w-full rounded-2xl border border-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#3b6700] disabled:opacity-60"
+                                        disabled="@_addingToCart"
+                                        @onclick="AddToCartAsync">
+                                    @(_addingToCart ? "..." : L.T("buyer.cart.add"))
+                                </button>
+                                @if (!string.IsNullOrWhiteSpace(_cartStatusMessage))
+                                {
+                                    <p class="text-xs text-[#61897c]">@_cartStatusMessage</p>
+                                }
+                                @if (_cartAdded)
+                                {
+                                    <a href="/buyer/cart" class="block text-center text-xs font-bold text-[#3b6700] underline">@L.T("buyer.cart.view")</a>
+                                }
+                            }
                             @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
                             {
                                 <a href="@_secondaryCtaHref" class="block w-full rounded-2xl border border-[#dadddf] px-5 py-3 text-center text-sm font-bold text-[#2c2f30]">@_secondaryCtaLabel</a>
@@ -424,6 +345,10 @@
                         <p class="text-base leading-7 text-[#2c2f30]">@_detailLine1</p>
                         <p class="text-sm leading-7 text-[#595c5d]">@_detailLine2</p>
                     </div>
+                    @if (ProfileWebLinksHelper.HasAny(_displayWebLinks))
+                    {
+                        <ProfileWebLinksDisplay Links="@_displayWebLinks" RootClass="mt-6 border-0 bg-transparent p-0" />
+                    }
                     @if (_detailFacts.Count > 0)
                     {
                         <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -475,6 +400,7 @@
     private string _primaryCtaHref = "/categorias";
     private string? _secondaryCtaLabel;
     private string? _secondaryCtaHref;
+    private string? _consultHref;
     private bool _isFavorite;
     private Guid? _favoriteId;
     private string? _favoriteMessage;
@@ -485,15 +411,46 @@
     private readonly List<DetailFact> _detailFacts = new();
     private BuyerModels.PartnerProfileResponse? _partnerProfile;
     private BuyerModels.Product? _productDetail;
+    private BuyerModels.Professional? _professionalDetail;
+    private bool _isFollowingProfessional;
+    private IReadOnlyList<ComunaClick.Shared.Api.Buyer.ProfessionalFollowItem>? _ownerFollows;
+    private bool _isFollowingPartner;
+    private bool _partnerFollowBusy;
+    private bool _showAddToCart;
+    private bool _addingToCart;
+    private string? _cartStatusMessage;
+    private bool _cartAdded;
     private BuyerModels.Service? _serviceDetail;
+    private ProfileWebLinks? _displayWebLinks;
+    private string? _shareRelativePath;
 
-    private string HeroImageStyle => $"background-image: url('{_heroImageUrl}')";
+    private string PageShellClass => (IsPartnerStore && IsServiceCompanyStore) || IsServiceDetail
+        ? "mx-auto max-w-[88rem] space-y-8 px-4 sm:px-6"
+        : IsProfessionalDetail
+            ? ""
+            : "mx-auto max-w-7xl space-y-8 px-4 sm:px-6";
+
+    private string HeroImageStyle => PublicOfferVisuals.BackgroundStyle(MediaUrl.Resolve(_heroImageUrl));
     private bool CanShowFavoriteAction => ResolveFavoriteType() is not null && Id.HasValue;
 
     private string StorefrontBannerStyle => HeroImageStyle;
 
     private bool IsPartnerStore
         => string.Equals(Type, "partner", StringComparison.OrdinalIgnoreCase) && _partnerProfile is not null;
+
+    private bool IsServiceCompanyStore
+        => string.Equals(_partnerProfile?.Partner.Type, "B", StringComparison.OrdinalIgnoreCase);
+
+    private ProfileWebLinks? PartnerStoreWebLinks
+        => _partnerProfile?.Partner is { } partner ? ProfileWebLinksHelper.FromPartnerSummary(partner) : null;
+
+    private string? PartnerConsultHref => _secondaryCtaHref;
+
+    private IReadOnlyList<(string Label, string Value)> ServiceOfferingFacts
+        => _detailFacts.Select(f => (f.Label, f.Value)).ToList();
+
+    private IReadOnlyList<(string Label, string Value)> ProductOfferingFacts
+        => _detailFacts.Select(f => (f.Label, f.Value)).ToList();
 
     /// <summary>Vuelve a la categoría desde la que se abrió el comercio (<c>?return=</c>), si vino; si no, a partir del código de categoría del perfil; último recurso <c>/categorias</c>.</summary>
     private string PartnerExploreBackHref => BuildPartnerExploreBackHref();
@@ -588,6 +545,9 @@
     private bool IsServiceDetail
         => string.Equals(Type, "service", StringComparison.OrdinalIgnoreCase) && _serviceDetail is not null;
 
+    private bool IsProfessionalDetail
+        => string.Equals(Type, "professional", StringComparison.OrdinalIgnoreCase) && _professionalDetail is not null;
+
     private IReadOnlyList<string> PartnerCategoryKeys
     {
         get
@@ -657,17 +617,19 @@
             _ => "Comercio local"
         };
 
-    private static string ProductCardBackground(BuyerModels.PartnerProfileProduct p)
+    private string ProductCardBackground(BuyerModels.PartnerProfileProduct p)
     {
-        var url = ResolveHeroImage(p.Category, p.Name) ?? "";
+        var raw = PublicOfferVisuals.ResolveImage(p.ImageUrl, p.Category, p.Name, p.ImageUrls);
+        var url = string.IsNullOrWhiteSpace(raw) ? null : MediaUrl.Resolve(raw);
         return string.IsNullOrEmpty(url)
             ? "background: linear-gradient(135deg, #e8f5e0 0%, #f5f6f7 100%);"
             : $"background-image: linear-gradient(0deg, rgba(0,0,0,0.2), rgba(0,0,0,0.05)), url('{url}');";
     }
 
-    private static string ServiceCardBackground(BuyerModels.PartnerProfileService s)
+    private string ServiceCardBackground(BuyerModels.PartnerProfileService s)
     {
-        var url = ResolveHeroImage(s.Category, s.Name) ?? "";
+        var raw = PublicOfferVisuals.ResolveImage(s.ImageUrl, s.Category, s.Name, s.ImageUrls);
+        var url = string.IsNullOrWhiteSpace(raw) ? null : MediaUrl.Resolve(raw);
         return string.IsNullOrEmpty(url)
             ? "background: linear-gradient(135deg, #e3edf5 0%, #f5f6f7 100%);"
             : $"background-image: linear-gradient(0deg, rgba(0,0,0,0.2), rgba(0,0,0,0.05)), url('{url}');";
@@ -698,7 +660,9 @@
         _partnerProfile = null;
         _productDetail = null;
         _serviceDetail = null;
+        _professionalDetail = null;
         _partnerCategoryFilter = null;
+        _consultHref = null;
         _badges.Clear();
         _detailFacts.Clear();
         _errorMessage = null;
@@ -714,6 +678,9 @@
         _primaryCtaHref = "/categorias";
         _secondaryCtaLabel = null;
         _secondaryCtaHref = null;
+        _showAddToCart = false;
+        _cartStatusMessage = null;
+        _cartAdded = false;
         _isFavorite = false;
         _favoriteId = null;
         _favoriteMessage = null;
@@ -721,12 +688,17 @@
         _heroImageUrl = "_content/ComunaClick.SharedUI/logo.png";
         _heroLabel = "ComunaClic";
         _heroTitle = "Explora la oferta publicada";
+        _displayWebLinks = null;
+        _shareRelativePath = null;
 
         if (Id is null || string.IsNullOrWhiteSpace(Type))
         {
             return;
         }
 
+        _isFollowingPartner = false;
+        _partnerFollowBusy = false;
+        _ownerFollows = null;
         _isLoading = true;
         try
         {
@@ -748,6 +720,16 @@
                     _errorMessage = "Tipo no soportado.";
                     break;
             }
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => AuthState.IsAuthenticated
+                    ? "Negocio no encontrado o no tenés permiso para ver esta ficha. Si aún no publicaste, usá «Vista previa» desde tu perfil Empresa."
+                    : "Negocio no encontrado o no está publicado en el portal.",
+                _ => "Error al cargar el detalle seleccionado."
+            };
         }
         catch
         {
@@ -780,22 +762,79 @@
             product.Category,
             FormatMoney(product.Price, product.Currency)
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
-        _statusMessage = "Oferta lista para compra.";
-        _ctaSubtitle = "Continúa al checkout o revisa el negocio que publica este producto.";
-        _primaryCtaLabel = AuthState.IsPersonalAccount ? "Comprar ahora" : "Inicia sesión para comprar";
-        _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/checkout?productId={id}");
+        var onHand = product.StockQuantity ?? 0;
+        var available = product.AvailableQuantity ?? onHand;
+        var reserved = Math.Max(0, onHand - available);
+        _statusMessage = reserved > 0
+            ? "Hay unidades reservadas en pedidos pendientes de pago. Si cancelas esos pedidos en tu panel, el stock vuelve a estar disponible."
+            : "Oferta lista para compra.";
+        _ctaSubtitle = reserved > 0
+            ? $"Disponible para venta: {available} de {onHand} en bodega."
+            : "Continúa al checkout o revisa el negocio que publica este producto.";
+        _primaryCtaLabel = product.InStock ? "Comprar ahora" : L.T("public.product.outOfStock");
+        _primaryCtaHref = product.InStock ? $"/buyer/checkout?productId={id}" : "#";
         _secondaryCtaLabel = product.PartnerId != Guid.Empty ? "Ver negocio" : null;
         _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : null;
-        _heroImageUrl = ResolveHeroImage(product.Category, product.Name);
+        _consultHref = product.PartnerId != Guid.Empty
+            ? RequirePersonalBuyerSession(
+                $"/account/messages?partnerId={product.PartnerId}&productId={id}&subject={Uri.EscapeDataString($"Consulta: {product.Name}")}")
+            : null;
+        _heroImageUrl = PublicOfferVisuals.ResolveImage(product.ImageUrl, product.Category, product.Name, product.ImageUrls);
         _heroLabel = "Producto destacado";
         _heroTitle = product.Category ?? "Disponible para compra";
         AddBadge(product.Category);
         AddBadge(FormatMoney(product.Price, product.Currency));
         AddFact("Categoría", product.Category ?? "Sin categoría informada");
         AddFact("Precio", FormatMoney(product.Price, product.Currency));
-        AddFact("Estado", product.IsActive ? "Disponible" : "No disponible");
+        AddFact("Estado", product.InStock ? L.T("public.product.inStock") : L.T("public.product.outOfStock"));
         AddFact("Publicado", product.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy"));
         _productDetail = product;
+        _showAddToCart = product.InStock && product.TenantId != Guid.Empty;
+    }
+
+    private async Task AddToCartAsync()
+    {
+        if (_productDetail is null || !_showAddToCart)
+        {
+            return;
+        }
+
+        _addingToCart = true;
+        _cartStatusMessage = null;
+        _cartAdded = false;
+        try
+        {
+            var item = JsonSerializer.Serialize(new
+            {
+                tenantId = _productDetail.TenantId.ToString(),
+                partnerId = _productDetail.PartnerId.ToString(),
+                partnerName = _productDetail.PartnerName ?? _title,
+                currency = _productDetail.Currency ?? "CLP",
+                productId = _productDetail.Id.ToString(),
+                name = _productDetail.Name ?? _title,
+                quantity = 1,
+                unitPrice = _productDetail.Price,
+                maxAvailable = _productDetail.AvailableQuantity ?? _productDetail.StockQuantity ?? 99
+            });
+            var result = await JSRuntime.InvokeAsync<string>("comunaclic.addGuestCartItem", item);
+            switch (result)
+            {
+                case "ok":
+                    _cartStatusMessage = L.T("buyer.cart.added");
+                    _cartAdded = true;
+                    break;
+                case "different_partner":
+                    _cartStatusMessage = L.T("buyer.cart.differentPartner");
+                    break;
+                default:
+                    _cartStatusMessage = L.T("buyer.checkout.missingProduct");
+                    break;
+            }
+        }
+        finally
+        {
+            _addingToCart = false;
+        }
     }
 
     private async Task LoadServiceAsync(Guid id)
@@ -807,32 +846,71 @@
             return;
         }
 
-        _eyebrow = "Servicio";
+        var bookable = PublicOfferVisuals.IsBookable(service);
+        _eyebrow = L.T("public.offer.eyebrow");
         _title = service.Name ?? _title;
         _partnerPageTitle = $"{_title} · ComunaClic";
-        _subtitle = "Servicio disponible para reservar directamente en el portal.";
-        _detailLine1 = service.Description ?? "Sin descripción disponible.";
-        _detailLine2 = string.Join(" · ", new[]
+        _subtitle = bookable ? L.T("public.offer.subtitle.book") : L.T("public.offer.subtitle.inquiry");
+        _detailLine1 = service.Description ?? L.T("public.offer.noDescription");
+        _detailLine2 = bookable
+            ? string.Join(" · ", new[]
+            {
+                service.Category,
+                $"{service.DurationMinutes} min",
+                FormatMoney(service.Price, service.Currency)
+            }.Where(x => !string.IsNullOrWhiteSpace(x)))
+            : PublicOfferVisuals.CategoryLabel(service.Category);
+        _statusMessage = bookable ? L.T("public.offer.status.book") : L.T("public.offer.status.inquiry");
+        _ctaSubtitle = bookable ? L.T("public.offer.ctaSubtitle.book") : L.T("public.offer.ctaSubtitle.inquiry");
+
+        var consultHref = service.PartnerId != Guid.Empty
+            ? RequirePersonalBuyerSession(
+                $"/account/messages?partnerId={service.PartnerId}&serviceId={id}&subject={Uri.EscapeDataString($"Consulta: {service.Name}")}")
+            : null;
+
+        if (bookable)
         {
-            service.Category,
-            $"{service.DurationMinutes} min",
-            FormatMoney(service.Price, service.Currency)
-        }.Where(x => !string.IsNullOrWhiteSpace(x)));
-        _statusMessage = "Servicio listo para reserva.";
-        _ctaSubtitle = "Reserva este servicio o revisa el negocio que publica la agenda.";
-        _primaryCtaLabel = AuthState.IsPersonalAccount ? "Reservar" : "Inicia sesión para reservar";
-        _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/booking?serviceId={id}");
-        _secondaryCtaLabel = service.PartnerId != Guid.Empty ? "Ver negocio" : null;
+            _primaryCtaLabel = L.T("public.offer.cta.bookNow");
+            _primaryCtaHref = $"/buyer/booking?serviceId={id}";
+            _consultHref = consultHref;
+        }
+        else
+        {
+            _primaryCtaLabel = AuthState.IsPersonalAccount ? L.T("public.offer.cta.consult") : L.T("inbox.cta.consultLogin");
+            _primaryCtaHref = consultHref ?? RequirePersonalBuyerSession("/account/messages");
+            _consultHref = null; // Ya es el primario
+        }
+
+        _secondaryCtaLabel = service.PartnerId != Guid.Empty ? L.T("public.offer.backStore") : null;
         _secondaryCtaHref = service.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{service.PartnerId}" : null;
-        _heroImageUrl = ResolveHeroImage(service.Category, service.Name);
-        _heroLabel = "Servicio agendable";
-        _heroTitle = service.Category ?? "Disponible para reserva";
+        _heroImageUrl = PublicOfferVisuals.ResolveImage(service.ImageUrl, service.Category, service.Name, service.ImageUrls);
+        var serviceLocation = PublicOfferVisuals.ResolveServiceLocation(service.ServiceAddress, service.PartnerAddress);
+        if (!string.IsNullOrWhiteSpace(serviceLocation))
+        {
+            AddFact(L.T("public.offer.location"), serviceLocation);
+        }
+        _heroLabel = bookable ? L.T("public.offer.badge.bookable") : L.T("public.offer.badge.inquiry");
+        _heroTitle = service.Category ?? _title;
         AddBadge(service.Category);
-        AddBadge($"{service.DurationMinutes} min");
-        AddFact("Categoría", service.Category ?? "Sin categoría informada");
-        AddFact("Duración", $"{service.DurationMinutes} minutos");
-        AddFact("Tarifa", FormatMoney(service.Price, service.Currency));
-        AddFact("Estado", service.IsActive ? "Agenda disponible" : "Agenda pausada");
+        if (bookable)
+        {
+            AddBadge($"{service.DurationMinutes} min");
+        }
+
+        AddFact(L.T("public.offer.fact.category"), PublicOfferVisuals.CategoryLabel(service.Category));
+        if (bookable)
+        {
+            AddFact(L.T("public.offer.fact.duration"), $"{service.DurationMinutes} {L.T("public.offer.minutes")}");
+            AddFact(L.T("public.offer.fact.price"), FormatMoney(service.Price, service.Currency));
+        }
+        else
+        {
+            AddFact(L.T("public.offer.fact.mode"), L.T("public.offer.fact.modeInquiry"));
+        }
+
+        AddFact("Estado", service.IsActive
+            ? (bookable ? L.T("public.offer.status.book") : L.T("public.offer.status.inquiry"))
+            : "Pausado");
         _serviceDetail = service;
     }
 
@@ -886,9 +964,16 @@
             "C" => "/professionals",
             _ => "/products"
         };
-        _secondaryCtaLabel = "Explorar categorías";
-        _secondaryCtaHref = "/categorias";
-        _heroImageUrl = ResolveHeroImage(partner.CategoryName, partner.SubcategoryName ?? partner.Name);
+        _secondaryCtaLabel = AuthState.IsPersonalAccount ? L.T("inbox.cta.consult") : L.T("inbox.cta.consultLogin");
+        _secondaryCtaHref = RequirePersonalBuyerSession($"/account/messages?partnerId={id}&subject={Uri.EscapeDataString($"Consulta a {partner.Name}")}");
+        if (partner.Type == "C" && featuredProfessional is not null)
+        {
+            _secondaryCtaHref = RequirePersonalBuyerSession($"/account/messages?professionalId={featuredProfessional.Id}&subject={Uri.EscapeDataString($"Consulta a {partner.Name}")}");
+        }
+        _heroImageUrl = PublicOfferVisuals.ResolveImage(
+            partner.BannerUrl,
+            partner.CategoryName,
+            partner.SubcategoryName ?? partner.Name);
         _heroLabel = partner.Type switch
         {
             "B" => "Negocio de servicios",
@@ -903,6 +988,16 @@
         AddFact("Tipo de oferta", partner.OfferLabel ?? "No informado");
         AddFact("Categoría", partner.CategoryName ?? "Sin categoría informada");
         AddFact("Subcategoría", partner.SubcategoryName ?? "Sin subcategoría informada");
+
+        if (!string.IsNullOrWhiteSpace(AuthState.Email))
+        {
+            try
+            {
+                var follows = await BuyerApi.GetProfessionalFollowsAsync();
+                _isFollowingPartner = follows?.Any(f => f.FollowedType == "partner" && f.FollowedId == id) ?? false;
+            }
+            catch { }
+        }
     }
 
     private async Task LoadProfessionalAsync(Guid id)
@@ -922,8 +1017,8 @@
         _detailLine2 = professional.Bio ?? "Sin biografía disponible.";
         _statusMessage = "Profesional listo para contacto.";
         _ctaSubtitle = "Genera un lead o revisa más profesionales similares.";
-        _primaryCtaLabel = AuthState.IsPersonalAccount ? "Contactar" : "Inicia sesión para contactar";
-        _primaryCtaHref = RequirePersonalBuyerSession($"/buyer/contact?professionalId={id}");
+        _primaryCtaLabel = AuthState.IsPersonalAccount ? L.T("inbox.cta.consult") : L.T("inbox.cta.consultLogin");
+        _primaryCtaHref = RequirePersonalBuyerSession($"/account/messages?professionalId={id}&subject={Uri.EscapeDataString($"Consulta profesional")}");
         _secondaryCtaLabel = "Ver más profesionales";
         _secondaryCtaHref = "/professionals";
         _heroImageUrl = ResolveHeroImage(professional.Specialty, professional.Name);
@@ -942,6 +1037,57 @@
         if (!string.IsNullOrWhiteSpace(professional.Phone))
         {
             AddFact("Teléfono", professional.Phone);
+        }
+
+        _displayWebLinks = ProfileWebLinksHelper.FromProfessional(professional);
+        _shareRelativePath = $"/buyer/detail/professional/{id}";
+        _professionalDetail = professional;
+
+        if (!string.IsNullOrWhiteSpace(AuthState.Email))
+        {
+            try
+            {
+                var follows = await BuyerApi.GetProfessionalFollowsAsync();
+                _isFollowingProfessional = follows?.Any(f => f.FollowedType == "professional" && f.FollowedId == id) ?? false;
+                var isOwner = string.Equals(AuthState.Email, professional.Email, StringComparison.OrdinalIgnoreCase);
+                if (isOwner) _ownerFollows = follows;
+            }
+            catch { }
+        }
+    }
+
+    private async Task HandleFollowToggled(bool nowFollowing)
+    {
+        if (_professionalDetail is null) return;
+        try
+        {
+            if (nowFollowing)
+                await BuyerApi.FollowProfessionalEntityAsync("professional", _professionalDetail.Id);
+            else
+                await BuyerApi.UnfollowProfessionalEntityAsync("professional", _professionalDetail.Id);
+            _isFollowingProfessional = nowFollowing;
+        }
+        catch { }
+    }
+
+    private async Task HandlePartnerFollowToggled()
+    {
+        if (_partnerProfile is null || _partnerFollowBusy) return;
+        _partnerFollowBusy = true;
+        StateHasChanged();
+        try
+        {
+            var partnerId = _partnerProfile.Partner.Id;
+            if (_isFollowingPartner)
+                await BuyerApi.UnfollowProfessionalEntityAsync("partner", partnerId);
+            else
+                await BuyerApi.FollowProfessionalEntityAsync("partner", partnerId);
+            _isFollowingPartner = !_isFollowingPartner;
+        }
+        catch { }
+        finally
+        {
+            _partnerFollowBusy = false;
         }
     }
 

@@ -20,6 +20,24 @@
     animation: heroGradient 14s ease infinite;
 }
 
+.cc-hero-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1.2s ease-in-out;
+    will-change: opacity;
+}
+
+.cc-hero-slide--visible {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cc-hero-slide {
+        transition: none;
+    }
+}
+
 .cc-badge-float {
     animation: floatBadge 3.5s ease-in-out infinite;
 }
@@ -45,10 +63,5 @@
 .cc-dot-grid {
     background-image: radial-gradient(circle, white 1px, transparent 1px);
     background-size: 30px 30px;
-}
-
-.cc-promo-dots {
-    background-image: radial-gradient(circle, white 1.5px, transparent 1.5px);
-    background-size: 22px 22px;
 }
 

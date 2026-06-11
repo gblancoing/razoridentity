@@ -1,0 +1,28 @@
+<div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 px-6 py-10 text-center" role="status">
+    <span class="material-symbols-outlined text-4xl text-gray-300 mb-2" aria-hidden="true">@Icon</span>
+    <p class="text-sm font-bold text-[#2c2f30]">@Title</p>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="text-xs text-[#7a8c84] mt-1 max-w-sm mx-auto">@Description</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(CtaLabel))
+    {
+        @if (!string.IsNullOrWhiteSpace(CtaHref))
+        {
+            <a href="@CtaHref" class="inline-flex items-center gap-1.5 mt-4 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white hover:brightness-110 transition-all">@CtaLabel</a>
+        }
+        else
+        {
+            <button type="button" @onclick="OnCtaClick" class="inline-flex items-center gap-1.5 mt-4 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white hover:brightness-110 transition-all">@CtaLabel</button>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "search_off";
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? CtaLabel { get; set; }
+    [Parameter] public string? CtaHref { get; set; }
+    [Parameter] public EventCallback OnCtaClick { get; set; }
+}

@@ -1,0 +1,146 @@
+@using ComunaClick.Shared.Api.Buyer
+@inject BuyerApiClient BuyerApi
+@inject LocaleService L
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 @CssClass">
+    <div>
+        <label class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.profile.country")</label>
+        <select class="mt-1 w-full rounded-xl border border-[#dadddf] bg-white px-4 py-3 text-sm disabled:opacity-50"
+                value="@CountrySelectValue"
+                @onchange="OnCountryChangedAsync"
+                disabled="@_loading">
+            <option value="">@L.T("buyer.profile.country.placeholder")</option>
+            @foreach (var country in _countries)
+            {
+                <option value="@country.Id">@country.Name</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.profile.region")</label>
+        <select class="mt-1 w-full rounded-xl border border-[#dadddf] bg-white px-4 py-3 text-sm disabled:opacity-50"
+                value="@RegionSelectValue"
+                @onchange="OnRegionChangedAsync"
+                disabled="@(!CountryId.HasValue || _loading)">
+            <option value="">@L.T("buyer.profile.region.placeholder")</option>
+            @foreach (var region in _regions)
+            {
+                <option value="@region.Id">@region.Name</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.profile.comuna")</label>
+        <select class="mt-1 w-full rounded-xl border border-[#dadddf] bg-white px-4 py-3 text-sm disabled:opacity-50"
+                value="@ComunaSelectValue"
+                @onchange="OnComunaChangedAsync"
+                disabled="@(!RegionId.HasValue || _loading)">
+            <option value="">@L.T("buyer.profile.comuna.placeholder")</option>
+            @foreach (var comuna in _comunas)
+            {
+                <option value="@comuna.Id">@comuna.Name</option>
+            }
+        </select>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid? CountryId { get; set; }
+    [Parameter] public EventCallback<Guid?> CountryIdChanged { get; set; }
+    [Parameter] public Guid? RegionId { get; set; }
+    [Parameter] public EventCallback<Guid?> RegionIdChanged { get; set; }
+    [Parameter] public Guid? ComunaId { get; set; }
+    [Parameter] public EventCallback<Guid?> ComunaIdChanged { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+
+    private IReadOnlyList<PublicCountryItem> _countries = Array.Empty<PublicCountryItem>();
+    private IReadOnlyList<PublicRegionItem> _regions = Array.Empty<PublicRegionItem>();
+    private IReadOnlyList<PublicComunaItem> _comunas = Array.Empty<PublicComunaItem>();
+    private bool _loading = true;
+    private Guid? _loadedRegionsForCountryId;
+    private Guid? _loadedComunasForRegionId;
+
+    private string CountrySelectValue => CountryId?.ToString() ?? string.Empty;
+    private string RegionSelectValue => RegionId?.ToString() ?? string.Empty;
+    private string ComunaSelectValue => ComunaId?.ToString() ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _countries = await BuyerApi.GetCountriesAsync() ?? Array.Empty<PublicCountryItem>();
+        await SyncRegionListAsync();
+        await SyncComunaListAsync();
+        _loading = false;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await SyncRegionListAsync();
+        await SyncComunaListAsync();
+    }
+
+    private async Task SyncRegionListAsync()
+    {
+        if (CountryId is Guid countryId && countryId != Guid.Empty)
+        {
+            if (_loadedRegionsForCountryId == countryId)
+            {
+                return;
+            }
+
+            _loadedRegionsForCountryId = countryId;
+            _regions = await BuyerApi.GetRegionsAsync(countryId) ?? Array.Empty<PublicRegionItem>();
+            return;
+        }
+
+        _loadedRegionsForCountryId = null;
+        _regions = Array.Empty<PublicRegionItem>();
+    }
+
+    private async Task SyncComunaListAsync()
+    {
+        if (RegionId is Guid regionId && regionId != Guid.Empty)
+        {
+            if (_loadedComunasForRegionId == regionId)
+            {
+                return;
+            }
+
+            _loadedComunasForRegionId = regionId;
+            _comunas = await BuyerApi.GetComunasAsync(regionId) ?? Array.Empty<PublicComunaItem>();
+            return;
+        }
+
+        _loadedComunasForRegionId = null;
+        _comunas = Array.Empty<PublicComunaItem>();
+    }
+
+    private async Task OnCountryChangedAsync(ChangeEventArgs e)
+    {
+        CountryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        RegionId = null;
+        ComunaId = null;
+        _loadedRegionsForCountryId = null;
+        _loadedComunasForRegionId = null;
+        await SyncRegionListAsync();
+        await SyncComunaListAsync();
+        await CountryIdChanged.InvokeAsync(CountryId);
+        await RegionIdChanged.InvokeAsync(RegionId);
+        await ComunaIdChanged.InvokeAsync(ComunaId);
+    }
+
+    private async Task OnRegionChangedAsync(ChangeEventArgs e)
+    {
+        RegionId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        ComunaId = null;
+        _loadedComunasForRegionId = null;
+        await SyncComunaListAsync();
+        await RegionIdChanged.InvokeAsync(RegionId);
+        await ComunaIdChanged.InvokeAsync(ComunaId);
+    }
+
+    private async Task OnComunaChangedAsync(ChangeEventArgs e)
+    {
+        ComunaId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        await ComunaIdChanged.InvokeAsync(ComunaId);
+    }
+}

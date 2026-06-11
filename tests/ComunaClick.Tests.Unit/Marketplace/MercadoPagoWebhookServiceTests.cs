@@ -1,6 +1,7 @@
 using System.Text;
 using ComunaClick.Api.Modules.Marketplace;
 using ComunaClick.Api.Persistence;
+using ComunaClick.Tests.Unit.Catalog;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -46,7 +47,7 @@ public sealed class MercadoPagoWebhookServiceTests
         var auditService = new MarketplaceAuditService(db);
         var metrics = new MarketplaceMetricsService();
         var oauthService = new MercadoPagoOAuthService(db, client, new AesSecretProtector(options), sellerService, auditService, options, metrics);
-        var service = new MercadoPagoWebhookService(db, client, oauthService, auditService, metrics);
+        var service = new MercadoPagoWebhookService(db, client, oauthService, auditService, metrics, new StubProductInventoryService());
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Headers["x-request-id"] = "req-1";

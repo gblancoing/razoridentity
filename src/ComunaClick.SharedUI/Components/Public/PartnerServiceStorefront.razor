@@ -1,0 +1,265 @@
+@using ComunaClick.Shared.Api.Buyer
+@using ComunaClick.Common
+@using ComunaClick.SharedUI.Services
+@inject LocaleService L
+@inject ApiMediaUrl MediaUrl
+
+<div class="rounded-[2rem] border border-[#e3e6e8] bg-white shadow-[0_24px_80px_-40px_rgba(0,0,0,0.18)]">
+    <section class="relative overflow-visible min-h-[320px] sm:min-h-[380px]">
+        <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-t-[2rem]">
+            <div class="absolute inset-0 bg-[#141816]/35"></div>
+            <div class="absolute inset-0 bg-cover bg-center" style="@HeroStyle"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-[#0d120c]/55 via-[#0d120c]/30 to-[#1a2e0b]/20"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-[#0a0c0a]/50 via-transparent to-transparent"></div>
+            <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#a7f255]/20 blur-3xl"></div>
+            <div class="absolute -bottom-16 left-10 h-48 w-48 rounded-full bg-[#3b6700]/25 blur-3xl"></div>
+        </div>
+
+        <div class="relative z-10 flex min-h-[320px] flex-col justify-between p-6 sm:min-h-[380px] sm:p-10">
+            <div class="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-white/80">
+                <a href="@ExploreBackHref" class="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 backdrop-blur hover:bg-white/20">
+                    <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                    @L.T("public.store.back")
+                </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <SharePublicLink RelativePath="@($"/buyer/detail/partner/{Partner.Id}")"
+                                     Title="@Partner.Name"
+                                     Text="@L.T("public.share.button")"
+                                     ButtonClass="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-white backdrop-blur hover:bg-white/20" />
+                    <span class="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 uppercase tracking-[0.18em]">@L.T("public.store.verified")</span>
+                </div>
+            </div>
+
+            <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                <div class="max-w-3xl">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <PartnerBrandMark LogoUrl="@Partner.LogoUrl" PartnerName="@Partner.Name" Size="xl" />
+                        <div class="min-w-0 flex-1">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.28em] text-[#d9ffad]/90">@L.T("public.store.type.service")</p>
+                    <h1 class="mt-3 text-4xl font-black leading-[1.05] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">@Partner.Name</h1>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Partner.OfferLabel))
+                    {
+                        <p class="mt-4 text-base font-medium text-white/90 sm:text-lg">@Partner.OfferLabel</p>
+                    }
+                    <div class="mt-5 flex flex-wrap gap-2">
+                        @if (!string.IsNullOrWhiteSpace(Partner.CategoryName))
+                        {
+                            <span class="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white ring-1 ring-white/25">@Partner.CategoryName</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Partner.SubcategoryName))
+                        {
+                            <span class="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white ring-1 ring-white/25">@Partner.SubcategoryName</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 sm:gap-4">
+                    <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center backdrop-blur">
+                        <p class="text-2xl font-black text-white">@ServiceCount</p>
+                        <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-white/75">@L.T("public.store.stat.services")</p>
+                    </div>
+                    <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center backdrop-blur">
+                        <p class="text-2xl font-black text-white">@BookableCount</p>
+                        <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-white/75">@L.T("public.store.stat.bookable")</p>
+                    </div>
+                    <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center backdrop-blur">
+                        <p class="text-2xl font-black text-white">@ListingCount</p>
+                        <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-white/75">@L.T("public.store.stat.inquiry")</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+                <a href="#servicios-empresa" class="inline-flex items-center gap-2 rounded-2xl bg-[#a7f255] px-6 py-3 text-sm font-bold text-[#1a2e0b] shadow-lg hover:brightness-105">
+                    @L.T("public.store.cta.services")
+                    <span class="material-symbols-outlined text-[18px]">south</span>
+                </a>
+                @if (!string.IsNullOrWhiteSpace(ConsultHref))
+                {
+                    <a href="@ConsultHref" class="inline-flex items-center gap-2 rounded-2xl border border-white/35 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur hover:bg-white/20">
+                        <span class="material-symbols-outlined text-[18px]">forum</span>
+                        @L.T("public.store.cta.consult")
+                    </a>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="border-b border-[#eceae6] bg-[#fafaf8] p-5 sm:p-6">
+        <PartnerContactSummary Address="@Partner.Address"
+                               Phone="@Partner.Phone"
+                               Email="@Partner.Email" />
+    </section>
+
+    @if (ProfileWebLinksHelper.HasAny(PartnerWebLinks))
+    {
+        <section class="border-b border-[#eceae6] bg-white p-5 sm:p-6">
+            <ProfileWebLinksDisplay Links="@PartnerWebLinks" RootClass="border-0 bg-transparent p-0" />
+        </section>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Partner.StorefrontAbout) || Highlights.Count > 0)
+    {
+        <section class="border-b border-[#eceae6] bg-white p-6 sm:p-8">
+            @if (!string.IsNullOrWhiteSpace(Partner.StorefrontAbout))
+            {
+                <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7b8081]">@L.T("public.store.about")</p>
+                <p class="mt-4 max-w-3xl whitespace-pre-line text-base leading-relaxed text-[#2c2f30]">@Partner.StorefrontAbout</p>
+            }
+            @if (Highlights.Count > 0)
+            {
+                <div class="mt-6 flex flex-wrap gap-3">
+                    @foreach (var item in Highlights)
+                    {
+                        <span class="inline-flex items-center gap-2 rounded-full bg-[#eff8e0] px-4 py-2 text-sm font-semibold text-[#3b6700]">
+                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                            @item
+                        </span>
+                    }
+                </div>
+            }
+        </section>
+    }
+
+    <section id="servicios-empresa" class="scroll-mt-8 space-y-6 p-5 sm:p-8">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7b8081]">@L.T("public.store.catalog.badge")</p>
+                <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30] sm:text-3xl">@L.T("public.store.catalog.title")</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-relaxed text-[#595c5d]">@L.T("public.store.catalog.subtitle")</p>
+            </div>
+        </div>
+
+        @if (CategoryKeys.Count > 0)
+        {
+            <div class="flex flex-wrap gap-2" role="tablist">
+                <button type="button" class="@ChipClass(_categoryFilter is null)" @onclick="() => SetFilter(null)">@L.T("public.store.filter.all")</button>
+                @foreach (var cat in CategoryKeys)
+                {
+                    <button type="button" class="@ChipClass(_categoryFilter == cat)" @onclick="() => SetFilter(cat)">@cat</button>
+                }
+            </div>
+        }
+
+        @if (FilteredServices.Count == 0)
+        {
+            <div class="rounded-2xl border border-dashed border-[#dadddf] bg-[#fafaf8] px-6 py-12 text-center">
+                <span class="material-symbols-outlined text-4xl text-[#c5c9cb]">inventory_2</span>
+                <p class="mt-3 text-sm font-semibold text-[#2c2f30]">@L.T("public.store.empty")</p>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                @foreach (var service in FilteredServices)
+                {
+                    var bookable = PublicOfferVisuals.IsBookable(service);
+                    var image = MediaUrl.Resolve(PublicOfferVisuals.ResolveImage(service.ImageUrl, service.Category, service.Name, service.ImageUrls));
+                    <a href="/buyer/detail/service/@service.Id"
+                       class="group flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-[#e6e3dc] bg-white shadow-[0_12px_40px_-28px_rgba(0,0,0,0.2)] transition hover:-translate-y-1 hover:border-[#a7f255]/60 hover:shadow-xl">
+                        <div class="relative h-48 bg-cover bg-center" style="@PublicOfferVisuals.BackgroundStyle(image)">
+                            <div class="absolute left-3 top-3">
+                                <span class="@(bookable ? "bg-[#3b6700] text-[#d9ffad]" : "bg-white/95 text-[#595c5d]") inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">
+                                    @(bookable ? L.T("public.offer.badge.bookable") : L.T("public.offer.badge.inquiry"))
+                                </span>
+                            </div>
+                            <span class="absolute right-3 top-3 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-bold uppercase text-white backdrop-blur">
+                                @PublicOfferVisuals.CategoryLabel(service.Category)
+                            </span>
+                        </div>
+                        <div class="flex flex-1 flex-col p-5">
+                            <h3 class="text-lg font-black leading-snug text-[#2c2f30] group-hover:text-[#3b6700]">@service.Name</h3>
+                            <p class="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-[#595c5d]">
+                                @(string.IsNullOrWhiteSpace(service.Description) ? L.T("public.offer.noDescription") : service.Description)
+                            </p>
+                            @if (!string.IsNullOrWhiteSpace(service.ServiceAddress))
+                            {
+                                <p class="mt-2 flex items-start gap-1.5 text-xs font-medium text-[#595c5d]">
+                                    <span class="material-symbols-outlined shrink-0 text-[16px] text-[#3b6700]">location_on</span>
+                                    <span class="line-clamp-2" title="@service.ServiceAddress">@PublicAddressFormatter.Summarize(service.ServiceAddress)</span>
+                                </p>
+                            }
+                            <div class="mt-4 flex items-end justify-between gap-3 border-t border-[#f0ede6] pt-4">
+                                <div>
+                                    @if (bookable)
+                                    {
+                                        <p class="text-xl font-black text-[#3b6700]">@PublicOfferVisuals.FormatMoney(service.Price, service.Currency)</p>
+                                        <p class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@service.DurationMinutes min</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="text-sm font-bold text-[#595c5d]">@L.T("public.offer.priceOnRequest")</p>
+                                    }
+                                </div>
+                                <span class="inline-flex items-center gap-1 rounded-xl bg-[#eff8e0] px-3 py-2 text-xs font-bold text-[#3b6700]">
+                                    @(bookable ? L.T("public.offer.cta.book") : L.T("public.offer.cta.view"))
+                                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                                </span>
+                            </div>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PartnerProfileResponse Profile { get; set; } = default!;
+    [Parameter, EditorRequired] public string ExploreBackHref { get; set; } = "/categorias";
+    [Parameter] public string? ConsultHref { get; set; }
+
+    private string? _categoryFilter;
+
+    private PartnerProfileSummary Partner => Profile.Partner;
+    private ProfileWebLinks PartnerWebLinks => ProfileWebLinksHelper.FromPartnerSummary(Partner);
+    private IReadOnlyList<PartnerProfileService> Services => Profile.Services ?? Array.Empty<PartnerProfileService>();
+    private int ServiceCount => Services.Count;
+    private int BookableCount => Services.Count(PublicOfferVisuals.IsBookable);
+    private int ListingCount => ServiceCount - BookableCount;
+
+    private string HeroStyle => PublicOfferVisuals.BackgroundStyle(
+        MediaUrl.Resolve(PublicOfferVisuals.ResolveImage(Partner.BannerUrl, Partner.CategoryName ?? Partner.SubcategoryName, Partner.Name)));
+
+    private IReadOnlyList<string> Highlights
+    {
+        get
+        {
+            var list = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Partner.StorefrontHighlight1)) list.Add(Partner.StorefrontHighlight1.Trim());
+            if (!string.IsNullOrWhiteSpace(Partner.StorefrontHighlight2)) list.Add(Partner.StorefrontHighlight2.Trim());
+            if (!string.IsNullOrWhiteSpace(Partner.StorefrontHighlight3)) list.Add(Partner.StorefrontHighlight3.Trim());
+            return list;
+        }
+    }
+
+    private IReadOnlyList<string> CategoryKeys => Services
+        .Select(s => PublicOfferVisuals.CategoryLabel(s.Category))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private IReadOnlyList<PartnerProfileService> FilteredServices
+    {
+        get
+        {
+            if (_categoryFilter is null)
+            {
+                return Services;
+            }
+
+            return Services
+                .Where(s => string.Equals(PublicOfferVisuals.CategoryLabel(s.Category), _categoryFilter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private void SetFilter(string? category) => _categoryFilter = category;
+
+    private string ChipClass(bool active)
+        => active
+            ? "inline-flex items-center rounded-full bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad]"
+            : "inline-flex items-center rounded-full border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#2c2f30] hover:border-[#3b6700]/40";
+}

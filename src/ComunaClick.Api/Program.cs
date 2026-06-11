@@ -1,6 +1,12 @@
 using ComunaClick.Api.Configuration;
 using ComunaClick.Api.Middleware;
 using ComunaClick.Api.Integrations.Notifications;
+using ComunaClick.Api.Modules.Catalog;
+using ComunaClick.Api.Modules.Bookings;
+using ComunaClick.Api.Modules.Checkout;
+using ComunaClick.Api.Modules.Customers;
+using ComunaClick.Api.Modules.Crm;
+using ComunaClick.Api.Modules.Orders;
 using ComunaClick.Api.Modules.Marketplace;
 using ComunaClick.Api.Modules.Admin;
 using ComunaClick.Api.Persistence;
@@ -36,6 +42,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("app", policy =>
         policy.WithOrigins(
+                "https://comunaclic.cl",
+                "https://www.comunaclic.cl",
                 "https://app.comunaclic.cl",
                 "https://admin.comunaclic.cl",
                 "https://localhost:5001",
@@ -63,8 +71,17 @@ builder.Services.AddHostedService<JobsHostedService>();
 builder.Services.AddScoped<SiteContentService>();
 builder.Services.Configure<OrderNotificationOptions>(builder.Configuration.GetSection("OrderNotifications"));
 builder.Services.Configure<BusinessRulesOptions>(builder.Configuration.GetSection(BusinessRulesOptions.SectionName));
+builder.Services.Configure<InventoryOptions>(builder.Configuration.GetSection(InventoryOptions.SectionName));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<IInboxNotificationService, InboxNotificationService>();
+builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
+builder.Services.AddScoped<IGuestCustomerService, GuestCustomerService>();
+builder.Services.AddScoped<ICustomerLinkService, CustomerLinkService>();
+builder.Services.AddScoped<IBookingCheckoutService, BookingCheckoutService>();
+builder.Services.AddScoped<IBuyerCheckoutPaymentService, BuyerCheckoutPaymentService>();
+builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
+builder.Services.AddScoped<IStockNotificationService, StockNotificationService>();
 builder.Services.AddSingleton<MarketplaceMetricsService>();
 builder.Services.AddScoped<FeeCalculator>();
 builder.Services.Configure<MercadoPagoMarketplaceOptions>(options =>
@@ -77,6 +94,7 @@ builder.Services.Configure<MercadoPagoMarketplaceOptions>(options =>
     options.WebhookSecret = builder.Configuration["MP_WEBHOOK_SECRET"] ?? options.WebhookSecret;
     options.ApiBaseUrl = builder.Configuration["MP_API_BASE_URL"] ?? options.ApiBaseUrl;
     options.AppBaseUrl = builder.Configuration["APP_BASE_URL"] ?? options.AppBaseUrl;
+    options.WebhookBaseUrl = builder.Configuration["MP_WEBHOOK_BASE_URL"] ?? options.WebhookBaseUrl;
     options.EncryptionKey = builder.Configuration["ENCRYPTION_KEY"] ?? options.EncryptionKey;
 });
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
@@ -85,8 +103,12 @@ builder.Services.AddScoped<SellerMarketplaceService>();
 builder.Services.AddScoped<MercadoPagoOAuthService>();
 builder.Services.AddScoped<MarketplacePaymentService>();
 builder.Services.AddScoped<MercadoPagoWebhookService>();
+builder.Services.AddScoped<PaymentReconciliationJob>();
 builder.Services.AddHttpClient<MercadoPagoMarketplaceClient>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Crm.CustomerAvatarStorage>();
+builder.Services.AddSingleton<ComunaClick.Api.Modules.Catalog.ServiceImageStorage>();
+builder.Services.AddSingleton<ComunaClick.Api.Modules.Catalog.ProductImageStorage>();
+builder.Services.AddSingleton<ComunaClick.Api.Modules.Onboarding.StorefrontBannerStorage>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -152,6 +174,29 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+try
+{
+    await DatabaseSchemaBootstrap.ApplyPendingAsync(
+        builder.Configuration.GetConnectionString("CoreDb"),
+        app.Environment,
+        app.Logger);
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Database schema bootstrap failed.");
+}
+
+try
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+    await ProductInventoryBackfill.EnsureAllProductsHaveInventoryAsync(db, app.Logger);
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Product inventory backfill failed.");
+}
 
 if (app.Environment.IsDevelopment())
 {

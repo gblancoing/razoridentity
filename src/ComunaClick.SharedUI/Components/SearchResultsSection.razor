@@ -1,0 +1,44 @@
+@inject LocaleService L
+
+@if (Items.Count > 0)
+{
+    <div>
+        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs font-black uppercase tracking-[0.14em] text-[#4d4f50]">@Title</p>
+            @if (ShowViewAll)
+            {
+                <a href="@ViewAllHref"
+                   class="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">
+                    @ViewAllText
+                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </a>
+            }
+        </div>
+        <div class="flex flex-col gap-2">
+            @foreach (var item in Items.Take(PreviewCount))
+            {
+                <SearchResultCard Item="item" />
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SearchResultItem> Items { get; set; } = Array.Empty<SearchResultItem>();
+
+    [Parameter]
+    public int PreviewCount { get; set; } = SearchQueryHelper.HomePreviewCount;
+
+    [Parameter]
+    public bool ShowViewAll { get; set; }
+
+    [Parameter]
+    public string? ViewAllHref { get; set; }
+
+    [Parameter]
+    public string? ViewAllText { get; set; }
+}

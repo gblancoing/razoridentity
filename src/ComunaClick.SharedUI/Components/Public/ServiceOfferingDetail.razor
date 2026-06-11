@@ -1,0 +1,292 @@
+@using BuyerModels = ComunaClick.Shared.Api.Buyer
+@using ComunaClick.SharedUI.Services
+@inject LocaleService L
+@inject ApiMediaUrl MediaUrl
+
+<div class="overflow-hidden rounded-[2rem] border border-[#e3e6e8] bg-white shadow-[0_24px_80px_-40px_rgba(0,0,0,0.18)]">
+    <section class="relative min-h-[340px] lg:min-h-[420px]">
+        <div class="absolute inset-0 bg-[#0f1210]"></div>
+        <button type="button"
+                class="absolute inset-0 z-[1] cursor-zoom-in bg-cover bg-center transition-all duration-500 border-0 p-0"
+                style="@HeroStyle"
+                aria-label="@L.T("public.offer.gallery.expand")"
+                @onclick="() => OpenLightbox(_galleryIndex)">
+        </button>
+        <div class="absolute inset-0 bg-gradient-to-br from-[#0a0c0a]/92 via-[#0a0c0a]/50 to-[#1a2e0b]/35 pointer-events-none"></div>
+        <div class="absolute right-0 top-0 h-72 w-72 rounded-full bg-[#a7f255]/15 blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 grid min-h-[340px] gap-8 p-6 sm:p-10 lg:min-h-[420px] lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-end">
+            <div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="@PartnerHref" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 py-1.5 pl-1.5 pr-3 text-xs font-bold text-white/90 backdrop-blur hover:bg-white/20">
+                        <PartnerBrandMark LogoUrl="@PartnerLogoUrl" PartnerName="@PartnerName" Size="sm" />
+                        @(string.IsNullOrWhiteSpace(PartnerName) ? L.T("public.offer.backStore") : PartnerName)
+                    </a>
+                    <span class="@(Bookable ? "bg-[#a7f255] text-[#1a2e0b]" : "bg-white/95 text-[#595c5d]") inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide">
+                        @(Bookable ? L.T("public.offer.badge.bookable") : L.T("public.offer.badge.inquiry"))
+                    </span>
+                </div>
+                <p class="mt-6 text-[11px] font-bold uppercase tracking-[0.28em] text-[#d9ffad]/90">@L.T("public.offer.eyebrow")</p>
+                <h1 class="mt-3 text-4xl font-black leading-[1.05] tracking-[-0.04em] text-white sm:text-5xl">@Service.Name</h1>
+                @if (!string.IsNullOrWhiteSpace(Service.Category))
+                {
+                    <p class="mt-4 inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white">@Service.Category</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(ServiceLocation))
+                {
+                    <p class="mt-4 flex max-w-xl items-start gap-2 text-sm font-medium leading-relaxed text-white/90">
+                        <span class="material-symbols-outlined shrink-0 text-[20px] text-[#a7f255]">location_on</span>
+                        @ServiceLocation
+                    </p>
+                }
+            </div>
+
+            <div class="rounded-[1.5rem] border border-white/15 bg-white/10 p-6 backdrop-blur-md">
+                @if (Bookable)
+                {
+                    <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">@L.T("public.offer.panel.book")</p>
+                    <p class="mt-2 text-4xl font-black tracking-[-0.04em] text-[#a7f255]">@PublicOfferVisuals.FormatMoney(Service.Price, Service.Currency)</p>
+                    <p class="mt-1 text-sm font-semibold text-white/85">@Service.DurationMinutes @L.T("public.offer.minutes")</p>
+                    @if (Service.RequiresOnlinePayment)
+                    {
+                        <p class="mt-3 flex items-center gap-2 text-xs font-medium text-white/75">
+                            <span class="material-symbols-outlined text-[16px]">payments</span>
+                            @L.T("public.offer.onlinePayment")
+                        </p>
+                    }
+                }
+                else
+                {
+                    <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">@L.T("public.offer.panel.inquiry")</p>
+                    <p class="mt-2 text-2xl font-black leading-snug text-white">@L.T("public.offer.priceOnRequest")</p>
+                    <p class="mt-2 text-sm leading-relaxed text-white/80">@L.T("public.offer.inquiryHint")</p>
+                }
+
+                <div class="mt-6 space-y-3">
+                    <a href="@PrimaryCtaHref" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#a7f255] px-5 py-3.5 text-sm font-bold text-[#1a2e0b] shadow-lg hover:brightness-105">
+                        @PrimaryCtaLabel
+                        <span class="material-symbols-outlined text-[18px]">@(Bookable ? "event_available" : "forum")</span>
+                    </a>
+                    @if (Bookable && !string.IsNullOrWhiteSpace(ConsultHref))
+                    {
+                        <a href="@ConsultHref" class="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/10 px-5 py-3.5 text-sm font-bold text-white hover:bg-white/20">
+                            <span class="material-symbols-outlined text-[18px]">forum</span>
+                            @L.T("public.offer.cta.consult")
+                        </a>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(SecondaryCtaHref) && !string.IsNullOrWhiteSpace(SecondaryCtaLabel))
+                    {
+                        <a href="@SecondaryCtaHref" class="flex w-full items-center justify-center rounded-2xl border border-white/35 bg-white/10 px-5 py-3.5 text-sm font-bold text-white hover:bg-white/20">
+                            @SecondaryCtaLabel
+                        </a>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(ShareRelativePath))
+                    {
+                        <SharePublicLink RelativePath="@ShareRelativePath"
+                                         Title="@(ShareTitle ?? Service.Name)"
+                                         ButtonClass="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/35 bg-white/10 px-5 py-3.5 text-sm font-bold text-white hover:bg-white/20" />
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (Gallery.Count > 0)
+        {
+            <div class="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-black/25 px-6 py-4 backdrop-blur sm:px-10">
+                <div class="min-w-0 flex-1">
+                    @if (Gallery.Count > 1)
+                    {
+                        <p class="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">@L.T("public.offer.gallery")</p>
+                        <div class="flex gap-2 overflow-x-auto pb-1">
+                            @for (var i = 0; i < Gallery.Count; i++)
+                            {
+                                var index = i;
+                                <button type="button"
+                                        class="@(index == _galleryIndex ? "ring-2 ring-[#a7f255] " : "opacity-80 hover:opacity-100 ")relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-white/20 cursor-zoom-in"
+                                        title="@L.T("public.offer.gallery.expand")"
+                                        @onclick="() => OpenLightbox(index)">
+                                    <img src="@Gallery[index]" alt="" class="h-full w-full object-cover pointer-events-none" />
+                                    <span class="absolute inset-0 bg-black/35 transition hover:bg-black/20" aria-hidden="true"></span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+                <button type="button"
+                        class="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/20"
+                        @onclick="() => OpenLightbox(_galleryIndex)">
+                    <span class="material-symbols-outlined text-[18px]">zoom_in</span>
+                    @L.T("public.offer.gallery.expand")
+                </button>
+            </div>
+        }
+    </section>
+
+    <div class="grid gap-0 lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)]">
+        <article class="border-b border-[#eceae6] p-6 sm:p-10 lg:border-b-0 lg:border-r">
+            <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7b8081]">@L.T("public.offer.about")</p>
+            @if (DescriptionBlocks.Count > 0)
+            {
+                <div class="mt-5 space-y-4 text-base leading-7 text-[#2c2f30] [text-wrap:pretty]">
+                    @foreach (var block in DescriptionBlocks)
+                    {
+                        <p class="whitespace-pre-line">@block</p>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="mt-5 rounded-2xl border border-dashed border-[#dadddf] bg-[#fafaf8] px-5 py-4 text-sm leading-relaxed text-[#595c5d]">
+                    @L.T("public.offer.noDescriptionLong")
+                </p>
+            }
+
+            <div class="mt-8 grid gap-3 sm:grid-cols-3">
+                <div class="rounded-2xl bg-[#f5f8f0] p-4">
+                    <span class="material-symbols-outlined text-[#3b6700]">category</span>
+                    <p class="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#7b8081]">@L.T("public.offer.fact.category")</p>
+                    <p class="mt-1 text-sm font-bold text-[#2c2f30]">@PublicOfferVisuals.CategoryLabel(Service.Category)</p>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(ServiceLocation))
+                {
+                    <div class="rounded-2xl bg-[#f5f8f0] p-4 sm:col-span-2">
+                        <span class="material-symbols-outlined text-[#3b6700]">location_on</span>
+                        <p class="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#7b8081]">@L.T("public.offer.location")</p>
+                        <p class="mt-1 text-sm font-bold text-[#2c2f30]">@ServiceLocation</p>
+                    </div>
+                }
+                @if (Bookable)
+                {
+                    <div class="rounded-2xl bg-[#f5f8f0] p-4">
+                        <span class="material-symbols-outlined text-[#3b6700]">schedule</span>
+                        <p class="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#7b8081]">@L.T("public.offer.fact.duration")</p>
+                        <p class="mt-1 text-sm font-bold text-[#2c2f30]">@Service.DurationMinutes @L.T("public.offer.minutes")</p>
+                    </div>
+                    <div class="rounded-2xl bg-[#f5f8f0] p-4">
+                        <span class="material-symbols-outlined text-[#3b6700]">sell</span>
+                        <p class="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#7b8081]">@L.T("public.offer.fact.price")</p>
+                        <p class="mt-1 text-sm font-bold text-[#3b6700]">@PublicOfferVisuals.FormatMoney(Service.Price, Service.Currency)</p>
+                    </div>
+                }
+                else if (string.IsNullOrWhiteSpace(ServiceLocation))
+                {
+                    <div class="rounded-2xl bg-[#f5f8f0] p-4 sm:col-span-2">
+                        <span class="material-symbols-outlined text-[#3b6700]">chat</span>
+                        <p class="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#7b8081]">@L.T("public.offer.fact.mode")</p>
+                        <p class="mt-1 text-sm font-bold text-[#2c2f30]">@L.T("public.offer.fact.modeInquiry")</p>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <aside class="space-y-6 bg-[#fafaf8] p-6 sm:p-8">
+            @if (!string.IsNullOrWhiteSpace(ConsultHref))
+            {
+                <article class="rounded-2xl border border-[#dbe6e2] bg-gradient-to-br from-[#eff8e0] to-white p-5">
+                    <div class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-[24px] text-[#3b6700] shrink-0">forum</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[#7b8081]">@L.T("public.offer.sidebar.consult.badge")</p>
+                            <p class="mt-1 text-base font-black text-[#2c2f30]">@L.T("public.offer.sidebar.consult.title")</p>
+                            <p class="mt-1 text-sm text-[#595c5d]">@L.T("public.offer.sidebar.consult.hint")</p>
+                        </div>
+                    </div>
+                    <a href="@ConsultHref"
+                       class="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad] hover:bg-[#335900]">
+                        <span class="material-symbols-outlined text-[18px]">send</span>
+                        @L.T("public.offer.cta.consult")
+                    </a>
+                </article>
+            }
+            <article class="rounded-2xl border border-[#e8e6e1] bg-white p-5">
+                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">@L.T("public.offer.sidebar.details")</p>
+                <dl class="mt-4 space-y-3">
+                    @foreach (var fact in Facts)
+                    {
+                        <div class="flex items-baseline justify-between gap-3 border-b border-[#f0f1f2] py-2 last:border-0">
+                            <dt class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@fact.Label</dt>
+                            <dd class="text-right text-sm font-semibold text-[#2c2f30]">@fact.Value</dd>
+                        </div>
+                    }
+                </dl>
+            </article>
+            <article class="rounded-2xl border border-[#e8e6e1] bg-gradient-to-br from-[#eff8e0] to-white p-5">
+                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8081]">@L.T("public.offer.sidebar.next")</p>
+                <p class="mt-3 text-sm leading-relaxed text-[#595c5d]">@StatusMessage</p>
+                <p class="mt-4 text-base font-black text-[#2c2f30]">@CtaSubtitle</p>
+            </article>
+        </aside>
+    </div>
+</div>
+
+<OfferGalleryLightbox IsOpen="_lightboxOpen"
+                      Gallery="Gallery"
+                      Index="_lightboxIndex"
+                      IndexChanged="OnLightboxIndexChanged"
+                      Title="@Service.Name"
+                      OnClose="CloseLightbox" />
+
+@code {
+    [Parameter, EditorRequired] public BuyerModels.Service Service { get; set; } = default!;
+    [Parameter] public string? PartnerLogoUrl { get; set; }
+    [Parameter] public string? PartnerName { get; set; }
+    [Parameter, EditorRequired] public string PrimaryCtaHref { get; set; } = default!;
+    [Parameter, EditorRequired] public string PrimaryCtaLabel { get; set; } = default!;
+    [Parameter] public string? ConsultHref { get; set; }
+    [Parameter] public string? SecondaryCtaHref { get; set; }
+    [Parameter] public string? SecondaryCtaLabel { get; set; }
+    [Parameter, EditorRequired] public string PartnerHref { get; set; } = default!;
+    [Parameter] public string StatusMessage { get; set; } = string.Empty;
+    [Parameter] public string CtaSubtitle { get; set; } = string.Empty;
+    [Parameter] public string? ShareRelativePath { get; set; }
+    [Parameter] public string? ShareTitle { get; set; }
+    [Parameter] public IReadOnlyList<(string Label, string Value)> Facts { get; set; } = Array.Empty<(string, string)>();
+
+    private int _galleryIndex;
+    private int _lightboxIndex;
+    private bool _lightboxOpen;
+
+    private bool Bookable => PublicOfferVisuals.IsBookable(Service);
+
+    private string? ServiceLocation
+        => PublicOfferVisuals.ResolveServiceLocation(Service.ServiceAddress, Service.PartnerAddress);
+
+    private IReadOnlyList<string> Gallery
+        => MediaUrl.ResolveMany(
+            PublicOfferVisuals.ResolveGallery(Service.ImageUrl, Service.ImageUrls, Service.Category, Service.Name));
+
+    private string HeroStyle
+        => PublicOfferVisuals.BackgroundStyle(
+            Gallery.Count > 0 ? Gallery[Math.Clamp(_galleryIndex, 0, Gallery.Count - 1)] : MediaUrl.Resolve("_content/ComunaClick.SharedUI/logo.png"));
+
+    private IReadOnlyList<string> DescriptionBlocks => SplitDescription(Service.Description);
+
+    private void OpenLightbox(int index)
+    {
+        _galleryIndex = Math.Clamp(index, 0, Gallery.Count - 1);
+        _lightboxIndex = _galleryIndex;
+        _lightboxOpen = true;
+    }
+
+    private void CloseLightbox() => _lightboxOpen = false;
+
+    private void OnLightboxIndexChanged(int index)
+    {
+        _lightboxIndex = index;
+        _galleryIndex = index;
+    }
+
+    private static IReadOnlyList<string> SplitDescription(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Array.Empty<string>();
+        }
+
+        return text
+            .Split(new[] { "\r\n\r\n", "\n\n" }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0)
+            .ToList();
+    }
+}

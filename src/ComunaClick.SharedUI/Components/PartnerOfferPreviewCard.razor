@@ -1,4 +1,5 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.ApiMediaUrl MediaUrl
 
 <section class="rounded-3xl border border-[#dbe6e2] bg-[#f8faf9] p-5 space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -13,10 +14,10 @@
     </div>
 
     <article class="overflow-hidden rounded-3xl border border-[#e3e0d8] bg-white shadow-[0_6px_32px_-18px_rgba(0,0,0,0.12)]">
-        @if (!string.IsNullOrWhiteSpace(ImageUrl))
+        @if (!string.IsNullOrWhiteSpace(ResolvedImageUrl))
         {
             <div class="aspect-[16/10] bg-[#eff1f2]">
-                <img src="@ImageUrl" alt="" class="h-full w-full object-cover" />
+                <img src="@ResolvedImageUrl" alt="" class="h-full w-full object-cover" />
             </div>
         }
         else
@@ -66,4 +67,7 @@
     [Parameter] public string? PublicHref { get; set; }
 
     private string PriceLabel => Price > 0 ? $"${Price:N0}" : L.T("partner.preview.priceOnRequest");
+
+    private string? ResolvedImageUrl
+        => string.IsNullOrWhiteSpace(ImageUrl) ? null : MediaUrl.Resolve(ImageUrl);
 }

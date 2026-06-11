@@ -1,0 +1,221 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject ApiMediaUrl MediaUrl
+@inject LocaleService L
+
+<div class="space-y-3 rounded-2xl border border-[#dbe6e2] bg-[#fafcf8] p-4">
+    <div>
+        <p class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.catalog.b.images.title")</p>
+        <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.catalog.b.images.help")</p>
+    </div>
+
+    @if (DisplayItems.Count > 0)
+    {
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            @foreach (var item in DisplayItems)
+            {
+                <div class="group relative aspect-square overflow-hidden rounded-xl border border-[#dadddf] bg-white">
+                    <img src="@item.DisplayUrl" alt="" class="h-full w-full object-cover" />
+                    <button type="button"
+                            class="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition group-hover:opacity-100"
+                            title="@L.T("partner.catalog.b.images.remove")"
+                            disabled="@_isUploading"
+                            @onclick="() => RemoveAsync(item)">
+                        <span class="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    @if (CanAddMore)
+    {
+        <InputFile id="@_inputId"
+                   class="hidden"
+                   OnChange="OnFilesSelectedAsync"
+                   accept="image/jpeg,image/png,image/webp,image/gif"
+                   multiple />
+        <label for="@_inputId"
+               class="@(_isUploading ? "pointer-events-none opacity-60 " : "")inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-[#3b6700]/40 bg-white px-4 py-3 text-sm font-bold text-[#3b6700] hover:bg-[#eff8e0]">
+            <span class="material-symbols-outlined text-[20px]">add_photo_alternate</span>
+            @(_isUploading ? L.T("partner.catalog.b.images.uploading") : L.T("partner.catalog.b.images.add"))
+        </label>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_statusMessage))
+    {
+        <p class="text-xs font-medium @(_statusOk ? "text-[#3b6700]" : "text-red-600")">@_statusMessage</p>
+    }
+</div>
+
+@code {
+    private const int MaxFileBytes = 4 * 1024 * 1024;
+    private const int MaxImages = 8;
+
+    [Parameter] public Guid? ServiceId { get; set; }
+    [Parameter] public IReadOnlyList<PartnerApiModels.ServiceImageInfo> Images { get; set; } = Array.Empty<PartnerApiModels.ServiceImageInfo>();
+    [Parameter] public EventCallback<IReadOnlyList<PartnerApiModels.ServiceImageInfo>> ImagesChanged { get; set; }
+    [Parameter] public IReadOnlyList<PendingServiceImageFile> PendingFiles { get; set; } = Array.Empty<PendingServiceImageFile>();
+    [Parameter] public EventCallback<IReadOnlyList<PendingServiceImageFile>> PendingFilesChanged { get; set; }
+
+    private readonly string _inputId = $"svc-img-{Guid.NewGuid():N}";
+    private bool _isUploading;
+    private string? _statusMessage;
+    private bool _statusOk;
+
+    private int TotalCount => Images.Count + PendingFiles.Count;
+    private bool CanAddMore => TotalCount < MaxImages;
+
+    private IReadOnlyList<DisplayItem> DisplayItems
+    {
+        get
+        {
+            var list = new List<DisplayItem>();
+            foreach (var image in Images)
+            {
+                list.Add(new DisplayItem(image.Id, MediaUrl.Resolve(image.Url), false, image));
+            }
+
+            foreach (var pending in PendingFiles)
+            {
+                list.Add(new DisplayItem(null, pending.PreviewDataUrl, true, null, pending));
+            }
+
+            return list;
+        }
+    }
+
+    private async Task OnFilesSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _statusMessage = null;
+        var remaining = MaxImages - TotalCount;
+        if (remaining <= 0)
+        {
+            _statusMessage = L.T("partner.catalog.b.images.limit");
+            _statusOk = false;
+            return;
+        }
+
+        var files = e.GetMultipleFiles(Math.Min(remaining, e.FileCount));
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        _isUploading = true;
+        try
+        {
+            if (ServiceId.HasValue)
+            {
+                await UploadToServiceAsync(ServiceId.Value, files);
+            }
+            else
+            {
+                await StagePendingAsync(files);
+            }
+        }
+        finally
+        {
+            _isUploading = false;
+        }
+    }
+
+    private async Task UploadToServiceAsync(Guid serviceId, IReadOnlyList<IBrowserFile> files)
+    {
+        var uploads = new List<PartnerApiModels.ServiceImageUploadFile>();
+        foreach (var file in files)
+        {
+            if (file.Size > MaxFileBytes)
+            {
+                _statusMessage = L.T("partner.catalog.b.images.tooLarge");
+                _statusOk = false;
+                return;
+            }
+
+            await using var stream = file.OpenReadStream(MaxFileBytes);
+            var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+            uploads.Add(new PartnerApiModels.ServiceImageUploadFile(buffer, file.Name, file.ContentType));
+        }
+
+        var created = await PartnerApi.UploadServiceImagesAsync(serviceId, uploads);
+        if (created is null || created.Count == 0)
+        {
+            _statusMessage = L.T("partner.catalog.b.images.failed");
+            _statusOk = false;
+            return;
+        }
+
+        var merged = Images.Concat(created).ToList();
+        await ImagesChanged.InvokeAsync(merged);
+        _statusMessage = L.T("partner.catalog.b.images.uploaded");
+        _statusOk = true;
+    }
+
+    private async Task StagePendingAsync(IReadOnlyList<IBrowserFile> files)
+    {
+        var list = PendingFiles.ToList();
+        foreach (var file in files)
+        {
+            if (file.Size > MaxFileBytes)
+            {
+                _statusMessage = L.T("partner.catalog.b.images.tooLarge");
+                _statusOk = false;
+                return;
+            }
+
+            await using var stream = file.OpenReadStream(MaxFileBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            var bytes = buffer.ToArray();
+            var preview = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+            list.Add(new PendingServiceImageFile(file.Name, file.ContentType, bytes, preview));
+        }
+
+        await PendingFilesChanged.InvokeAsync(list);
+        _statusMessage = L.T("partner.catalog.b.images.staged");
+        _statusOk = true;
+    }
+
+    private async Task RemoveAsync(DisplayItem item)
+    {
+        if (item.IsPending && item.Pending is not null)
+        {
+            var list = PendingFiles.Where(x => x != item.Pending).ToList();
+            await PendingFilesChanged.InvokeAsync(list);
+            return;
+        }
+
+        if (!ServiceId.HasValue || item.Stored is null)
+        {
+            return;
+        }
+
+        _isUploading = true;
+        try
+        {
+            await PartnerApi.DeleteServiceImageAsync(ServiceId.Value, item.Stored.Id);
+            var list = Images.Where(x => x.Id != item.Stored.Id).ToList();
+            await ImagesChanged.InvokeAsync(list);
+        }
+        catch (HttpRequestException)
+        {
+            _statusMessage = L.T("partner.catalog.b.images.deleteFailed");
+            _statusOk = false;
+        }
+        finally
+        {
+            _isUploading = false;
+        }
+    }
+
+    private sealed record DisplayItem(
+        Guid? Id,
+        string DisplayUrl,
+        bool IsPending,
+        PartnerApiModels.ServiceImageInfo? Stored = null,
+        PendingServiceImageFile? Pending = null);
+
+    public sealed record PendingServiceImageFile(string FileName, string ContentType, byte[] Bytes, string PreviewDataUrl);
+}

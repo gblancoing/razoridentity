@@ -32,3 +32,6 @@ tmp_deploy_scripts/deploy.env
 
 # Avatares subidos en desarrollo / servidor
 **/uploads/
+
+# Configuración local con secretos (nunca commitear)
+src/ComunaClick.Api/appsettings.Development.json

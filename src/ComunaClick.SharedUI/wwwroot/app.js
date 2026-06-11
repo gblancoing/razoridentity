@@ -18,6 +18,29 @@ window.comunaclic.configureLeafletIcons = function () {
 
 window.comunaclic.configureLeafletIcons();
 
+window.comunaclic.escapeHtml = function (value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+window.comunaclic.safeImageUrl = function (value) {
+  if (!value) {
+    return "";
+  }
+  const s = String(value).trim();
+  if (s.startsWith("/") || s.startsWith("http://") || s.startsWith("https://")) {
+    return s;
+  }
+  return "";
+};
+
 window.comunaclic.getLang = function () {
   try {
     return localStorage.getItem("comunaclic.lang") || "";
@@ -116,6 +139,90 @@ window.comunaclic.setLastTracking = function (json) {
   }
 };
 
+/** Guest cart: { tenantId, partnerId, partnerName, currency, items:[{productId,name,quantity,unitPrice,maxAvailable}] } */
+window.comunaclic.getGuestCart = function () {
+  try {
+    return localStorage.getItem("comunaclic.guestCart") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setGuestCart = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.guestCart");
+    } else {
+      localStorage.setItem("comunaclic.guestCart", json);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+window.comunaclic.clearGuestCart = function () {
+  window.comunaclic.setGuestCart(null);
+};
+
+window.comunaclic.addGuestCartItem = function (itemJson) {
+  try {
+    var item = typeof itemJson === "string" ? JSON.parse(itemJson) : itemJson;
+    if (!item || !item.productId || !item.partnerId || !item.tenantId) return "invalid";
+    var raw = window.comunaclic.getGuestCart();
+    var cart = raw ? JSON.parse(raw) : null;
+    if (cart && cart.partnerId && cart.partnerId !== item.partnerId) {
+      return "different_partner";
+    }
+    if (!cart) {
+      cart = {
+        tenantId: item.tenantId,
+        partnerId: item.partnerId,
+        partnerName: item.partnerName || "",
+        currency: item.currency || "CLP",
+        items: []
+      };
+    }
+    var existing = cart.items.find(function (x) { return x.productId === item.productId; });
+    var qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+    if (existing) {
+      existing.quantity = Math.min((existing.maxAvailable || 99), existing.quantity + qty);
+    } else {
+      cart.items.push({
+        productId: item.productId,
+        name: item.name || "Producto",
+        quantity: qty,
+        unitPrice: item.unitPrice || 0,
+        maxAvailable: item.maxAvailable || 99
+      });
+    }
+    window.comunaclic.setGuestCart(JSON.stringify(cart));
+    return "ok";
+  } catch {
+    return "error";
+  }
+};
+
+/** Pending MP: { orderId?, bookingId?, customerId, createdAt, checkoutUrl? } */
+window.comunaclic.getPendingMpPayment = function () {
+  try {
+    return localStorage.getItem("comunaclic.pendingMpPayment") || "";
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.setPendingMpPayment = function (json) {
+  try {
+    if (!json) {
+      localStorage.removeItem("comunaclic.pendingMpPayment");
+    } else {
+      localStorage.setItem("comunaclic.pendingMpPayment", json);
+    }
+  } catch {
+    // ignore
+  }
+};
+
 window.comunaclic.getDeviceType = function () {
   try {
     const width = window.innerWidth || 0;
@@ -166,6 +273,22 @@ window.comunaclic.getAccountRole = function () {
   }
 };
 
+window.comunaclic.getPartnerSidebarCollapsed = function () {
+  try {
+    return localStorage.getItem("comunaclic.partnerSidebarCollapsed") === "1";
+  } catch {
+    return false;
+  }
+};
+
+window.comunaclic.setPartnerSidebarCollapsed = function (collapsed) {
+  try {
+    localStorage.setItem("comunaclic.partnerSidebarCollapsed", collapsed ? "1" : "0");
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 window.comunaclic.setRegisterIntent = function (role, returnUrl) {
   try {
     const normalized = (role || "natural").toLowerCase();
@@ -201,13 +324,43 @@ window.comunaclic.consumeRegisterIntent = function () {
   }
 };
 
+/** Persist returnUrl before Google OAuth (redirect_uri must be path-only for Google Console). */
+window.comunaclic.setGoogleLoginReturnUrl = function (returnUrl) {
+  try {
+    const value = (returnUrl || "").trim();
+    if (value) {
+      sessionStorage.setItem("comunaclic.google.returnUrl", value);
+    } else {
+      sessionStorage.removeItem("comunaclic.google.returnUrl");
+    }
+  } catch {
+    // Ignore storage errors.
+  }
+};
+
+window.comunaclic.consumeGoogleLoginReturnUrl = function () {
+  try {
+    const value = sessionStorage.getItem("comunaclic.google.returnUrl") || "";
+    sessionStorage.removeItem("comunaclic.google.returnUrl");
+    return value;
+  } catch {
+    return "";
+  }
+};
+
 window.comunaclic.beginGoogleSignIn = function (redirectUrl) {
   const clientId = (window.comunaclicGoogleClientId || "").trim();
   if (!clientId) {
     throw new Error("Google sign-in is not configured.");
   }
 
-  const callbackUrl = (redirectUrl || window.location.href || "").split("#")[0];
+  let callbackUrl = (redirectUrl || window.location.href || "").split("#")[0];
+  try {
+    const parsed = new URL(callbackUrl, window.location.origin);
+    callbackUrl = `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    // Keep callbackUrl as provided if URL parsing fails.
+  }
   if (!callbackUrl) {
     throw new Error("Unable to resolve callback URL for Google sign-in.");
   }
@@ -347,7 +500,50 @@ window.comunaclic.scrollToElement = function (elementId) {
   }
 };
 
-window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, businesses, returnPath) {
+/** Capas base Leaflet: calles (OSM) y satélite (Esri + etiquetas). */
+window.comunaclic.applyLeafletBaseLayers = function (map, layerLabels) {
+  const labels = layerLabels || {};
+  const mapaLabel = labels.mapa || labels.street || "Mapa";
+  const satLabel = labels.satelite || labels.satellite || "Satélite";
+
+  const street = window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  });
+
+  const satellite = window.L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics"
+    }
+  );
+
+  const satelliteLabels = window.L.tileLayer(
+    "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      pane: "overlayPane"
+    }
+  );
+
+  const satelliteHybrid = window.L.layerGroup([satellite, satelliteLabels]);
+  const baseLayers = {};
+  baseLayers[mapaLabel] = street;
+  baseLayers[satLabel] = satelliteHybrid;
+
+  street.addTo(map);
+  window.L.control
+    .layers(baseLayers, null, {
+      position: "topright",
+      collapsed: window.innerWidth && window.innerWidth < 640
+    })
+    .addTo(map);
+
+  return { street: street, satellite: satelliteHybrid };
+};
+
+window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, businesses, returnPath, layerLabels) {
   if (!window.L) {
     throw new Error("Leaflet is not available.");
   }
@@ -373,11 +569,7 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
   });
 
   window.comunaclic._leafletMaps[elementId] = map;
-
-  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(map);
+  window.comunaclic.applyLeafletBaseLayers(map, layerLabels);
 
   const markers = [];
   const useClusters = Array.isArray(businesses) && businesses.length >= 8 && typeof window.L.markerClusterGroup === "function";
@@ -389,18 +581,25 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
         maxClusterRadius: window.innerWidth && window.innerWidth < 640 ? 48 : 64
       })
     : null;
-  const userLat = userLocation.latitude ?? userLocation.Latitude;
-  const userLng = userLocation.longitude ?? userLocation.Longitude;
-  const userMarker = window.L.circleMarker([userLat, userLng], {
-    radius: 10,
-    color: "#ffffff",
-    weight: 3,
-    fillColor: "#2d9e4f",
-    fillOpacity: 1
-  }).addTo(map);
+  const userLat = userLocation?.latitude ?? userLocation?.Latitude;
+  const userLng = userLocation?.longitude ?? userLocation?.Longitude;
+  const hasUserCoords =
+    typeof userLat === "number" &&
+    typeof userLng === "number" &&
+    isFinite(userLat) &&
+    isFinite(userLng);
+  if (hasUserCoords) {
+    const userMarker = window.L.circleMarker([userLat, userLng], {
+      radius: 10,
+      color: "#ffffff",
+      weight: 3,
+      fillColor: "#2d9e4f",
+      fillOpacity: 1
+    }).addTo(map);
 
-  userMarker.bindPopup("<strong>Tu ubicación aproximada</strong>");
-  markers.push(userMarker);
+    userMarker.bindPopup("<strong>Tu ubicación aproximada</strong>");
+    markers.push(userMarker);
+  }
 
   (businesses || []).forEach((business) => {
     const latitude = business.latitude ?? business.Latitude;
@@ -409,21 +608,35 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
       return;
     }
 
-    const name = business.name ?? business.Name ?? "Negocio";
-    const comunaName = business.comunaName ?? business.ComunaName ?? "";
-    const address = business.address ?? business.Address ?? "";
+    const rawName = business.name ?? business.Name ?? "Negocio";
+    const rawComunaName = business.comunaName ?? business.ComunaName ?? "";
+    const rawAddress = business.address ?? business.Address ?? "";
+    const name = window.comunaclic.escapeHtml(rawName);
+    const comunaName = window.comunaclic.escapeHtml(rawComunaName);
+    const address = window.comunaclic.escapeHtml(rawAddress);
     const distanceKm = business.distanceKm ?? business.DistanceKm;
     const usesExactLocation = business.usesExactLocation ?? business.UsesExactLocation;
+    const rawLogoUrl = business.logoUrl ?? business.LogoUrl ?? "";
+    const logoUrl = window.comunaclic.safeImageUrl(rawLogoUrl);
     const returnSuffix =
       typeof returnPath === "string" && returnPath.length > 0
         ? `?return=${encodeURIComponent(returnPath)}`
         : "";
     const href = `/buyer/detail/partner/${business.id ?? business.Id}${returnSuffix}`;
+    const logo =
+      logoUrl && logoUrl.length > 0
+        ? `<img src="${logoUrl}" alt="" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:2px solid rgba(255,255,255,0.8);background:#fff;box-shadow:0 10px 26px -16px rgba(0,0,0,0.45);flex:0 0 auto;" />`
+        : "";
     const popup = [
-      `<div style="min-width:200px">`,
-      `<strong>${name}</strong>`,
+      `<div style="min-width:220px">`,
+      `<div style="display:flex;gap:10px;align-items:center">`,
+      logo,
+      `<div style="min-width:0">`,
+      `<strong style="display:block;line-height:1.15">${name}</strong>`,
       comunaName ? `<div style="margin-top:4px;color:#595c5d">${comunaName}</div>` : "",
       address ? `<div style="margin-top:4px;color:#595c5d">${address}</div>` : "",
+      `</div>`,
+      `</div>`,
       `<div style="margin-top:4px;color:#595c5d">${usesExactLocation ? "Ubicación del negocio" : "Referencia por comuna"}</div>`,
       typeof distanceKm === "number" ? `<div style="margin-top:6px;color:#2d9e4f;font-weight:700">${distanceKm.toFixed(1)} km aprox.</div>` : "",
       `<a href="${href}" style="display:inline-block;margin-top:8px;color:#2d9e4f;font-weight:700;text-decoration:none">Ver negocio</a>`,
@@ -446,8 +659,23 @@ window.comunaclic.renderCategoryNearbyMap = function (elementId, userLocation, b
     map.addLayer(businessLayer);
   }
 
-  const group = window.L.featureGroup(markers);
-  map.fitBounds(group.getBounds().pad(0.18));
+  if (markers.length > 0) {
+    try {
+      const group = window.L.featureGroup(markers);
+      const bounds = group.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds.pad(0.18));
+      } else if (hasUserCoords) {
+        map.setView([userLat, userLng], 12);
+      }
+    } catch (e) {
+      if (hasUserCoords) {
+        map.setView([userLat, userLng], 12);
+      }
+    }
+  } else if (hasUserCoords) {
+    map.setView([userLat, userLng], 12);
+  }
 
   setTimeout(() => {
     map.invalidateSize();
@@ -463,6 +691,143 @@ window.comunaclic.destroyCategoryNearbyMap = function (elementId) {
     existingMap.remove();
     delete window.comunaclic._leafletMaps[elementId];
   }
+};
+
+window.comunaclic.renderSearchResultsMap = function (elementId, userLocation, markers, layerLabels) {
+  if (!window.L) {
+    throw new Error("Leaflet is not available.");
+  }
+
+  const element = document.getElementById(elementId);
+  if (!element) {
+    return;
+  }
+
+  const existingMap = window.comunaclic._leafletMaps[elementId];
+  if (existingMap) {
+    existingMap.remove();
+    delete window.comunaclic._leafletMaps[elementId];
+  }
+
+  const map = window.L.map(elementId, {
+    zoomControl: true,
+    scrollWheelZoom: false,
+    tap: true,
+    dragging: !(window.innerWidth && window.innerWidth < 640)
+  });
+
+  window.comunaclic._leafletMaps[elementId] = map;
+  window.comunaclic.applyLeafletBaseLayers(map, layerLabels);
+
+  const leafletMarkers = [];
+  const useClusters = Array.isArray(markers) && markers.length >= 8 && typeof window.L.markerClusterGroup === "function";
+  const markerLayer = useClusters
+    ? window.L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 16,
+        maxClusterRadius: window.innerWidth && window.innerWidth < 640 ? 48 : 64
+      })
+    : null;
+
+  const userLat = userLocation.latitude ?? userLocation.Latitude;
+  const userLng = userLocation.longitude ?? userLocation.Longitude;
+  if (typeof userLat === "number" && typeof userLng === "number") {
+    const userMarker = window.L.circleMarker([userLat, userLng], {
+      radius: 10,
+      color: "#ffffff",
+      weight: 3,
+      fillColor: "#2d9e4f",
+      fillOpacity: 1
+    }).addTo(map);
+    userMarker.bindPopup("<strong>Tu ubicación aproximada</strong>");
+    leafletMarkers.push(userMarker);
+  }
+
+  (markers || []).forEach((entry) => {
+    const latitude = entry.latitude ?? entry.Latitude;
+    const longitude = entry.longitude ?? entry.Longitude;
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      return;
+    }
+
+    const rawName = entry.name ?? entry.Name ?? "Resultado";
+    const rawType = entry.typeLabel ?? entry.TypeLabel ?? "";
+    const rawCategory = entry.category ?? entry.Category ?? "";
+    const name = window.comunaclic.escapeHtml(rawName);
+    const typeLabel = window.comunaclic.escapeHtml(rawType);
+    const category = window.comunaclic.escapeHtml(rawCategory);
+    const distanceKm = entry.distanceKm ?? entry.DistanceKm;
+    const href = entry.href ?? entry.Href ?? "#";
+    const rawLogoUrl = entry.logoUrl ?? entry.LogoUrl ?? "";
+    const logoUrl = window.comunaclic.safeImageUrl(rawLogoUrl);
+    const logo =
+      logoUrl && logoUrl.length > 0
+        ? `<img src="${logoUrl}" alt="" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:2px solid rgba(255,255,255,0.8);background:#fff;box-shadow:0 10px 26px -16px rgba(0,0,0,0.45);flex:0 0 auto;" />`
+        : "";
+    const popup = [
+      `<div style="min-width:220px">`,
+      `<div style="display:flex;gap:10px;align-items:flex-start">`,
+      logo,
+      `<div style="min-width:0;flex:1">`,
+      `<strong style="display:block;line-height:1.2">${name}</strong>`,
+      typeLabel ? `<div style="margin-top:4px;color:#2d9e4f;font-weight:700;font-size:12px">${typeLabel}</div>` : "",
+      category ? `<div style="margin-top:4px;color:#595c5d;font-size:12px">${category}</div>` : "",
+      typeof distanceKm === "number" ? `<div style="margin-top:6px;color:#2d9e4f;font-weight:700">${distanceKm.toFixed(1)} km</div>` : "",
+      `<a href="${href}" style="display:inline-block;margin-top:8px;color:#2d9e4f;font-weight:700;text-decoration:none">Ver detalle</a>`,
+      `</div>`,
+      `</div>`,
+      `</div>`
+    ].join("");
+
+    const marker = window.L.marker([latitude, longitude]);
+    marker.bindPopup(popup);
+    if (markerLayer) {
+      markerLayer.addLayer(marker);
+    } else {
+      marker.addTo(map);
+    }
+    leafletMarkers.push(marker);
+  });
+
+  if (markerLayer) {
+    map.addLayer(markerLayer);
+  }
+
+  if (leafletMarkers.length > 0) {
+    const group = window.L.featureGroup(leafletMarkers);
+    map.fitBounds(group.getBounds().pad(0.18));
+  } else if (typeof userLat === "number" && typeof userLng === "number") {
+    map.setView([userLat, userLng], 12);
+  }
+
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 150);
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 500);
+};
+
+window.comunaclic.destroySearchResultsMap = function (elementId) {
+  const existingMap = window.comunaclic._leafletMaps[elementId];
+  if (existingMap) {
+    existingMap.remove();
+    delete window.comunaclic._leafletMaps[elementId];
+  }
+};
+
+window.comunaclic.invalidateLeafletMap = function (elementId) {
+  const map = window.comunaclic._leafletMaps[elementId];
+  if (!map) {
+    return;
+  }
+  setTimeout(function () {
+    map.invalidateSize();
+  }, 120);
+  setTimeout(function () {
+    map.invalidateSize();
+  }, 400);
 };
 
 /** Cuando el elemento entra al viewport (o timeout), invoca el callback .NET una sola vez. */
@@ -586,6 +951,7 @@ window.comunaclic.initProfileAddressPicker = function (elementId, dotNetHelper, 
     marker.on("dragend", function () {
       const pos = marker.getLatLng();
       pickerState.userAdjusted = true;
+      pickerState.lastCoords = { latitude: pos.lat, longitude: pos.lng };
       notifyCoordsOnly(pos.lat, pos.lng);
     });
     if (marker.dragging) {
@@ -675,6 +1041,7 @@ window.comunaclic.initProfileAddressPicker = function (elementId, dotNetHelper, 
 
   map.on("click", function (event) {
     pickerState.userAdjusted = true;
+    pickerState.lastCoords = { latitude: event.latlng.lat, longitude: event.latlng.lng };
     setMarker(event.latlng);
     notifyCoordsOnly(event.latlng.lat, event.latlng.lng);
   });
@@ -689,21 +1056,59 @@ window.comunaclic.initProfileAddressPicker = function (elementId, dotNetHelper, 
       return;
     }
 
-    map.invalidateSize({ animate: false, pan: false });
-    const center = marker ? marker.getLatLng() : map.getCenter();
-    const zoom = map.getZoom();
-    map.setView(center, zoom, { animate: false });
+    try {
+      const container = map.getContainer && map.getContainer();
+      if (!container || !document.body.contains(container)) {
+        return;
+      }
+
+      map.invalidateSize({ animate: false, pan: false });
+
+      let center = null;
+      if (marker) {
+        try {
+          center = marker.getLatLng();
+        } catch (markerErr) {
+          center = null;
+        }
+      }
+
+      if (!center && pickerState.lastCoords) {
+        center = {
+          lat: pickerState.lastCoords.latitude,
+          lng: pickerState.lastCoords.longitude
+        };
+      }
+
+      if (!center) {
+        return;
+      }
+
+      const zoom = typeof map.getZoom === "function" ? map.getZoom() : 16;
+      map.setView(center, zoom || 16, { animate: false });
+    } catch (layoutErr) {
+      // Leaflet puede fallar si el mapa aún no terminó de montarse (p. ej. durante arrastre).
+    }
   };
   pickerState.getMarkerCoords = function () {
-    if (!marker) {
-      return null;
+    if (marker) {
+      try {
+        const pos = marker.getLatLng();
+        pickerState.lastCoords = { latitude: pos.lat, longitude: pos.lng };
+        return {
+          latitude: pos.lat,
+          longitude: pos.lng
+        };
+      } catch (markerErr) {
+        // fallback abajo
+      }
     }
 
-    const pos = marker.getLatLng();
-    return {
-      latitude: pos.lat,
-      longitude: pos.lng
-    };
+    if (pickerState.lastCoords) {
+      return pickerState.lastCoords;
+    }
+
+    return null;
   };
   window.comunaclic._profileAddressPickers[elementId] = pickerState;
 
@@ -806,7 +1211,15 @@ window.comunaclic.geocodeAddressQuery = function (query) {
     return Promise.resolve(null);
   }
 
-  return window.comunaclic._nominatimFetch(new URLSearchParams({ q: q }));
+  const normalized = q.toLowerCase();
+  const hasChileHint =
+    normalized.includes("chile") ||
+    normalized.includes("santiago") ||
+    normalized.includes("región") ||
+    normalized.includes("region");
+  const searchQ = hasChileHint ? q : q + ", Chile";
+
+  return window.comunaclic._nominatimFetch(new URLSearchParams({ q: searchQ, countrycodes: "cl" }));
 };
 
 /** Geocodifica calle + número con contexto (comuna/región), estilo Google Maps. */
@@ -897,7 +1310,8 @@ window.comunaclic.profileAddressUseCurrentLocation = function (elementId) {
   return window.comunaclic
     .getCurrentPosition({ forceFresh: true, timeout: 15000 })
     .then(function (pos) {
-      picker.applyCoords(pos.latitude, pos.longitude, 16);
+      picker.userAdjusted = false;
+      picker.applyCoords(pos.latitude, pos.longitude, 16, true);
       return picker.notify(pos.latitude, pos.longitude).then(function () {
         if (dotNetHelper) {
           return dotNetHelper.invokeMethodAsync("OnGeolocationFinished", true, "");
@@ -929,14 +1343,16 @@ window.comunaclic.invalidateProfileAddressMap = function (elementId) {
   }
 
   const run = function () {
-    picker.refreshLayout();
+    try {
+      picker.refreshLayout();
+    } catch (layoutErr) {
+      // ignorar durante transiciones de layout
+    }
   };
 
-  run();
   requestAnimationFrame(run);
-  setTimeout(run, 50);
-  setTimeout(run, 200);
-  setTimeout(run, 450);
+  setTimeout(run, 120);
+  setTimeout(run, 320);
 };
 
 window.comunaclic.destroyProfileAddressPicker = function (elementId) {
@@ -950,4 +1366,428 @@ window.comunaclic.destroyProfileAddressPicker = function (elementId) {
     legacy.remove();
     delete window.comunaclic._leafletMaps[elementId];
   }
+};
+
+window.comunaclic.canNativeShare = function () {
+  return !!(navigator.share && window.isSecureContext);
+};
+
+window.comunaclic.shareNative = function (url, title, text) {
+  if (!window.comunaclic.canNativeShare()) {
+    return Promise.reject(new Error("Native share unavailable"));
+  }
+
+  return navigator.share({
+    url: url || undefined,
+    title: title || undefined,
+    text: text || undefined
+  });
+};
+
+window.comunaclic.copyText = function (text) {
+  if (!text) {
+    return Promise.resolve(false);
+  }
+
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).then(function () {
+      return true;
+    }).catch(function () {
+      return window.comunaclic._copyTextFallback(text);
+    });
+  }
+
+  return Promise.resolve(window.comunaclic._copyTextFallback(text));
+};
+
+window.comunaclic._copyTextFallback = function (text) {
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "absolute";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return ok;
+  } catch (err) {
+    return false;
+  }
+};
+
+window.comunaclic.openShareWindow = function (url) {
+  if (!url) {
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer,width=640,height=720");
+};
+
+window.comunaclic._splineScenes = window.comunaclic._splineScenes || {};
+window.comunaclic._splineRuntimePromise = window.comunaclic._splineRuntimePromise || null;
+
+window.comunaclic._loadSplineRuntime = function () {
+  if (window.comunaclic._splineRuntimePromise) {
+    return window.comunaclic._splineRuntimePromise;
+  }
+
+  window.comunaclic._splineRuntimePromise = import(
+    "https://unpkg.com/@splinetool/runtime@1.9.82/build/runtime.js"
+  ).then(function (mod) {
+    return mod.Application;
+  });
+
+  return window.comunaclic._splineRuntimePromise;
+};
+
+/**
+ * Escena Spline con progreso ligado al scroll (variable en el editor, p. ej. "scroll").
+ * mode: "scroll" | "inline" (inline = parallax suave con el scroll de la página).
+ */
+window.comunaclic.initSplineScrollScene = function (options) {
+  const elementId = options && options.elementId;
+  const sceneUrl = options && options.sceneUrl;
+  const scrollVariable = (options && options.scrollVariable) || "scroll";
+  const mode = (options && options.mode) || "scroll";
+  const trackElementId = options && options.trackElementId;
+
+  if (!elementId || !sceneUrl || window.comunaclic.prefersReducedMotion()) {
+    return Promise.resolve({ ok: false, reason: "disabled" });
+  }
+
+  const canvas = document.getElementById(elementId);
+  if (!canvas) {
+    return Promise.resolve({ ok: false, reason: "no-canvas" });
+  }
+
+  window.comunaclic.destroySplineScrollScene(elementId);
+
+  return window.comunaclic
+    ._loadSplineRuntime()
+    .then(function (Application) {
+      const app = new Application(canvas);
+      return app.load(sceneUrl).then(function () {
+        const state = {
+          app: app,
+          mode: mode,
+          scrollVariable: scrollVariable,
+          onScroll: null,
+          onMouse: null,
+          track: null
+        };
+
+        const setProgress = function (value) {
+          try {
+            if (typeof app.setVariable === "function") {
+              app.setVariable(scrollVariable, value);
+            }
+          } catch {
+            // ignore
+          }
+        };
+
+        if (mode === "scroll" && trackElementId) {
+          const track = document.getElementById(trackElementId);
+          if (track) {
+            const update = function () {
+              const rect = track.getBoundingClientRect();
+              const scrollable = Math.max(1, track.offsetHeight - window.innerHeight);
+              const progress = Math.min(1, Math.max(0, -rect.top / scrollable));
+              setProgress(progress);
+            };
+            state.onScroll = update;
+            state.track = track;
+            window.addEventListener("scroll", update, { passive: true });
+            window.addEventListener("resize", update, { passive: true });
+            update();
+          }
+        } else {
+          const updateInline = function () {
+            const scrollY = window.scrollY || 0;
+            const vh = Math.max(window.innerHeight, 1);
+            const progress = Math.min(1, scrollY / (vh * 0.85));
+            setProgress(progress * 0.35);
+          };
+          state.onScroll = updateInline;
+          window.addEventListener("scroll", updateInline, { passive: true });
+          window.addEventListener("resize", updateInline, { passive: true });
+          updateInline();
+
+          const onMouse = function (event) {
+            const nx = (event.clientX / Math.max(window.innerWidth, 1) - 0.5) * 2;
+            const ny = (event.clientY / Math.max(window.innerHeight, 1) - 0.5) * 2;
+            try {
+              if (typeof app.setVariable === "function") {
+                app.setVariable("mouseX", nx);
+                app.setVariable("mouseY", ny);
+              }
+            } catch {
+              // ignore
+            }
+          };
+          state.onMouse = onMouse;
+          window.addEventListener("mousemove", onMouse, { passive: true });
+        }
+
+        window.comunaclic._splineScenes[elementId] = state;
+        return { ok: true };
+      });
+    })
+    .catch(function () {
+      return { ok: false, reason: "load-failed" };
+    });
+};
+
+window.comunaclic.destroySplineScrollScene = function (elementId) {
+  const state = window.comunaclic._splineScenes[elementId];
+  if (!state) {
+    return;
+  }
+
+  if (state.onScroll) {
+    window.removeEventListener("scroll", state.onScroll);
+    window.removeEventListener("resize", state.onScroll);
+  }
+
+  if (state.onMouse) {
+    window.removeEventListener("mousemove", state.onMouse);
+  }
+
+  try {
+    if (state.app && typeof state.app.dispose === "function") {
+      state.app.dispose();
+    }
+  } catch {
+    // ignore
+  }
+
+  delete window.comunaclic._splineScenes[elementId];
+};
+
+/** Revelado suave de bloques con data-cc-reveal dentro de un contenedor. */
+window.comunaclic.initScrollReveal = function (rootId) {
+  const root = rootId ? document.getElementById(rootId) : document;
+  if (!root) {
+    return;
+  }
+
+  const nodes = root.querySelectorAll("[data-cc-reveal]");
+  if (!nodes.length) {
+    return;
+  }
+
+  if (window.comunaclic.prefersReducedMotion()) {
+    nodes.forEach(function (node) {
+      node.classList.add("cc-reveal-visible");
+    });
+    return;
+  }
+
+  if (window.comunaclic._scrollRevealObserver) {
+    try {
+      window.comunaclic._scrollRevealObserver.disconnect();
+    } catch {
+      // ignore
+    }
+  }
+
+  const observer = new IntersectionObserver(
+    function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("cc-reveal-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+  );
+
+  nodes.forEach(function (node) {
+    observer.observe(node);
+  });
+
+  window.comunaclic._scrollRevealObserver = observer;
+};
+
+window.comunaclic.destroyScrollReveal = function () {
+  if (!window.comunaclic._scrollRevealObserver) {
+    return;
+  }
+
+  try {
+    window.comunaclic._scrollRevealObserver.disconnect();
+  } catch {
+    // ignore
+  }
+
+  window.comunaclic._scrollRevealObserver = null;
+};
+
+/**
+ * Parallax suave por capas (data-cc-parallax + data-cc-parallax-speed).
+ * Respeta prefers-reduced-motion.
+ */
+window.comunaclic.initHomeParallax = function (rootId) {
+  const root = rootId ? document.getElementById(rootId) : document;
+  if (!root || window.comunaclic.prefersReducedMotion()) {
+    return;
+  }
+
+  window.comunaclic.destroyHomeParallax();
+
+  const layers = root.querySelectorAll("[data-cc-parallax]");
+  if (!layers.length) {
+    return;
+  }
+
+  const hero = root.querySelector(".cc-hero-parallax");
+  const pointerLayers = hero
+    ? hero.querySelectorAll("[data-cc-parallax-pointer]")
+    : [];
+  let pointerX = 0;
+  let pointerY = 0;
+  let ticking = false;
+
+  const update = function () {
+    ticking = false;
+    const scrollY = window.scrollY || 0;
+    const vh = Math.max(window.innerHeight, 1);
+    let heroScrollRatio = 0;
+
+    if (hero) {
+      const heroTop = hero.offsetTop;
+      const heroHeight = Math.max(hero.offsetHeight, 1);
+      heroScrollRatio = Math.min(1, Math.max(0, scrollY / heroHeight));
+    }
+
+    layers.forEach(function (el) {
+      const speed = parseFloat(el.getAttribute("data-cc-parallax-speed") || "0.2");
+      const axis = el.getAttribute("data-cc-parallax-axis") || "y";
+      const rect = el.getBoundingClientRect();
+      const elCenter = rect.top + rect.height * 0.5;
+      const viewportOffset = (elCenter - vh * 0.5) / vh;
+      const shift = viewportOffset * vh * speed;
+      const inHero = hero && hero.contains(el);
+      const heroBoost = inHero ? heroScrollRatio * 72 * speed : 0;
+      const pointerBoost = el.hasAttribute("data-cc-parallax-pointer")
+        ? {
+            x: pointerX * parseFloat(el.getAttribute("data-cc-parallax-pointer-x") || "14"),
+            y: pointerY * parseFloat(el.getAttribute("data-cc-parallax-pointer-y") || "14"),
+          }
+        : { x: 0, y: 0 };
+
+      if (axis === "x") {
+        el.style.transform =
+          "translate3d(" + (shift + heroBoost + pointerBoost.x) + "px, " + pointerBoost.y + "px, 0)";
+      } else if (axis === "scale") {
+        const scale =
+          1.04 +
+          Math.min(0.14, Math.abs(viewportOffset) * Math.abs(speed) * 0.22) +
+          heroScrollRatio * 0.06;
+        el.style.transform =
+          "translate3d(" +
+          pointerBoost.x +
+          "px, " +
+          (shift + heroBoost + pointerBoost.y) +
+          "px, 0) scale(" +
+          scale +
+          ")";
+      } else {
+        el.style.transform =
+          "translate3d(" +
+          pointerBoost.x +
+          "px, " +
+          (shift + heroBoost + pointerBoost.y) +
+          "px, 0)";
+      }
+    });
+
+    if (hero) {
+      const heroRect = hero.getBoundingClientRect();
+      const heroProgress = Math.min(
+        1,
+        Math.max(0, (vh - heroRect.top) / (heroRect.height + vh * 0.35))
+      );
+      hero.style.setProperty("--cc-hero-scroll", heroProgress.toFixed(4));
+    }
+
+    const splineCopy = root.querySelector(".cc-spline-scroll-copy");
+    const track = root.querySelector(".cc-spline-scroll-track");
+    if (splineCopy && track) {
+      const rect = track.getBoundingClientRect();
+      const scrollable = Math.max(1, track.offsetHeight - vh);
+      const progress = Math.min(1, Math.max(0, -rect.top / scrollable));
+      const opacity = 1 - Math.min(1, progress * 1.35);
+      const ty = (1 - opacity) * 28;
+      splineCopy.style.opacity = String(opacity);
+      splineCopy.style.transform = "translate3d(0, " + ty + "px, 0)";
+    }
+
+    const storyPanels = root.querySelectorAll(".cc-parallax-story-panel");
+    storyPanels.forEach(function (panel) {
+      const rect = panel.getBoundingClientRect();
+      const progress = Math.min(1, Math.max(0, 1 - (rect.top - vh * 0.35) / (vh * 0.65)));
+      panel.style.setProperty("--cc-story-progress", progress.toFixed(4));
+    });
+  };
+
+  const onScroll = function () {
+    if (!ticking) {
+      ticking = true;
+      window.requestAnimationFrame(update);
+    }
+  };
+
+  const onPointerMove = function (event) {
+    if (!hero || !pointerLayers.length) {
+      return;
+    }
+
+    const rect = hero.getBoundingClientRect();
+    if (
+      event.clientY < rect.top - 40 ||
+      event.clientY > rect.bottom + 40 ||
+      event.clientX < rect.left - 40 ||
+      event.clientX > rect.right + 40
+    ) {
+      return;
+    }
+
+    pointerX = (event.clientX / Math.max(window.innerWidth, 1) - 0.5) * 2;
+    pointerY = (event.clientY / Math.max(window.innerHeight, 1) - 0.5) * 2;
+
+    if (!ticking) {
+      ticking = true;
+      window.requestAnimationFrame(update);
+    }
+  };
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll, { passive: true });
+  if (pointerLayers.length) {
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+  }
+  update();
+
+  window.comunaclic._homeParallaxState = {
+    onScroll: onScroll,
+    onPointerMove: pointerLayers.length ? onPointerMove : null,
+  };
+};
+
+window.comunaclic.destroyHomeParallax = function () {
+  const state = window.comunaclic._homeParallaxState;
+  if (!state) {
+    return;
+  }
+
+  window.removeEventListener("scroll", state.onScroll);
+  window.removeEventListener("resize", state.onScroll);
+  if (state.onPointerMove) {
+    window.removeEventListener("pointermove", state.onPointerMove);
+  }
+  window.comunaclic._homeParallaxState = null;
 };

@@ -1,0 +1,70 @@
+@inject LocaleService L
+
+<div class="space-y-4">
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("partner.settings.links.badge")</p>
+        <h3 class="mt-1 text-lg font-black text-[#2c2f30]">@L.T("partner.settings.links.title")</h3>
+        <p class="mt-1 text-sm text-[#595c5d]">@L.T("partner.settings.links.subtitle")</p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="md:col-span-2">
+            <label class="text-xs font-bold text-[#2c2f30]">@L.T("public.links.website")</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://..."
+                   @bind="Model.WebsiteUrl" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">Instagram</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://instagram.com/..."
+                   @bind="Model.InstagramUrl" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">Facebook</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://facebook.com/..."
+                   @bind="Model.FacebookUrl" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">LinkedIn</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://linkedin.com/in/..."
+                   @bind="Model.LinkedInUrl" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">X</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://x.com/..."
+                   @bind="Model.XUrl" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">TikTok</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://tiktok.com/..."
+                   @bind="Model.TikTokUrl" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">YouTube</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://youtube.com/..."
+                   @bind="Model.YouTubeUrl" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.settings.links.otherLabel")</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="@L.T("partner.settings.links.otherLabel.placeholder")"
+                   @bind="Model.OtherLinkLabel" />
+        </div>
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.settings.links.otherUrl")</label>
+            <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
+                   placeholder="https://..."
+                   @bind="Model.OtherLinkUrl" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ProfileWebLinksEditorModel Model { get; set; } = new();
+}

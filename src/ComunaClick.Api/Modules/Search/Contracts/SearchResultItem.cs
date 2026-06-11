@@ -9,4 +9,10 @@ public sealed record SearchResultItem(
     decimal? Price,
     string? Currency,
     string CtaLabel,
-    string CtaHref);
+    string CtaHref,
+    double? DistanceKm = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    string? LogoUrl = null,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null);

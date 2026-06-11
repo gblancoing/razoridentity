@@ -30,6 +30,11 @@ La suite corre checks automáticos para:
 - tracking
   - protección de `GET /v1/public/orders/{id}` por `customerId`
   - protección de `GET /v1/public/bookings/{id}` por `customerId`
+- checkout invitado
+  - `POST /v1/public/orders/guest` y `POST /v1/public/bookings/guest` rechazan payload inválido
+  - `GET /v1/public/checkout/partners/{id}/payment-status`
+  - `POST /v1/public/checkout/mercadopago` rechaza order inexistente
+  - E2E guest order opcional con `QUALITY_GUEST_FLOW_PRODUCT_ID`
 - ownership
   - `GET /v1/partners/mine` con token QA
   - acceso permitido a orders/bookings del partner propio si se entrega `QUALITY_PARTNER_ID`

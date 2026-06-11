@@ -5,5 +5,5 @@ namespace ComunaClick.SharedUI;
 /// </summary>
 public static class AssetVersions
 {
-    public const string AppJs = "20260523-map-resize-fix";
+    public const string AppJs = "20260526-geo-dedicated-endpoint";
 }

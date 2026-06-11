@@ -1,0 +1,184 @@
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@using PartnerProfessional = ComunaClick.Shared.Api.Partner.Professional
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject AuthStateService AuthState
+@inject LocaleService L
+
+<section id="equipo" class="scroll-mt-8 rounded-[2rem] border border-[#dbe6e2] bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@L.T("partner.settings.team.badge")</p>
+            <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.settings.team.title")</h2>
+            <p class="mt-2 max-w-2xl text-sm text-[#595c5d]">@L.T("partner.settings.team.subtitle")</p>
+        </div>
+        <button type="button"
+                class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]"
+                @onclick="ToggleAddPanel">
+            <span class="material-symbols-outlined text-[18px]">@(_showAddPanel ? "close" : "person_add")</span>
+            @(_showAddPanel ? L.T("partner.settings.team.cancel") : L.T("partner.settings.team.add"))
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_status))
+    {
+        <p class="text-sm font-semibold @(_statusOk ? "text-[#3b6700]" : "text-red-600")">@_status</p>
+    }
+
+    @if (_showAddPanel)
+    {
+        <EditForm Model="_form" OnValidSubmit="CreateAsync" class="rounded-2xl border border-[#3b6700]/25 bg-[#f8faf8] p-5 space-y-4">
+            <DataAnnotationsValidator />
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm font-semibold">@L.T("partner.settings.team.field.name")</label>
+                    <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm" @bind="_form.Name" />
+                    <ValidationMessage For="@(() => _form.Name)" class="text-xs text-red-500" />
+                </div>
+                <div>
+                    <label class="text-sm font-semibold">@L.T("partner.settings.team.field.specialty")</label>
+                    <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm" @bind="_form.Specialty" placeholder="@L.T("partner.settings.team.field.specialty.placeholder")" />
+                    <ValidationMessage For="@(() => _form.Specialty)" class="text-xs text-red-500" />
+                </div>
+                <div>
+                    <label class="text-sm font-semibold">@L.T("partner.settings.team.field.email")</label>
+                    <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm" @bind="_form.Email" />
+                </div>
+                <div>
+                    <label class="text-sm font-semibold">@L.T("partner.settings.team.field.phone")</label>
+                    <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm" @bind="_form.Phone" type="tel" autocomplete="tel" />
+                    <PhoneFieldHint Value="@_form.Phone" />
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-sm font-semibold">@L.T("partner.settings.team.field.bio")</label>
+                    <textarea class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm min-h-[80px]" @bind="_form.Bio"></textarea>
+                </div>
+            </div>
+            <button type="submit" class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]" disabled="@_busy">
+                <span class="material-symbols-outlined text-[18px]">save</span>
+                @(_busy ? L.T("partner.settings.team.saving") : L.T("partner.settings.team.save"))
+            </button>
+        </EditForm>
+    }
+
+    @if (_isLoading)
+    {
+        <BrandedLoading Compact="true" Title="@L.T("ui.loading")" Message="@L.T("partner.settings.team.loading")" />
+    }
+    else if (_team.Count == 0)
+    {
+        <p class="text-sm text-[#595c5d]">@L.T("partner.settings.team.empty")</p>
+    }
+    else
+    {
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach (var member in _team.OrderBy(x => x.Name))
+            {
+                <article class="rounded-2xl border border-[#e3e6e8] bg-[#fafaf8] p-4">
+                    <p class="font-bold text-[#2c2f30]">@member.Name</p>
+                    <p class="mt-1 text-xs text-[#595c5d]">@(string.IsNullOrWhiteSpace(member.Specialty) ? "—" : member.Specialty)</p>
+                    <span class="@(member.IsActive ? "mt-3 inline-flex rounded-full bg-[#a7f255]/25 px-3 py-1 text-[11px] font-bold text-[#325800]" : "mt-3 inline-flex rounded-full bg-[#eff1f2] px-3 py-1 text-[11px] font-bold text-[#595c5d]")">
+                        @(member.IsActive ? L.T("partner.catalog.b.badge.active") : L.T("partner.catalog.b.badge.paused"))
+                    </span>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private readonly List<PartnerProfessional> _team = new();
+    private readonly TeamMemberForm _form = new();
+    private bool _showAddPanel;
+    private bool _isLoading = true;
+    private bool _busy;
+    private string? _status;
+    private bool _statusOk;
+
+    [Parameter] public EventCallback OnTeamChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+    }
+
+    public async Task ReloadAsync()
+    {
+        _isLoading = true;
+        _team.Clear();
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (AuthState.PartnerId is Guid partnerId && partnerId != Guid.Empty)
+            {
+                var list = await PartnerApi.GetPartnerProfessionalsAsync(partnerId);
+                if (list is not null)
+                {
+                    _team.AddRange(list);
+                }
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleAddPanel() => _showAddPanel = !_showAddPanel;
+
+    private async Task CreateAsync()
+    {
+        if (AuthState.PartnerId is not Guid partnerId || partnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        _busy = true;
+        _status = null;
+        try
+        {
+            var created = await PartnerApi.CreateProfessionalAsync(new ComunaClick.Shared.Api.Partner.ProfessionalCreateRequest(
+                _form.Name.Trim(),
+                NullIfEmpty(_form.Email),
+                NullIfEmpty(_form.Phone),
+                _form.Specialty.Trim(),
+                NullIfEmpty(_form.Bio),
+                true,
+                true,
+                partnerId));
+            if (created is not null)
+            {
+                await ReloadAsync();
+                _form.Name = string.Empty;
+                _form.Specialty = string.Empty;
+                _form.Email = null;
+                _form.Phone = null;
+                _form.Bio = null;
+                _showAddPanel = false;
+                _status = L.T("partner.settings.team.created");
+                _statusOk = true;
+                await OnTeamChanged.InvokeAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _status = L.T("partner.settings.team.createFailed");
+            _statusOk = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string? NullIfEmpty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    private sealed class TeamMemberForm
+    {
+        [Required] public string Name { get; set; } = string.Empty;
+        [Required] public string Specialty { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Bio { get; set; }
+    }
+}

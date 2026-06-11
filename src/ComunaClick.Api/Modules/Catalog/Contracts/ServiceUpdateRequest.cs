@@ -7,4 +7,12 @@ public sealed record ServiceUpdateRequest(
     decimal? Price,
     string? Currency,
     int? DurationMinutes,
-    bool? IsActive);
+    bool? IsActive,
+    string? ImageUrl,
+    string? ServiceAddress,
+    Guid? CountryId,
+    Guid? RegionId,
+    Guid? ComunaId,
+    double? Latitude,
+    double? Longitude,
+    IReadOnlyList<Guid>? ProfessionalIds);

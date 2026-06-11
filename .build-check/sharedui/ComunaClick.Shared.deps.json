@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "ComunaClick.Shared/1.0.0": {
+        "dependencies": {
+          "ComunaClick.Common": "1.0.0"
+        },
+        "runtime": {
+          "ComunaClick.Shared.dll": {}
+        }
+      },
+      "ComunaClick.Common/1.0.0": {
+        "runtime": {
+          "ComunaClick.Common.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "ComunaClick.Shared/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ComunaClick.Common/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

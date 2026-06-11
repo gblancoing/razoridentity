@@ -1,0 +1,126 @@
+@using ComunaClick.Shared.Api.Buyer
+@inject BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject IJSRuntime JSRuntime
+
+@if (_visible)
+{
+    <div class="rounded-2xl border border-[#009ee3]/30 bg-[#e8f7ff] p-5 space-y-3">
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#0066a1]">@L.T("buyer.checkout.paymentPending.eyebrow")</p>
+        <p class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.checkout.paymentPending.title")</p>
+        <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.paymentPending.body")</p>
+        @if (!string.IsNullOrWhiteSpace(_checkoutUrl))
+        {
+            <a href="@_checkoutUrl" class="inline-flex items-center justify-center rounded-2xl bg-[#009ee3] px-5 py-3 text-sm font-bold text-white">
+                @L.T("buyer.checkout.mp.pay")
+            </a>
+        }
+        else if (_mpReady)
+        {
+            <button type="button"
+                    class="inline-flex items-center justify-center rounded-2xl bg-[#009ee3] px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                    disabled="@_busy"
+                    @onclick="CreateCheckoutAsync">
+                @L.T("buyer.checkout.mp.pay")
+            </button>
+        }
+        else
+        {
+            <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.mp.offline")</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+    [Parameter] public Guid CustomerId { get; set; }
+    [Parameter] public Guid PartnerId { get; set; }
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public bool IsBooking { get; set; }
+
+    private bool _visible;
+    private bool _busy;
+    private bool _mpReady;
+    private string? _checkoutUrl;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _visible = IsPaymentPending(Status);
+        if (!_visible)
+        {
+            return;
+        }
+
+        try
+        {
+            var partnerStatus = await BuyerApi.GetPartnerPaymentStatusAsync(PartnerId);
+            _mpReady = partnerStatus?.MercadoPagoReady == true;
+        }
+        catch
+        {
+            _mpReady = false;
+        }
+
+        if (_mpReady)
+        {
+            await TryRestoreCheckoutUrlAsync();
+        }
+    }
+
+    private async Task TryRestoreCheckoutUrlAsync()
+    {
+        try
+        {
+            var raw = await JSRuntime.InvokeAsync<string>("comunaclic.getPendingMpPayment");
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            using var doc = System.Text.Json.JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            var idMatches = IsBooking
+                ? root.TryGetProperty("bookingId", out var bid) && Guid.TryParse(bid.GetString(), out var storedBooking) && storedBooking == OrderId
+                : root.TryGetProperty("orderId", out var oid) && Guid.TryParse(oid.GetString(), out var storedOrder) && storedOrder == OrderId;
+
+            if (idMatches && root.TryGetProperty("checkoutUrl", out var url))
+            {
+                _checkoutUrl = url.GetString();
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private async Task CreateCheckoutAsync()
+    {
+        _busy = true;
+        try
+        {
+            var response = await BuyerApi.CreateMercadoPagoCheckoutAsync(
+                new PublicMercadoPagoCheckoutRequest(CustomerId, IsBooking ? null : OrderId, IsBooking ? OrderId : null));
+            if (!string.IsNullOrWhiteSpace(response?.CheckoutUrl))
+            {
+                _checkoutUrl = response.CheckoutUrl;
+                var payload = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string?>
+                {
+                    ["orderId"] = IsBooking ? null : OrderId.ToString(),
+                    ["bookingId"] = IsBooking ? OrderId.ToString() : null,
+                    ["customerId"] = CustomerId.ToString(),
+                    ["checkoutUrl"] = _checkoutUrl,
+                    ["createdAt"] = DateTimeOffset.UtcNow.ToString("O")
+                });
+                await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", payload);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static bool IsPaymentPending(string? status)
+        => string.Equals(status, "payment_pending", StringComparison.OrdinalIgnoreCase);
+}

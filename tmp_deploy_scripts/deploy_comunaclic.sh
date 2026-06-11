@@ -23,7 +23,8 @@ sync_to_remote() {
   local dest="$2"
   if command -v rsync >/dev/null 2>&1; then
     local ssh_cmd="ssh ${ssh_opts[*]}"
-    rsync -az --delete -e "$ssh_cmd" "${src}/" "${SSH_USER}@${HOST}:${dest}/"
+    # No borrar uploads/ (imágenes de productos, servicios, logos) en despliegues de API.
+    rsync -az --delete --exclude 'uploads/' -e "$ssh_cmd" "${src}/" "${SSH_USER}@${HOST}:${dest}/"
   else
     echo "[INFO] rsync no disponible; usando tar+ssh"
     tar -C "$src" -czf - . | ssh "${ssh_opts[@]}" "${SSH_USER}@${HOST}" "sudo tar -C '${dest}' -xzf -"
@@ -48,8 +49,22 @@ deploy_one() {
   echo "[INFO] Deploy ${target} -> ${HOST}:${remote_dir}"
   remote "sudo test -d '${remote_dir}' || sudo mkdir -p '${remote_dir}'"
   remote "if [ -d '${remote_dir}' ] && [ \"\$(ls -A '${remote_dir}' 2>/dev/null)\" ]; then sudo cp -a '${remote_dir}' '${backup}'; fi"
-  remote "sudo find '${remote_dir}' -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true"
+  # Preservar uploads/ (archivos subidos por usuarios) al reemplazar binarios.
+  remote "sudo find '${remote_dir}' -mindepth 1 -maxdepth 1 ! -name 'uploads' -exec rm -rf {} + 2>/dev/null || true"
   sync_to_remote "$local_dir" "$remote_dir"
+  # No pisar config de producción ni medios subidos.
+  remote "if [ -d '${backup}' ]; then
+    for f in appsettings.json appsettings.Production.json; do
+      if [ -f '${backup}/'\$f ]; then
+        sudo cp '${backup}/'\$f '${remote_dir}/'\$f
+        echo \"[INFO] Restaurado \$f desde backup\"
+      fi
+    done
+    if [ ! -d '${remote_dir}/uploads' ] && [ -d '${backup}/uploads' ]; then
+      sudo cp -a '${backup}/uploads' '${remote_dir}/uploads'
+      echo \"[INFO] Restaurado uploads/ desde backup\"
+    fi
+  fi"
   remote "sudo chown -R ${REMOTE_OWNER} '${remote_dir}'"
   remote "sudo systemctl restart '${service}'"
   remote "sudo systemctl is-active --quiet '${service}'"
@@ -74,11 +89,13 @@ declare -A REMOTE_DIRS=(
   [api]="/var/www/comunaclic/api"
   [acl]="/var/www/comunaclic/acl"
   [app]="/var/www/comunaclic/app"
+  [admin]="/var/www/comunaclic/admin"
 )
 declare -A SERVICES=(
   [api]="comunaclic-api.service"
   [acl]="comunaclic-acl.service"
   [app]="comunaclic-app.service"
+  [admin]="comunaclic-admin.service"
 )
 
 for target in "$@"; do

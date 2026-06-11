@@ -1,0 +1,467 @@
+@using ComunaClick.Shared.Api.Buyer
+@using ComunaClick.SharedUI.Services
+@inject BuyerApiClient BuyerApi
+@inject LocaleService L
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<div class="space-y-4">
+    <ServiceGeoSelect CountryId="@CountryId"
+                      CountryIdChanged="HandleCountryIdChangedAsync"
+                      RegionId="@RegionId"
+                      RegionIdChanged="HandleRegionIdChangedAsync"
+                      ComunaId="@ComunaId"
+                      ComunaIdChanged="HandleComunaIdChangedAsync" />
+
+    <div>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.catalog.b.serviceGeo.map")</label>
+            <div class="flex flex-wrap gap-2">
+                <button type="button"
+                        class="inline-flex items-center gap-1.5 rounded-xl border border-[#dadddf] bg-white px-3 py-2 text-xs font-bold text-[#2c2f30] hover:bg-[#f8faf8]"
+                        @onclick="ToggleMapExpandedAsync">
+                    <span class="material-symbols-outlined text-[18px]">@(_mapExpanded ? "close_fullscreen" : "open_in_full")</span>
+                    @(_mapExpanded ? L.T("buyer.profile.address.collapseMap") : L.T("buyer.profile.address.expandMap"))
+                </button>
+                <button type="button"
+                        class="inline-flex items-center gap-1.5 rounded-xl border border-[#3b6700] bg-white px-3 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f0fdf4] disabled:opacity-60"
+                        @onclick="UseMyLocationAsync"
+                        disabled="@_isLocating">
+                    <span class="material-symbols-outlined text-[18px]">my_location</span>
+                    @(_isLocating ? L.T("ui.loading") : L.T("buyer.profile.address.useMyLocation"))
+                </button>
+            </div>
+        </div>
+        <p class="mt-1 text-xs text-[#61897c]">@L.T("partner.catalog.b.serviceGeo.mapHint")</p>
+        @if (!string.IsNullOrWhiteSpace(_geoStatusMessage))
+        {
+            <p class="mt-2 text-xs font-semibold @(_geoStatusOk ? "text-[#14532d]" : "text-[#b91c1c]")">@_geoStatusMessage</p>
+        }
+        @if (DisplayLatitude is double latSaved && DisplayLongitude is double lngSaved)
+        {
+            <p class="mt-1 text-[11px] text-[#61897c]">
+                @L.T("buyer.profile.address.coordsLabel")
+                @latSaved.ToString("F5", System.Globalization.CultureInfo.InvariantCulture),
+                @lngSaved.ToString("F5", System.Globalization.CultureInfo.InvariantCulture)
+            </p>
+        }
+        <AddressMapFrame Expanded="@_mapExpanded">
+            <div id="@MapElementId"
+                 class="mt-3 w-full rounded-2xl border border-[#dbe6e2] overflow-hidden z-0 @(_mapExpanded ? "h-[520px] min-h-[520px]" : "h-[280px] min-h-[280px]")"
+                 style="@(_mapExpanded ? "height:520px;min-height:520px;" : "height:280px;min-height:280px;")"></div>
+        </AddressMapFrame>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string MapElementId { get; set; } = string.Empty;
+    [Parameter] public bool Active { get; set; } = true;
+    [Parameter] public Guid? CountryId { get; set; }
+    [Parameter] public EventCallback<Guid?> CountryIdChanged { get; set; }
+    [Parameter] public Guid? RegionId { get; set; }
+    [Parameter] public EventCallback<Guid?> RegionIdChanged { get; set; }
+    [Parameter] public Guid? ComunaId { get; set; }
+    [Parameter] public EventCallback<Guid?> ComunaIdChanged { get; set; }
+    [Parameter] public double? Latitude { get; set; }
+    [Parameter] public EventCallback<double?> LatitudeChanged { get; set; }
+    [Parameter] public double? Longitude { get; set; }
+    [Parameter] public EventCallback<double?> LongitudeChanged { get; set; }
+
+    private DotNetObjectReference<ServiceGeoPicker>? _mapRef;
+    private bool _mapInitialized;
+    private bool _mapExpanded;
+    private bool _isLocating;
+    private bool _geoStatusOk = true;
+    private string? _geoStatusMessage;
+    private Guid? _lastComunaId;
+    private bool _lastActive;
+    private string? _lastMapElementId;
+    private bool _userAdjustedCoords;
+
+    private IReadOnlyList<PublicCountryItem> _countries = Array.Empty<PublicCountryItem>();
+    private IReadOnlyList<PublicRegionItem> _regions = Array.Empty<PublicRegionItem>();
+    private IReadOnlyList<PublicComunaItem> _comunas = Array.Empty<PublicComunaItem>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _countries = await BuyerApi.GetCountriesAsync() ?? Array.Empty<PublicCountryItem>();
+        await ReloadRegionsAsync();
+        await ReloadComunasAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_lastMapElementId != MapElementId)
+        {
+            _lastMapElementId = MapElementId;
+            _userAdjustedCoords = false;
+        }
+
+        if (!_userAdjustedCoords && Latitude is double lat && Longitude is double lng)
+        {
+            _pinnedLatitude = lat;
+            _pinnedLongitude = lng;
+        }
+
+        if (_lastCountryId != CountryId)
+        {
+            _lastCountryId = CountryId;
+            await ReloadRegionsAsync();
+        }
+
+        if (_lastComunaRegionId != RegionId)
+        {
+            _lastComunaRegionId = RegionId;
+            await ReloadComunasAsync();
+        }
+
+        if (_lastComunaId != ComunaId)
+        {
+            _lastComunaId = ComunaId;
+            var hasPinnedCoords = _pinnedLatitude is double && _pinnedLongitude is double;
+            if (_mapInitialized
+                && ComunaId is Guid comunaId
+                && comunaId != Guid.Empty
+                && !_userAdjustedCoords
+                && !hasPinnedCoords
+                && !(Latitude.HasValue && Longitude.HasValue))
+            {
+                await ApplyComunaCascadeAsync();
+            }
+        }
+
+        if (Active && !_lastActive)
+        {
+            _lastActive = true;
+            await TryInitAddressMapAsync();
+        }
+        else if (!Active && _lastActive)
+        {
+            _lastActive = false;
+            await DestroyAddressMapAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Active && !_mapInitialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+    }
+
+    private Guid? _lastCountryId;
+    private Guid? _lastComunaRegionId;
+    private double? _pinnedLatitude;
+    private double? _pinnedLongitude;
+
+    private double? DisplayLatitude => _pinnedLatitude ?? Latitude;
+    private double? DisplayLongitude => _pinnedLongitude ?? Longitude;
+
+    public (double? Latitude, double? Longitude) GetCoordinatesForSave()
+        => (DisplayLatitude, DisplayLongitude);
+
+    public async Task<bool> SyncCoordinatesFromMapAsync()
+    {
+        var synced = await TryReadMarkerCoordinatesAsync();
+        if (synced)
+        {
+            await PublishCoordinatesAsync();
+        }
+
+        return DisplayLatitude.HasValue && DisplayLongitude.HasValue;
+    }
+
+    public async Task PublishCoordinatesAsync()
+    {
+        await LatitudeChanged.InvokeAsync(Latitude);
+        await LongitudeChanged.InvokeAsync(Longitude);
+    }
+
+    private async Task<bool> TryReadMarkerCoordinatesAsync()
+    {
+        if (!_mapInitialized)
+        {
+            return DisplayLatitude.HasValue && DisplayLongitude.HasValue;
+        }
+
+        try
+        {
+            var coords = await JSRuntime.InvokeAsync<MapMarkerCoordsDto?>(
+                "comunaclic.getProfileAddressMarkerCoords",
+                MapElementId);
+            if (coords is null)
+            {
+                return Latitude.HasValue && Longitude.HasValue;
+            }
+
+            SetPinnedCoordinates(coords.Latitude, coords.Longitude);
+            return true;
+        }
+        catch (JSException)
+        {
+            return DisplayLatitude.HasValue && DisplayLongitude.HasValue;
+        }
+    }
+
+    private void SetPinnedCoordinates(double latitude, double longitude)
+    {
+        _userAdjustedCoords = true;
+        _pinnedLatitude = Math.Round(latitude, 6, MidpointRounding.AwayFromZero);
+        _pinnedLongitude = Math.Round(longitude, 6, MidpointRounding.AwayFromZero);
+        Latitude = _pinnedLatitude;
+        Longitude = _pinnedLongitude;
+    }
+
+    private async Task ReloadRegionsAsync()
+    {
+        _regions = CountryId is Guid countryId && countryId != Guid.Empty
+            ? await BuyerApi.GetRegionsAsync(countryId) ?? Array.Empty<PublicRegionItem>()
+            : Array.Empty<PublicRegionItem>();
+    }
+
+    private async Task ReloadComunasAsync()
+    {
+        _comunas = RegionId is Guid regionId && regionId != Guid.Empty
+            ? await BuyerApi.GetComunasAsync(regionId) ?? Array.Empty<PublicComunaItem>()
+            : Array.Empty<PublicComunaItem>();
+    }
+
+    private async Task HandleCountryIdChangedAsync(Guid? value)
+    {
+        CountryId = value;
+        await CountryIdChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleRegionIdChangedAsync(Guid? value)
+    {
+        RegionId = value;
+        await RegionIdChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleComunaIdChangedAsync(Guid? value)
+    {
+        ComunaId = value;
+        await ComunaIdChanged.InvokeAsync(value);
+    }
+
+    private AddressCascadeContext BuildAddressCascadeContext()
+    {
+        var country = _countries.FirstOrDefault(x => x.Id == CountryId);
+        var region = _regions.FirstOrDefault(x => x.Id == RegionId);
+        var comuna = _comunas.FirstOrDefault(x => x.Id == ComunaId);
+        return new AddressCascadeContext(
+            country?.Name,
+            region?.Name,
+            comuna?.Name,
+            comuna?.Latitude,
+            comuna?.Longitude,
+            null,
+            null);
+    }
+
+    private async Task ApplyComunaCascadeAsync()
+    {
+        if (!_mapInitialized)
+        {
+            return;
+        }
+
+        var result = await AddressMapCascadeHelper.ApplyAsync(
+            JSRuntime,
+            MapElementId,
+            BuildAddressCascadeContext(),
+            AddressCascadeLevel.Comuna,
+            resetManualAdjust: false);
+
+        if (result is not AddressCascadeResult cascade)
+        {
+            return;
+        }
+
+        SetPinnedCoordinates(cascade.Latitude, cascade.Longitude);
+        await PublishCoordinatesAsync();
+    }
+
+    private async Task TryInitAddressMapAsync()
+    {
+        if (_mapInitialized || !Active || string.IsNullOrWhiteSpace(MapElementId))
+        {
+            return;
+        }
+
+        try
+        {
+            _mapRef ??= DotNetObjectReference.Create(this);
+            var hasSavedCoords = Latitude.HasValue && Longitude.HasValue;
+            await JSRuntime.InvokeVoidAsync(
+                "comunaclic.initProfileAddressPicker",
+                MapElementId,
+                _mapRef,
+                Latitude,
+                Longitude,
+                false);
+            _mapInitialized = true;
+            _geoStatusMessage = string.Empty;
+
+            if (ComunaId is Guid comunaId && comunaId != Guid.Empty && !(Latitude.HasValue && Longitude.HasValue))
+            {
+                await ApplyComunaCascadeAsync();
+            }
+        }
+        catch (JSException)
+        {
+            _mapInitialized = false;
+            _geoStatusOk = false;
+            _geoStatusMessage = L.T("buyer.profile.address.mapScriptStale");
+        }
+    }
+
+    private async Task UseMyLocationAsync()
+    {
+        if (!_mapInitialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+
+        _geoStatusMessage = string.Empty;
+        _isLocating = true;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.profileAddressUseCurrentLocation", MapElementId);
+        }
+        catch (JSException)
+        {
+            _geoStatusOk = false;
+            _geoStatusMessage = L.T("buyer.profile.address.locationFailed");
+            _isLocating = false;
+        }
+    }
+
+    private async Task ToggleMapExpandedAsync()
+    {
+        if (!_mapInitialized)
+        {
+            await TryInitAddressMapAsync();
+        }
+
+        _mapExpanded = !_mapExpanded;
+        await InvokeAsync(StateHasChanged);
+        await RefreshMapLayoutAfterResizeAsync();
+    }
+
+    private async Task RefreshMapLayoutAfterResizeAsync()
+    {
+        if (!_mapInitialized)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(30);
+            await JSRuntime.InvokeVoidAsync("comunaclic.invalidateProfileAddressMap", MapElementId);
+            await Task.Delay(250);
+            await JSRuntime.InvokeVoidAsync("comunaclic.invalidateProfileAddressMap", MapElementId);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task DestroyAddressMapAsync()
+    {
+        _mapExpanded = false;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.destroyProfileAddressPicker", MapElementId);
+        }
+        catch (JSException)
+        {
+        }
+
+        _mapInitialized = false;
+    }
+
+    [JSInvokable]
+    public Task OnMapMarkerDragged(double latitude, double longitude)
+        => ApplyPickedCoordinatesAsync(latitude, longitude, "buyer.profile.address.manualPin");
+
+    [JSInvokable]
+    public Task OnMapLocationPicked(
+        double latitude,
+        double longitude,
+        string? displayName,
+        string? country,
+        string? state,
+        string? city,
+        string? municipality,
+        string? suburb,
+        string? road,
+        string? houseNumber)
+        => ApplyPickedCoordinatesAsync(latitude, longitude, "buyer.profile.address.located");
+
+    [JSInvokable]
+    public Task OnGeolocationStarted()
+    {
+        _isLocating = true;
+        _geoStatusMessage = L.T("buyer.profile.address.locating");
+        _geoStatusOk = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnGeolocationFinished(bool success, string? message)
+    {
+        _isLocating = false;
+        _geoStatusOk = success;
+        _geoStatusMessage = success
+            ? L.T("buyer.profile.address.located")
+            : SanitizeGeoErrorMessage(message);
+
+        if (success)
+        {
+            await PublishCoordinatesAsync();
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnMapMarkerAdjustStarted() => Task.CompletedTask;
+
+    private async Task ApplyPickedCoordinatesAsync(double latitude, double longitude, string statusLocaleKey)
+    {
+        SetPinnedCoordinates(latitude, longitude);
+        _geoStatusOk = true;
+        _geoStatusMessage = L.T(statusLocaleKey);
+        await PublishCoordinatesAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string SanitizeGeoErrorMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return L.T("buyer.profile.address.locationFailed");
+        }
+
+        if (message.Contains("Exception", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("invokeMethodAsync", StringComparison.OrdinalIgnoreCase))
+        {
+            return L.T("buyer.profile.address.locationFailed");
+        }
+
+        return message;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DestroyAddressMapAsync();
+        _mapRef?.Dispose();
+    }
+
+    private sealed record MapMarkerCoordsDto(
+        [property: System.Text.Json.Serialization.JsonPropertyName("latitude")] double Latitude,
+        [property: System.Text.Json.Serialization.JsonPropertyName("longitude")] double Longitude);
+}

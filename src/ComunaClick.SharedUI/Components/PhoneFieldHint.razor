@@ -1,0 +1,23 @@
+@using ComunaClick.Common.Contact
+
+<p class="mt-1.5 text-xs leading-relaxed text-[#7b8081]">
+    @ChilePhoneNumbers.StorageHint
+    @if (!string.IsNullOrWhiteSpace(_example))
+    {
+        <span class="block mt-0.5 text-[#595c5d]">@_example</span>
+    }
+</p>
+
+@code {
+    [Parameter]
+    public string? Value { get; set; }
+
+    private string? _example;
+
+    protected override void OnParametersSet()
+    {
+        _example = ChilePhoneNumbers.IsValidMobile(Value)
+            ? $"Guardado como: {ChilePhoneNumbers.FormatDisplay(Value)}"
+            : null;
+    }
+}

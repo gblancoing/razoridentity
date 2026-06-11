@@ -57,6 +57,141 @@ public sealed class OrderNotificationService : IOrderNotificationService
         await SaveNotificationAuditAsync(order, partner, customer, "processed", string.Join(",", outcomes), cancellationToken);
     }
 
+    public async Task NotifyBuyerOrderAsync(Order order, Partner partner, Customer customer, CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled || !_options.EnableEmail || !_options.EnableBuyerEmail)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(customer.Email))
+        {
+            return;
+        }
+
+        var baseUrl = _options.AppBaseUrl.TrimEnd('/');
+        var trackingUrl = $"{baseUrl}/buyer/orders?orderId={order.Id}&customerId={order.CustomerId}";
+        var message = new List<string>
+        {
+            "Hola" + (string.IsNullOrWhiteSpace(customer.FullName) ? "" : $" {customer.FullName.Trim()}") + ",",
+            string.Empty,
+            $"Tu compra en {partner.Name} quedó registrada.",
+            $"Orden: #{order.Id}",
+            $"Total: {order.TotalAmount:N0} {order.Currency}",
+            $"Estado: {order.Status}",
+            string.Empty,
+            "Seguimiento:",
+            trackingUrl,
+            string.Empty,
+            "Si el negocio tiene pago en línea, también podés completarlo desde el enlace de seguimiento.",
+            string.Empty,
+            "— ComunaClic"
+        };
+
+        await TrySendEmailToAddressAsync(
+            customer.Email.Trim(),
+            "Tu compra en ComunaClic — seguimiento",
+            string.Join(Environment.NewLine, message),
+            cancellationToken);
+    }
+
+    public async Task NotifyBuyerBookingAsync(
+        Booking booking,
+        Partner partner,
+        Customer customer,
+        string? serviceName,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled || !_options.EnableEmail || !_options.EnableBuyerEmail)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(customer.Email))
+        {
+            return;
+        }
+
+        var baseUrl = _options.AppBaseUrl.TrimEnd('/');
+        var trackingUrl = $"{baseUrl}/buyer/orders?bookingId={booking.Id}&customerId={booking.CustomerId}";
+        var label = string.IsNullOrWhiteSpace(serviceName) ? "tu reserva" : serviceName.Trim();
+        var message = new List<string>
+        {
+            "Hola" + (string.IsNullOrWhiteSpace(customer.FullName) ? "" : $" {customer.FullName.Trim()}") + ",",
+            string.Empty,
+            $"Tu reserva de {label} en {partner.Name} quedó registrada.",
+            $"Reserva: #{booking.Id}",
+            $"Horario: {booking.StartAt:dd/MM/yyyy HH:mm} — {booking.EndAt:HH:mm}",
+            $"Monto: {booking.Amount:N0} {booking.Currency}",
+            $"Estado: {booking.Status}",
+            string.Empty,
+            "Seguimiento:",
+            trackingUrl,
+            string.Empty,
+            "— ComunaClic"
+        };
+
+        await TrySendEmailToAddressAsync(
+            customer.Email.Trim(),
+            "Tu reserva en ComunaClic — seguimiento",
+            string.Join(Environment.NewLine, message),
+            cancellationToken);
+    }
+
+    public Task NotifyBuyerPaymentPendingAsync(Order order, Partner partner, Customer customer, CancellationToken cancellationToken = default)
+    {
+        var baseUrl = _options.AppBaseUrl.TrimEnd('/');
+        var trackingUrl = $"{baseUrl}/buyer/orders?orderId={order.Id}&customerId={order.CustomerId}";
+        var message = new List<string>
+        {
+            "Hola" + (string.IsNullOrWhiteSpace(customer.FullName) ? "" : $" {customer.FullName.Trim()}") + ",",
+            string.Empty,
+            $"Tienes un pago pendiente en {partner.Name} por tu compra #{order.Id}.",
+            $"Total: {order.TotalAmount:N0} {order.Currency}",
+            string.Empty,
+            "Completa el pago o revisa el estado aquí:",
+            trackingUrl,
+            string.Empty,
+            "— ComunaClic"
+        };
+
+        return TrySendEmailToAddressAsync(
+            customer.Email!.Trim(),
+            "Recordatorio: completa tu pago en ComunaClic",
+            string.Join(Environment.NewLine, message),
+            cancellationToken);
+    }
+
+    public Task NotifyBuyerBookingPaymentPendingAsync(
+        Booking booking,
+        Partner partner,
+        Customer customer,
+        string? serviceName,
+        CancellationToken cancellationToken = default)
+    {
+        var baseUrl = _options.AppBaseUrl.TrimEnd('/');
+        var trackingUrl = $"{baseUrl}/buyer/orders?bookingId={booking.Id}&customerId={booking.CustomerId}";
+        var label = string.IsNullOrWhiteSpace(serviceName) ? "tu reserva" : serviceName.Trim();
+        var message = new List<string>
+        {
+            "Hola" + (string.IsNullOrWhiteSpace(customer.FullName) ? "" : $" {customer.FullName.Trim()}") + ",",
+            string.Empty,
+            $"Tienes un pago pendiente para {label} en {partner.Name}.",
+            $"Reserva: #{booking.Id}",
+            string.Empty,
+            "Completa el pago o revisa el estado aquí:",
+            trackingUrl,
+            string.Empty,
+            "— ComunaClic"
+        };
+
+        return TrySendEmailToAddressAsync(
+            customer.Email!.Trim(),
+            "Recordatorio: completa el pago de tu reserva",
+            string.Join(Environment.NewLine, message),
+            cancellationToken);
+    }
+
     private async Task<string> TrySendEmailAsync(Partner partner, string message, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(partner.Email))
@@ -94,6 +229,39 @@ public sealed class OrderNotificationService : IOrderNotificationService
         {
             _logger.LogWarning(ex, "Unable to send order email notification for partner {PartnerId}.", partner.Id);
             return "email_error";
+        }
+    }
+
+    private async Task TrySendEmailToAddressAsync(string to, string subject, string body, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.Smtp.Host) || string.IsNullOrWhiteSpace(_options.Smtp.From))
+        {
+            return;
+        }
+
+        try
+        {
+            using var smtp = new SmtpClient(_options.Smtp.Host, _options.Smtp.Port)
+            {
+                EnableSsl = _options.Smtp.EnableSsl
+            };
+
+            if (!string.IsNullOrWhiteSpace(_options.Smtp.Username))
+            {
+                smtp.Credentials = new NetworkCredential(_options.Smtp.Username, _options.Smtp.Password);
+            }
+
+            using var mail = new MailMessage(_options.Smtp.From, to)
+            {
+                Subject = subject,
+                Body = body
+            };
+
+            await smtp.SendMailAsync(mail, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unable to send buyer email to {Email}.", to);
         }
     }
 

@@ -1,0 +1,163 @@
+@inject LocaleService L
+@inject AuthStateService AuthState
+@inject NavigationManager Navigation
+
+<div class="relative">
+    @if (_open)
+    {
+        <button type="button"
+                class="fixed inset-0 z-40 cursor-default"
+                aria-label="@L.T("account.userMenu.close")"
+                @onclick="Close"></button>
+    }
+
+    <button type="button"
+            class="flex items-center gap-2 sm:gap-3 rounded-full border border-[#dadddf] bg-[#f5f6f7] px-2.5 sm:px-4 py-2 hover:border-[#3b6700]/40 transition-colors @(IsHighlightedRoute ? "ring-2 ring-[#a7f255]/60" : "")"
+            aria-expanded="@_open"
+            aria-haspopup="menu"
+            aria-label="@MenuAriaLabel"
+            @onclick="Toggle">
+        <div class="w-8 h-8 rounded-full bg-[#a7f255] text-[#325800] flex items-center justify-center font-bold text-sm shrink-0">
+            @UserInitial
+        </div>
+        <div class="hidden sm:block leading-tight text-left max-w-[140px] md:max-w-[180px]">
+            <p class="text-sm font-bold text-[#111816] truncate">@UserLabel</p>
+            <p class="text-[11px] text-[#7b8081] truncate">@Subtitle</p>
+        </div>
+        <span class="material-symbols-outlined text-[20px] text-[#7b8081] transition-transform shrink-0 @(_open ? "rotate-180" : "")">expand_more</span>
+    </button>
+
+    @if (_open)
+    {
+        <div class="absolute right-0 top-full mt-2 z-50 w-72 rounded-2xl border border-[#e3e6e8] bg-white shadow-[0_18px_40px_-16px_rgba(12,15,16,0.25)] py-2"
+             role="menu">
+            <p class="px-4 py-2 text-[10px] uppercase tracking-[0.18em] font-bold text-[#8a8f90]">@L.T("account.userMenu.section")</p>
+
+            @if (IsPartnerContext)
+            {
+                <a href="/partner/account" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                    <span class="material-symbols-outlined text-[20px]">person</span>
+                    <span>
+                        @L.T("partner.nav.account.personal")
+                        <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("partner.nav.account.hint")</span>
+                    </span>
+                </a>
+                <a href="@AccountRoutes.PartnerSettings" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                    <span class="material-symbols-outlined text-[20px]">apartment</span>
+                    <span>
+                        @L.T("partner.nav.settings")
+                        <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("partner.nav.settings.hint")</span>
+                    </span>
+                </a>
+                <a href="@AccountRoutes.Buyer" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                    <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
+                    @L.T("partner.nav.account.buyer")
+                </a>
+            }
+            else
+            {
+                <a href="@AccountRoutes.Profile" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                    <span class="material-symbols-outlined text-[20px]">person</span>
+                    <span>
+                        @L.T("account.nav.profile")
+                        <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.profile.hint")</span>
+                    </span>
+                </a>
+                @if (HasPartnerPanel)
+                {
+                    <a href="/partner" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                        <span>
+                            @L.T("account.nav.partnerPanel")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.partnerPanel.hint")</span>
+                        </span>
+                    </a>
+                }
+                @if (ShowCompanyNav)
+                {
+                    <a href="@AccountRoutes.CompanyNavHref(HasPartnerPanel)" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">storefront</span>
+                        <span>
+                            @L.T("account.nav.company")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.company.hint")</span>
+                        </span>
+                    </a>
+                }
+                @if (ShowProfessionalNav)
+                {
+                    <a href="@AccountRoutes.Professional" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">work</span>
+                        <span>
+                            @L.T("account.nav.professional")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.professional.hint")</span>
+                        </span>
+                    </a>
+                }
+                @if (ShowProfessionalInboxNav)
+                {
+                    <a href="@AccountRoutes.ProfessionalMessages" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">mail</span>
+                        <span>
+                            @L.T("account.nav.professionalMessages")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.professionalMessages.hint")</span>
+                        </span>
+                    </a>
+                }
+            }
+
+            <div class="my-2 border-t border-[#e3e6e8]"></div>
+            <a href="/" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                <span class="material-symbols-outlined text-[20px]">home</span>
+                @(IsPartnerContext ? L.T("partner.backHome") : L.T("account.nav.backHome"))
+            </a>
+        </div>
+    }
+</div>
+
+@code {
+  [Parameter] public bool IsPartnerContext { get; set; }
+  [Parameter] public bool HasPartnerPanel { get; set; }
+  [Parameter] public bool ShowCompanyNav { get; set; }
+  [Parameter] public bool ShowProfessionalNav { get; set; }
+  [Parameter] public bool ShowProfessionalInboxNav { get; set; }
+
+  private bool _open;
+
+  private string UserLabel => AuthState.DisplayName ?? AuthState.Email ?? "ComunaClic";
+  private string UserInitial => string.IsNullOrWhiteSpace(UserLabel) ? "C" : UserLabel.Trim()[0].ToString().ToUpperInvariant();
+
+  private string Subtitle => IsPartnerContext
+      ? L.T("partner.userMenu.subtitle")
+      : L.T("account.userMenu.subtitle");
+
+  private string MenuAriaLabel => $"{L.T("account.userMenu.open")}: {UserLabel}";
+
+  private bool IsHighlightedRoute
+  {
+      get
+      {
+          var path = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+          if (IsPartnerContext)
+          {
+              return path.StartsWith("/partner/account", StringComparison.OrdinalIgnoreCase)
+                  || path.StartsWith(AccountRoutes.PartnerSettings, StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(path, AccountRoutes.Buyer, StringComparison.OrdinalIgnoreCase);
+          }
+
+          return path.StartsWith(AccountRoutes.Profile, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.Company, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.PartnerSettings, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.Professional, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.ProfessionalMessages, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.Messages, StringComparison.OrdinalIgnoreCase)
+              || (HasPartnerPanel && string.Equals(path, "/partner", StringComparison.OrdinalIgnoreCase));
+      }
+  }
+
+  private void Toggle() => _open = !_open;
+
+  private void Close() => _open = false;
+
+  private const string MenuItemClass =
+      "flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-[#2c2f30] hover:bg-[#f5f6f7] transition-colors";
+}

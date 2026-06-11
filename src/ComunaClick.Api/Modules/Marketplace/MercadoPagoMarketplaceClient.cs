@@ -30,8 +30,7 @@ public sealed class MercadoPagoMarketplaceClient
             ["response_type"] = "code",
             ["platform_id"] = "mp",
             ["state"] = state,
-            ["redirect_uri"] = _options.RedirectUri,
-            ["seller_id"] = sellerId.ToString()
+            ["redirect_uri"] = _options.RedirectUri
         };
 
         var queryString = string.Join("&", query
@@ -150,6 +149,27 @@ public sealed class MercadoPagoMarketplaceClient
         return await response.Content.ReadFromJsonAsync<MercadoPagoPaymentDetailsResponse>(JsonOptions, cancellationToken);
     }
 
+    public async Task<MercadoPagoPaymentDetailsResponse?> SearchPaymentByExternalReferenceAsync(
+        string accessToken,
+        string externalReference,
+        CancellationToken cancellationToken)
+    {
+        var url = $"v1/payments/search?sort=date_created&criteria=desc&external_reference={Uri.EscapeDataString(externalReference)}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<MercadoPagoPaymentSearchResponse>(JsonOptions, cancellationToken);
+        return result?.Results?
+            .OrderByDescending(r => string.Equals(r.Status, "approved", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault();
+    }
+
     public bool ValidateWebhookSignature(
         HttpRequest request,
         string resourceId)
@@ -191,7 +211,7 @@ public sealed record MercadoPagoOAuthTokenResponse(
     [property: JsonPropertyName("refresh_token")] string? RefreshToken,
     [property: JsonPropertyName("expires_in")] int? ExpiresIn,
     [property: JsonPropertyName("scope")] string? Scope,
-    [property: JsonPropertyName("user_id")] string? UserId,
+    [property: JsonPropertyName("user_id")] long? UserId,
     [property: JsonPropertyName("public_key")] string? PublicKey);
 
 public sealed record MercadoPagoUserInfoResponse(
@@ -273,3 +293,6 @@ public sealed record MercadoPagoPaymentDetailsResponse(
 public sealed record MercadoPagoFeeDetail(
     [property: JsonPropertyName("type")] string? Type,
     [property: JsonPropertyName("amount")] decimal? Amount);
+
+public sealed record MercadoPagoPaymentSearchResponse(
+    [property: JsonPropertyName("results")] IReadOnlyList<MercadoPagoPaymentDetailsResponse>? Results);

@@ -1,0 +1,157 @@
+@inject LocaleService L
+
+<div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4 space-y-4">
+    <FormFieldHelp Label="@L.T("partner.catalog.a.marketplaceCategory.label")"
+                   Tooltip="@L.T("partner.catalog.a.marketplaceCategory.tooltip")"
+                   Help="@L.T("partner.catalog.a.marketplaceCategory.help")">
+        @if (Groups.Count == 0)
+        {
+            <p class="mt-2 text-sm font-medium text-amber-800">@L.T("partner.catalog.a.marketplaceCategory.empty")</p>
+        }
+        else
+        {
+            <select class="@InputClass"
+                    value="@(_primarySubcategoryId?.ToString() ?? "")"
+                    required
+                    @onchange="OnPrimaryChanged">
+                <option value="">@L.T("partner.catalog.a.marketplaceCategory.placeholder")</option>
+                @foreach (var group in Groups)
+                {
+                    <optgroup label="@group.CategoryName">
+                        @foreach (var sub in group.Subcategories)
+                        {
+                            <option value="@sub.Id">@sub.Name</option>
+                        }
+                    </optgroup>
+                }
+            </select>
+            @if (!string.IsNullOrWhiteSpace(PrimarySelectionLabel))
+            {
+                <p class="mt-2 rounded-xl border border-[#dadddf] bg-white px-3 py-2 text-sm font-semibold text-[#2c2f30]">
+                    @PrimarySelectionLabel
+                </p>
+            }
+            @if (!string.IsNullOrWhiteSpace(CompanyCategoryHint))
+            {
+                <p class="mt-2 text-xs text-[#61897c]">@CompanyCategoryHint</p>
+            }
+        }
+    </FormFieldHelp>
+
+    @if (Groups.Count > 0 && ShowAdditionalCategories)
+    {
+        <div class="border-t border-[#e4e0d8] pt-3">
+            <p class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@L.T("partner.catalog.a.marketplaceCategory.moreTitle")</p>
+            <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.catalog.a.marketplaceCategory.moreHelp")</p>
+            <div class="mt-3 max-h-52 space-y-4 overflow-y-auto pr-1">
+                @foreach (var group in Groups)
+                {
+                    <div>
+                        <p class="text-xs font-bold text-[#2c2f30]">@group.CategoryName</p>
+                        <div class="mt-2 space-y-2">
+                            @foreach (var sub in group.Subcategories)
+                            {
+                                var isPrimary = _primarySubcategoryId == sub.Id;
+                                <label class="flex cursor-pointer items-start gap-2 text-sm text-[#495051] @(isPrimary ? "opacity-60" : "")">
+                                    <input type="checkbox"
+                                           class="mt-0.5 h-4 w-4 rounded border-[#c8c3bc] text-[#3b6700]"
+                                           disabled="@isPrimary"
+                                           checked="@(isPrimary || SelectedIds.Contains(sub.Id))"
+                                           @onchange="e => OnAdditionalChanged(sub.Id, e.Value is true)" />
+                                    <span>@sub.Name@(isPrimary ? $" {L.T("partner.catalog.a.marketplaceCategory.primaryTag")}" : "")</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else if (Groups.Count > 0)
+    {
+        <button type="button"
+                class="text-xs font-bold text-[#3b6700] underline"
+                @onclick="() => ShowAdditionalCategories = true">
+            @L.T("partner.catalog.a.marketplaceCategory.moreAction")
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<CommerceCategoryGroup> Groups { get; set; } = Array.Empty<CommerceCategoryGroup>();
+    [Parameter] public HashSet<Guid> SelectedIds { get; set; } = new();
+    [Parameter] public EventCallback<HashSet<Guid>> SelectedIdsChanged { get; set; }
+    [Parameter] public string? CompanyCategoryHint { get; set; }
+    [Parameter] public string InputClass { get; set; } = "mt-2 w-full rounded-xl border border-[#dbe6e2] px-4 py-3 text-sm";
+
+    private Guid? _primarySubcategoryId;
+    private bool ShowAdditionalCategories;
+
+    private string? PrimarySelectionLabel
+    {
+        get
+        {
+            if (_primarySubcategoryId is not Guid id)
+            {
+                return null;
+            }
+
+            foreach (var group in Groups)
+            {
+                var sub = group.Subcategories.FirstOrDefault(x => x.Id == id);
+                if (sub is not null)
+                {
+                    return $"{group.CategoryName} · {sub.Name}";
+                }
+            }
+
+            return null;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_primarySubcategoryId is Guid current && SelectedIds.Contains(current))
+        {
+            return;
+        }
+
+        _primarySubcategoryId = SelectedIds.Count > 0 ? SelectedIds.First() : null;
+    }
+
+    private async Task OnPrimaryChanged(ChangeEventArgs e)
+    {
+        _primarySubcategoryId = Guid.TryParse(e.Value?.ToString(), out var id) && id != Guid.Empty ? id : null;
+        SelectedIds.Clear();
+        if (_primarySubcategoryId is Guid primary)
+        {
+            SelectedIds.Add(primary);
+        }
+
+        await SelectedIdsChanged.InvokeAsync(SelectedIds);
+    }
+
+    private async Task OnAdditionalChanged(Guid subcategoryId, bool selected)
+    {
+        if (_primarySubcategoryId == subcategoryId)
+        {
+            return;
+        }
+
+        if (selected)
+        {
+            SelectedIds.Add(subcategoryId);
+        }
+        else
+        {
+            SelectedIds.Remove(subcategoryId);
+        }
+
+        await SelectedIdsChanged.InvokeAsync(SelectedIds);
+    }
+
+    public sealed record CommerceCategoryGroup(
+        Guid CategoryId,
+        string CategoryName,
+        IReadOnlyList<ComunaClick.Shared.Api.Buyer.PublicSubcategoryItem> Subcategories);
+}

@@ -1,0 +1,158 @@
+@using System.Text.Json
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+@if (_visible)
+{
+    <div class="mb-6 rounded-2xl border border-[#009ee3]/30 bg-[#e8f7ff] px-4 py-4 sm:px-5">
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#0066a1]">@L.T("buyer.pendingMp.eyebrow")</p>
+        <p class="mt-1 text-sm font-semibold text-[#2c2f30]">@L.T("buyer.pendingMp.title")</p>
+        <p class="mt-1 text-sm text-[#595c5d]">@L.T("buyer.pendingMp.body")</p>
+        <div class="mt-3 flex flex-wrap gap-2">
+            @if (!string.IsNullOrWhiteSpace(_checkoutUrl))
+            {
+                <a href="@_checkoutUrl" class="inline-flex items-center rounded-xl bg-[#009ee3] px-4 py-2 text-sm font-bold text-white">@L.T("buyer.checkout.mp.pay")</a>
+            }
+            <button type="button" class="inline-flex items-center rounded-xl border border-[#009ee3] px-4 py-2 text-sm font-bold text-[#0066a1] disabled:opacity-60"
+                    disabled="@_busy"
+                    @onclick="() => RefreshCheckoutAsync(silent: false)">
+                @L.T("buyer.pendingMp.refresh")
+            </button>
+            <button type="button" class="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold text-[#595c5d]"
+                    @onclick="DismissAsync">
+                @L.T("buyer.pendingMp.dismiss")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _visible;
+    private bool _busy;
+    private string? _checkoutUrl;
+    private Guid? _orderId;
+    private Guid? _bookingId;
+    private Guid? _customerId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadPendingAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadPendingAsync()
+    {
+        try
+        {
+            var raw = await JSRuntime.InvokeAsync<string>("comunaclic.getPendingMpPayment");
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("createdAt", out var createdProp) &&
+                createdProp.TryGetDateTimeOffset(out var created))
+            {
+                if (created < DateTimeOffset.UtcNow.AddHours(-48))
+                {
+                    await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+                    return;
+                }
+            }
+
+            _orderId = ReadGuid(root, "orderId");
+            _bookingId = ReadGuid(root, "bookingId");
+            _customerId = ReadGuid(root, "customerId");
+            _checkoutUrl = root.TryGetProperty("checkoutUrl", out var url) ? url.GetString() : null;
+
+            if (_customerId is null || (_orderId is null && _bookingId is null))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_checkoutUrl))
+            {
+                await RefreshCheckoutAsync(silent: true);
+            }
+
+            _visible = !string.IsNullOrWhiteSpace(_checkoutUrl) || _orderId is not null;
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private async Task RefreshCheckoutAsync(bool silent = false)
+    {
+        if (_customerId is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var response = await BuyerApi.ResumeMercadoPagoCheckoutAsync(
+                new PublicMercadoPagoCheckoutRequest(_customerId.Value, _orderId, _bookingId));
+
+            if (!string.IsNullOrWhiteSpace(response?.CheckoutUrl))
+            {
+                _checkoutUrl = response.CheckoutUrl;
+                await SavePendingAsync();
+                if (!silent)
+                {
+                    await BuyerApi.SendPaymentReminderAsync(
+                        new PublicPaymentReminderRequest(_customerId.Value, _orderId, _bookingId));
+                }
+            }
+        }
+        finally
+        {
+            _busy = false;
+            _visible = _orderId is not null || _bookingId is not null;
+        }
+    }
+
+    private async Task SavePendingAsync()
+    {
+        var payload = JsonSerializer.Serialize(new Dictionary<string, string?>
+        {
+            ["orderId"] = _orderId?.ToString(),
+            ["bookingId"] = _bookingId?.ToString(),
+            ["customerId"] = _customerId?.ToString(),
+            ["checkoutUrl"] = _checkoutUrl,
+            ["createdAt"] = DateTimeOffset.UtcNow.ToString("O")
+        });
+        await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", payload);
+    }
+
+    private async Task DismissAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+        _visible = false;
+    }
+
+    private static Guid? ReadGuid(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var prop) || prop.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return Guid.TryParse(prop.GetString(), out var id) && id != Guid.Empty ? id : null;
+    }
+
+    public void Dispose()
+    {
+    }
+}

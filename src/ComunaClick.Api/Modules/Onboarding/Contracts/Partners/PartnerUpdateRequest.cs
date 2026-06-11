@@ -10,4 +10,10 @@ public sealed record PartnerUpdateRequest(
     Guid? SubcategoryId,
     double? Latitude,
     double? Longitude,
-    bool? IsVisible);
+    bool? IsVisible,
+    bool? OffersServices,
+    string? BankName = null,
+    string? BankAccountType = null,
+    string? BankAccountNumber = null,
+    string? BankAccountHolder = null,
+    string? BankAccountHolderRut = null);

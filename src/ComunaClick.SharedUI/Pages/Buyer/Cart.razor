@@ -1,0 +1,175 @@
+@page "/buyer/cart"
+@layout BuyerLayout
+@using System.Text.Json
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@L.T("buyer.cart.title")</PageTitle>
+
+@if (_loading)
+{
+    <BrandedLoading Title="@L.T("buyer.cart.title")" Message="@L.T("buyer.cart.loading")" />
+}
+else if (_lines.Count == 0)
+{
+    <section class="rounded-2xl bg-white p-8 text-center space-y-4">
+        <h1 class="text-2xl font-bold">@L.T("buyer.cart.emptyTitle")</h1>
+        <p class="text-sm text-[#595c5d]">@L.T("buyer.cart.emptyBody")</p>
+        <a href="/categorias" class="inline-flex rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">@L.T("buyer.cart.browse")</a>
+    </section>
+}
+else
+{
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h1 class="text-2xl font-bold">@L.T("buyer.cart.heading")</h1>
+            @if (!string.IsNullOrWhiteSpace(_partnerName))
+            {
+                <p class="text-sm text-[#61897c]">@_partnerName</p>
+            }
+            @foreach (var line in _lines)
+            {
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dadddf] p-4">
+                    <div>
+                        <p class="font-bold text-[#2c2f30]">@line.Name</p>
+                        <p class="text-sm text-[#61897c]">@($"{line.UnitPrice:N0} x {line.Quantity}")</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" class="h-10 w-10 rounded-lg border" @onclick="() => ChangeQty(line, -1)">−</button>
+                        <span class="w-8 text-center font-bold">@line.Quantity</span>
+                        <button type="button" class="h-10 w-10 rounded-lg border" @onclick="() => ChangeQty(line, 1)">+</button>
+                        <button type="button" class="text-sm text-red-600 font-bold ml-2" @onclick="() => RemoveLine(line)">@L.T("buyer.cart.remove")</button>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-bold">@L.T("buyer.checkout.summary")</h2>
+            <p class="mt-4 text-2xl font-black">@($"{_total:N0}")</p>
+            <a href="/buyer/checkout?cart=1" class="mt-6 block w-full rounded-2xl bg-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#d9ffad]">@L.T("buyer.cart.checkout")</a>
+            <button type="button" class="mt-3 w-full text-sm text-[#595c5d]" @onclick="ClearCartAsync">@L.T("buyer.cart.clear")</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _tenantId;
+    private string? _partnerId;
+    private string? _partnerName;
+    private string? _currency;
+    private readonly List<GuestCartLine> _lines = new();
+    private double _total;
+
+    private sealed class GuestCartLine
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public double UnitPrice { get; set; }
+        public int MaxAvailable { get; set; } = 99;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadCartAsync();
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadCartAsync()
+    {
+        _lines.Clear();
+        var raw = await JSRuntime.InvokeAsync<string>("comunaclic.getGuestCart");
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            RecalcTotal();
+            return;
+        }
+
+        using var doc = JsonDocument.Parse(raw);
+        var root = doc.RootElement;
+        _tenantId = root.TryGetProperty("tenantId", out var t) ? t.GetString() : null;
+        _partnerId = root.TryGetProperty("partnerId", out var p) ? p.GetString() : null;
+        _partnerName = root.TryGetProperty("partnerName", out var pn) ? pn.GetString() : null;
+        _currency = root.TryGetProperty("currency", out var c) ? c.GetString() : "CLP";
+
+        if (!root.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+        {
+            RecalcTotal();
+            return;
+        }
+
+        foreach (var item in items.EnumerateArray())
+        {
+            _lines.Add(new GuestCartLine
+            {
+                ProductId = item.TryGetProperty("productId", out var pid) ? pid.GetString() ?? string.Empty : string.Empty,
+                Name = item.TryGetProperty("name", out var n) ? n.GetString() ?? "Producto" : "Producto",
+                Quantity = item.TryGetProperty("quantity", out var q) && q.TryGetInt32(out var qi) ? qi : 1,
+                UnitPrice = item.TryGetProperty("unitPrice", out var up) && up.TryGetDouble(out var pd) ? pd : 0,
+                MaxAvailable = item.TryGetProperty("maxAvailable", out var m) && m.TryGetInt32(out var mi) ? mi : 99
+            });
+        }
+
+        RecalcTotal();
+    }
+
+    private async Task SaveCartAsync()
+    {
+        if (_lines.Count == 0 || string.IsNullOrWhiteSpace(_partnerId) || string.IsNullOrWhiteSpace(_tenantId))
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
+            return;
+        }
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            tenantId = _tenantId,
+            partnerId = _partnerId,
+            partnerName = _partnerName,
+            currency = _currency ?? "CLP",
+            items = _lines.Select(x => new
+            {
+                productId = x.ProductId,
+                name = x.Name,
+                quantity = x.Quantity,
+                unitPrice = x.UnitPrice,
+                maxAvailable = x.MaxAvailable
+            })
+        });
+        await JSRuntime.InvokeVoidAsync("comunaclic.setGuestCart", payload);
+    }
+
+    private async Task ChangeQty(GuestCartLine line, int delta)
+    {
+        line.Quantity = Math.Clamp(line.Quantity + delta, 1, line.MaxAvailable > 0 ? line.MaxAvailable : 99);
+        await SaveCartAsync();
+        RecalcTotal();
+    }
+
+    private async Task RemoveLine(GuestCartLine line)
+    {
+        _lines.Remove(line);
+        await SaveCartAsync();
+        RecalcTotal();
+    }
+
+    private async Task ClearCartAsync()
+    {
+        _lines.Clear();
+        await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
+        RecalcTotal();
+    }
+
+    private void RecalcTotal()
+    {
+        _total = _lines.Sum(x => x.UnitPrice * x.Quantity);
+    }
+}

@@ -52,6 +52,48 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<Order>(message, cancellationToken);
     }
 
+    public Task<GuestOrderCreateResponse?> CreateGuestOrderAsync(
+        GuestOrderCreateRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<GuestOrderCreateResponse>("/v1/public/orders/guest", request, cancellationToken);
+
+    public Task<GuestBookingCreateResponse?> CreateGuestBookingAsync(
+        GuestBookingCreateRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<GuestBookingCreateResponse>("/v1/public/bookings/guest", request, cancellationToken);
+
+    public Task<PublicPartnerPaymentStatusResponse?> GetPartnerPaymentStatusAsync(
+        Guid partnerId,
+        CancellationToken cancellationToken = default)
+        => GetAsync<PublicPartnerPaymentStatusResponse>($"/v1/public/checkout/partners/{partnerId}/payment-status", cancellationToken);
+
+    public Task<PublicMercadoPagoCheckoutResponse?> CreateMercadoPagoCheckoutAsync(
+        PublicMercadoPagoCheckoutRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<PublicMercadoPagoCheckoutResponse>("/v1/public/checkout/mercadopago", request, cancellationToken);
+
+    public Task<PublicMercadoPagoCheckoutResponse?> ResumeMercadoPagoCheckoutAsync(
+        PublicMercadoPagoCheckoutRequest request,
+        CancellationToken cancellationToken = default)
+        => PostAsync<PublicMercadoPagoCheckoutResponse>("/v1/public/checkout/mercadopago/resume", request, cancellationToken);
+
+    public Task SendPaymentReminderAsync(
+        PublicPaymentReminderRequest request,
+        CancellationToken cancellationToken = default)
+        => PostNoContentAsync("/v1/public/checkout/payment-reminder", request, cancellationToken);
+
+    public Task<IReadOnlyList<PublicServiceSlot>?> GetPublicServiceSlotsAsync(
+        Guid serviceId,
+        int days = 14,
+        CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PublicServiceSlot>>($"/v1/public/services/{serviceId}/slots?days={days}", cancellationToken);
+
+    public Task<Customer?> LinkGuestCustomerAsync(
+        Guid customerId,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+        => PostAsync<Customer>("/v1/buyer/customer/link-guest", new LinkGuestCustomerRequest(customerId, tenantId), cancellationToken);
+
     public Task<CartSnapshot?> GetCartAsync(CancellationToken cancellationToken = default)
         => GetAsync<CartSnapshot>("/v1/cart", cancellationToken);
 
@@ -87,6 +129,27 @@ public sealed class BuyerApiClient : ApiClientBase
 
     public Task<Lead?> CreateLeadAsync(LeadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Lead>("/v1/leads", request, cancellationToken);
+
+    public Task<IReadOnlyList<InboxThreadListItem>?> GetMyInboxThreadsAsync(string folder = "inbox", CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<InboxThreadListItem>>($"/v1/inbox/threads/mine?folder={Uri.EscapeDataString(folder)}", cancellationToken);
+
+    public Task<IReadOnlyList<InboxThreadListItem>?> GetProfessionalInboxThreadsAsync(string folder = "inbox", CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<InboxThreadListItem>>($"/v1/inbox/threads/as-professional?folder={Uri.EscapeDataString(folder)}", cancellationToken);
+
+    public Task<InboxThreadDetailResponse?> GetInboxThreadAsync(Guid threadId, CancellationToken cancellationToken = default)
+        => GetAsync<InboxThreadDetailResponse>($"/v1/inbox/threads/{threadId}", cancellationToken);
+
+    public Task<InboxThreadCreateResult?> CreateInboxThreadAsync(InboxThreadCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<InboxThreadCreateResult>("/v1/inbox/threads", request, cancellationToken);
+
+    public Task<InboxMessageItem?> ReplyInboxThreadAsync(Guid threadId, string body, CancellationToken cancellationToken = default)
+        => PostAsync<InboxMessageItem>($"/v1/inbox/threads/{threadId}/messages", new InboxMessageCreateRequest(body), cancellationToken);
+
+    public Task MarkInboxThreadReadAsync(Guid threadId, CancellationToken cancellationToken = default)
+        => SendAsync(new HttpRequestMessage(HttpMethod.Patch, $"/v1/inbox/threads/{threadId}/read"), cancellationToken);
+
+    public Task UpdateInboxThreadStatusAsync(Guid threadId, string status, CancellationToken cancellationToken = default)
+        => PatchAsync<object>($"/v1/inbox/threads/{threadId}/status", new InboxThreadStatusRequest(status), cancellationToken);
 
     public Task<Customer?> EnsureBuyerCustomerAsync(Guid? tenantId, CancellationToken cancellationToken = default)
     {
@@ -223,6 +286,122 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
     }
 
+    public async Task<BuyerProfessionalProfile?> UploadBuyerProfessionalBannerAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(streamContent, "file", fileName);
+        var path = "/v1/buyer/professional-profile/banner";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = multipart };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public Task<BuyerProfessionalProfile?> RemoveBuyerProfessionalBannerAsync(
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/banner";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> AddBuyerProfessionalCertificationAsync(
+        BuyerAddCertificationRequest request,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/certifications";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(request) };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> RemoveBuyerProfessionalCertificationAsync(
+        string certId,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/buyer/professional-profile/certifications/{certId}";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> UploadBuyerProfessionalPhotoAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(streamContent, "file", fileName);
+        var path = "/v1/buyer/professional-profile/photo";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = multipart };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<ProfessionalFollowItem>?> GetProfessionalFollowsAsync(Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/follows";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        return GetAsync<IReadOnlyList<ProfessionalFollowItem>>(path, cancellationToken);
+    }
+
+    public async Task<bool> FollowProfessionalEntityAsync(string followedType, Guid followedId, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/follows";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(new { followedType, followedId })
+        };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        var result = await SendAsync<FollowStatusResponse>(message, cancellationToken);
+        return result?.IsFollowing ?? false;
+    }
+
+    public async Task<bool> UnfollowProfessionalEntityAsync(string followedType, Guid followedId, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/buyer/professional-profile/follows/{followedType}/{followedId}";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        var result = await SendAsync<FollowStatusResponse>(message, cancellationToken);
+        return result?.IsFollowing ?? false;
+    }
+
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
@@ -289,12 +468,17 @@ public sealed class BuyerApiClient : ApiClientBase
         double longitude,
         int? limit = null,
         string? subcode = null,
+        double? maxDistanceKm = null,
         CancellationToken cancellationToken = default)
     {
         var path = $"/v1/public/catalog/discovery/{Uri.EscapeDataString(categoryCode)}/nearby?latitude={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&longitude={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&limit={(limit ?? 24)}";
         if (!string.IsNullOrWhiteSpace(subcode))
         {
             path += $"&subcode={Uri.EscapeDataString(subcode)}";
+        }
+        if (maxDistanceKm is > 0)
+        {
+            path += $"&maxDistanceKm={maxDistanceKm.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
         }
         return GetAsync<CategoryNearbyResponse>(path, cancellationToken);
     }
@@ -345,15 +529,31 @@ public sealed class BuyerApiClient : ApiClientBase
             parts.Add($"comunaId={comunaId}");
         }
 
+        if (geo?.HasCoordinates == true)
+        {
+            parts.Add($"latitude={geo.Latitude!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            parts.Add($"longitude={geo.Longitude!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            var radius = geo.RadiusKm ?? 30;
+            parts.Add($"radiusKm={radius.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+
         return $"{basePath}?{string.Join("&", parts)}";
     }
 }
 
 public sealed record GeoFilter(
-    Guid? CountryId,
-    Guid? RegionId,
-    Guid? ComunaId
-);
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    double? RadiusKm = null)
+{
+    public bool HasCoordinates =>
+        Latitude is double lat && Longitude is double lng
+        && lat is >= -90 and <= 90
+        && lng is >= -180 and <= 180;
+}
 
 public sealed record SearchResultItem(
     string? Type,
@@ -364,8 +564,13 @@ public sealed record SearchResultItem(
     double? Price,
     string? Currency,
     string? CtaLabel,
-    string? CtaHref
-);
+    string? CtaHref,
+    double? DistanceKm = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    string? LogoUrl = null,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null);
 
 public sealed record Order(
     Guid Id,
@@ -441,6 +646,74 @@ public sealed record OrderCreateRequest(
     Guid? DeliveryProviderId = null,
     string? DeliveryAddress = null
 );
+
+public sealed record GuestContactRequest(
+    string FullName,
+    string Email,
+    string? Phone);
+
+public sealed record GuestOrderCreateRequest(
+    Guid TenantId,
+    Guid PartnerId,
+    IReadOnlyList<OrderItemCreateRequest> Items,
+    GuestContactRequest Guest,
+    double DeliveryFee = 0,
+    string? Currency = null,
+    string? DeliveryAddress = null);
+
+public sealed record GuestOrderCreateResponse(
+    Guid OrderId,
+    Guid CustomerId,
+    string? Status,
+    double TotalAmount,
+    string? Currency);
+
+public sealed record GuestBookingCreateRequest(
+    Guid TenantId,
+    Guid ServiceId,
+    Guid? SlotId,
+    GuestContactRequest Guest,
+    DateTimeOffset StartAt,
+    DateTimeOffset EndAt,
+    string? Currency = null,
+    string? CancellationPolicy = null);
+
+public sealed record GuestBookingCreateResponse(
+    Guid BookingId,
+    Guid CustomerId,
+    string? Status,
+    double Amount,
+    string? Currency);
+
+public sealed record PublicPartnerPaymentStatusResponse(
+    Guid PartnerId,
+    bool MercadoPagoReady);
+
+public sealed record PublicMercadoPagoCheckoutRequest(
+    Guid CustomerId,
+    Guid? OrderId,
+    Guid? BookingId);
+
+public sealed record PublicMercadoPagoCheckoutResponse(
+    bool Available,
+    string? CheckoutUrl,
+    Guid? PaymentId,
+    string? Message);
+
+public sealed record PublicPaymentReminderRequest(
+    Guid CustomerId,
+    Guid? OrderId,
+    Guid? BookingId);
+
+public sealed record LinkGuestCustomerRequest(
+    Guid CustomerId,
+    Guid? TenantId);
+
+public sealed record PublicServiceSlot(
+    Guid Id,
+    DateTimeOffset StartAt,
+    DateTimeOffset EndAt,
+    int Capacity);
 
 public sealed record CartItemUpsertRequest(
     Guid ProductId,
@@ -621,7 +894,20 @@ public sealed record BuyerProfessionalProfile(
     string? Specialty,
     string? Bio,
     bool IsVerified,
-    bool IsActive);
+    bool IsActive,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null,
+    string? BannerUrl = null,
+    string? ProfilePhotoUrl = null,
+    long ProfileViewCount = 0,
+    string? CertificationsJson = null);
 
 public sealed record BuyerProfessionalProfileUpsertRequest(
     Guid? TenantId,
@@ -629,7 +915,16 @@ public sealed record BuyerProfessionalProfileUpsertRequest(
     string? Phone,
     string? Specialty,
     string? Bio,
-    bool? Activate);
+    bool? Activate,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null);
 
 public sealed record BuyerFavoriteCreateRequest(
     string Type,
@@ -660,11 +955,20 @@ public sealed record Product(
     string? Name,
     string? Description,
     string? Category,
+    Guid? PartnerCatalogCategoryId,
+    string? CatalogCategoryName,
+    string? ImageUrl,
     double Price,
     string? Currency,
     bool IsActive,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    bool InStock = true,
+    int? StockQuantity = null,
+    int? AvailableQuantity = null,
+    IReadOnlyList<string>? ImageUrls = null,
+    string? PartnerName = null,
+    string? PartnerLogoUrl = null
 );
 
 public sealed record Service(
@@ -679,8 +983,19 @@ public sealed record Service(
     int DurationMinutes,
     bool IsActive,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    bool IsBookable = false,
+    bool RequiresOnlinePayment = false,
+    string? ImageUrl = null,
+    string? ServiceAddress = null,
+    string? PartnerAddress = null,
+    IReadOnlyList<string>? ImageUrls = null,
+    IReadOnlyList<BuyerServiceImageInfo>? Images = null,
+    string? PartnerName = null,
+    string? PartnerLogoUrl = null
 );
+
+public sealed record BuyerServiceImageInfo(Guid Id, string Url, int SortOrder);
 
 public sealed record Partner(
     Guid Id,
@@ -706,8 +1021,50 @@ public sealed record Professional(
     string? Bio,
     bool IsVerified,
     bool IsActive,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? BannerUrl = null,
+    string? ProfileHeadline = null,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null,
+    string? ProfilePhotoUrl = null,
+    long ProfileViewCount = 0,
+    string? CertificationsJson = null,
+    long FollowerCount = 0
 );
+
+public sealed record ProfessionalCertification(
+    string Id,
+    string Name,
+    string? Institution = null,
+    int? Year = null,
+    string? Url = null
+);
+
+public sealed record BuyerAddCertificationRequest(
+    string Name,
+    string? Institution = null,
+    int? Year = null,
+    string? Url = null
+);
+
+public sealed record ProfessionalFollowItem(
+    Guid FollowId,
+    string FollowedType,
+    Guid FollowedId,
+    string? Name,
+    string? Subtitle,
+    string? PhotoUrl,
+    DateTimeOffset FollowedAt
+);
+
+public sealed record FollowStatusResponse(bool IsFollowing);
 
 public sealed record PublicCountryItem(
     Guid Id,
@@ -776,6 +1133,55 @@ public sealed record PublicSubcategoryItem(
     string Name
 );
 
+public sealed record InboxThreadCreateRequest(
+    Guid? TenantId,
+    Guid? PartnerId,
+    Guid? ProfessionalId,
+    string Subject,
+    string Body);
+
+public sealed record InboxMessageCreateRequest(string Body);
+
+public sealed record InboxThreadStatusRequest(string Status);
+
+public sealed record InboxThreadCreateResult(Guid ThreadId, bool Reused);
+
+public sealed record InboxThreadListItem(
+    Guid Id,
+    string? Subject,
+    string? Status,
+    DateTimeOffset LastMessageAt,
+    string? Preview,
+    bool Unread,
+    string? CounterpartyName,
+    string? CounterpartySubtitle,
+    Guid? PartnerId,
+    Guid? ProfessionalId);
+
+public sealed record InboxThreadDetail(
+    Guid Id,
+    string? Subject,
+    string? Status,
+    DateTimeOffset LastMessageAt,
+    string? CounterpartyName,
+    string? CounterpartySubtitle,
+    string? CustomerName,
+    Guid? PartnerId,
+    Guid? ProfessionalId,
+    string? CustomerPhone = null,
+    string? PartnerPhone = null,
+    string? ProfessionalPhone = null);
+
+public sealed record InboxThreadDetailResponse(
+    InboxThreadDetail? Thread,
+    IReadOnlyList<InboxMessageItem>? Messages);
+
+public sealed record InboxMessageItem(
+    Guid Id,
+    string? SenderRole,
+    string? Body,
+    DateTimeOffset CreatedAt);
+
 public sealed record CategoryDiscoveryResponse(
     PublicCategoryItem Category,
     IReadOnlyList<PublicSubcategoryItem>? Subcategories,
@@ -812,7 +1218,8 @@ public sealed record CategoryProfessionalItem(
     string? Specialty,
     string? Bio,
     string? Email,
-    string? Phone
+    string? Phone,
+    string? ProfilePhotoUrl = null
 );
 
 public sealed record CategoryNearbyResponse(
@@ -833,6 +1240,7 @@ public sealed record CategoryNearbyBusinessItem(
     string? Address,
     string? Phone,
     string? Email,
+    string? LogoUrl,
     string? CategoryName,
     string? SubcategoryName,
     Guid? ComunaId,
@@ -861,7 +1269,23 @@ public sealed record PartnerProfileSummary(
     string? SubcategoryName,
     string? OfferLabel,
     /// <summary>Código de categoría (misma clave que en <c>/categorias/{slug}</c>).</summary>
-    string? CategoryCode = null
+    string? CategoryCode = null,
+    string? BannerUrl = null,
+    string? LogoUrl = null,
+    string? StorefrontTagline = null,
+    string? StorefrontAbout = null,
+    string? StorefrontHighlight1 = null,
+    string? StorefrontHighlight2 = null,
+    string? StorefrontHighlight3 = null,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null
 );
 
 public sealed record PartnerProfileProduct(
@@ -870,7 +1294,9 @@ public sealed record PartnerProfileProduct(
     string? Description,
     string? Category,
     double Price,
-    string? Currency
+    string? Currency,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null
 );
 
 public sealed record PartnerProfileService(
@@ -880,7 +1306,12 @@ public sealed record PartnerProfileService(
     string? Category,
     double Price,
     string? Currency,
-    int DurationMinutes
+    int DurationMinutes,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null,
+    string? ServiceAddress = null,
+    bool IsBookable = false,
+    bool RequiresOnlinePayment = false
 );
 
 public sealed record PartnerProfileProfessional(
@@ -889,7 +1320,18 @@ public sealed record PartnerProfileProfessional(
     string? Specialty,
     string? Bio,
     string? Email,
-    string? Phone
+    string? Phone,
+    string? BannerUrl = null,
+    string? ProfileHeadline = null,
+    string? WebsiteUrl = null,
+    string? InstagramUrl = null,
+    string? FacebookUrl = null,
+    string? LinkedInUrl = null,
+    string? XUrl = null,
+    string? TikTokUrl = null,
+    string? YouTubeUrl = null,
+    string? OtherLinkLabel = null,
+    string? OtherLinkUrl = null
 );
 
 public sealed class SupportTicketRequest

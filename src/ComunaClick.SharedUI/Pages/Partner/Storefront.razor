@@ -1,0 +1,517 @@
+@page "/partner/storefront"
+@layout PartnerLayout
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject LocaleService L
+@inject AuthStateService AuthState
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>@L.T("partner.storefront.title")</PageTitle>
+
+<div class="mx-auto max-w-6xl space-y-8">
+    <header class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="max-w-2xl">
+            <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7b8081]">@L.T("partner.storefront.badge")</p>
+            <h1 class="mt-2 text-3xl font-black tracking-[-0.04em] text-[#2c2f30] sm:text-4xl">@L.T("partner.storefront.heading")</h1>
+            <p class="mt-2 text-sm leading-relaxed text-[#595c5d]">@L.T("partner.storefront.subtitle")</p>
+            @if (_partner is not null)
+            {
+                <p class="mt-3 inline-flex items-center gap-2 rounded-full bg-[#eff8e0] px-3 py-1.5 text-xs font-bold text-[#3b6700]">
+                    <span class="material-symbols-outlined text-[16px]">storefront</span>
+                    @_partner.Name
+                </p>
+            }
+        </div>
+        @if (_partnerId.HasValue)
+        {
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="rounded-2xl border border-[#dadddf] bg-white px-4 py-3 text-center min-w-[88px]">
+                    <p class="text-2xl font-black text-[#3b6700]">@CompletionPercent%</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-[#7b8081]">@L.T("partner.storefront.score.short")</p>
+                </div>
+                <a href="@PublicPreviewHref" target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad] shadow-[0_12px_28px_-16px_rgba(59,103,0,0.6)] hover:bg-[#335900]">
+                    <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                    @L.T("partner.storefront.preview")
+                </a>
+            </div>
+        }
+    </header>
+
+    @if (_isLoading)
+    {
+        <BrandedLoading Title="@L.T("ui.loading")" Message="@L.T("partner.storefront.loading")" Compact="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <StatusBanner Level="error" Message="@_error" />
+    }
+    else if (_settings is not null && _partnerId.HasValue)
+    {
+        @if (!string.IsNullOrWhiteSpace(_status))
+        {
+            <StatusBanner Level="@(_statusOk ? "success" : "error")" Message="@_status" />
+        }
+
+        <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
+            <div class="space-y-6">
+                <article class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <div class="flex items-start gap-4">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eff8e0] text-[#3b6700]">
+                            <span class="material-symbols-outlined text-[24px]">badge</span>
+                        </span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("partner.storefront.step") 1</p>
+                            <h2 class="mt-1 text-lg font-black text-[#2c2f30]">@L.T("partner.storefront.section.logo")</h2>
+                            <p class="mt-1 text-sm text-[#595c5d]">@L.T("partner.storefront.section.logo.help")</p>
+                        </div>
+                    </div>
+                    <div class="mt-5">
+                        <StorefrontLogoUpload PartnerId="@_partnerId.Value"
+                                              PartnerName="@_partner?.Name"
+                                              LogoUrl="@_logoUrl"
+                                              LogoUrlChanged="OnLogoChanged" />
+                    </div>
+                </article>
+
+                <article class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <div class="flex items-start gap-4">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eff8e0] text-[#3b6700]">
+                            <span class="material-symbols-outlined text-[24px]">panorama</span>
+                        </span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("partner.storefront.step") 2</p>
+                            <h2 class="mt-1 text-lg font-black text-[#2c2f30]">@L.T("partner.storefront.section.banner")</h2>
+                            <p class="mt-1 text-sm text-[#595c5d]">@L.T("partner.storefront.section.banner.help")</p>
+                        </div>
+                    </div>
+                    <div class="mt-5">
+                        <StorefrontBannerUpload PartnerId="@_partnerId.Value"
+                                              BannerUrl="@_bannerUrl"
+                                              BannerUrlChanged="OnBannerChanged" />
+                    </div>
+                </article>
+
+                <EditForm Model="_form" OnValidSubmit="SaveAsync" class="space-y-6">
+                    <article class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+                        <div class="flex items-start gap-4">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eff8e0] text-[#3b6700]">
+                                <span class="material-symbols-outlined text-[24px]">edit_note</span>
+                            </span>
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("partner.storefront.step") 3</p>
+                                <h2 class="mt-1 text-lg font-black text-[#2c2f30]">@L.T("partner.storefront.section.copy")</h2>
+                                <p class="mt-1 text-sm text-[#595c5d]">@L.T("partner.storefront.section.copy.help")</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between gap-2">
+                                <label class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.storefront.tagline")</label>
+                                <span class="text-xs text-[#7b8081]">@TaglineLength/120</span>
+                            </div>
+                            <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm focus:border-[#3b6700] focus:ring-1 focus:ring-[#3b6700]/30"
+                                   @bind="_form.Tagline" maxlength="120" placeholder="@L.T("partner.storefront.tagline.placeholder")" />
+                            <p class="mt-1.5 text-xs text-[#595c5d]">@L.T("partner.storefront.tagline.hint")</p>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                @foreach (var suggestion in TaglineSuggestions)
+                                {
+                                    <button type="button"
+                                            class="rounded-full border border-[#dbe6e2] bg-[#f8faf8] px-3 py-1 text-xs font-semibold text-[#3b6700] hover:bg-[#eff8e0]"
+                                            @onclick="() => ApplyTaglineSuggestion(suggestion)">
+                                        @suggestion
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between gap-2">
+                                <label class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.storefront.about")</label>
+                                <span class="text-xs @AboutLengthClass">@AboutLength/2000</span>
+                            </div>
+                            <textarea class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm min-h-[140px] focus:border-[#3b6700] focus:ring-1 focus:ring-[#3b6700]/30"
+                                      @bind="_form.About" maxlength="2000" placeholder="@L.T("partner.storefront.about.placeholder")"></textarea>
+                            <p class="mt-1.5 text-xs text-[#595c5d]">@L.T("partner.storefront.about.hint")</p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.storefront.highlights.title")</p>
+                            <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.storefront.highlights.help")</p>
+                            <div class="mt-3 grid gap-3 sm:grid-cols-1">
+                                @for (var i = 0; i < 3; i++)
+                                {
+                                    var idx = i;
+                                    <div>
+                                        <label class="text-xs font-bold text-[#7b8081]">@L.T("partner.storefront.highlight") @(idx + 1)</label>
+                                        <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-2.5 text-sm"
+                                               value="@GetHighlight(idx)"
+                                               @onchange="e => SetHighlight(idx, e.Value?.ToString())"
+                                               maxlength="80"
+                                               placeholder="@GetHighlightPlaceholder(idx)" />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-3 border-t border-[#eceae6] pt-5">
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-6 py-3 text-sm font-bold text-[#d9ffad] disabled:opacity-60" disabled="@_saving">
+                                <span class="material-symbols-outlined text-[18px]">save</span>
+                                @(_saving ? L.T("partner.storefront.saving") : L.T("partner.storefront.save"))
+                            </button>
+                            <p class="text-xs text-[#7b8081]">@L.T("partner.storefront.saveNote")</p>
+                        </div>
+                    </article>
+                </EditForm>
+
+                @if (IsProfessionalPartner && _professionals.Count > 0)
+                {
+                    <article class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
+                        <div class="flex items-start gap-4">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eff8e0] text-[#3b6700]">
+                                <span class="material-symbols-outlined text-[24px]">groups</span>
+                            </span>
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("partner.storefront.step") 3</p>
+                                <h2 class="text-lg font-black text-[#2c2f30]">@L.T("partner.storefront.section.professionals")</h2>
+                                <p class="mt-1 text-sm text-[#595c5d]">@L.T("partner.storefront.section.professionals.help")</p>
+                            </div>
+                        </div>
+                        @foreach (var pro in _professionals)
+                        {
+                            <div class="rounded-2xl border border-[#e8eaec] bg-[#fafaf8] p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <p class="font-bold text-[#2c2f30]">@pro.Name</p>
+                                        @if (!string.IsNullOrWhiteSpace(pro.Specialty))
+                                        {
+                                            <p class="text-xs text-[#595c5d]">@pro.Specialty</p>
+                                        }
+                                    </div>
+                                    <button type="button" class="text-sm font-bold text-[#3b6700]" @onclick="() => SelectProfessional(pro.Id)">
+                                        @( _selectedProfessionalId == pro.Id ? L.T("partner.storefront.pro.hide") : L.T("partner.storefront.pro.edit") )
+                                    </button>
+                                </div>
+                                @if (_selectedProfessionalId == pro.Id && _proForms.TryGetValue(pro.Id, out var pf))
+                                {
+                                    <div class="mt-4 space-y-4 border-t border-[#e8eaec] pt-4">
+                                        <StorefrontBannerUpload PartnerId="@_partnerId.Value"
+                                                              ProfessionalId="@pro.Id"
+                                                              BannerUrl="@_proBanners.GetValueOrDefault(pro.Id)"
+                                                              BannerUrlChanged="url => OnProBannerChanged(pro.Id, url)" />
+                                        <div>
+                                            <label class="text-sm font-semibold">@L.T("partner.storefront.pro.headline")</label>
+                                            <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-2 text-sm" @bind="pf.Headline" maxlength="120" />
+                                        </div>
+                                        <div>
+                                            <label class="text-sm font-semibold">@L.T("partner.storefront.pro.bio")</label>
+                                            <textarea class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-2 text-sm min-h-[80px]" @bind="pf.Bio" maxlength="1500"></textarea>
+                                        </div>
+                                        <button type="button" class="inline-flex items-center gap-2 rounded-xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad]" disabled="@(_savingProId == pro.Id)" @onclick="() => SaveProfessionalAsync(pro.Id)">
+                                            @L.T("partner.storefront.save")
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </article>
+                }
+            </div>
+
+            <PartnerStorefrontCoachPanel PartnerName="@_partner?.Name"
+                                         BannerUrl="@_bannerUrl"
+                                         Tagline="@_form.Tagline"
+                                         About="@_form.About"
+                                         HighlightCount="@HighlightCount"
+                                         HasContactInfo="@HasContactInfo"
+                                         ActiveServiceCount="@_activeServiceCount"
+                                         IsVisible="@(_partner?.IsVisible ?? false)"
+                                         ShowTeamLink="@IsServicePartner"
+                                         PublicPreviewHref="@PublicPreviewHref" />
+        </div>
+    }
+</div>
+
+@code {
+    private Guid? _partnerId;
+    private PartnerApiModels.PartnerDto? _partner;
+    private PartnerApiModels.PartnerStorefrontSettings? _settings;
+    private string? _bannerUrl;
+    private string? _logoUrl;
+    private int _activeServiceCount;
+    private bool _isLoading = true;
+    private bool _saving;
+    private Guid? _savingProId;
+    private string? _error;
+    private string? _status;
+    private bool _statusOk;
+    private readonly StorefrontForm _form = new();
+    private readonly List<PartnerApiModels.Professional> _professionals = new();
+    private Guid? _selectedProfessionalId;
+    private readonly Dictionary<Guid, ProForm> _proForms = new();
+    private readonly Dictionary<Guid, string?> _proBanners = new();
+
+    private bool IsProfessionalPartner => string.Equals(_partnerType, "C", StringComparison.OrdinalIgnoreCase);
+    private bool IsServicePartner => string.Equals(_partnerType, "B", StringComparison.OrdinalIgnoreCase);
+    private string? _partnerType;
+
+    private string PublicPreviewHref => _partnerId.HasValue ? $"/buyer/detail/partner/{_partnerId}" : "/";
+
+    private int TaglineLength => _form.Tagline?.Length ?? 0;
+    private int AboutLength => _form.About?.Length ?? 0;
+    private string AboutLengthClass => AboutLength >= 80 ? "text-[#3b6700] font-semibold" : "text-[#7b8081]";
+
+    private int HighlightCount => new[] { _form.Highlight1, _form.Highlight2, _form.Highlight3 }
+        .Count(x => !string.IsNullOrWhiteSpace(x));
+
+    private bool HasContactInfo =>
+        !string.IsNullOrWhiteSpace(_partner?.Phone)
+        && (!string.IsNullOrWhiteSpace(_partner?.Address) || !string.IsNullOrWhiteSpace(_partner?.Email));
+
+    private int CompletionPercent
+    {
+        get
+        {
+            var checks = new[]
+            {
+                !string.IsNullOrWhiteSpace(_logoUrl),
+                !string.IsNullOrWhiteSpace(_bannerUrl),
+                TaglineLength >= 10,
+                AboutLength >= 80,
+                HighlightCount >= 1,
+                HasContactInfo,
+                _activeServiceCount >= 1,
+                _partner?.IsVisible == true
+            };
+            return (int)Math.Round(100.0 * checks.Count(x => x) / checks.Length);
+        }
+    }
+
+    private IReadOnlyList<string> TaglineSuggestions => IsServicePartner
+        ? new[] { L.T("partner.storefront.suggest.b1"), L.T("partner.storefront.suggest.b2"), L.T("partner.storefront.suggest.b3") }
+        : new[] { L.T("partner.storefront.suggest.a1"), L.T("partner.storefront.suggest.a2"), L.T("partner.storefront.suggest.a3") };
+
+    protected override void OnInitialized() => L.OnChange += HandleLocaleChange;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await AuthState.InitializeAsync();
+        _partnerId = AuthState.PartnerId;
+        if (!_partnerId.HasValue)
+        {
+            _error = L.T("partner.storefront.noPartner");
+            _isLoading = false;
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _partner = await PartnerApi.GetPartnerAsync(_partnerId!.Value);
+            _partnerType = _partner?.Type;
+
+            _settings = await PartnerApi.GetPartnerStorefrontAsync(_partnerId.Value);
+            if (_settings is null)
+            {
+                _error = L.T("partner.storefront.loadFailed");
+                return;
+            }
+
+            ApplySettings(_settings);
+
+            if (string.Equals(_partnerType, "A", StringComparison.OrdinalIgnoreCase))
+            {
+                var products = await PartnerApi.GetPartnerProductsAsync(_partnerId.Value);
+                _activeServiceCount = products?.Count(x => x.IsActive) ?? 0;
+            }
+            else
+            {
+                var services = await PartnerApi.GetPartnerServicesAsync(_partnerId.Value);
+                _activeServiceCount = services?.Count(x => x.IsActive) ?? 0;
+            }
+
+            if (IsProfessionalPartner)
+            {
+                var list = await PartnerApi.GetPartnerProfessionalsAsync(_partnerId.Value);
+                _professionals.Clear();
+                if (list is not null)
+                {
+                    _professionals.AddRange(list);
+                }
+
+                foreach (var pro in _professionals)
+                {
+                    var ps = await PartnerApi.GetProfessionalStorefrontAsync(pro.Id);
+                    if (ps is not null)
+                    {
+                        _proForms[pro.Id] = new ProForm { Headline = ps.ProfileHeadline, Bio = ps.Bio };
+                        _proBanners[pro.Id] = ps.BannerUrl;
+                    }
+                    else
+                    {
+                        _proForms[pro.Id] = new ProForm { Headline = pro.Specialty, Bio = pro.Bio };
+                    }
+                }
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = L.T("partner.storefront.loadFailed");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Task OnLogoChanged(string? url)
+    {
+        _logoUrl = url;
+        return Task.CompletedTask;
+    }
+
+    private void ApplySettings(PartnerApiModels.PartnerStorefrontSettings settings)
+    {
+        _bannerUrl = settings.BannerUrl;
+        _logoUrl = settings.LogoUrl;
+        _form.Tagline = settings.StorefrontTagline;
+        _form.About = settings.StorefrontAbout;
+        _form.Highlight1 = settings.StorefrontHighlight1;
+        _form.Highlight2 = settings.StorefrontHighlight2;
+        _form.Highlight3 = settings.StorefrontHighlight3;
+    }
+
+    private string? GetHighlight(int index) => index switch
+    {
+        0 => _form.Highlight1,
+        1 => _form.Highlight2,
+        _ => _form.Highlight3
+    };
+
+    private void SetHighlight(int index, string? value)
+    {
+        switch (index)
+        {
+            case 0: _form.Highlight1 = value; break;
+            case 1: _form.Highlight2 = value; break;
+            default: _form.Highlight3 = value; break;
+        }
+    }
+
+    private string GetHighlightPlaceholder(int index) => index switch
+    {
+        0 => L.T("partner.storefront.highlight.ph1"),
+        1 => L.T("partner.storefront.highlight.ph2"),
+        _ => L.T("partner.storefront.highlight.ph3")
+    };
+
+    private void ApplyTaglineSuggestion(string text) => _form.Tagline = text;
+
+    private Task OnBannerChanged(string? url)
+    {
+        _bannerUrl = url;
+        return Task.CompletedTask;
+    }
+
+    private Task OnProBannerChanged(Guid proId, string? url)
+    {
+        _proBanners[proId] = url;
+        return Task.CompletedTask;
+    }
+
+    private void SelectProfessional(Guid id)
+        => _selectedProfessionalId = _selectedProfessionalId == id ? null : id;
+
+    private async Task SaveAsync()
+    {
+        if (!_partnerId.HasValue)
+        {
+            return;
+        }
+
+        _saving = true;
+        _status = null;
+        try
+        {
+            var updated = await PartnerApi.UpdatePartnerStorefrontAsync(_partnerId.Value, new PartnerApiModels.PartnerStorefrontUpdateRequest(
+                NullIfEmpty(_form.Tagline),
+                NullIfEmpty(_form.About),
+                NullIfEmpty(_form.Highlight1),
+                NullIfEmpty(_form.Highlight2),
+                NullIfEmpty(_form.Highlight3),
+                null,
+                null));
+            if (updated is not null)
+            {
+                ApplySettings(updated);
+                _status = L.T("partner.storefront.saved");
+                _statusOk = true;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _status = L.T("partner.storefront.saveFailed");
+            _statusOk = false;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SaveProfessionalAsync(Guid proId)
+    {
+        if (!_proForms.TryGetValue(proId, out var pf))
+        {
+            return;
+        }
+
+        _savingProId = proId;
+        try
+        {
+            await PartnerApi.UpdateProfessionalStorefrontAsync(proId, new PartnerApiModels.ProfessionalStorefrontUpdateRequest(
+                NullIfEmpty(pf.Headline),
+                NullIfEmpty(pf.Bio),
+                null));
+            _status = L.T("partner.storefront.pro.saved");
+            _statusOk = true;
+        }
+        catch (HttpRequestException)
+        {
+            _status = L.T("partner.storefront.saveFailed");
+            _statusOk = false;
+        }
+        finally
+        {
+            _savingProId = null;
+        }
+    }
+
+    private static string? NullIfEmpty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    private void HandleLocaleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.OnChange -= HandleLocaleChange;
+
+    private sealed class StorefrontForm
+    {
+        public string? Tagline { get; set; }
+        public string? About { get; set; }
+        public string? Highlight1 { get; set; }
+        public string? Highlight2 { get; set; }
+        public string? Highlight3 { get; set; }
+    }
+
+    private sealed class ProForm
+    {
+        public string? Headline { get; set; }
+        public string? Bio { get; set; }
+    }
+}

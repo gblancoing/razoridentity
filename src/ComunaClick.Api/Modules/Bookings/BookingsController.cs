@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Bookings.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -26,11 +27,16 @@ public sealed class BookingsController : ControllerBase
 
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IOrderNotificationService _orderNotificationService;
 
-    public BookingsController(CoreDbContext db, ITenantContext tenantContext)
+    public BookingsController(
+        CoreDbContext db,
+        ITenantContext tenantContext,
+        IOrderNotificationService orderNotificationService)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _orderNotificationService = orderNotificationService;
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -339,6 +345,20 @@ public sealed class BookingsController : ControllerBase
 
         _db.Bookings.Add(booking);
         await _db.SaveChangesAsync();
+
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == service.PartnerId);
+        var customer = await _db.Customers.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == customerId.Value && x.TenantId == tenantId);
+        if (partner is not null && customer is not null)
+        {
+            await _orderNotificationService.NotifyBuyerBookingAsync(
+                booking,
+                partner,
+                customer,
+                service.Name);
+        }
+
         return Created($"/v1/bookings/{booking.Id}", booking);
     }
 

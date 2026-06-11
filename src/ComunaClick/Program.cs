@@ -27,6 +27,8 @@ builder.Services.AddHsts(options =>
     options.IncludeSubDomains = true;
 });
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.LocaleService>();
+builder.Services.AddScoped<ComunaClick.SharedUI.Services.UserMapLocationService>();
+builder.Services.AddScoped<ComunaClick.SharedUI.Services.ApiMediaUrl>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.SessionTokenHolder>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.AuthStateService>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.ApiSessionService>();
@@ -105,6 +107,8 @@ app.Use(async (context, next) =>
         "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; " +
         "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.google.com https://www.gstatic.com https://unpkg.com; " +
+        "worker-src 'self' blob:; " +
+        "media-src 'self' https://d8j0ntlcm91z4.cloudfront.net https://*.cloudfront.net blob:; " +
         (app.Environment.IsDevelopment()
             // Dev: API, Blazor (wss), geocoding, recaptcha + VS Browser Link / Hot Reload (ws/http en localhost).
             ? "connect-src 'self' " +
@@ -112,8 +116,9 @@ app.Use(async (context, next) =>
               "http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* " +
               "wss://127.0.0.1:* wss://localhost:* wss: " +
               "https://nominatim.openstreetmap.org " +
+              "https://prod.spline.design https://draft.spline.design https://unpkg.com " +
               "https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://www.recaptcha.net; "
-            : "connect-src 'self' https://api.comunaclic.cl https://acl.comunaclic.cl https://payments.comunaclic.cl https://nominatim.openstreetmap.org https://unpkg.com https://*.tile.openstreetmap.org https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://www.recaptcha.net wss:; ") +
+            : "connect-src 'self' https://api.comunaclic.cl https://acl.comunaclic.cl https://payments.comunaclic.cl https://nominatim.openstreetmap.org https://unpkg.com https://prod.spline.design https://draft.spline.design https://*.spline.design https://*.tile.openstreetmap.org https://www.google.com https://www.gstatic.com https://recaptcha.google.com https://www.recaptcha.net wss:; ") +
         "frame-src 'self' https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; " +
         "upgrade-insecure-requests";
     await next();

@@ -66,7 +66,7 @@ public sealed class MercadoPagoOAuthService
             _db.SellerMercadoPagoAccounts.Add(account);
         }
 
-        account.MpUserId = token.UserId ?? user?.Id?.ToString();
+        account.MpUserId = token.UserId?.ToString() ?? user?.Id?.ToString();
         account.AccessTokenEncrypted = _secretProtector.Protect(token.AccessToken);
         account.RefreshTokenEncrypted = string.IsNullOrWhiteSpace(token.RefreshToken)
             ? null

@@ -1,0 +1,173 @@
+@inject LocaleService L
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="relative inline-flex" @onfocusout="HandleFocusOut">
+    <button type="button"
+            class="@ButtonClass"
+            aria-expanded="@_open"
+            aria-haspopup="true"
+            @onclick="ToggleMenu">
+        <span class="material-symbols-outlined text-[18px]">share</span>
+        @L.T("public.share.button")
+    </button>
+
+    @if (_open)
+    {
+        <div class="@MenuClass"
+             @onmousedown:preventDefault
+             @onmousedown:stopPropagation>
+            @if (_nativeShareAvailable)
+            {
+                <button type="button" class="share-menu-item" @onclick="ShareNativeAsync">
+                    <span class="material-symbols-outlined text-[18px]">ios_share</span>
+                    @L.T("public.share.native")
+                </button>
+            }
+            <button type="button" class="share-menu-item" @onclick='() => OpenShareWindow(BuildShareUrl("whatsapp"))'>
+                <span class="material-symbols-outlined text-[18px]">chat</span>
+                WhatsApp
+            </button>
+            <button type="button" class="share-menu-item" @onclick='() => OpenShareWindow(BuildShareUrl("facebook"))'>
+                <span class="material-symbols-outlined text-[18px]">thumb_up</span>
+                Facebook
+            </button>
+            <button type="button" class="share-menu-item" @onclick='() => OpenShareWindow(BuildShareUrl("x"))'>
+                <span class="material-symbols-outlined text-[18px]">tag</span>
+                X
+            </button>
+            <button type="button" class="share-menu-item" @onclick='() => OpenShareWindow(BuildShareUrl("linkedin"))'>
+                <span class="material-symbols-outlined text-[18px]">work</span>
+                LinkedIn
+            </button>
+            <button type="button" class="share-menu-item" @onclick="CopyLinkAsync">
+                <span class="material-symbols-outlined text-[18px]">link</span>
+                @(_copied ? L.T("public.share.copied") : L.T("public.share.copy"))
+            </button>
+        </div>
+    }
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_status))
+{
+    <p class="mt-2 text-xs font-semibold @(_statusOk ? "text-[#3b6700]" : "text-red-600")">@_status</p>
+}
+
+<style>
+    .share-menu-item {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 0.625rem;
+        border-radius: 0.875rem;
+        padding: 0.625rem 0.75rem;
+        text-align: left;
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #2c2f30;
+    }
+
+    .share-menu-item:hover {
+        background: #eff8e0;
+        color: #3b6700;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string RelativePath { get; set; } = string.Empty;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string ButtonClass { get; set; } = "inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-4 py-2.5 text-sm font-bold text-[#3b6700] hover:bg-[#eff8e0]";
+    [Parameter] public bool OpenAbove { get; set; }
+
+    private string MenuClass => OpenAbove
+        ? "absolute right-0 bottom-[calc(100%+0.5rem)] z-50 min-w-[220px] overflow-hidden rounded-2xl border border-[#dadddf] bg-white p-2 shadow-[0_18px_40px_-20px_rgba(0,0,0,0.35)]"
+        : "absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-[220px] overflow-hidden rounded-2xl border border-[#dadddf] bg-white p-2 shadow-[0_18px_40px_-20px_rgba(0,0,0,0.35)]";
+
+    private bool _open;
+    private bool _copied;
+    private bool _nativeShareAvailable;
+    private string? _status;
+    private bool _statusOk = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            _nativeShareAvailable = await JS.InvokeAsync<bool>("comunaclic.canNativeShare");
+        }
+        catch
+        {
+            _nativeShareAvailable = false;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string AbsoluteUrl => Navigation.ToAbsoluteUri(RelativePath).ToString();
+
+    private void ToggleMenu()
+    {
+        _open = !_open;
+        _copied = false;
+        _status = null;
+    }
+
+    private async Task HandleFocusOut(FocusEventArgs args)
+    {
+        await Task.Delay(150);
+        _open = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ShareNativeAsync()
+    {
+        _open = false;
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.shareNative", AbsoluteUrl, Title ?? string.Empty, Text ?? string.Empty);
+        }
+        catch
+        {
+            _status = L.T("public.share.failed");
+            _statusOk = false;
+        }
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        _open = false;
+        var ok = await JS.InvokeAsync<bool>("comunaclic.copyText", AbsoluteUrl);
+        _copied = ok;
+        _status = ok ? L.T("public.share.copied") : L.T("public.share.failed");
+        _statusOk = ok;
+    }
+
+    private async Task OpenShareWindow(string url)
+    {
+        _open = false;
+        await JS.InvokeVoidAsync("comunaclic.openShareWindow", url);
+    }
+
+    private string BuildShareUrl(string network)
+    {
+        var encodedUrl = Uri.EscapeDataString(AbsoluteUrl);
+        var encodedText = Uri.EscapeDataString(Text ?? Title ?? string.Empty);
+        return network switch
+        {
+            "whatsapp" => $"https://wa.me/?text={encodedText}%20{encodedUrl}",
+            "facebook" => $"https://www.facebook.com/sharer/sharer.php?u={encodedUrl}",
+            "x" => $"https://twitter.com/intent/tweet?url={encodedUrl}&text={encodedText}",
+            "linkedin" => $"https://www.linkedin.com/sharing/share-offsite/?url={encodedUrl}",
+            _ => AbsoluteUrl
+        };
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ComunaClick.Api.Modules.Crm.Contracts;
+using ComunaClick.Common.Contact;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -18,17 +19,54 @@ public sealed class BuyerCustomerController : ControllerBase
     private readonly ITenantContext _tenantContext;
     private readonly CustomerAvatarStorage _avatarStorage;
     private readonly IConfiguration _configuration;
+    private readonly ICustomerLinkService _customerLinkService;
 
     public BuyerCustomerController(
         CoreDbContext db,
         ITenantContext tenantContext,
         CustomerAvatarStorage avatarStorage,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ICustomerLinkService customerLinkService)
     {
         _db = db;
         _tenantContext = tenantContext;
         _avatarStorage = avatarStorage;
         _configuration = configuration;
+        _customerLinkService = customerLinkService;
+    }
+
+    [HttpPost("link-guest")]
+    public async Task<ActionResult<Customer>> LinkGuest([FromBody] LinkGuestCustomerRequest request)
+    {
+        var tenantId = request.TenantId ?? _tenantContext.TenantId;
+        if (!tenantId.HasValue || tenantId.Value == Guid.Empty)
+        {
+            return BadRequest(new { message = "TenantId is required." });
+        }
+
+        if (request.CustomerId == Guid.Empty)
+        {
+            return BadRequest(new { message = "CustomerId is required." });
+        }
+
+        var email = ResolveEmail(User);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { message = "Authenticated email claim is required." });
+        }
+
+        var (customer, error) = await _customerLinkService.LinkGuestCustomerAsync(
+            request.CustomerId,
+            tenantId.Value,
+            email,
+            ResolveName(User));
+
+        if (customer is null)
+        {
+            return BadRequest(new { message = error ?? "Could not link guest profile." });
+        }
+
+        return Ok(customer);
     }
 
     [HttpPost("ensure")]
@@ -157,7 +195,9 @@ public sealed class BuyerCustomerController : ControllerBase
 
         if (request.Phone is not null)
         {
-            customer.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+            customer.Phone = string.IsNullOrWhiteSpace(request.Phone)
+                ? null
+                : ChilePhoneNumbers.NormalizeForStorage(request.Phone);
         }
 
         if (request.FullName is not null)

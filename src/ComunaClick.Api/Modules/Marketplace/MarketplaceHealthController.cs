@@ -24,11 +24,20 @@ public sealed class MarketplaceHealthController : ControllerBase
     {
         var connectedSellers = await _db.SellerMercadoPagoAccounts.CountAsync(x => x.ConnectionStatus == "connected", cancellationToken);
         var pendingWebhooks = await _db.WebhookEvents.CountAsync(x => !x.Processed, cancellationToken);
+
+        var stuckThreshold = DateTimeOffset.UtcNow.AddMinutes(-30);
+        var stuckPendingPayments = await _db.Payments.CountAsync(
+            x => x.Provider == "mercadopago"
+              && (x.Status == "pending" || x.Status == "in_process" || x.Status == "authorized")
+              && x.CreatedAt <= stuckThreshold,
+            cancellationToken);
+
         return Ok(new
         {
             status = "ok",
             connectedSellers,
             pendingWebhooks,
+            stuckPendingPayments,
             metrics = _metrics.Snapshot()
         });
     }

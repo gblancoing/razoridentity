@@ -1,77 +1,12 @@
 @page "/partner/account/company"
 @layout PartnerLayout
-@using System.Net
-@inject LocaleService L
-@inject AuthStateService AuthState
-@inject ApiSessionService ApiSession
-@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject NavigationManager Navigation
 
-<PageTitle>@L.T("account.company.title")</PageTitle>
-
-<div class="space-y-6">
-    <header>
-        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-2">@L.T("partner.account.badge")</p>
-        <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.account.tab.company")</h1>
-        <p class="mt-2 text-sm text-[#595c5d]">@L.T("buyer.profile.role.company.desc")</p>
-    </header>
-
-    <BuyerProfileCompanySection Partner="_partner"
-                                SessionPartnerId="AuthState.PartnerId"
-                                SessionTenantId="AuthState.TenantId"
-                                PartnerChanged="OnPartnerUpdatedAsync" />
-</div>
+@* Redirección desde enlaces legados hacia Ajuste de empresa. *@
 
 @code {
-    private ComunaClick.Shared.Api.Partner.PartnerDto? _partner;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnInitialized()
     {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        try
-        {
-            await AuthState.InitializeAsync();
-            if (await ApiSession.EnsureReadyAsync())
-            {
-                await LoadPartnerAsync();
-                StateHasChanged();
-            }
-        }
-        catch (InvalidOperationException)
-        {
-        }
-    }
-
-    private async Task LoadPartnerAsync()
-    {
-        try
-        {
-            var mine = await PartnerApi.ListMyPartnersAsync();
-            if (mine is { Count: > 0 })
-            {
-                _partner = mine.FirstOrDefault(p => string.Equals(p.Type, "B", StringComparison.OrdinalIgnoreCase))
-                    ?? mine.FirstOrDefault(p => string.Equals(p.Type, "A", StringComparison.OrdinalIgnoreCase))
-                    ?? mine.FirstOrDefault();
-            }
-
-            if (_partner is null && AuthState.PartnerId is Guid pid && pid != Guid.Empty)
-            {
-                try { _partner = await PartnerApi.GetPartnerAsync(pid); }
-                catch (HttpRequestException) { }
-            }
-        }
-        catch (HttpRequestException)
-        {
-        }
-    }
-
-    private Task OnPartnerUpdatedAsync(ComunaClick.Shared.Api.Partner.PartnerDto updated)
-    {
-        _partner = updated;
-        StateHasChanged();
-        return Task.CompletedTask;
+        Navigation.NavigateTo("/partner/settings", replace: true);
     }
 }

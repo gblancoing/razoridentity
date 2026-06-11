@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,19 +15,22 @@ public sealed class MercadoPagoWebhookService
     private readonly MercadoPagoOAuthService _oauthService;
     private readonly MarketplaceAuditService _auditService;
     private readonly MarketplaceMetricsService _metrics;
+    private readonly IProductInventoryService _inventoryService;
 
     public MercadoPagoWebhookService(
         CoreDbContext db,
         MercadoPagoMarketplaceClient client,
         MercadoPagoOAuthService oauthService,
         MarketplaceAuditService auditService,
-        MarketplaceMetricsService metrics)
+        MarketplaceMetricsService metrics,
+        IProductInventoryService inventoryService)
     {
         _db = db;
         _client = client;
         _oauthService = oauthService;
         _auditService = auditService;
         _metrics = metrics;
+        _inventoryService = inventoryService;
     }
 
     public async Task<WebhookEvent> HandleAsync(HttpRequest request, string payloadJson, CancellationToken cancellationToken)
@@ -38,6 +42,7 @@ public sealed class MercadoPagoWebhookService
         var action = GetString(payload.RootElement, "action");
         var resourceId = GetString(payload.RootElement, "data", "id")
             ?? GetString(payload.RootElement, "id");
+        var collectorUserId = GetString(payload.RootElement, "user_id");
 
         var signatureValid = !string.IsNullOrWhiteSpace(resourceId) && _client.ValidateWebhookSignature(request, resourceId);
         var webhookEvent = new WebhookEvent
@@ -80,7 +85,7 @@ public sealed class MercadoPagoWebhookService
         {
             if (!string.IsNullOrWhiteSpace(resourceId))
             {
-                await SyncPaymentAsync(resourceId, webhookEvent, cancellationToken);
+                await SyncPaymentAsync(resourceId, collectorUserId, webhookEvent, cancellationToken);
             }
 
             webhookEvent.Processed = true;
@@ -104,16 +109,37 @@ public sealed class MercadoPagoWebhookService
         var payment = await _db.Payments.FirstOrDefaultAsync(x => x.Id == paymentId, cancellationToken)
             ?? throw new InvalidOperationException("Payment not found.");
 
-        if (string.IsNullOrWhiteSpace(payment.MercadoPagoPaymentId) || !payment.SellerId.HasValue)
+        if (!payment.SellerId.HasValue)
         {
             return;
+        }
+
+        var mpPaymentId = payment.MercadoPagoPaymentId;
+        if (string.IsNullOrWhiteSpace(mpPaymentId))
+        {
+            if (!string.Equals(payment.Provider, "mercadopago", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(payment.ExternalReference))
+            {
+                return;
+            }
+
+            var token = await _oauthService.GetSellerAccessTokenAsync(payment.SellerId.Value, cancellationToken);
+            var found = await _client.SearchPaymentByExternalReferenceAsync(token, payment.ExternalReference, cancellationToken);
+            mpPaymentId = found?.Id?.ToString();
+            if (string.IsNullOrWhiteSpace(mpPaymentId))
+            {
+                return;
+            }
+
+            payment.MercadoPagoPaymentId = mpPaymentId;
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
         var webhookEvent = new WebhookEvent
         {
             Topic = "manual_sync",
             Action = "manual_sync",
-            ResourceId = payment.MercadoPagoPaymentId,
+            ResourceId = mpPaymentId,
             PayloadJson = "{}",
             SignatureValid = true,
             Processed = false,
@@ -121,23 +147,61 @@ public sealed class MercadoPagoWebhookService
         };
         _db.WebhookEvents.Add(webhookEvent);
         await _db.SaveChangesAsync(cancellationToken);
-        await SyncPaymentAsync(payment.MercadoPagoPaymentId, webhookEvent, cancellationToken);
+        await SyncPaymentAsync(mpPaymentId, collectorUserId: null, webhookEvent, cancellationToken);
         webhookEvent.Processed = true;
         webhookEvent.ProcessedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task SyncPaymentAsync(string mercadopagoPaymentId, WebhookEvent webhookEvent, CancellationToken cancellationToken)
+    private async Task SyncPaymentAsync(string mercadopagoPaymentId, string? collectorUserId, WebhookEvent webhookEvent, CancellationToken cancellationToken)
     {
         var payment = await _db.Payments.FirstOrDefaultAsync(x => x.MercadoPagoPaymentId == mercadopagoPaymentId, cancellationToken)
             ?? await _db.Payments.FirstOrDefaultAsync(x => x.ProviderToken == mercadopagoPaymentId, cancellationToken);
+
+        MercadoPagoPaymentDetailsResponse? details = null;
+
+        if (payment is null && !string.IsNullOrWhiteSpace(collectorUserId))
+        {
+            var sellerId = await _db.SellerMercadoPagoAccounts
+                .Where(x => x.MpUserId == collectorUserId)
+                .Select(x => (Guid?)x.SellerId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (sellerId.HasValue)
+            {
+                try
+                {
+                    var token = await _oauthService.GetSellerAccessTokenAsync(sellerId.Value, cancellationToken);
+                    details = await _client.GetPaymentAsync(token, mercadopagoPaymentId, cancellationToken);
+                    var extRef = details?.ExternalReference;
+                    if (!string.IsNullOrWhiteSpace(extRef))
+                    {
+                        payment = await _db.Payments.FirstOrDefaultAsync(
+                            p => p.Provider == "mercadopago" && p.ExternalReference == extRef, cancellationToken);
+                    }
+                }
+                catch (Exception)
+                {
+                    _metrics.Increment("webhook_match_errors");
+                }
+            }
+        }
+
         if (payment is null || !payment.SellerId.HasValue)
         {
             return;
         }
 
-        var accessToken = await _oauthService.GetSellerAccessTokenAsync(payment.SellerId.Value, cancellationToken);
-        var details = await _client.GetPaymentAsync(accessToken, mercadopagoPaymentId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(payment.MercadoPagoPaymentId))
+        {
+            payment.MercadoPagoPaymentId = mercadopagoPaymentId;
+        }
+
+        if (details is null)
+        {
+            var accessToken = await _oauthService.GetSellerAccessTokenAsync(payment.SellerId.Value, cancellationToken);
+            details = await _client.GetPaymentAsync(accessToken, mercadopagoPaymentId, cancellationToken);
+        }
         if (details is null)
         {
             return;
@@ -195,6 +259,44 @@ public sealed class MercadoPagoWebhookService
                 webhookEvent.Action
             },
             cancellationToken);
+
+        if (payment.OrderId.HasValue && OrderInventoryFulfillment.IsPaidStatus(payment.Status))
+        {
+            var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value, cancellationToken);
+            if (order is not null)
+            {
+                var orderPreviousStatus = order.Status;
+                if (!OrderInventoryFulfillment.IsPaidStatus(orderPreviousStatus))
+                {
+                    order.Status = "paid";
+                    order.UpdatedAt = DateTimeOffset.UtcNow;
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+
+                await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
+                    _db,
+                    _inventoryService,
+                    payment.OrderId.Value,
+                    orderPreviousStatus,
+                    "paid",
+                    cancellationToken);
+            }
+        }
+        else if (OrderInventoryFulfillment.IsPaidStatus(payment.Status) &&
+                 payment.ExternalReference.StartsWith(MarketplacePaymentService.BookingExternalReferencePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var bookingIdRaw = payment.ExternalReference[MarketplacePaymentService.BookingExternalReferencePrefix.Length..];
+            if (Guid.TryParse(bookingIdRaw, out var bookingId))
+            {
+                var booking = await _db.Bookings.FirstOrDefaultAsync(x => x.Id == bookingId, cancellationToken);
+                if (booking is not null && !string.Equals(booking.Status, "confirmed", StringComparison.OrdinalIgnoreCase))
+                {
+                    booking.Status = "confirmed";
+                    booking.UpdatedAt = DateTimeOffset.UtcNow;
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
     }
 
     private static string NormalizeMercadoPagoStatus(string? status)
