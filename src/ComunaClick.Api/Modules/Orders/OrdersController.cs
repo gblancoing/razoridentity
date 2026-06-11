@@ -129,6 +129,9 @@ public sealed class OrdersController : ControllerBase
             order.DeliveryAddress,
             order.CreatedAt,
             order.UpdatedAt,
+            // Token fresco para que el frontend siga usando acceso por token (y deje de depender
+            // del par id+customerId). Permite migrar y, luego, apagar AllowLegacyPublicAccess.
+            TrackingToken = _trackingTokens.Create(order.Id, resolvedCustomerId),
             Partner = partner is null ? null : new
             {
                 partner.Id,

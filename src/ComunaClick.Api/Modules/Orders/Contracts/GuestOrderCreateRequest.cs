@@ -19,4 +19,5 @@ public sealed record GuestOrderCreateResponse(
     Guid CustomerId,
     string Status,
     decimal TotalAmount,
-    string Currency);
+    string Currency,
+    string? TrackingToken = null);

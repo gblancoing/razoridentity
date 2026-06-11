@@ -717,44 +717,48 @@ else
 
     private async Task OnGuestOrderCreatedAsync(GuestOrderCreateResponse response)
     {
-        await OnOrderCreatedAsync(response.OrderId, response.CustomerId, response.Status, response.TotalAmount, clearCartOnPaidOnly: true);
+        await OnOrderCreatedAsync(response.OrderId, response.CustomerId, response.Status, response.TotalAmount, clearCartOnPaidOnly: true, trackingToken: response.TrackingToken);
         _statusMessage = string.Equals(response.Status, "payment_pending", StringComparison.OrdinalIgnoreCase)
             ? L.T("buyer.checkout.guestSuccessPendingPayment")
             : L.T("buyer.checkout.guestSuccess");
         _statusLevel = "success";
     }
 
-    private async Task OnOrderCreatedAsync(Guid orderId, Guid customerId, string? status, double totalAmount, bool clearCartOnPaidOnly)
+    private async Task OnOrderCreatedAsync(Guid orderId, Guid customerId, string? status, double totalAmount, bool clearCartOnPaidOnly, string? trackingToken = null)
     {
-        ApplySuccess(orderId, customerId, status, totalAmount);
+        ApplySuccess(orderId, customerId, status, totalAmount, trackingToken);
         if (clearCartOnPaidOnly && string.Equals(status, "paid", StringComparison.OrdinalIgnoreCase))
         {
             await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
         }
     }
 
-    private void ApplySuccess(Guid orderId, Guid customerId, string? status, double totalAmount)
+    private void ApplySuccess(Guid orderId, Guid customerId, string? status, double totalAmount, string? trackingToken = null)
     {
         _successOrderId = orderId;
         _successCustomerId = customerId;
         _successStatus = status;
         _total = $"{totalAmount:N0}";
         _completed = true;
-        _ = PersistLastTrackingAsync(orderId, customerId);
+        _ = PersistLastTrackingAsync(orderId, customerId, trackingToken);
         _ = TrackAsync("submit_checkout", "submit", "success");
         _ = TryOfferMercadoPagoAsync(orderId, customerId);
     }
 
-    private async Task PersistLastTrackingAsync(Guid orderId, Guid customerId)
+    private async Task PersistLastTrackingAsync(Guid orderId, Guid customerId, string? trackingToken = null)
     {
         try
         {
-            var payload = JsonSerializer.Serialize(new Dictionary<string, string>
+            var payload = new Dictionary<string, string>
             {
                 ["orderId"] = orderId.ToString(),
                 ["customerId"] = customerId.ToString()
-            });
-            await JSRuntime.InvokeVoidAsync("comunaclic.setLastTracking", payload);
+            };
+            if (!string.IsNullOrWhiteSpace(trackingToken))
+            {
+                payload["token"] = trackingToken;
+            }
+            await JSRuntime.InvokeVoidAsync("comunaclic.setLastTracking", JsonSerializer.Serialize(payload));
         }
         catch
         {

@@ -405,8 +405,18 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
-    public Task<OrderTracking?> GetOrderAsync(Guid id, Guid customerId, CancellationToken cancellationToken = default)
-        => GetAsync<OrderTracking>($"/v1/public/orders/{id}?customerId={customerId}", cancellationToken);
+    public Task<OrderTracking?> GetOrderAsync(
+        Guid id,
+        Guid? customerId = null,
+        string? trackingToken = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Acceso preferente por token firmado; el customerId queda solo como respaldo legacy.
+        var query = !string.IsNullOrWhiteSpace(trackingToken)
+            ? $"token={Uri.EscapeDataString(trackingToken)}"
+            : $"customerId={customerId}";
+        return GetAsync<OrderTracking>($"/v1/public/orders/{id}?{query}", cancellationToken);
+    }
 
     public Task<BookingTracking?> GetBookingAsync(Guid id, Guid customerId, CancellationToken cancellationToken = default)
         => GetAsync<BookingTracking>($"/v1/public/bookings/{id}?customerId={customerId}", cancellationToken);
@@ -603,7 +613,8 @@ public sealed record OrderTracking(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     OrderTrackingPartner? Partner,
-    IReadOnlyList<OrderTrackingItem>? Items
+    IReadOnlyList<OrderTrackingItem>? Items,
+    string? TrackingToken = null
 );
 
 public sealed record OrderTrackingPartner(
@@ -666,7 +677,8 @@ public sealed record GuestOrderCreateResponse(
     Guid CustomerId,
     string? Status,
     double TotalAmount,
-    string? Currency);
+    string? Currency,
+    string? TrackingToken = null);
 
 public sealed record GuestBookingCreateRequest(
     Guid TenantId,

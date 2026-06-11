@@ -11,10 +11,14 @@ namespace ComunaClick.Api.Modules.Orders;
 public sealed class PublicOrdersController : ControllerBase
 {
     private readonly IOrderCheckoutService _orderCheckoutService;
+    private readonly IOrderTrackingTokenService _trackingTokens;
 
-    public PublicOrdersController(IOrderCheckoutService orderCheckoutService)
+    public PublicOrdersController(
+        IOrderCheckoutService orderCheckoutService,
+        IOrderTrackingTokenService trackingTokens)
     {
         _orderCheckoutService = orderCheckoutService;
+        _trackingTokens = trackingTokens;
     }
 
     [AllowAnonymous]
@@ -36,6 +40,7 @@ public sealed class PublicOrdersController : ControllerBase
             customer.Id,
             order.Status,
             order.TotalAmount,
-            order.Currency));
+            order.Currency,
+            _trackingTokens.Create(order.Id, customer.Id)));
     }
 }
