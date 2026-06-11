@@ -253,9 +253,9 @@
             _actionMessage = L.T("partner.orders.msg.cancelled");
             _actionLevel = "success";
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            _actionMessage = L.T("partner.orders.msg.error");
+            _actionMessage = TryExtractApiMessage(ex.Message) ?? L.T("partner.orders.msg.error");
             _actionLevel = "error";
         }
         finally
@@ -285,9 +285,9 @@
             _actionMessage = successMessage;
             _actionLevel = "success";
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            _actionMessage = L.T("partner.orders.msg.error");
+            _actionMessage = TryExtractApiMessage(ex.Message) ?? L.T("partner.orders.msg.error");
             _actionLevel = "error";
         }
         finally
@@ -295,6 +295,35 @@
             _updatingOrderId = null;
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
     }
 
     private void ReplaceOrder(ComunaClick.Shared.Api.Partner.Order updated)

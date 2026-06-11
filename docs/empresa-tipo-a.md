@@ -179,11 +179,11 @@ Lógica implementada para empresas tipo **A** (productos con inventario).
 | Métrica | Significado | Quién la ve |
 |---------|-------------|-------------|
 | **Stock físico** (`Quantity` en inventario) | Unidades en bodega / registradas por el partner | Panel partner (catálogo, edición) |
-| **Stock disponible** | Físico − unidades en pedidos que **reservan** stock | Comprador (ficha, checkout, API pública `AvailableQuantity` / `InStock`) |
+| **Stock disponible** | Igual al físico (no hay reservas; `Inventory:ReservingOrderStatuses` está vacío) | Comprador (ficha, checkout, API pública `AvailableQuantity` / `InStock`) |
 
-**Estados de pedido que reservan** (no descontan físico aún): `payment_pending`, `processing` (configurable en `Inventory:ReservingOrderStatuses`).
+**Sin reservas:** los pedidos pendientes (`payment_pending`, `processing`) **no** bloquean stock. El stock solo baja con una venta pagada o un ajuste manual. (`Inventory:ReservingOrderStatuses` permite reactivar reservas por configuración si se necesitara.)
 
-**Descuento físico:** al confirmar venta — pedido pasa a `paid` (o pago Mercado Pago / webhook en estado `approved`). Servicio: `OrderInventoryFulfillment` + `ProductInventoryService.FulfillOrderAsync`.
+**Descuento físico:** al confirmar venta — pedido pasa a `paid` (o pago Mercado Pago / webhook en estado `approved`). Servicio: `OrderInventoryFulfillment` + `ProductInventoryService.FulfillOrderAsync`. Al **marcar pagado manualmente** desde el panel, la API valida que haya stock físico suficiente y rechaza con mensaje claro si no alcanza (pagos automáticos ya cobrados se procesan igual y el stock se ajusta a 0 con alerta).
 
 ### Validaciones (comprador)
 
@@ -223,7 +223,7 @@ Configuración en `appsettings.json`:
 ```json
 "Inventory": {
   "LowStockThreshold": 5,
-  "ReservingOrderStatuses": [ "payment_pending", "processing" ]
+  "ReservingOrderStatuses": []
 }
 ```
 
@@ -234,20 +234,24 @@ Partner crea producto (stock inicial N)
     → product_inventory.Quantity = N
 
 Comprador agrega al carrito / crea pedido (payment_pending)
-    → valida: cantidad ≤ disponible (N − reservas de otros pedidos pendientes)
-    → reserva: pedido pendiente reduce disponible, NO reduce Quantity aún
+    → valida: cantidad ≤ stock físico
+    → NO reserva ni reduce Quantity: el producto sigue disponible para otros
 
 Pedido pasa a paid (panel partner o pago aprobado)
+    → manual: API valida stock físico suficiente; rechaza con mensaje si no alcanza
     → Quantity -= cantidad vendida
     → si queda ≤ umbral o 0 → notificación stock_low / stock_out
 
 Pedido cancelado (payment_pending)
-    → deja de reservar; disponible sube de nuevo sin tocar Quantity
+    → sin efecto en stock (nunca lo tocó)
+
+Pedido cancelado (paid)
+    → Quantity += cantidad (restauración) y se marca reembolso requerido
 ```
 
 ### Pendiente / mejoras futuras
 
-- Liberación automática de reserva por timeout en pedidos abandonados (`payment_pending` antiguos).
+- Limpieza/cancelación automática de pedidos `payment_pending` abandonados (hoy no afectan stock, solo acumulan en el panel).
 - Reporte de valor de inventario a costo (`CostPrice × Quantity`).
 - Email/WhatsApp además de bandeja in-app (hoy solo `Interaction`).
 
@@ -314,7 +318,7 @@ Migraciones en `infra/migrations/` + `DatabaseSchemaBootstrap` si aplica.
 
 - [x] Stock inicial al crear producto (incluye 0); fila `product_inventory` siempre existe.
 - [x] No vender más unidades que el **stock disponible** (carrito, checkout, API pedidos).
-- [x] Reserva en pedidos `payment_pending` / `processing` sin descontar físico hasta `paid`.
+- [x] Pedidos pendientes no reservan ni descuentan stock; al marcar pagado manualmente se valida stock físico suficiente.
 - [x] Descuento de inventario al marcar pedido pagado o al aprobar pago (Mercado Pago / webhook).
 - [x] Ficha y vitrina pública: `InStock` según disponible, no según “sin registro de inventario”.
 - [x] Alertas `stock_out` y `stock_low` en `/partner/notifications` con enlace a catálogo.

@@ -1,3 +1,4 @@
+using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Modules.Customers;
 using ComunaClick.Api.Modules.Orders;
 using ComunaClick.Api.Modules.Orders.Contracts;
@@ -9,8 +10,10 @@ namespace ComunaClick.Tests.Unit.Orders;
 
 public sealed class OrderCheckoutConcurrencyTests
 {
+    // Sin reservas: crear una orden pendiente no bloquea stock; el descuento (y la
+    // exclusión) ocurre recién al pagar.
     [Fact]
-    public async Task CreateOrderAsync_TwoParallelBuyersLastUnit_OnlyOneOrderIsCreated()
+    public async Task CreateOrderAsync_TwoParallelBuyersLastUnit_BothPendingButOnlyOneCanBePaid()
     {
         var dbName = $"checkout-race-{Guid.NewGuid():N}";
         await using var seedDb = TestDb.Create(dbName);
@@ -40,14 +43,27 @@ public sealed class OrderCheckoutConcurrencyTests
         gate.SetResult();
         var results = await Task.WhenAll(tasks);
 
-        Assert.Equal(1, results.Count(x => x.Success));
-        Assert.Equal(1, results.Count(x => !x.Success));
+        Assert.Equal(2, results.Count(x => x.Success));
 
         await using var verify = TestDb.Create(dbName);
-        Assert.Equal(1, await verify.Orders.CountAsync());
+        var orders = await verify.Orders.Include(x => x.Items).OrderBy(x => x.CreatedAt).ToListAsync();
+        Assert.Equal(2, orders.Count);
 
+        // Crear órdenes pendientes no descuenta stock físico.
         var inventory = await verify.ProductInventories.AsNoTracking().SingleAsync(x => x.ProductId == product.Id);
-        Assert.True(inventory.Quantity >= 0);
+        Assert.Equal(1, inventory.Quantity);
+
+        // Se paga la primera: descuenta la última unidad.
+        var inventoryService = TestDb.CreateInventoryService(verify);
+        await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(verify, inventoryService, orders[0], "paid");
+        inventory = await verify.ProductInventories.AsNoTracking().SingleAsync(x => x.ProductId == product.Id);
+        Assert.Equal(0, inventory.Quantity);
+
+        // La segunda ya no pasa la validación de stock al intentar marcarla pagada.
+        var stockCheck = await inventoryService.ValidateLineItemsAsync(
+            orders[1].Items.Select(x => (x.ProductId, x.Quantity)).ToList());
+        Assert.False(stockCheck.Ok);
+        Assert.NotNull(stockCheck.Message);
     }
 
     [Fact]

@@ -542,15 +542,9 @@
                                     <span class="@BadgeClass(item.IsActive)">@BadgeText(item.IsActive)</span>
                                     @{
                                         var onHand = item.StockQuantity ?? item.Inventory?.Quantity ?? 0;
-                                        var available = item.AvailableQuantity ?? onHand;
-                                        var reserved = item.ReservedQuantity ?? Math.Max(0, onHand - available);
                                     }
                                     <span class="inline-flex items-center rounded-full bg-[#eff1f2] px-3 py-1 text-[11px] font-bold text-[#2c2f30]">Stock: @onHand</span>
-                                    @if (reserved > 0)
-                                    {
-                                        <span class="inline-flex items-center rounded-full bg-[#fff4d6] px-3 py-1 text-[11px] font-bold text-[#8a5b00]">@available disponible · @reserved reservado</span>
-                                    }
-                                    else if (!item.InStock.GetValueOrDefault(available > 0))
+                                    @if (onHand <= 0)
                                     {
                                         <span class="inline-flex items-center rounded-full bg-[#fecaca] px-3 py-1 text-[11px] font-bold text-[#b42318]">Sin stock disponible</span>
                                     }

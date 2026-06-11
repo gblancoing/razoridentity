@@ -274,6 +274,20 @@ public sealed class OrdersController : ControllerBase
             return Ok(order);
         }
 
+        // Sin reservas, varias órdenes pendientes pueden apuntar al mismo stock:
+        // al marcar pagada manualmente se exige stock físico suficiente.
+        if (string.Equals(newStatus, OrderStatusMachine.Paid, StringComparison.OrdinalIgnoreCase)
+            && order.InventoryFulfilledAt is null)
+        {
+            var stockCheck = await _inventoryService.ValidateLineItemsAsync(
+                order.Items.Select(x => (x.ProductId, x.Quantity)).ToList(),
+                cancellationToken: cancellationToken);
+            if (!stockCheck.Ok)
+            {
+                return BadRequest(new { message = stockCheck.Message });
+            }
+        }
+
         order.Status = newStatus;
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
