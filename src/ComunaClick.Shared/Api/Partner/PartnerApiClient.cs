@@ -490,7 +490,9 @@ public sealed record Order(
     IReadOnlyList<OrderItem>? Items,
     double GrossAmount = 0,
     double PlatformFeeAmount = 0,
-    double NetAmount = 0
+    double NetAmount = 0,
+    string? BuyerName = null,
+    string? BuyerPhone = null
 );
 
 public sealed record OrderItem(

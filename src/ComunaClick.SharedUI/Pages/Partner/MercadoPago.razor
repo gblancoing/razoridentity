@@ -1,5 +1,6 @@
 @page "/partner/mercadopago"
 @layout PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject NavigationManager Navigation
@@ -152,10 +153,18 @@
                             <tr class="text-left text-[#7b8081] text-[11px] uppercase tracking-[0.1em]">
                                 <th class="px-8 py-3 font-bold">Fecha</th>
                                 <th class="px-4 py-3 font-bold">Orden</th>
-                                <th class="px-4 py-3 font-bold text-right">Bruto</th>
-                                <th class="px-4 py-3 font-bold text-right">Comisión MP</th>
-                                <th class="px-4 py-3 font-bold text-right">Comisión ComunaClic</th>
-                                <th class="px-4 py-3 font-bold text-right">Neto</th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.gross.tooltip")">Bruto<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.mpFee.tooltip")">Comisión MP<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.platformFee.tooltip")">Comisión ComunaClic<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.net.tooltip")">Neto<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
                                 <th class="px-4 py-3 font-bold">Estado</th>
                                 <th class="px-4 py-3 font-bold">Acciones</th>
                             </tr>
@@ -196,6 +205,10 @@
                         </tbody>
                     </table>
                 </div>
+                <p class="px-8 pb-4 pt-3 text-xs text-[#7b8081]">
+                    <span class="material-symbols-outlined align-middle text-[14px]">info</span>
+                    @L.T("partner.mp.table.legend")
+                </p>
             }
         </section>
     }

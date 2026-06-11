@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace ComunaClick.Api.Persistence.Entities;
 
 public sealed class Order
@@ -17,6 +19,9 @@ public sealed class Order
     public string Currency { get; set; } = "CLP";
     public string? BuyerEmail { get; set; }
     public string? BuyerName { get; set; }
+    /// <summary>Teléfono del comprador (de Customer); solo para respuestas del panel partner.</summary>
+    [NotMapped]
+    public string? BuyerPhone { get; set; }
     public Guid? DeliveryProviderId { get; set; }
     public string? DeliveryProviderName { get; set; }
     public string? DeliveryAddress { get; set; }

@@ -180,6 +180,22 @@ public sealed class OrdersController : ControllerBase
             .Where(x => x.TenantId == tenantId.Value && x.PartnerId == partnerId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
+        // Nombre y teléfono del comprador para que el partner pueda contactarlo (ej. WhatsApp).
+        var customerIds = orders.Select(x => x.CustomerId).Distinct().ToList();
+        var customers = await _db.Customers.AsNoTracking()
+            .Where(x => customerIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.FullName, x.Phone })
+            .ToDictionaryAsync(x => x.Id, x => x);
+        foreach (var order in orders)
+        {
+            if (customers.TryGetValue(order.CustomerId, out var customer))
+            {
+                order.BuyerName ??= customer.FullName;
+                order.BuyerPhone = customer.Phone;
+            }
+        }
+
         return Ok(orders);
     }
 

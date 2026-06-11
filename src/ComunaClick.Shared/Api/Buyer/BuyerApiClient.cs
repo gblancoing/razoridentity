@@ -142,6 +142,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<InboxThreadCreateResult?> CreateInboxThreadAsync(InboxThreadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<InboxThreadCreateResult>("/v1/inbox/threads", request, cancellationToken);
 
+    public Task<InboxThreadCreateResult?> CreateGuestInboxThreadAsync(GuestInboxThreadCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<InboxThreadCreateResult>("/v1/public/inbox/threads", request, cancellationToken);
+
     public Task<InboxMessageItem?> ReplyInboxThreadAsync(Guid threadId, string body, CancellationToken cancellationToken = default)
         => PostAsync<InboxMessageItem>($"/v1/inbox/threads/{threadId}/messages", new InboxMessageCreateRequest(body), cancellationToken);
 
@@ -1157,6 +1160,15 @@ public sealed record InboxMessageCreateRequest(string Body);
 public sealed record InboxThreadStatusRequest(string Status);
 
 public sealed record InboxThreadCreateResult(Guid ThreadId, bool Reused);
+
+public sealed record GuestInboxThreadCreateRequest(
+    Guid? PartnerId,
+    Guid? ProfessionalId,
+    string FullName,
+    string Phone,
+    string? Email,
+    string? Subject,
+    string Body);
 
 public sealed record InboxThreadListItem(
     Guid Id,

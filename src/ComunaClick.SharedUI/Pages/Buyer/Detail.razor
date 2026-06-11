@@ -776,7 +776,7 @@
         _secondaryCtaLabel = product.PartnerId != Guid.Empty ? "Ver negocio" : null;
         _secondaryCtaHref = product.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{product.PartnerId}" : null;
         _consultHref = product.PartnerId != Guid.Empty
-            ? RequirePersonalBuyerSession(
+            ? ContactMessageHref(
                 $"/account/messages?partnerId={product.PartnerId}&productId={id}&subject={Uri.EscapeDataString($"Consulta: {product.Name}")}")
             : null;
         _heroImageUrl = PublicOfferVisuals.ResolveImage(product.ImageUrl, product.Category, product.Name, product.ImageUrls);
@@ -864,7 +864,7 @@
         _ctaSubtitle = bookable ? L.T("public.offer.ctaSubtitle.book") : L.T("public.offer.ctaSubtitle.inquiry");
 
         var consultHref = service.PartnerId != Guid.Empty
-            ? RequirePersonalBuyerSession(
+            ? ContactMessageHref(
                 $"/account/messages?partnerId={service.PartnerId}&serviceId={id}&subject={Uri.EscapeDataString($"Consulta: {service.Name}")}")
             : null;
 
@@ -876,7 +876,7 @@
         }
         else
         {
-            _primaryCtaLabel = AuthState.IsPersonalAccount ? L.T("public.offer.cta.consult") : L.T("inbox.cta.consultLogin");
+            _primaryCtaLabel = L.T("public.offer.cta.consult");
             _primaryCtaHref = consultHref ?? RequirePersonalBuyerSession("/account/messages");
             _consultHref = null; // Ya es el primario
         }
@@ -964,11 +964,11 @@
             "C" => "/professionals",
             _ => "/products"
         };
-        _secondaryCtaLabel = AuthState.IsPersonalAccount ? L.T("inbox.cta.consult") : L.T("inbox.cta.consultLogin");
-        _secondaryCtaHref = RequirePersonalBuyerSession($"/account/messages?partnerId={id}&subject={Uri.EscapeDataString($"Consulta a {partner.Name}")}");
+        _secondaryCtaLabel = L.T("inbox.cta.consult");
+        _secondaryCtaHref = ContactMessageHref($"/account/messages?partnerId={id}&subject={Uri.EscapeDataString($"Consulta a {partner.Name}")}");
         if (partner.Type == "C" && featuredProfessional is not null)
         {
-            _secondaryCtaHref = RequirePersonalBuyerSession($"/account/messages?professionalId={featuredProfessional.Id}&subject={Uri.EscapeDataString($"Consulta a {partner.Name}")}");
+            _secondaryCtaHref = ContactMessageHref($"/account/messages?professionalId={featuredProfessional.Id}&subject={Uri.EscapeDataString($"Consulta a {partner.Name}")}");
         }
         _heroImageUrl = PublicOfferVisuals.ResolveImage(
             partner.BannerUrl,
@@ -1017,8 +1017,8 @@
         _detailLine2 = professional.Bio ?? "Sin biografía disponible.";
         _statusMessage = "Profesional listo para contacto.";
         _ctaSubtitle = "Genera un lead o revisa más profesionales similares.";
-        _primaryCtaLabel = AuthState.IsPersonalAccount ? L.T("inbox.cta.consult") : L.T("inbox.cta.consultLogin");
-        _primaryCtaHref = RequirePersonalBuyerSession($"/account/messages?professionalId={id}&subject={Uri.EscapeDataString($"Consulta profesional")}");
+        _primaryCtaLabel = L.T("inbox.cta.consult");
+        _primaryCtaHref = ContactMessageHref($"/account/messages?professionalId={id}&subject={Uri.EscapeDataString($"Consulta profesional")}");
         _secondaryCtaLabel = "Ver más profesionales";
         _secondaryCtaHref = "/professionals";
         _heroImageUrl = ResolveHeroImage(professional.Specialty, professional.Name);
@@ -1142,6 +1142,22 @@
         => AuthState.IsPersonalAccount
             ? targetPath
             : $"/login?returnUrl={Uri.EscapeDataString(targetPath)}";
+
+    /// <summary>
+    /// CTA de mensaje: con cuenta personal va al buzón; sin cuenta va al
+    /// formulario de contacto de invitados (no se exige registro).
+    /// </summary>
+    private string ContactMessageHref(string targetPath)
+    {
+        if (AuthState.IsPersonalAccount)
+        {
+            return targetPath;
+        }
+
+        var queryIndex = targetPath.IndexOf('?');
+        var query = queryIndex >= 0 ? targetPath[queryIndex..] : string.Empty;
+        return $"/buyer/contact{query}";
+    }
 
     private void HandleChange()
     {

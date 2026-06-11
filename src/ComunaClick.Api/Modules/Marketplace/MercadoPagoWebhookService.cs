@@ -226,8 +226,11 @@ public sealed class MercadoPagoWebhookService
         var paymentFee = await _db.PaymentFees.FirstOrDefaultAsync(x => x.PaymentId == payment.Id, cancellationToken);
         if (paymentFee is not null && details.FeeDetails is not null)
         {
+            // fee_details incluye también application_fee (la comisión de la plataforma,
+            // que ya se muestra aparte): solo sumamos los cargos propios de Mercado Pago.
             paymentFee.MercadoPagoFeeAmount = details.FeeDetails
-                .Where(x => x.Amount.HasValue)
+                .Where(x => x.Amount.HasValue
+                    && !string.Equals(x.Type, "application_fee", StringComparison.OrdinalIgnoreCase))
                 .Sum(x => x.Amount!.Value);
         }
 

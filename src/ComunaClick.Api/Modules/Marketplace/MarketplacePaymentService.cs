@@ -330,6 +330,12 @@ public sealed class MarketplacePaymentService
             .Select(x => new MarketplacePaymentStatusItemResponse(x.PreviousStatus, x.NewStatus, x.Detail, x.CreatedAt))
             .ToListAsync(cancellationToken);
 
+        // Neto que efectivamente recibe el vendedor: bruto − comisión plataforma − comisión MP.
+        // Lo almacenado (NetToSellerAmount) solo descuenta la comisión de plataforma porque el
+        // fee de MP recién se conoce cuando el pago se confirma.
+        var netBeforeMpFee = fee?.NetToSellerAmount ?? order?.NetAmount ?? 0m;
+        var netToSeller = netBeforeMpFee - (fee?.MercadoPagoFeeAmount ?? 0m);
+
         return new MarketplacePaymentDetailResponse(
             payment.Id,
             payment.OrderId ?? Guid.Empty,
@@ -343,7 +349,7 @@ public sealed class MarketplacePaymentService
             payment.Currency,
             order?.GrossAmount ?? payment.Amount,
             fee?.PlatformFeeAmount ?? order?.PlatformFeeAmount ?? 0m,
-            fee?.NetToSellerAmount ?? order?.NetAmount ?? 0m,
+            netToSeller,
             fee?.MercadoPagoFeeAmount,
             payment.PaidAmount,
             payment.ExternalReference,

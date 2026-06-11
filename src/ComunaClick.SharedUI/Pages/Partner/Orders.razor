@@ -6,6 +6,7 @@
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>@L.T("partner.orders.title")</PageTitle>
@@ -76,6 +77,13 @@
                                     <span class="@GetStatusClass(order.Status)">@MapStatus(order.Status)</span>
                                 </div>
                                 <p class="text-sm text-[#595c5d]">@FormatItems(order)</p>
+                                @if (!string.IsNullOrWhiteSpace(order.BuyerName) || !string.IsNullOrWhiteSpace(order.BuyerPhone))
+                                {
+                                    <p class="text-sm text-[#595c5d]">
+                                        <span class="font-bold text-[#2c2f30]">@L.T("partner.orders.buyer"):</span>
+                                        @string.Join(" · ", new[] { order.BuyerName, order.BuyerPhone }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                                    </p>
+                                }
                                 <p class="text-xs text-[#7b8081]">@FormatRelative(order.CreatedAt)</p>
                             </div>
                             <div class="text-left lg:text-right">
@@ -83,6 +91,18 @@
                                 <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@Money(order.TotalAmount, order.Currency)</p>
                             </div>
                         </div>
+                        @if (WhatsAppHref(order) is { } whatsAppHref)
+                        {
+                            <div class="mt-4">
+                                <a class="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2 text-xs font-bold text-white hover:bg-[#1ebe5b] transition-colors"
+                                   href="@whatsAppHref"
+                                   target="_blank"
+                                   rel="noopener">
+                                    <span class="material-symbols-outlined text-[16px]">chat</span>
+                                    @L.T("partner.orders.action.whatsapp")
+                                </a>
+                            </div>
+                        }
                         @if (CanManage(order))
                         {
                             <div class="mt-5 flex flex-wrap gap-2">
@@ -227,8 +247,18 @@
             return;
         }
 
+        // Scroll por JS: NavigateTo("#...") resuelve contra la raíz del sitio y sacaba al usuario de la página.
         await Task.Delay(100);
-        Navigation.NavigateTo($"#order-{_highlightOrderId}", replace: true);
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.scrollToElement", $"order-{_highlightOrderId}");
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private async Task MarkPaidAsync(Guid orderId) => await UpdateStatusAsync(orderId, "paid", L.T("partner.orders.msg.paid"));
@@ -324,6 +354,37 @@
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Link wa.me para avisar al comprador (null si no hay teléfono utilizable o el pedido está cancelado).
+    /// </summary>
+    private string? WhatsAppHref(ComunaClick.Shared.Api.Partner.Order order)
+    {
+        if (string.IsNullOrWhiteSpace(order.BuyerPhone)
+            || string.Equals(order.Status, "cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var phone = new string(order.BuyerPhone.Where(char.IsDigit).ToArray());
+        if (phone.Length < 8)
+        {
+            return null;
+        }
+
+        var firstName = string.IsNullOrWhiteSpace(order.BuyerName)
+            ? string.Empty
+            : $" {order.BuyerName.Trim().Split(' ')[0]}";
+        var shortId = order.Id.ToString()[..8];
+        var total = Money(order.TotalAmount, order.Currency);
+        var isPaid = string.Equals(order.Status, "paid", StringComparison.OrdinalIgnoreCase);
+        var template = isPaid
+            ? L.T("partner.orders.whatsapp.paid")
+            : L.T("partner.orders.whatsapp.pending");
+        var message = string.Format(template, firstName, shortId, total);
+
+        return $"https://wa.me/{phone}?text={Uri.EscapeDataString(message)}";
     }
 
     private void ReplaceOrder(ComunaClick.Shared.Api.Partner.Order updated)

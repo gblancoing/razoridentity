@@ -1,5 +1,6 @@
 @page "/partner/mercadopago/payments/{PaymentId:guid}"
 @layout PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 
 <PageTitle>Detalle de pago - ComunaClic</PageTitle>
@@ -28,20 +29,28 @@ else
             </a>
         </header>
 
-        <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]" title="@L.T("partner.mp.col.gross.tooltip")">
                 <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Bruto</p>
                 <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FormatMoney(_payment.GrossAmount)</h2>
             </article>
-            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Comisión plataforma</p>
+            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]" title="@L.T("partner.mp.col.mpFee.tooltip")">
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Comisión Mercado Pago</p>
+                <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@(_payment.MercadoPagoFeeAmount.HasValue ? FormatMoney(_payment.MercadoPagoFeeAmount.Value) : "—")</h2>
+            </article>
+            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]" title="@L.T("partner.mp.col.platformFee.tooltip")">
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Comisión ComunaClic</p>
                 <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FormatMoney(_payment.PlatformFeeAmount)</h2>
             </article>
-            <article class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Neto vendedor</p>
-                <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@FormatMoney(_payment.NetAmount)</h2>
+            <article class="rounded-3xl border border-[#a7f255] bg-[#f8fff1] p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]" title="@L.T("partner.mp.col.net.tooltip")">
+                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#396300]">Neto vendedor</p>
+                <h2 class="mt-2 text-4xl font-black tracking-[-0.05em] text-[#3b6700]">@FormatMoney(_payment.NetAmount)</h2>
             </article>
         </section>
+        <p class="text-xs text-[#7b8081]">
+            <span class="material-symbols-outlined align-middle text-[14px]">info</span>
+            @L.T("partner.mp.table.legend")
+        </p>
 
         <section class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#595c5d]">

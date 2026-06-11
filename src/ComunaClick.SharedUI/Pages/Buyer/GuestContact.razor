@@ -1,0 +1,238 @@
+@page "/buyer/contact"
+@layout BuyerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>@L.T("buyer.contact.title")</PageTitle>
+
+<section class="max-w-2xl mx-auto space-y-6">
+    @if (_sentThreadId is not null)
+    {
+        <div class="rounded-[2rem] border border-[#a7f255] bg-[#f8fff1] p-8 space-y-4">
+            <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">@L.T("buyer.contact.success.eyebrow")</p>
+            <h1 class="text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.contact.success.title")</h1>
+            <p class="text-sm text-[#595c5d]">@L.T("buyer.contact.success.body")</p>
+            <div class="flex flex-wrap gap-3 pt-2">
+                <a href="/" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">@L.T("buyer.contact.success.backHome")</a>
+                <a href="/register" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] bg-white px-5 py-3 text-sm font-bold text-[#2c2f30]">@L.T("buyer.contact.success.register")</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@L.T("buyer.contact.eyebrow")</p>
+                <h1 class="mt-2 text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@HeaderTitle</h1>
+                <p class="mt-2 text-sm text-[#595c5d]">@L.T("buyer.contact.subtitle")</p>
+            </div>
+
+            <div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4">
+                <p class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.contact.suggestion.title")</p>
+                <p class="mt-1 text-xs text-[#595c5d]">@L.T("buyer.contact.suggestion.body")</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <a href="@LoginHref" class="inline-flex items-center rounded-xl border border-[#3b6700]/40 px-4 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#a7f255]/15">@L.T("buyer.contact.suggestion.login")</a>
+                    <a href="/register" class="inline-flex items-center rounded-xl border border-[#dadddf] px-4 py-2 text-xs font-bold text-[#2c2f30] hover:bg-[#f5f6f7]">@L.T("buyer.contact.suggestion.register")</a>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.contact.field.name") <span class="text-red-600">*</span></label>
+                        <input class="mt-2 w-full rounded-xl border border-[#dbe6e2] px-4 py-3 text-sm" @bind="_fullName" placeholder="@L.T("buyer.contact.field.namePlaceholder")" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.contact.field.phone") <span class="text-red-600">*</span></label>
+                        <input type="tel" class="mt-2 w-full rounded-xl border border-[#dbe6e2] px-4 py-3 text-sm" @bind="_phone" placeholder="+56 9 1234 5678" />
+                    </div>
+                </div>
+                <div>
+                    <label class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.contact.field.email")</label>
+                    <input type="email" class="mt-2 w-full rounded-xl border border-[#dbe6e2] px-4 py-3 text-sm" @bind="_email" placeholder="@L.T("buyer.contact.field.emailPlaceholder")" />
+                </div>
+                <div>
+                    <label class="text-sm font-semibold text-[#2c2f30]">@L.T("buyer.contact.field.message") <span class="text-red-600">*</span></label>
+                    <textarea rows="5" class="mt-2 w-full rounded-xl border border-[#dbe6e2] px-4 py-3 text-sm" @bind="_body" placeholder="@L.T("buyer.contact.field.messagePlaceholder")"></textarea>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <p class="text-sm font-medium text-red-600">@_error</p>
+                }
+
+                <button type="button"
+                        class="inline-flex w-full items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-4 text-sm font-bold text-[#d9ffad] disabled:opacity-60 md:w-auto"
+                        disabled="@_sending"
+                        @onclick="SendAsync">
+                    @(_sending ? L.T("buyer.contact.sending") : L.T("buyer.contact.send"))
+                </button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    private Guid? _partnerId;
+    private Guid? _professionalId;
+    private string? _subject;
+    private string _fullName = string.Empty;
+    private string _phone = string.Empty;
+    private string _email = string.Empty;
+    private string _body = string.Empty;
+    private string? _error;
+    private bool _sending;
+    private Guid? _sentThreadId;
+
+    private string HeaderTitle => string.IsNullOrWhiteSpace(_subject)
+        ? L.T("buyer.contact.title")
+        : _subject!;
+
+    private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(Navigation.ToBaseRelativePath(Navigation.Uri).Insert(0, "/"))}";
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+        ParseQuery();
+
+        // Usuarios con cuenta personal siguen usando su buzón (con historial).
+        if (AuthState.IsPersonalAccount)
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            Navigation.NavigateTo($"/account/messages{uri.Query}", replace: true);
+        }
+    }
+
+    private void ParseQuery()
+    {
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+        _partnerId = ParseGuid(query, "partnerId");
+        _professionalId = ParseGuid(query, "professionalId");
+        _subject = ParseString(query, "subject");
+    }
+
+    private async Task SendAsync()
+    {
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_fullName) || _fullName.Trim().Length < 2)
+        {
+            _error = L.T("buyer.contact.error.name");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_phone) || _phone.Trim().Length < 6)
+        {
+            _error = L.T("buyer.contact.error.phone");
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_email) && !_email.Contains('@'))
+        {
+            _error = L.T("buyer.contact.error.email");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_body))
+        {
+            _error = L.T("buyer.contact.error.message");
+            return;
+        }
+
+        if (_partnerId is null && _professionalId is null)
+        {
+            _error = L.T("buyer.contact.error.recipient");
+            return;
+        }
+
+        _sending = true;
+        try
+        {
+            var result = await BuyerApi.CreateGuestInboxThreadAsync(new ComunaClick.Shared.Api.Buyer.GuestInboxThreadCreateRequest(
+                _partnerId,
+                _professionalId,
+                _fullName.Trim(),
+                _phone.Trim(),
+                string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
+                _subject,
+                _body.Trim()));
+
+            if (result is null)
+            {
+                _error = L.T("buyer.contact.error.failed");
+                return;
+            }
+
+            _sentThreadId = result.ThreadId;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = TryExtractApiMessage(ex.Message) ?? L.T("buyer.contact.error.failed");
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private static Guid? ParseGuid(string query, string key)
+    {
+        var value = ParseString(query, key);
+        return Guid.TryParse(value, out var id) && id != Guid.Empty ? id : null;
+    }
+
+    private static string? ParseString(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pieces = pair.Split('=', 2);
+            if (string.Equals(Uri.UnescapeDataString(pieces[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return pieces.Length > 1 ? Uri.UnescapeDataString(pieces[1].Replace('+', ' ')) : null;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.OnChange -= HandleChange;
+}
