@@ -188,7 +188,8 @@ public sealed class MarketplacePaymentService
             payment.Status = NormalizeMercadoPagoStatus(mpPayment.Status);
             payment.StatusDetail = mpPayment.StatusDetail;
             payment.PaidAmount = mpPayment.TransactionAmount;
-            payment.DateApproved = mpPayment.DateApproved;
+            // MP devuelve date_approved con offset local (-04:00); Npgsql solo acepta UTC en timestamptz.
+            payment.DateApproved = mpPayment.DateApproved?.ToUniversalTime();
             payment.RawResponseJson = JsonSerializer.Serialize(mpPayment, JsonOptions);
 
             response = new MarketplacePaymentResponse(

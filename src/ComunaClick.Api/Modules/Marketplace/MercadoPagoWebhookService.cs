@@ -217,7 +217,8 @@ public sealed class MercadoPagoWebhookService
         payment.StatusDetail = details.StatusDetail;
         payment.PaymentMethod = details.PaymentMethodId ?? payment.PaymentMethod;
         payment.PaidAmount = details.TransactionAmount;
-        payment.DateApproved = details.DateApproved;
+        // MP devuelve date_approved con offset local (-04:00); Npgsql solo acepta UTC en timestamptz.
+        payment.DateApproved = details.DateApproved?.ToUniversalTime();
         payment.RawResponseJson = JsonSerializer.Serialize(details, JsonOptions);
         payment.LastEventId = $"{webhookEvent.Topic}:{webhookEvent.ResourceId}:{webhookEvent.Action}";
         payment.UpdatedAt = DateTimeOffset.UtcNow;
