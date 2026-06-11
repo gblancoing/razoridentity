@@ -1,9 +1,27 @@
 @inherits LayoutComponentBase
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.SharedUI.Services.Partner.PartnerNotificationsBadgeService NotificationsBadge
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @implements IDisposable
+
+<style>
+    @@keyframes cc-bell-ring {
+        0%, 60%, 100% { transform: rotate(0); }
+        10% { transform: rotate(14deg); }
+        20% { transform: rotate(-12deg); }
+        30% { transform: rotate(10deg); }
+        40% { transform: rotate(-8deg); }
+        50% { transform: rotate(4deg); }
+    }
+
+    .cc-bell-ring {
+        animation: cc-bell-ring 2.2s ease-in-out infinite;
+        transform-origin: top center;
+        display: inline-block;
+    }
+</style>
 
 <div class="min-h-screen bg-[#f5f6f7] text-[#2c2f30] lg:flex">
     <aside class="@($"fixed left-0 top-0 hidden lg:flex shrink-0 z-30 h-screen flex-col border-r border-[#e3e6e8] bg-white transition-[width] duration-300 ease-in-out {SidebarWidthClass}")">
@@ -127,10 +145,22 @@
                     <div class="my-3 border-t border-[#e3e6e8]" aria-hidden="true"></div>
                 }
                 <a class="@GetNavLinkClass("/partner/notifications")" href="/partner/notifications" title="@L.T("partner.nav.notifications")">
-                    <span class="material-symbols-outlined text-[22px] shrink-0">notifications</span>
+                    <span class="relative shrink-0">
+                        <span class="material-symbols-outlined text-[22px]">notifications</span>
+                        @if (_sidebarCollapsed && HasUnreadNotifications)
+                        {
+                            <span class="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#dc2626] animate-pulse" aria-hidden="true"></span>
+                        }
+                    </span>
                     @if (!_sidebarCollapsed)
                     {
-                        <span>@L.T("partner.nav.notifications")</span>
+                        <span class="flex items-center gap-2">
+                            @L.T("partner.nav.notifications")
+                            @if (HasUnreadNotifications)
+                            {
+                                <span class="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#dc2626] px-1.5 text-[10px] font-black text-white">@UnreadNotificationsLabel</span>
+                            }
+                        </span>
                     }
                 </a>
                 <a class="@GetNavLinkClass("/partner/messages")" href="/partner/messages" title="@L.T("partner.nav.messages")">
@@ -189,6 +219,16 @@
 
             <div class="flex items-center gap-3 sm:gap-4">
                 <LanguageToggle />
+                <a href="/partner/notifications"
+                   class="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eff1f2] text-[#2c2f30] hover:bg-[#e6e8ea] transition-colors"
+                   aria-label="@L.T("partner.nav.notifications")"
+                   title="@L.T("partner.nav.notifications")">
+                    <span class="material-symbols-outlined text-[22px] @(HasUnreadNotifications ? "cc-bell-ring text-[#3b6700]" : "")">notifications</span>
+                    @if (HasUnreadNotifications)
+                    {
+                        <span class="absolute -top-0.5 -right-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-black text-white">@UnreadNotificationsLabel</span>
+                    }
+                </a>
                 <AccountUserMenu IsPartnerContext="true" />
                 <button class="inline-flex items-center gap-2 rounded-full bg-[#eff1f2] px-4 py-2 text-sm font-semibold text-[#3b6700] hover:bg-[#e6e8ea] transition-colors" type="button" @onclick="HandleLogout">
                     <span class="material-symbols-outlined text-[18px]">logout</span>
@@ -214,9 +254,17 @@
         ? L.T("partner.sidebar.expand")
         : L.T("partner.sidebar.collapse");
 
+    private bool HasUnreadNotifications => NotificationsBadge.UnreadCount > 0;
+
+    private string UnreadNotificationsLabel => NotificationsBadge.UnreadCount > 99
+        ? "99+"
+        : NotificationsBadge.UnreadCount.ToString();
+
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        NotificationsBadge.OnChange += HandleChange;
+        Navigation.LocationChanged += HandleLocationChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -255,6 +303,20 @@
                 Navigation.NavigateTo("/my-businesses", true);
             }
         }
+
+        if (AuthState.IsAuthenticated && AuthState.PartnerId is { } partnerId && partnerId != Guid.Empty)
+        {
+            await NotificationsBadge.RefreshAsync(partnerId);
+        }
+    }
+
+    private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (AuthState.PartnerId is { } partnerId && partnerId != Guid.Empty)
+        {
+            // El servicio aplica throttle interno; navegar refresca el contador sin spamear la API.
+            _ = NotificationsBadge.RefreshAsync(partnerId);
+        }
     }
 
     private async Task ToggleSidebarAsync()
@@ -280,6 +342,8 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+        NotificationsBadge.OnChange -= HandleChange;
+        Navigation.LocationChanged -= HandleLocationChanged;
     }
 
     private async Task HandleLogout()

@@ -310,6 +310,13 @@
                 </div>
 
                 <div class="space-y-4">
+                    @if (_upcomingBookings.Count == 0)
+                    {
+                        <div class="rounded-2xl border border-dashed border-[#dadddf] bg-[#f7f8f8] p-5 text-center">
+                            <p class="text-sm font-bold text-[#2c2f30]">@L.T("partner.dashboard.bookings.empty")</p>
+                            <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.dashboard.bookings.emptyHint")</p>
+                        </div>
+                    }
                     @foreach (var slot in _upcomingBookings)
                     {
                         <div class="group flex items-center gap-4 p-4 rounded-2xl hover:bg-[#f5f6f7] transition-all border border-transparent hover:border-[#e3e6e8]">
@@ -413,6 +420,7 @@
     private bool _isSavingProfile;
     private Guid? _editingBusinessId;
     private readonly BusinessProfileEditor _profileEditor = new();
+    private IReadOnlyList<ComunaClick.Shared.Api.Partner.Booking> _bookings = [];
     private List<BookingCard> _upcomingBookings = new();
 
     private string PrimaryActionHref => _activation is null
@@ -468,7 +476,6 @@
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
-        _upcomingBookings = BuildDemoBookings();
         SetDefaultStatusMessage();
     }
 
@@ -508,7 +515,9 @@
                 ResetBusinessProfileEditor();
             }
 
-            _bookingsCount = bookings?.Count ?? 0;
+            _bookings = bookings ?? [];
+            _upcomingBookings = BuildUpcomingBookings();
+            _bookingsCount = _bookings.Count;
             _ordersTotal = orders is null ? "$0"
                 : $"${orders.Where(x => string.Equals(x.Status, "paid", StringComparison.OrdinalIgnoreCase)).Sum(x => x.TotalAmount):N0}";
             await LoadBusinessMetricsAsync(partnerId.Value);
@@ -617,7 +626,7 @@
 
     private void HandleChange()
     {
-        _upcomingBookings = BuildDemoBookings();
+        _upcomingBookings = BuildUpcomingBookings();
         InvokeAsync(StateHasChanged);
     }
 
@@ -767,24 +776,50 @@
     private void SetDefaultStatusMessage()
         => _statusMessage = L.T("partner.dashboard.status.salesEmpty");
 
-    private List<BookingCard> BuildDemoBookings() =>
-    [
-        new("calendar_today",
-            L.T("partner.dashboard.demo.booking1.title"),
-            L.T("partner.dashboard.demo.booking1.client"),
-            L.T("partner.dashboard.demo.booking1.time"),
-            L.T("partner.dashboard.demo.booking1.day")),
-        new("self_improvement",
-            L.T("partner.dashboard.demo.booking2.title"),
-            L.T("partner.dashboard.demo.booking2.client"),
-            L.T("partner.dashboard.demo.booking2.time"),
-            L.T("partner.dashboard.demo.booking2.day")),
-        new("spa",
-            L.T("partner.dashboard.demo.booking3.title"),
-            L.T("partner.dashboard.demo.booking3.client"),
-            L.T("partner.dashboard.demo.booking3.time"),
-            L.T("partner.dashboard.demo.booking3.day"))
-    ];
+    private List<BookingCard> BuildUpcomingBookings()
+    {
+        var now = DateTimeOffset.Now;
+        return _bookings
+            .Where(x => x.StartAt >= now.AddHours(-1))
+            .Where(x => !string.Equals(x.Status, "cancelled", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x.StartAt)
+            .Take(3)
+            .Select(x => new BookingCard(
+                "calendar_today",
+                BookingStatusLabel(x.Status),
+                $"${x.Amount:N0} {x.Currency}".TrimEnd(),
+                x.StartAt.ToLocalTime().ToString("HH:mm"),
+                BookingDayLabel(x.StartAt.ToLocalTime())))
+            .ToList();
+    }
+
+    private string BookingStatusLabel(string? status)
+    {
+        var normalized = status?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return L.T("partner.dashboard.bookings.item.title");
+        }
+
+        var key = $"partner.agenda.status.{normalized}";
+        var label = L.T(key);
+        return string.Equals(label, key, StringComparison.Ordinal)
+            ? L.T("partner.dashboard.bookings.item.title")
+            : label;
+    }
+
+    private string BookingDayLabel(DateTimeOffset startLocal)
+    {
+        var today = DateTime.Now.Date;
+        if (startLocal.Date == today)
+        {
+            return L.T("partner.dashboard.bookings.day.today");
+        }
+
+        return startLocal.Date == today.AddDays(1)
+            ? L.T("partner.dashboard.bookings.day.tomorrow")
+            : startLocal.ToString("dd MMM");
+    }
 
     public void Dispose()
     {

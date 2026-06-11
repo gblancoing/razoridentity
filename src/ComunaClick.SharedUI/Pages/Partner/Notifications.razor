@@ -5,6 +5,7 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject ComunaClick.SharedUI.Services.Partner.PartnerNotificationsBadgeService NotificationsBadge
 @implements IDisposable
 
 <PageTitle>@L.T("partner.notifications.title")</PageTitle>
@@ -262,6 +263,7 @@
             }
 
             ReplaceNotification(updated);
+            await RefreshBadgeAsync();
         }
         finally
         {
@@ -285,10 +287,20 @@
             {
                 _items.RemoveAll(x => x.Id == id);
             }
+
+            await RefreshBadgeAsync();
         }
         finally
         {
             _updatingNotificationId = null;
+        }
+    }
+
+    private async Task RefreshBadgeAsync()
+    {
+        if (AuthState.PartnerId is { } partnerId && partnerId != Guid.Empty)
+        {
+            await NotificationsBadge.RefreshAsync(partnerId, force: true);
         }
     }
 

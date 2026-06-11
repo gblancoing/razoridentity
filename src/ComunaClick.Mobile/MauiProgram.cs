@@ -56,6 +56,7 @@ public static class MauiProgram
 		builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerLeadService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerLeadService>();
 		builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerPayoutService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerPayoutService>();
 		builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerNotificationService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerNotificationService>();
+		builder.Services.AddScoped<ComunaClick.SharedUI.Services.Partner.PartnerNotificationsBadgeService>();
 
 		return builder.Build();
 	}
