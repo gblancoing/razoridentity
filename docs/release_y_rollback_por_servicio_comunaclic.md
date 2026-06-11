@@ -37,6 +37,70 @@ Antes de publicar cualquier servicio:
 6. Si hubo cambios de frontend o auth, preparar credenciales QA para el smoke test autenticado.
 7. Si el build local está inestable, asumir publish controlado y validar con smoke post-deploy inmediatamente.
 
+## Pre-flight de secretos (CRÍTICO para `api`)
+
+> Origen: incidente 2026-06-11. Tras un deploy, la API quedó en **crash-loop (HTTP 502)** porque
+> `Payments:InternalWebhookKey` en el servidor seguía siendo el placeholder `CHANGE_ME`.
+
+Desde el Prompt Maestro, `ComunaClick.Api` valida secretos al arrancar
+(`Configuration/StartupSecretsValidator.cs`). **Cuando `ASPNETCORE_ENVIRONMENT=Production`, la app
+ABORTA el arranque** (signal ABRT, `systemd` reinicia en bucle) si falta o es placeholder alguno de:
+
+- `Jwt:SigningKey` (≥ 32 caracteres)
+- `Payments:InternalWebhookKey` (≥ 32 caracteres)
+- `Marketplace:MercadoPago:ClientId` / `ClientSecret` / `WebhookSecret` / `EncryptionKey`
+  (acepta override por env `MP_CLIENT_ID` / `MP_CLIENT_SECRET` / `MP_WEBHOOK_SECRET` / `ENCRYPTION_KEY`)
+
+### Dónde viven los secretos en producción
+
+- El servicio `comunaclic-api.service` **solo** define `ASPNETCORE_*` (ver
+  `/etc/systemd/system/comunaclic-api.service`). No usa `EnvironmentFile`.
+- Los secretos reales están en `/var/www/comunaclic/api/appsettings.json` y
+  `appsettings.Production.json` **del servidor**. El deploy **preserva** ambos (los restaura desde el
+  backup), así que no se pisan al publicar. La cadena de conexión RDS está en el `appsettings.json` base.
+
+### Verificar ANTES de reiniciar (en el servidor)
+
+```bash
+# Confirmar que no quedan placeholders en la config productiva de la API.
+sudo grep -i "CHANGE_ME\|InternalWebhookKey\|SigningKey" \
+  /var/www/comunaclic/api/appsettings.json \
+  /var/www/comunaclic/api/appsettings.Production.json
+```
+
+Si `Payments:InternalWebhookKey` falta o es `CHANGE_ME`, generarlo fuerte y dejarlo en
+`appsettings.Production.json` (sección `Payments`) antes del deploy:
+
+```bash
+openssl rand -hex 32   # 64 chars; pegar como Payments:InternalWebhookKey
+```
+
+### Síntoma de que faltó este pre-flight
+
+```text
+Unhandled exception. System.InvalidOperationException: Configuración insegura en producción...
+ - Payments:InternalWebhookKey debe ser un secreto fuerte (≥ 32 caracteres) y no un placeholder.
+comunaclic-api.service: Main process exited, code=dumped, signal=ABRT
+```
+→ fijar el secreto en `appsettings.Production.json` y `sudo systemctl restart comunaclic-api.service`.
+
+## Migraciones SQL en deploy
+
+- Las migraciones idempotentes viven en `infra/migrations/*.sql` y `DatabaseSchemaBootstrap` las
+  aplica **al arrancar** la API si falta la tabla/columna.
+- El bootstrap las busca en `migrations/` junto al binario publicado. El `.csproj` copia
+  **todos** los `.sql` al publish vía glob (`infra/migrations/*.sql`), así que basta con que el
+  archivo exista en esa carpeta y esté registrado en `PendingChecks` de `DatabaseSchemaBootstrap`.
+- **Fallback manual** (si una migración no se aplicó sola): aplicar contra RDS con
+
+```bash
+scp -i /ruta/llave.pem infra/migrations/<archivo>.sql ubuntu@HOST:/tmp/
+ssh -i /ruta/llave.pem ubuntu@HOST \
+  "bash -s -- /tmp/<archivo>.sql" < tmp_deploy_scripts/run_migration_on_prod.sh
+```
+
+Verificar que la tabla/columna quedó creada antes de dar el release por OK.
+
 ## Release Por Servicio
 
 ### 1. Publicar solo servicios afectados
