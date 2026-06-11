@@ -1,3 +1,4 @@
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Orders.Contracts;
 using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ComunaClick.Api.Modules.Orders;
 
@@ -18,17 +20,26 @@ public sealed class OrdersController : ControllerBase
     private readonly ITenantContext _tenantContext;
     private readonly IOrderCheckoutService _orderCheckoutService;
     private readonly IProductInventoryService _inventoryService;
+    private readonly IOrderNotificationService _orderNotificationService;
+    private readonly IOrderTrackingTokenService _trackingTokens;
+    private readonly IOptions<OrderTrackingOptions> _trackingOptions;
 
     public OrdersController(
         CoreDbContext db,
         ITenantContext tenantContext,
         IOrderCheckoutService orderCheckoutService,
-        IProductInventoryService inventoryService)
+        IProductInventoryService inventoryService,
+        IOrderNotificationService orderNotificationService,
+        IOrderTrackingTokenService trackingTokens,
+        IOptions<OrderTrackingOptions> trackingOptions)
     {
         _db = db;
         _tenantContext = tenantContext;
         _orderCheckoutService = orderCheckoutService;
         _inventoryService = inventoryService;
+        _orderNotificationService = orderNotificationService;
+        _trackingTokens = trackingTokens;
+        _trackingOptions = trackingOptions;
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -62,16 +73,35 @@ public sealed class OrdersController : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting("public-read")]
     [HttpGet("/v1/public/orders/{id:guid}")]
-    public async Task<ActionResult<object>> GetPublic(Guid id, [FromQuery] Guid customerId)
+    public async Task<ActionResult<object>> GetPublic(
+        Guid id,
+        [FromQuery] Guid? customerId,
+        [FromQuery] string? token)
     {
-        if (customerId == Guid.Empty)
+        // Acceso preferente por token firmado con expiración. El par id+customerId de los
+        // enlaces antiguos solo se acepta durante el período de gracia (flag configurable).
+        Guid resolvedCustomerId;
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            if (!_trackingTokens.TryValidate(token, id, out resolvedCustomerId))
+            {
+                return NotFound();
+            }
+        }
+        else if (_trackingOptions.Value.AllowLegacyPublicAccess
+                 && customerId is { } legacyCustomerId
+                 && legacyCustomerId != Guid.Empty)
+        {
+            resolvedCustomerId = legacyCustomerId;
+        }
+        else
         {
             return NotFound();
         }
 
         var order = await _db.Orders.AsNoTracking()
             .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id && x.CustomerId == customerId);
+            .FirstOrDefaultAsync(x => x.Id == id && x.CustomerId == resolvedCustomerId);
 
         if (order is null)
         {
@@ -185,7 +215,9 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
-        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+        var order = await _db.Orders
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (order is null)
         {
             return NotFound();
@@ -196,24 +228,7 @@ public sealed class OrdersController : ControllerBase
             return Forbid();
         }
 
-        var previousStatus = order.Status;
-        var newStatus = request.Status.Trim();
-        order.Status = newStatus;
-        order.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
-
-        var orderWithItems = await _db.Orders
-            .Include(x => x.Items)
-            .FirstAsync(x => x.Id == order.Id, HttpContext.RequestAborted);
-        await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
-            _db,
-            _inventoryService,
-            orderWithItems,
-            previousStatus,
-            newStatus,
-            HttpContext.RequestAborted);
-
-        return Ok(order);
+        return await TransitionOrderAsync(order, request.Status, HttpContext.RequestAborted);
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -226,7 +241,9 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
-        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+        var order = await _db.Orders
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (order is null)
         {
             return NotFound();
@@ -237,9 +254,75 @@ public sealed class OrdersController : ControllerBase
             return Forbid();
         }
 
-        order.Status = "cancelled";
+        return await TransitionOrderAsync(order, OrderStatusMachine.Cancelled, HttpContext.RequestAborted);
+    }
+
+    private async Task<ActionResult<Order>> TransitionOrderAsync(Order order, string requestedStatus, CancellationToken cancellationToken)
+    {
+        var newStatus = OrderStatusMachine.Normalize(requestedStatus);
+        if (!OrderStatusMachine.CanTransition(order.Status, newStatus, out var error))
+        {
+            return BadRequest(new { message = error });
+        }
+
+        var previousStatus = OrderStatusMachine.Normalize(order.Status);
+        if (string.Equals(previousStatus, newStatus, StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(order);
+        }
+
+        order.Status = newStatus;
         order.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (string.Equals(newStatus, OrderStatusMachine.Paid, StringComparison.OrdinalIgnoreCase))
+        {
+            await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
+                _db,
+                _inventoryService,
+                order,
+                newStatus,
+                cancellationToken);
+
+            // Aviso de venta al comercio (encolado, idempotente): solo cuando la orden está pagada.
+            await _orderNotificationService.NotifyPartnerOrderPaidAsync(order.Id, cancellationToken);
+        }
+        else if (string.Equals(newStatus, OrderStatusMachine.Cancelled, StringComparison.OrdinalIgnoreCase))
+        {
+            await HandleCancellationAsync(order, previousStatus, cancellationToken);
+        }
+
         return Ok(order);
+    }
+
+    private async Task HandleCancellationAsync(Order order, string previousStatus, CancellationToken cancellationToken)
+    {
+        if (order.InventoryFulfilledAt is not null)
+        {
+            await _inventoryService.RestoreOrderAsync(order, cancellationToken);
+        }
+
+        // Orden cancelada después de pagada: dejar registrado que requiere reembolso
+        // (la ejecución del reembolso es un proceso aparte).
+        if (string.Equals(previousStatus, OrderStatusMachine.Paid, StringComparison.OrdinalIgnoreCase))
+        {
+            _db.Interactions.Add(new Interaction
+            {
+                TenantId = order.TenantId,
+                CustomerId = order.CustomerId,
+                PartnerId = order.PartnerId,
+                Type = "order_refund_required",
+                ReferenceId = order.Id,
+                Payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    order.TotalAmount,
+                    order.Currency,
+                    previousStatus,
+                    cancelledAt = DateTimeOffset.UtcNow
+                }),
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
     }
 }

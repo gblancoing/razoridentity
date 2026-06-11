@@ -58,6 +58,7 @@ public sealed class CoreDbContext : DbContext
     public DbSet<PayoutBatch> PayoutBatches => Set<PayoutBatch>();
     public DbSet<PayoutItem> PayoutItems => Set<PayoutItem>();
     public DbSet<ProfessionalFollow> ProfessionalFollows => Set<ProfessionalFollow>();
+    public DbSet<NotificationOutbox> NotificationOutbox => Set<NotificationOutbox>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -95,6 +96,7 @@ public sealed class CoreDbContext : DbContext
         modelBuilder.Entity<Seller>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<PayoutBatch>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<PayoutItem>().HasQueryFilter(x => !tenantId.HasValue || x.Batch.TenantId == tenantId.Value);
+        modelBuilder.Entity<NotificationOutbox>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
 
         modelBuilder.Entity<Tenant>(entity =>
         {
@@ -316,6 +318,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.DeliveryProviderId).HasColumnName("delivery_provider_id");
             entity.Property(x => x.DeliveryProviderName).HasColumnName("delivery_provider_name");
             entity.Property(x => x.DeliveryAddress).HasColumnName("delivery_address");
+            entity.Property(x => x.InventoryFulfilledAt).HasColumnName("inventory_fulfilled_at");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.TenantId, x.ExternalReference })
@@ -909,6 +912,31 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => x.FollowerProfessionalId);
             entity.HasIndex(x => new { x.FollowedType, x.FollowedId });
+        });
+
+        modelBuilder.Entity<NotificationOutbox>(entity =>
+        {
+            entity.ToTable("notification_outbox");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.Channel).HasColumnName("channel").IsRequired().HasDefaultValue("email");
+            entity.Property(x => x.Kind).HasColumnName("kind").IsRequired();
+            entity.Property(x => x.ReferenceId).HasColumnName("reference_id");
+            entity.Property(x => x.Recipient).HasColumnName("recipient");
+            entity.Property(x => x.Subject).HasColumnName("subject");
+            entity.Property(x => x.Body).HasColumnName("body").IsRequired();
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired().HasDefaultValue("pending");
+            entity.Property(x => x.Attempts).HasColumnName("attempts").HasDefaultValue(0);
+            entity.Property(x => x.MaxAttempts).HasColumnName("max_attempts").HasDefaultValue(5);
+            entity.Property(x => x.NextAttemptAt).HasColumnName("next_attempt_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.LastError).HasColumnName("last_error");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.SentAt).HasColumnName("sent_at");
+            entity.HasIndex(x => new { x.Status, x.NextAttemptAt });
+            entity.HasIndex(x => new { x.ReferenceId, x.Kind });
         });
 
         modelBuilder.Entity<PayoutItem>(entity =>

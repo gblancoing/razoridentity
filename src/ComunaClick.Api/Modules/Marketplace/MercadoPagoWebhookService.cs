@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -16,6 +17,7 @@ public sealed class MercadoPagoWebhookService
     private readonly MarketplaceAuditService _auditService;
     private readonly MarketplaceMetricsService _metrics;
     private readonly IProductInventoryService _inventoryService;
+    private readonly IOrderNotificationService _orderNotificationService;
 
     public MercadoPagoWebhookService(
         CoreDbContext db,
@@ -23,7 +25,8 @@ public sealed class MercadoPagoWebhookService
         MercadoPagoOAuthService oauthService,
         MarketplaceAuditService auditService,
         MarketplaceMetricsService metrics,
-        IProductInventoryService inventoryService)
+        IProductInventoryService inventoryService,
+        IOrderNotificationService orderNotificationService)
     {
         _db = db;
         _client = client;
@@ -31,6 +34,7 @@ public sealed class MercadoPagoWebhookService
         _auditService = auditService;
         _metrics = metrics;
         _inventoryService = inventoryService;
+        _orderNotificationService = orderNotificationService;
     }
 
     public async Task<WebhookEvent> HandleAsync(HttpRequest request, string payloadJson, CancellationToken cancellationToken)
@@ -56,27 +60,28 @@ public sealed class MercadoPagoWebhookService
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        var duplicate = await _db.WebhookEvents
-            .IgnoreQueryFilters()
-            .AnyAsync(x => x.Topic == topic && x.Action == action && x.ResourceId == resourceId && x.Processed, cancellationToken);
-        if (duplicate)
-        {
-            webhookEvent.Processed = true;
-            webhookEvent.ProcessedAt = DateTimeOffset.UtcNow;
-            _db.WebhookEvents.Add(webhookEvent);
-            await _db.SaveChangesAsync(cancellationToken);
-            return webhookEvent;
-        }
-
         _db.WebhookEvents.Add(webhookEvent);
         await _db.SaveChangesAsync(cancellationToken);
 
+        // Security gate: never trust (or dedup) a webhook whose signature is invalid.
         if (!signatureValid)
         {
             webhookEvent.ErrorMessage = "Invalid Mercado Pago webhook signature.";
             webhookEvent.Processed = false;
             webhookEvent.ProcessedAt = DateTimeOffset.UtcNow;
             _metrics.Increment("webhook_errors");
+            await _db.SaveChangesAsync(cancellationToken);
+            return webhookEvent;
+        }
+
+        // Idempotency: a signed event already processed must not be processed twice.
+        var duplicate = await _db.WebhookEvents
+            .IgnoreQueryFilters()
+            .AnyAsync(x => x.Topic == topic && x.Action == action && x.ResourceId == resourceId && x.Processed && x.Id != webhookEvent.Id, cancellationToken);
+        if (duplicate)
+        {
+            webhookEvent.Processed = true;
+            webhookEvent.ProcessedAt = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(cancellationToken);
             return webhookEvent;
         }
@@ -262,11 +267,12 @@ public sealed class MercadoPagoWebhookService
 
         if (payment.OrderId.HasValue && OrderInventoryFulfillment.IsPaidStatus(payment.Status))
         {
-            var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value, cancellationToken);
+            var order = await _db.Orders
+                .Include(x => x.Items)
+                .FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value, cancellationToken);
             if (order is not null)
             {
-                var orderPreviousStatus = order.Status;
-                if (!OrderInventoryFulfillment.IsPaidStatus(orderPreviousStatus))
+                if (!OrderInventoryFulfillment.IsPaidStatus(order.Status))
                 {
                     order.Status = "paid";
                     order.UpdatedAt = DateTimeOffset.UtcNow;
@@ -276,10 +282,11 @@ public sealed class MercadoPagoWebhookService
                 await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
                     _db,
                     _inventoryService,
-                    payment.OrderId.Value,
-                    orderPreviousStatus,
+                    order,
                     "paid",
                     cancellationToken);
+
+                await _orderNotificationService.NotifyPartnerOrderPaidAsync(order.Id, cancellationToken);
             }
         }
         else if (OrderInventoryFulfillment.IsPaidStatus(payment.Status) &&

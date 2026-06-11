@@ -1,10 +1,8 @@
-using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Net.Mail;
 using System.Text.Json;
+using ComunaClick.Api.Modules.Orders;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace ComunaClick.Api.Integrations.Notifications;
@@ -12,49 +10,102 @@ namespace ComunaClick.Api.Integrations.Notifications;
 public sealed class OrderNotificationService : IOrderNotificationService
 {
     private readonly OrderNotificationOptions _options;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly CoreDbContext _db;
+    private readonly IOrderTrackingTokenService _trackingTokens;
     private readonly ILogger<OrderNotificationService> _logger;
 
     public OrderNotificationService(
         IOptions<OrderNotificationOptions> options,
-        IHttpClientFactory httpClientFactory,
         CoreDbContext db,
+        IOrderTrackingTokenService trackingTokens,
         ILogger<OrderNotificationService> logger)
     {
         _options = options.Value;
-        _httpClientFactory = httpClientFactory;
         _db = db;
+        _trackingTokens = trackingTokens;
         _logger = logger;
     }
 
-    public async Task NotifyPartnerAsync(Order order, Partner partner, Customer customer, IReadOnlyList<OrderItem> items, CancellationToken cancellationToken = default)
+    public async Task NotifyPartnerOrderPaidAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
+        if (orderId == Guid.Empty)
+        {
+            return;
+        }
+
+        // Idempotencia: si ya se encoló el aviso de venta para esta orden, no duplicar
+        // (el pago puede confirmarse por varias vías: webhook MP, provider-notify, panel).
+        var alreadyQueued = await _db.NotificationOutbox
+            .IgnoreQueryFilters()
+            .AnyAsync(x => x.ReferenceId == orderId && x.Kind == NotificationKinds.PartnerOrderPaid, cancellationToken);
+        if (alreadyQueued)
+        {
+            return;
+        }
+
+        var order = await _db.Orders
+            .IgnoreQueryFilters()
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == orderId, cancellationToken);
+        if (order is null)
+        {
+            return;
+        }
+
+        var partner = await _db.Partners.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Id == order.PartnerId, cancellationToken);
+        var customer = await _db.Customers.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Id == order.CustomerId, cancellationToken);
+        if (partner is null || customer is null)
+        {
+            return;
+        }
+
         if (!_options.Enabled)
         {
             await SaveNotificationAuditAsync(order, partner, customer, "disabled", "notifications_disabled", cancellationToken);
             return;
         }
 
-        var message = BuildMessage(order, partner, customer, items);
+        var message = BuildPartnerMessage(order, partner, customer, order.Items);
+        var enqueued = false;
 
-        var outcomes = new List<string>();
-        if (_options.EnableEmail)
+        if (_options.EnableEmail && !string.IsNullOrWhiteSpace(partner.Email))
         {
-            outcomes.Add(await TrySendEmailAsync(partner, message, cancellationToken));
+            Enqueue(
+                order.TenantId,
+                "email",
+                NotificationKinds.PartnerOrderPaid,
+                order.Id,
+                partner.Email!.Trim(),
+                "Nueva venta pagada - ComunaClic",
+                message,
+                payloadJson: null);
+            enqueued = true;
         }
 
-        if (_options.EnableWhatsAppWebhook)
+        if (_options.EnableWhatsAppWebhook && !string.IsNullOrWhiteSpace(partner.Phone))
         {
-            outcomes.Add(await TrySendWhatsAppAsync(partner, order, customer, message, cancellationToken));
+            var payload = JsonSerializer.Serialize(new
+            {
+                channel = "whatsapp",
+                orderId = order.Id,
+                partnerId = partner.Id,
+                to = partner.Phone,
+                customer = customer.FullName ?? customer.Email ?? customer.Id.ToString(),
+                message
+            });
+            Enqueue(order.TenantId, "whatsapp", NotificationKinds.PartnerOrderPaid, order.Id, partner.Phone, null, message, payload);
+            enqueued = true;
         }
 
-        if (outcomes.Count == 0)
-        {
-            outcomes.Add("no_channel_enabled");
-        }
-
-        await SaveNotificationAuditAsync(order, partner, customer, "processed", string.Join(",", outcomes), cancellationToken);
+        await SaveNotificationAuditAsync(
+            order,
+            partner,
+            customer,
+            enqueued ? "queued" : "no_channel_enabled",
+            enqueued ? "partner_order_paid" : "no_channel_enabled",
+            cancellationToken);
     }
 
     public async Task NotifyBuyerOrderAsync(Order order, Partner partner, Customer customer, CancellationToken cancellationToken = default)
@@ -70,7 +121,8 @@ public sealed class OrderNotificationService : IOrderNotificationService
         }
 
         var baseUrl = _options.AppBaseUrl.TrimEnd('/');
-        var trackingUrl = $"{baseUrl}/buyer/orders?orderId={order.Id}&customerId={order.CustomerId}";
+        var token = _trackingTokens.Create(order.Id, order.CustomerId);
+        var trackingUrl = $"{baseUrl}/buyer/orders?orderId={order.Id}&token={token}";
         var message = new List<string>
         {
             "Hola" + (string.IsNullOrWhiteSpace(customer.FullName) ? "" : $" {customer.FullName.Trim()}") + ",",
@@ -88,11 +140,17 @@ public sealed class OrderNotificationService : IOrderNotificationService
             "— ComunaClic"
         };
 
-        await TrySendEmailToAddressAsync(
+        Enqueue(
+            order.TenantId,
+            "email",
+            NotificationKinds.BuyerOrder,
+            order.Id,
             customer.Email.Trim(),
             "Tu compra en ComunaClic — seguimiento",
             string.Join(Environment.NewLine, message),
-            cancellationToken);
+            payloadJson: null);
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task NotifyBuyerBookingAsync(
@@ -131,17 +189,29 @@ public sealed class OrderNotificationService : IOrderNotificationService
             "— ComunaClic"
         };
 
-        await TrySendEmailToAddressAsync(
+        Enqueue(
+            booking.TenantId,
+            "email",
+            NotificationKinds.BuyerBooking,
+            booking.Id,
             customer.Email.Trim(),
             "Tu reserva en ComunaClic — seguimiento",
             string.Join(Environment.NewLine, message),
-            cancellationToken);
+            payloadJson: null);
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public Task NotifyBuyerPaymentPendingAsync(Order order, Partner partner, Customer customer, CancellationToken cancellationToken = default)
+    public async Task NotifyBuyerPaymentPendingAsync(Order order, Partner partner, Customer customer, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(customer.Email))
+        {
+            return;
+        }
+
         var baseUrl = _options.AppBaseUrl.TrimEnd('/');
-        var trackingUrl = $"{baseUrl}/buyer/orders?orderId={order.Id}&customerId={order.CustomerId}";
+        var token = _trackingTokens.Create(order.Id, order.CustomerId);
+        var trackingUrl = $"{baseUrl}/buyer/orders?orderId={order.Id}&token={token}";
         var message = new List<string>
         {
             "Hola" + (string.IsNullOrWhiteSpace(customer.FullName) ? "" : $" {customer.FullName.Trim()}") + ",",
@@ -155,20 +225,31 @@ public sealed class OrderNotificationService : IOrderNotificationService
             "— ComunaClic"
         };
 
-        return TrySendEmailToAddressAsync(
-            customer.Email!.Trim(),
+        Enqueue(
+            order.TenantId,
+            "email",
+            NotificationKinds.BuyerPaymentPending,
+            order.Id,
+            customer.Email.Trim(),
             "Recordatorio: completa tu pago en ComunaClic",
             string.Join(Environment.NewLine, message),
-            cancellationToken);
+            payloadJson: null);
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public Task NotifyBuyerBookingPaymentPendingAsync(
+    public async Task NotifyBuyerBookingPaymentPendingAsync(
         Booking booking,
         Partner partner,
         Customer customer,
         string? serviceName,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(customer.Email))
+        {
+            return;
+        }
+
         var baseUrl = _options.AppBaseUrl.TrimEnd('/');
         var trackingUrl = $"{baseUrl}/buyer/orders?bookingId={booking.Id}&customerId={booking.CustomerId}";
         var label = string.IsNullOrWhiteSpace(serviceName) ? "tu reserva" : serviceName.Trim();
@@ -185,132 +266,52 @@ public sealed class OrderNotificationService : IOrderNotificationService
             "— ComunaClic"
         };
 
-        return TrySendEmailToAddressAsync(
-            customer.Email!.Trim(),
+        Enqueue(
+            booking.TenantId,
+            "email",
+            NotificationKinds.BuyerBookingPaymentPending,
+            booking.Id,
+            customer.Email.Trim(),
             "Recordatorio: completa el pago de tu reserva",
             string.Join(Environment.NewLine, message),
-            cancellationToken);
+            payloadJson: null);
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<string> TrySendEmailAsync(Partner partner, string message, CancellationToken cancellationToken)
+    private void Enqueue(
+        Guid tenantId,
+        string channel,
+        string kind,
+        Guid? referenceId,
+        string? recipient,
+        string? subject,
+        string body,
+        string? payloadJson)
     {
-        if (string.IsNullOrWhiteSpace(partner.Email))
+        var now = DateTimeOffset.UtcNow;
+        _db.NotificationOutbox.Add(new NotificationOutbox
         {
-            return "email_missing_partner_email";
-        }
-
-        if (string.IsNullOrWhiteSpace(_options.Smtp.Host) || string.IsNullOrWhiteSpace(_options.Smtp.From))
-        {
-            return "email_missing_smtp_config";
-        }
-
-        try
-        {
-            using var smtp = new SmtpClient(_options.Smtp.Host, _options.Smtp.Port)
-            {
-                EnableSsl = _options.Smtp.EnableSsl
-            };
-
-            if (!string.IsNullOrWhiteSpace(_options.Smtp.Username))
-            {
-                smtp.Credentials = new NetworkCredential(_options.Smtp.Username, _options.Smtp.Password);
-            }
-
-            using var mail = new MailMessage(_options.Smtp.From, partner.Email.Trim())
-            {
-                Subject = "Nueva orden de compra - ComunaClic",
-                Body = message
-            };
-
-            await smtp.SendMailAsync(mail, cancellationToken);
-            return "email_sent";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Unable to send order email notification for partner {PartnerId}.", partner.Id);
-            return "email_error";
-        }
-    }
-
-    private async Task TrySendEmailToAddressAsync(string to, string subject, string body, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(_options.Smtp.Host) || string.IsNullOrWhiteSpace(_options.Smtp.From))
-        {
-            return;
-        }
-
-        try
-        {
-            using var smtp = new SmtpClient(_options.Smtp.Host, _options.Smtp.Port)
-            {
-                EnableSsl = _options.Smtp.EnableSsl
-            };
-
-            if (!string.IsNullOrWhiteSpace(_options.Smtp.Username))
-            {
-                smtp.Credentials = new NetworkCredential(_options.Smtp.Username, _options.Smtp.Password);
-            }
-
-            using var mail = new MailMessage(_options.Smtp.From, to)
-            {
-                Subject = subject,
-                Body = body
-            };
-
-            await smtp.SendMailAsync(mail, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Unable to send buyer email to {Email}.", to);
-        }
-    }
-
-    private async Task<string> TrySendWhatsAppAsync(Partner partner, Order order, Customer customer, string message, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(_options.WhatsAppWebhookUrl))
-        {
-            return "wa_missing_webhook";
-        }
-
-        if (string.IsNullOrWhiteSpace(partner.Phone))
-        {
-            return "wa_missing_partner_phone";
-        }
-
-        try
-        {
-            var client = _httpClientFactory.CreateClient(nameof(OrderNotificationService));
-            using var request = new HttpRequestMessage(HttpMethod.Post, _options.WhatsAppWebhookUrl)
-            {
-                Content = JsonContent.Create(new
-                {
-                    channel = "whatsapp",
-                    orderId = order.Id,
-                    partnerId = partner.Id,
-                    to = partner.Phone,
-                    customer = customer.FullName ?? customer.Email ?? customer.Id.ToString(),
-                    message
-                })
-            };
-
-            if (!string.IsNullOrWhiteSpace(_options.WhatsAppApiKey))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.WhatsAppApiKey);
-            }
-
-            using var response = await client.SendAsync(request, cancellationToken);
-            return response.IsSuccessStatusCode ? "wa_sent" : $"wa_http_{(int)response.StatusCode}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Unable to send WhatsApp notification for partner {PartnerId}.", partner.Id);
-            return "wa_error";
-        }
+            TenantId = tenantId,
+            Channel = channel,
+            Kind = kind,
+            ReferenceId = referenceId,
+            Recipient = recipient,
+            Subject = subject,
+            Body = body,
+            PayloadJson = payloadJson,
+            Status = "pending",
+            Attempts = 0,
+            MaxAttempts = Math.Max(1, _options.OutboxMaxAttempts),
+            NextAttemptAt = now,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
     }
 
     private async Task SaveNotificationAuditAsync(Order order, Partner partner, Customer customer, string status, string detail, CancellationToken cancellationToken)
     {
-        var interaction = new Interaction
+        _db.Interactions.Add(new Interaction
         {
             TenantId = order.TenantId,
             CustomerId = customer.Id,
@@ -325,18 +326,17 @@ public sealed class OrderNotificationService : IOrderNotificationService
                 order.Currency
             }),
             CreatedAt = DateTimeOffset.UtcNow
-        };
+        });
 
-        _db.Interactions.Add(interaction);
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private static string BuildMessage(Order order, Partner partner, Customer customer, IReadOnlyList<OrderItem> items)
+    private static string BuildPartnerMessage(Order order, Partner partner, Customer customer, ICollection<OrderItem> items)
     {
         var customerLabel = customer.FullName ?? customer.Email ?? customer.Id.ToString();
         var lines = new List<string>
         {
-            $"Nueva orden #{order.Id}",
+            $"Venta pagada — orden #{order.Id}",
             $"Cliente: {customerLabel}",
             $"Total: {order.TotalAmount:N0} {order.Currency}",
             $"Items: {items.Count}",

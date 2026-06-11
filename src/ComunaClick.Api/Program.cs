@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -68,11 +69,27 @@ builder.Services.AddDbContext<PaymentsDbContext>(options =>
     options.UseNpgsql(paymentsConn);
 });
 builder.Services.AddHostedService<JobsHostedService>();
+builder.Services.AddHostedService<NotificationOutboxHostedService>();
 builder.Services.AddScoped<SiteContentService>();
 builder.Services.Configure<OrderNotificationOptions>(builder.Configuration.GetSection("OrderNotifications"));
 builder.Services.Configure<BusinessRulesOptions>(builder.Configuration.GetSection(BusinessRulesOptions.SectionName));
 builder.Services.Configure<InventoryOptions>(builder.Configuration.GetSection(InventoryOptions.SectionName));
 builder.Services.AddHttpClient();
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.Configure<OrderTrackingOptions>(options =>
+{
+    builder.Configuration.GetSection(OrderTrackingOptions.SectionName).Bind(options);
+    if (string.IsNullOrWhiteSpace(options.TrackingTokenSecret))
+    {
+        options.TrackingTokenSecret = builder.Configuration["Orders:TrackingTokenSecret"]
+            ?? builder.Configuration["Jwt:SigningKey"]
+            ?? string.Empty;
+    }
+});
+builder.Services.AddScoped<IOrderTrackingTokenService, OrderTrackingTokenService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IWhatsAppSender, WhatsAppWebhookSender>();
+builder.Services.AddScoped<NotificationOutboxProcessor>();
 builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
 builder.Services.AddScoped<IInboxNotificationService, InboxNotificationService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
@@ -174,6 +191,9 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// Aborta el arranque en producción si faltan secretos críticos o son placeholders.
+StartupSecretsValidator.ValidateOrThrow(app.Configuration, app.Environment);
 
 try
 {

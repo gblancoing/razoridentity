@@ -11,15 +11,18 @@ public sealed class ProductInventoryService : IProductInventoryService
     private readonly CoreDbContext _db;
     private readonly IStockNotificationService _stockNotifications;
     private readonly InventoryOptions _options;
+    private readonly ILogger<ProductInventoryService> _logger;
 
     public ProductInventoryService(
         CoreDbContext db,
         IStockNotificationService stockNotifications,
-        IOptions<InventoryOptions> options)
+        IOptions<InventoryOptions> options,
+        ILogger<ProductInventoryService> logger)
     {
         _db = db;
         _stockNotifications = stockNotifications;
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<int> GetAvailableQuantityAsync(Guid productId, Guid? excludeOrderId = null, CancellationToken cancellationToken = default)
@@ -107,6 +110,21 @@ public sealed class ProductInventoryService : IProductInventoryService
         }
 
         var productIds = order.Items.Select(x => x.ProductId).Distinct().ToList();
+        await using var locks = await ProductInventoryLocks.AcquireAsync(productIds, cancellationToken);
+
+        // Re-chequear el flag con datos frescos bajo el lock: otro request pudo descontar ya.
+        var persistedFulfilledAt = await _db.Orders
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(x => x.Id == order.Id)
+            .Select(x => x.InventoryFulfilledAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (persistedFulfilledAt is not null)
+        {
+            order.InventoryFulfilledAt = persistedFulfilledAt;
+            return;
+        }
+
         var products = await _db.Products
             .Where(x => productIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, cancellationToken);
@@ -131,10 +149,89 @@ public sealed class ProductInventoryService : IProductInventoryService
             }
 
             var previous = inventory.Quantity;
-            inventory.Quantity = Math.Max(0, inventory.Quantity - item.Quantity);
+            var newQuantity = inventory.Quantity - item.Quantity;
+            if (newQuantity < 0)
+            {
+                _logger.LogWarning(
+                    "Descuento de stock dejaría negativo el producto {ProductId} (orden {OrderId}): {OnHand} - {Requested}. Se fija en 0.",
+                    item.ProductId, order.Id, inventory.Quantity, item.Quantity);
+                newQuantity = 0;
+            }
+
+            inventory.Quantity = newQuantity;
             inventory.UpdatedAt = DateTimeOffset.UtcNow;
 
             await NotifyStockLevelsAsync(product, previous, inventory.Quantity, "order_paid", order.Id, cancellationToken);
+        }
+
+        // El flag y el descuento se persisten en el mismo SaveChanges (atómico en proveedores relacionales).
+        order.InventoryFulfilledAt = DateTimeOffset.UtcNow;
+        if (_db.Entry(order).State == EntityState.Detached)
+        {
+            _db.Orders.Attach(order);
+            _db.Entry(order).Property(x => x.InventoryFulfilledAt).IsModified = true;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task RestoreOrderAsync(Order order, CancellationToken cancellationToken = default)
+    {
+        if (order.Items.Count == 0)
+        {
+            return;
+        }
+
+        var productIds = order.Items.Select(x => x.ProductId).Distinct().ToList();
+        await using var locks = await ProductInventoryLocks.AcquireAsync(productIds, cancellationToken);
+
+        // Solo se repone si el stock fue efectivamente descontado para esta orden.
+        var persistedFulfilledAt = await _db.Orders
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(x => x.Id == order.Id)
+            .Select(x => x.InventoryFulfilledAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (persistedFulfilledAt is null && order.InventoryFulfilledAt is null)
+        {
+            return;
+        }
+
+        var products = await _db.Products
+            .Where(x => productIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        foreach (var item in order.Items)
+        {
+            if (!products.TryGetValue(item.ProductId, out var product))
+            {
+                continue;
+            }
+
+            var inventory = await _db.ProductInventories.FirstOrDefaultAsync(x => x.ProductId == item.ProductId, cancellationToken);
+            if (inventory is null)
+            {
+                inventory = new ProductInventory
+                {
+                    ProductId = item.ProductId,
+                    Quantity = 0,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+                _db.ProductInventories.Add(inventory);
+            }
+
+            var previous = inventory.Quantity;
+            inventory.Quantity += item.Quantity;
+            inventory.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await NotifyStockLevelsAsync(product, previous, inventory.Quantity, "order_cancelled", order.Id, cancellationToken);
+        }
+
+        order.InventoryFulfilledAt = null;
+        if (_db.Entry(order).State == EntityState.Detached)
+        {
+            _db.Orders.Attach(order);
+            _db.Entry(order).Property(x => x.InventoryFulfilledAt).IsModified = true;
         }
 
         await _db.SaveChangesAsync(cancellationToken);

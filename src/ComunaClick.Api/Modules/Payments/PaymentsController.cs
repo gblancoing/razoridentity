@@ -1,4 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Catalog;
+using ComunaClick.Api.Modules.Orders;
 using ComunaClick.Api.Modules.Payments.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -14,21 +18,44 @@ namespace ComunaClick.Api.Modules.Payments;
 [Route("v1/payments")]
 public sealed class PaymentsController : ControllerBase
 {
+    // Estados de pago aceptados desde el proveedor; consistente con
+    // MercadoPagoWebhookService.NormalizeMercadoPagoStatus y OrderInventoryFulfillment.IsPaidStatus.
+    private static readonly HashSet<string> AllowedPaymentStatuses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "pending",
+        "in_process",
+        "authorized",
+        "approved",
+        "paid",
+        "rejected",
+        "cancelled",
+        "refunded",
+        "charged_back"
+    };
+
+    private const string PlaceholderWebhookKey = "CHANGE_ME";
+
     private readonly CoreDbContext _db;
     private readonly IConfiguration _configuration;
     private readonly ITenantContext _tenantContext;
     private readonly IProductInventoryService _inventoryService;
+    private readonly IOrderNotificationService _orderNotificationService;
+    private readonly ILogger<PaymentsController> _logger;
 
     public PaymentsController(
         CoreDbContext db,
         IConfiguration configuration,
         ITenantContext tenantContext,
-        IProductInventoryService inventoryService)
+        IProductInventoryService inventoryService,
+        IOrderNotificationService orderNotificationService,
+        ILogger<PaymentsController> logger)
     {
         _db = db;
         _configuration = configuration;
         _tenantContext = tenantContext;
         _inventoryService = inventoryService;
+        _orderNotificationService = orderNotificationService;
+        _logger = logger;
     }
 
     [HttpGet("{id:guid}")]
@@ -76,11 +103,31 @@ public sealed class PaymentsController : ControllerBase
         return Created($"/v1/payments/{payment.Id}", payment);
     }
 
+    // Webhook interno para notificaciones del gateway propio (Payments.Gateway.Api).
+    // El flujo de MercadoPago usa su webhook firmado propio (MercadoPagoWebhookController);
+    // este endpoint se mantiene solo para integraciones internas y exige siempre X-Internal-Key.
     [HttpPost("provider-notify")]
     [AllowAnonymous]
     [EnableRateLimiting("webhook")]
     public async Task<IActionResult> ProviderNotify(PaymentProviderNotifyRequest request)
     {
+        var internalKey = _configuration["Payments:InternalWebhookKey"]
+            ?? _configuration["ComunaClic:InternalWebhookKey"];
+        if (string.IsNullOrWhiteSpace(internalKey) ||
+            string.Equals(internalKey, PlaceholderWebhookKey, StringComparison.Ordinal))
+        {
+            _logger.LogError(
+                "Payments:InternalWebhookKey no está configurada (o es placeholder); provider-notify queda deshabilitado.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new { message = "Internal webhook is not configured." });
+        }
+
+        if (!Request.Headers.TryGetValue("X-Internal-Key", out var headerValue) ||
+            !FixedTimeEquals(headerValue.ToString(), internalKey))
+        {
+            return Unauthorized();
+        }
+
         if (string.IsNullOrWhiteSpace(request.ProviderEventId))
         {
             return BadRequest(new { message = "ProviderEventId is required." });
@@ -91,14 +138,10 @@ public sealed class PaymentsController : ControllerBase
             return BadRequest(new { message = "Status is required." });
         }
 
-        var internalKey = _configuration["Payments:InternalWebhookKey"]
-            ?? _configuration["ComunaClic:InternalWebhookKey"];
-        if (!string.IsNullOrWhiteSpace(internalKey))
+        var newPaymentStatus = request.Status.Trim().ToLowerInvariant();
+        if (!AllowedPaymentStatuses.Contains(newPaymentStatus))
         {
-            if (!Request.Headers.TryGetValue("X-Internal-Key", out var headerValue) || headerValue != internalKey)
-            {
-                return Unauthorized();
-            }
+            return BadRequest(new { message = $"Status \"{request.Status}\" is not a valid payment status." });
         }
 
         if (request.PaymentId is null && string.IsNullOrWhiteSpace(request.ExternalReference))
@@ -110,6 +153,14 @@ public sealed class PaymentsController : ControllerBase
         if (payment is null)
         {
             return NotFound(new { message = "Payment could not be resolved from provider notification." });
+        }
+
+        if (request.Amount.HasValue && payment.Amount > 0 && request.Amount.Value != payment.Amount)
+        {
+            _logger.LogWarning(
+                "provider-notify rechazado: monto notificado {NotifiedAmount} no coincide con el pago {PaymentId} ({ExpectedAmount}).",
+                request.Amount.Value, payment.Id, payment.Amount);
+            return BadRequest(new { message = "Notified amount does not match the payment amount." });
         }
 
         var exists = await _db.PaymentEvents.IgnoreQueryFilters().AnyAsync(x =>
@@ -130,8 +181,6 @@ public sealed class PaymentsController : ControllerBase
         };
 
         _db.PaymentEvents.Add(paymentEvent);
-        var previousPaymentStatus = payment.Status;
-        var newPaymentStatus = request.Status.Trim();
         payment.Status = newPaymentStatus;
         payment.LastEventId = request.ProviderEventId.Trim();
         payment.UpdatedAt = DateTimeOffset.UtcNow;
@@ -140,13 +189,16 @@ public sealed class PaymentsController : ControllerBase
 
         if (payment.OrderId.HasValue && OrderInventoryFulfillment.IsPaidStatus(newPaymentStatus))
         {
-            var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value);
+            var order = await _db.Orders
+                .IgnoreQueryFilters()
+                .Include(x => x.Items)
+                .FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value);
             if (order is not null)
             {
-                var orderPreviousStatus = order.Status;
-                if (!OrderInventoryFulfillment.IsPaidStatus(orderPreviousStatus))
+                if (!OrderInventoryFulfillment.IsPaidStatus(order.Status) &&
+                    OrderStatusMachine.CanTransition(order.Status, OrderStatusMachine.Paid, out _))
                 {
-                    order.Status = "paid";
+                    order.Status = OrderStatusMachine.Paid;
                     order.UpdatedAt = DateTimeOffset.UtcNow;
                     await _db.SaveChangesAsync();
                 }
@@ -154,13 +206,21 @@ public sealed class PaymentsController : ControllerBase
                 await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
                     _db,
                     _inventoryService,
-                    payment.OrderId.Value,
-                    orderPreviousStatus,
+                    order,
                     "paid");
+
+                await _orderNotificationService.NotifyPartnerOrderPaidAsync(order.Id);
             }
         }
 
         return Ok();
+    }
+
+    private static bool FixedTimeEquals(string provided, string expected)
+    {
+        var providedBytes = Encoding.UTF8.GetBytes(provided);
+        var expectedBytes = Encoding.UTF8.GetBytes(expected);
+        return CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
     }
 
     private Task<Payment?> ResolvePaymentAsync(PaymentProviderNotifyRequest request)

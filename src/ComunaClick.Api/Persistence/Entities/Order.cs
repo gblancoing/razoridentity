@@ -20,6 +20,8 @@ public sealed class Order
     public Guid? DeliveryProviderId { get; set; }
     public string? DeliveryProviderName { get; set; }
     public string? DeliveryAddress { get; set; }
+    // Marca única de descuento de stock: garantiza que el fulfillment ocurra una sola vez.
+    public DateTimeOffset? InventoryFulfilledAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

@@ -5,4 +5,5 @@ public sealed record PaymentProviderNotifyRequest(
     string? ExternalReference,
     string ProviderEventId,
     string Status,
-    string? Payload);
+    string? Payload,
+    decimal? Amount = null);
