@@ -174,8 +174,12 @@
 
     public async Task PublishCoordinatesAsync()
     {
-        await LatitudeChanged.InvokeAsync(Latitude);
-        await LongitudeChanged.InvokeAsync(Longitude);
+        // Valores locales: el primer InvokeAsync re-renderiza al padre, que
+        // re-asigna los parámetros y pisaría Longitude antes del segundo callback.
+        var lat = DisplayLatitude;
+        var lng = DisplayLongitude;
+        await LatitudeChanged.InvokeAsync(lat);
+        await LongitudeChanged.InvokeAsync(lng);
     }
 
     private async Task<bool> TryReadMarkerCoordinatesAsync()

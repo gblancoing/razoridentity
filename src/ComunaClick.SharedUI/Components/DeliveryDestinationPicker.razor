@@ -118,10 +118,15 @@
 
     private async Task ApplyAsync(double latitude, double longitude, string? resolvedAddress)
     {
-        Latitude = Math.Round(latitude, 6);
-        Longitude = Math.Round(longitude, 6);
-        await LatitudeChanged.InvokeAsync(Latitude);
-        await LongitudeChanged.InvokeAsync(Longitude);
+        // Valores locales: el primer InvokeAsync re-renderiza al padre y este
+        // re-asigna los parámetros, pisando Longitude (quedaba null y la orden
+        // se guardaba con latitud pero sin longitud → pin en el océano).
+        var lat = Math.Round(latitude, 6);
+        var lng = Math.Round(longitude, 6);
+        Latitude = lat;
+        Longitude = lng;
+        await LatitudeChanged.InvokeAsync(lat);
+        await LongitudeChanged.InvokeAsync(lng);
 
         if (!string.IsNullOrWhiteSpace(resolvedAddress))
         {
