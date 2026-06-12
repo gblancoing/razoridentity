@@ -1,0 +1,172 @@
+@using System.Net
+@using System.Text.Json
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject AuthStateService AuthState
+@inject LocaleService L
+
+<section id="despacho" class="scroll-mt-8 rounded-[2rem] border border-[#e3e6e8] bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+    <div>
+        <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@L.T("partner.settings.delivery.badge")</p>
+        <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.settings.delivery.title")</h2>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.settings.delivery.subtitle")</p>
+    </div>
+
+    @if (_partner is null && !_isLoading)
+    {
+        <p class="text-sm text-[#595c5d]">@L.T("partner.settings.org.missing")</p>
+    }
+    else if (_isLoading)
+    {
+        <BrandedLoading Compact="true" Title="@L.T("ui.loading")" Message="@L.T("partner.settings.delivery.loading")" />
+    }
+    else if (_providers.Count == 0)
+    {
+        <div class="rounded-2xl border border-[#eff8e0] bg-[#fafcf8] px-4 py-3 text-sm text-[#595c5d]">
+            <span class="material-symbols-outlined align-middle text-[18px] text-[#3b6700] mr-1">info</span>
+            @L.T("partner.settings.delivery.none")
+        </div>
+    }
+    else
+    {
+        <div>
+            <label class="text-xs font-bold text-[#2c2f30]" for="partner-delivery-provider">@L.T("partner.settings.delivery.title")</label>
+            <select id="partner-delivery-provider"
+                    class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm max-w-md"
+                    value="@_selectedProviderId"
+                    @onchange="OnProviderChanged">
+                <option value="">@L.T("partner.settings.delivery.auto")</option>
+                @foreach (var provider in _providers)
+                {
+                    <option value="@provider.Id">@provider.Name — $@($"{provider.BaseFee:N0}") @L.T("partner.settings.delivery.baseFee")</option>
+                }
+            </select>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+            <button type="button"
+                    class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm disabled:opacity-60"
+                    disabled="@_saving"
+                    @onclick="SaveAsync">
+                <span class="material-symbols-outlined text-[18px]">local_shipping</span>
+                @(_saving ? L.T("partner.dashboard.profile.saving") : L.T("partner.settings.delivery.save"))
+            </button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_status))
+        {
+            <p class="text-sm font-semibold @(_statusOk ? "text-[#3b6700]" : "text-red-600")">@_status</p>
+        }
+    }
+</section>
+
+@code {
+    private ComunaClick.Shared.Api.Partner.PartnerDto? _partner;
+    private List<ComunaClick.Shared.Api.Partner.PartnerDeliveryProviderOption> _providers = new();
+    private string _selectedProviderId = string.Empty;
+    private bool _isLoading = true;
+    private bool _saving;
+    private string? _status;
+    private bool _statusOk;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (AuthState.PartnerId is Guid id && id != Guid.Empty)
+            {
+                _partner = await PartnerApi.GetPartnerAsync(id);
+                var providers = await PartnerApi.GetPartnerDeliveryProvidersAsync(id);
+                _providers = providers?.ToList() ?? new List<ComunaClick.Shared.Api.Partner.PartnerDeliveryProviderOption>();
+                _selectedProviderId = _partner?.PreferredDeliveryProviderId?.ToString() ?? string.Empty;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _providers = new List<ComunaClick.Shared.Api.Partner.PartnerDeliveryProviderOption>();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OnProviderChanged(ChangeEventArgs e) => _selectedProviderId = e.Value?.ToString() ?? string.Empty;
+
+    private async Task SaveAsync()
+    {
+        if (_partner is null)
+        {
+            return;
+        }
+
+        _status = null;
+        Guid? providerId = Guid.TryParse(_selectedProviderId, out var parsed) && parsed != Guid.Empty ? parsed : null;
+
+        _saving = true;
+        try
+        {
+            var updated = await PartnerApi.UpdatePartnerDeliveryPreferenceAsync(
+                _partner.Id,
+                new ComunaClick.Shared.Api.Partner.PartnerDeliveryPreferenceUpdateRequest(providerId));
+
+            if (updated is not null)
+            {
+                _partner = updated;
+                _selectedProviderId = updated.PreferredDeliveryProviderId?.ToString() ?? string.Empty;
+                _status = L.T("partner.settings.delivery.saved");
+                _statusOk = true;
+            }
+            else
+            {
+                _status = L.T("partner.settings.delivery.saveFailed");
+                _statusOk = false;
+            }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
+        {
+            _status = TryReadApiMessage(ex.Message) ?? L.T("partner.settings.delivery.saveFailed");
+            _statusOk = false;
+        }
+        catch (HttpRequestException)
+        {
+            _status = L.T("partner.settings.delivery.saveFailed");
+            _statusOk = false;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string? TryReadApiMessage(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var jsonStart = raw.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                return message.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return null;
+    }
+}

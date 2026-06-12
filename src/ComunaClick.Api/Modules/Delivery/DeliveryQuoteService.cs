@@ -1,5 +1,6 @@
 using ComunaClick.Api.Modules.Checkout.Contracts;
 using ComunaClick.Api.Persistence;
+using ComunaClick.Api.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComunaClick.Api.Modules.Delivery;
@@ -51,20 +52,23 @@ public sealed class DeliveryQuoteService : IDeliveryQuoteService
             return NotAvailable("Partner not found.");
         }
 
-        // Mismo filtro y orden que DeliveryProvidersController.ListByPartner:
-        // proveedor de la comuna del negocio, si no de su región, si no global.
-        var provider = await _db.DeliveryProviders.AsNoTracking()
-            .Where(x =>
-                x.IsActive &&
-                (!x.TenantId.HasValue || x.TenantId.Value == partner.TenantId) &&
-                (
-                    (x.ComunaId.HasValue && partner.ComunaId.HasValue && x.ComunaId.Value == partner.ComunaId.Value) ||
-                    (!x.ComunaId.HasValue && x.RegionId.HasValue && partner.RegionId.HasValue && x.RegionId.Value == partner.RegionId.Value) ||
-                    (!x.ComunaId.HasValue && !x.RegionId.HasValue)
-                ))
-            .OrderByDescending(x => x.ComunaId.HasValue)
-            .ThenByDescending(x => x.RegionId.HasValue)
-            .ThenBy(x => x.Name)
+        // Prioridad 1: transportista preferido del comercio, solo si sigue
+        // activo y cubre su zona (si fue desactivado o cambió de zona, se cae
+        // al automático sin romper el checkout).
+        DeliveryProvider? provider = null;
+        if (partner.PreferredDeliveryProviderId is Guid preferredId)
+        {
+            provider = await _db.DeliveryProviders.AsNoTracking()
+                .Where(x => x.Id == preferredId)
+                .WhereServesPartner(partner)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        // Prioridad 2: automático por zona (comuna > región > global), mismo
+        // criterio que DeliveryProvidersController.ListByPartner.
+        provider ??= await _db.DeliveryProviders.AsNoTracking()
+            .WhereServesPartner(partner)
+            .OrderByZoneSpecificity()
             .FirstOrDefaultAsync(cancellationToken);
 
         if (provider is null)

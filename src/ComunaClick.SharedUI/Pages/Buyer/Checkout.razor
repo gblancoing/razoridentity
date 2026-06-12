@@ -151,7 +151,18 @@ else
                                     }
                                     else if (group.Quote?.FeeApplies == true)
                                     {
-                                        <span class="font-semibold">@($"{group.QuotedFee:N0}")</span>
+                                        <span class="font-semibold">
+                                            @($"{group.QuotedFee:N0}")
+                                            @if (!string.IsNullOrWhiteSpace(group.Quote?.DeliveryProviderName))
+                                            {
+                                                <span class="font-normal text-[#61897c]"> · @group.Quote!.DeliveryProviderName</span>
+                                            }
+                                        </span>
+                                    }
+                                    else if (group.Quote is { Available: true, FeeApplies: false })
+                                    {
+                                        @* Sin transportista en la zona: no hay recargo (≠ cotización pendiente). *@
+                                        <span class="font-semibold text-[#61897c]">@L.T("buyer.checkout.group.feeNone")</span>
                                     }
                                     else
                                     {
@@ -238,7 +249,14 @@ else
                             <span class="material-symbols-outlined align-middle text-[16px]">local_shipping</span>
                             @if (!_isCartMode && !_quoteLoading && _quote?.FeeApplies == true && !_quoteOutOfRange)
                             {
-                                @string.Format(L.T("buyer.checkout.delivery.feeAmount"), $"{_deliveryFee:N0}")
+                                @if (!string.IsNullOrWhiteSpace(_quote?.DeliveryProviderName))
+                                {
+                                    @string.Format(L.T("buyer.checkout.delivery.feeAmountProvider"), $"{_deliveryFee:N0}", _quote!.DeliveryProviderName)
+                                }
+                                else
+                                {
+                                    @string.Format(L.T("buyer.checkout.delivery.feeAmount"), $"{_deliveryFee:N0}")
+                                }
                             }
                             else
                             {
@@ -370,6 +388,15 @@ else
                                 else if (_quote?.FeeApplies == true)
                                 {
                                     @($"{_deliveryFee:N0}")
+                                    @if (!string.IsNullOrWhiteSpace(_quote?.DeliveryProviderName))
+                                    {
+                                        <span class="font-normal text-[#61897c]"> · @_quote!.DeliveryProviderName</span>
+                                    }
+                                }
+                                else if (_quote is { Available: true, FeeApplies: false })
+                                {
+                                    @* Sin transportista en la zona: no hay recargo (≠ cotización pendiente). *@
+                                    <span class="text-[#61897c]">@L.T("buyer.checkout.group.feeNone")</span>
                                 }
                                 else
                                 {

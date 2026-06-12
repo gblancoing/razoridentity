@@ -169,6 +169,17 @@ public sealed class PartnerApiClient : ApiClientBase
         CancellationToken cancellationToken = default)
         => PatchAsync<PartnerDto>($"/v1/partners/{partnerId}/web-links", request, cancellationToken);
 
+    public Task<IReadOnlyList<PartnerDeliveryProviderOption>?> GetPartnerDeliveryProvidersAsync(
+        Guid partnerId,
+        CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PartnerDeliveryProviderOption>>($"/v1/partners/{partnerId}/delivery-providers", cancellationToken);
+
+    public Task<PartnerDto?> UpdatePartnerDeliveryPreferenceAsync(
+        Guid partnerId,
+        PartnerDeliveryPreferenceUpdateRequest request,
+        CancellationToken cancellationToken = default)
+        => PatchAsync<PartnerDto>($"/v1/partners/{partnerId}/delivery-preference", request, cancellationToken);
+
     public Task<Product?> CreateProductAsync(ProductCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Product>("/v1/products", request, cancellationToken);
 
@@ -717,7 +728,8 @@ public sealed record PartnerDto(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null
+    string? OtherLinkUrl = null,
+    Guid? PreferredDeliveryProviderId = null
 );
 
 public sealed record PartnerActivationStatus(
@@ -780,6 +792,17 @@ public sealed record PartnerBankAccountUpdateRequest(
     string BankAccountHolder,
     string? BankAccountHolderRut
 );
+
+public sealed record PartnerDeliveryProviderOption(
+    Guid Id,
+    string Name,
+    double BaseFee,
+    int? EstimatedMinutes,
+    Guid? RegionId,
+    Guid? ComunaId
+);
+
+public sealed record PartnerDeliveryPreferenceUpdateRequest(Guid? PreferredDeliveryProviderId);
 
 public sealed record ProductCreateRequest(
     Guid PartnerId,

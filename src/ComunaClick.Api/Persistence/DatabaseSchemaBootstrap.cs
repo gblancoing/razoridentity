@@ -28,7 +28,8 @@ public static class DatabaseSchemaBootstrap
         ("core", "partner_catalog_categories", "20260611_partner_catalog_subcategories.sql", "parent_id"),
         ("core", "couriers", "20260612_delivery_tracking.sql", null),
         ("core", "delivery_settlements", "20260613_delivery_settlements.sql", null),
-        ("core", "couriers", "20260613_delivery_settlements.sql", "kind")
+        ("core", "couriers", "20260613_delivery_settlements.sql", "kind"),
+        ("core", "partners", "20260614_partner_preferred_delivery_provider.sql", "preferred_delivery_provider_id")
     ];
 
     public static async Task ApplyPendingAsync(string? connectionString, IHostEnvironment env, ILogger logger, CancellationToken cancellationToken = default)

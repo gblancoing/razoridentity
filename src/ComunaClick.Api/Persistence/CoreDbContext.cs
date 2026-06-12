@@ -199,6 +199,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.BankAccountNumber).HasColumnName("bank_account_number");
             entity.Property(x => x.BankAccountHolder).HasColumnName("bank_account_holder");
             entity.Property(x => x.BankAccountHolderRut).HasColumnName("bank_account_holder_rut");
+            entity.Property(x => x.PreferredDeliveryProviderId).HasColumnName("preferred_delivery_provider_id");
             entity.Property(x => x.WebsiteUrl).HasColumnName("website_url");
             entity.Property(x => x.InstagramUrl).HasColumnName("instagram_url");
             entity.Property(x => x.FacebookUrl).HasColumnName("facebook_url");

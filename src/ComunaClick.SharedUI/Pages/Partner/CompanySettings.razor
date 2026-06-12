@@ -29,6 +29,10 @@
                 <span class="material-symbols-outlined text-[16px]">account_balance</span>
                 @L.T("partner.settings.nav.bank")
             </a>
+            <a href="#despacho" class="inline-flex items-center gap-1.5 rounded-full border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#f5f6f7]">
+                <span class="material-symbols-outlined text-[16px]">local_shipping</span>
+                @L.T("partner.settings.nav.delivery")
+            </a>
         }
         @if (_isServicePartner)
         {
@@ -48,6 +52,7 @@
     @if (_isCommerceOrServicePartner)
     {
         <PartnerBankSection />
+        <PartnerDeliverySection />
     }
 
     @if (_isServicePartner)

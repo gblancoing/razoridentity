@@ -172,6 +172,126 @@ public sealed class DeliveryQuoteServiceTests
         Assert.NotNull(quote.DistanceKm);
     }
 
+    // El transportista preferido del comercio gana sobre el automático por
+    // zona, aunque la zona tenga un provider más específico.
+    [Fact]
+    public async Task Quote_PartnerPreferredProvider_WinsOverZoneProvider()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, _) = TestDb.SeedCatalog(db, stock: 1);
+        partner.ComunaId = Guid.NewGuid();
+        await db.SaveChangesAsync();
+
+        AddProvider(db, tenantId, comunaId: partner.ComunaId, baseFee: 1200m, name: "Comuna");
+        var preferred = AddProvider(db, tenantId, baseFee: 9000m, name: "Global preferido");
+        partner.PreferredDeliveryProviderId = preferred.Id;
+        await db.SaveChangesAsync();
+
+        var quote = await CreateQuoteService(db).GetQuoteAsync(partner.Id, null, null);
+
+        Assert.Equal(preferred.Id, quote.DeliveryProviderId);
+        Assert.Equal(9000m, quote.Fee);
+    }
+
+    // Preferido desactivado: se cae al automático por zona sin romper.
+    [Fact]
+    public async Task Quote_PreferredProviderInactive_FallsBackToZone()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, _) = TestDb.SeedCatalog(db, stock: 1);
+
+        var zoneProvider = AddProvider(db, tenantId, baseFee: 1500m, name: "Zona");
+        var preferred = AddProvider(db, tenantId, baseFee: 9000m, name: "Preferido inactivo");
+        preferred.IsActive = false;
+        partner.PreferredDeliveryProviderId = preferred.Id;
+        await db.SaveChangesAsync();
+
+        var quote = await CreateQuoteService(db).GetQuoteAsync(partner.Id, null, null);
+
+        Assert.Equal(zoneProvider.Id, quote.DeliveryProviderId);
+        Assert.Equal(1500m, quote.Fee);
+    }
+
+    // Preferido de otra comuna (ya no cubre la zona del negocio): automático.
+    [Fact]
+    public async Task Quote_PreferredProviderOutOfZone_FallsBackToZone()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, _) = TestDb.SeedCatalog(db, stock: 1);
+        partner.ComunaId = Guid.NewGuid();
+        await db.SaveChangesAsync();
+
+        var zoneProvider = AddProvider(db, tenantId, comunaId: partner.ComunaId, baseFee: 1300m, name: "Zona");
+        var outOfZone = AddProvider(db, tenantId, comunaId: Guid.NewGuid(), baseFee: 9000m, name: "Otra comuna");
+        partner.PreferredDeliveryProviderId = outOfZone.Id;
+        await db.SaveChangesAsync();
+
+        var quote = await CreateQuoteService(db).GetQuoteAsync(partner.Id, null, null);
+
+        Assert.Equal(zoneProvider.Id, quote.DeliveryProviderId);
+    }
+
+    // Preferido que ya no existe (borrado): automático por zona.
+    [Fact]
+    public async Task Quote_PreferredProviderMissing_FallsBackToZone()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, _) = TestDb.SeedCatalog(db, stock: 1);
+
+        var zoneProvider = AddProvider(db, tenantId, baseFee: 1800m, name: "Zona");
+        partner.PreferredDeliveryProviderId = Guid.NewGuid();
+        await db.SaveChangesAsync();
+
+        var quote = await CreateQuoteService(db).GetQuoteAsync(partner.Id, null, null);
+
+        Assert.Equal(zoneProvider.Id, quote.DeliveryProviderId);
+        Assert.Equal(1800m, quote.Fee);
+    }
+
+    // El checkout acepta al preferido: la orden creada con el providerId de la
+    // cotización cobra exactamente el fee cotizado.
+    [Fact]
+    public async Task Checkout_AcceptsPreferredProvider_AndChargesQuotedFee()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, customer, product) = TestDb.SeedCatalog(db, stock: 5, price: 1000m);
+
+        AddProvider(db, tenantId, baseFee: 1500m, name: "Zona");
+        var preferred = AddProvider(db, tenantId, baseFee: 2500m, name: "Preferido");
+        partner.PreferredDeliveryProviderId = preferred.Id;
+        await db.SaveChangesAsync();
+
+        var pricing = new DeliveryPricingOptions();
+        var calculator = new DeliveryFeeCalculator(Options.Create(pricing));
+        var pricingService = new DynamicDeliveryPricingService(calculator, Options.Create(new DeliveryOptions()));
+
+        var quote = await new DeliveryQuoteService(db, pricingService, calculator)
+            .GetQuoteAsync(partner.Id, null, null);
+        Assert.Equal(preferred.Id, quote.DeliveryProviderId);
+
+        var checkout = new OrderCheckoutService(
+            db,
+            new RecordingOrderNotificationService(),
+            TestDb.CreateInventoryService(db),
+            new GuestCustomerService(db),
+            pricingService);
+
+        var result = await checkout.CreateOrderAsync(
+            tenantId,
+            customer.Id,
+            new OrderCreateRequest(
+                partner.Id,
+                customer.Id,
+                DeliveryFee: 0m,
+                Currency: "CLP",
+                Items: [new OrderItemCreateRequest(product.Id, 1, product.Price)],
+                DeliveryProviderId: quote.DeliveryProviderId));
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal(quote.Fee, result.Order!.DeliveryFee);
+        Assert.Equal(preferred.Id, result.Order.DeliveryProviderId);
+    }
+
     // Paridad cotización == cobro: el fee mostrado en el checkout debe ser el
     // mismo que OrderCheckoutService persiste en la orden.
     [Fact]

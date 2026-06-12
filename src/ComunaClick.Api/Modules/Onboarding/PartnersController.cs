@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ComunaClick.Api.Geo;
+using ComunaClick.Api.Modules.Delivery;
 using ComunaClick.Api.Modules.Onboarding.Contracts;
 using ComunaClick.Api.Modules.Onboarding.Contracts.Partners;
 using ComunaClick.Api.Persistence;
@@ -442,6 +443,106 @@ public sealed class PartnersController : ControllerBase
         return Ok(ToPartnerResponse(partner, activation));
     }
 
+    /// <summary>Transportistas activos que cubren la zona del negocio (el preferido lista primero).</summary>
+    [HttpGet("{id:guid}/delivery-providers")]
+    [Authorize(Policy = "partner.staff")]
+    public async Task<ActionResult<IEnumerable<object>>> ListDeliveryProviders(Guid id, CancellationToken cancellationToken)
+    {
+        var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            cancellationToken);
+
+        if (access == PartnerAccessResult.Forbidden)
+        {
+            return Forbid();
+        }
+
+        var providers = await _db.DeliveryProviders.AsNoTracking()
+            .WhereServesPartner(partner)
+            .OrderByDescending(x => x.Id == partner.PreferredDeliveryProviderId)
+            .ThenByDescending(x => x.ComunaId.HasValue)
+            .ThenByDescending(x => x.RegionId.HasValue)
+            .ThenBy(x => x.Name)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.BaseFee,
+                x.EstimatedMinutes,
+                x.RegionId,
+                x.ComunaId
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(providers);
+    }
+
+    [HttpPatch("{id:guid}/delivery-preference")]
+    [Authorize(Policy = "partner.staff")]
+    public async Task<ActionResult<object>> UpdateDeliveryPreference(Guid id, PartnerDeliveryPreferenceUpdateRequest request)
+    {
+        var partner = await _db.Partners.FirstOrDefaultAsync(x => x.Id == id);
+        if (partner is null)
+        {
+            return NotFound();
+        }
+
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db,
+            User,
+            id,
+            _tenantContext.TenantId ?? ResolveTenantIdFromUser(),
+            _tenantContext.PartnerId ?? ResolvePartnerIdFromUser(),
+            HttpContext.RequestAborted);
+
+        if (access == PartnerAccessResult.Forbidden)
+        {
+            return Forbid();
+        }
+
+        if (request.PreferredDeliveryProviderId is Guid providerId && providerId != Guid.Empty)
+        {
+            // El preferido debe estar activo y cubrir la zona del negocio
+            // (mismo criterio que valida el checkout al crear la orden).
+            var serves = await _db.DeliveryProviders.AsNoTracking()
+                .Where(x => x.Id == providerId)
+                .WhereServesPartner(partner)
+                .AnyAsync(HttpContext.RequestAborted);
+
+            if (!serves)
+            {
+                return BadRequest(new { message = "El transportista seleccionado no está disponible para tu zona." });
+            }
+
+            partner.PreferredDeliveryProviderId = providerId;
+        }
+        else
+        {
+            partner.PreferredDeliveryProviderId = null;
+        }
+
+        partner.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        await _db.Entry(partner).Reference(x => x.Subcategory).LoadAsync();
+        if (partner.Subcategory is not null)
+        {
+            await _db.Entry(partner.Subcategory).Reference(x => x.Category).LoadAsync();
+        }
+
+        var activation = await BuildActivationStatusAsync(partner);
+        return Ok(ToPartnerResponse(partner, activation));
+    }
+
     [HttpPatch("{id:guid}/web-links")]
     [Authorize(Policy = "partner.staff")]
     public async Task<ActionResult<object>> UpdateWebLinks(Guid id, ProfileWebLinksUpdateRequest request)
@@ -675,6 +776,7 @@ public sealed class PartnersController : ControllerBase
             partner.BankAccountNumber,
             partner.BankAccountHolder,
             partner.BankAccountHolderRut,
+            partner.PreferredDeliveryProviderId,
             partner.WebsiteUrl,
             partner.InstagramUrl,
             partner.FacebookUrl,
