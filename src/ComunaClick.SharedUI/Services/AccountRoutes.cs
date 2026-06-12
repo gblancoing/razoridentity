@@ -10,6 +10,7 @@ public static class AccountRoutes
     public const string Messages = "/account/messages";
     public const string ProfessionalMessages = "/account/professional/messages";
     public const string Professional = "/account/professional";
+    public const string Courier = "/account/courier";
 
     public static string CompanyNavHref(bool hasPartnerPanel)
         => hasPartnerPanel ? PartnerSettings : Company;

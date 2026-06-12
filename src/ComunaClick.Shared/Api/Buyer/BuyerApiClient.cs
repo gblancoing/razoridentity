@@ -506,6 +506,31 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Professional>($"/v1/public/professionals/{id}", cancellationToken);
 
+    // ----- Portal del repartidor (usuario autenticado; identidad por email/user_id) -----
+
+    public Task<CourierMe?> GetCourierMeAsync(CancellationToken cancellationToken = default)
+        => GetAsync<CourierMe>("/v1/courier/me", cancellationToken);
+
+    public Task<CourierTripsPage?> GetCourierTripsAsync(
+        string? status = null,
+        int page = 1,
+        int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/courier/me/trips?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            path += $"&status={Uri.EscapeDataString(status)}";
+        }
+        return GetAsync<CourierTripsPage>(path, cancellationToken);
+    }
+
+    public Task<CourierEarnings?> GetCourierEarningsAsync(CancellationToken cancellationToken = default)
+        => GetAsync<CourierEarnings>("/v1/courier/me/earnings", cancellationToken);
+
+    public Task<CourierMpStart?> StartCourierMercadoPagoAsync(Guid courierId, CancellationToken cancellationToken = default)
+        => PostAsync<CourierMpStart>($"/v1/courier/me/{courierId}/mercadopago/start", new { }, cancellationToken);
+
     public Task<PublicDeliveryQuoteResponse?> GetDeliveryQuoteAsync(
         Guid partnerId,
         double? destinationLat = null,
@@ -729,6 +754,67 @@ public sealed record GuestBookingCreateResponse(
     string? Status,
     double Amount,
     string? Currency);
+
+public sealed record CourierPayee(
+    Guid CourierId,
+    bool HasSeller,
+    string? ConnectionStatus,
+    bool CheckoutReady,
+    string? MpUserId,
+    DateTimeOffset? ConnectedAt);
+
+public sealed record CourierMembership(
+    Guid CourierId,
+    Guid PartnerId,
+    string PartnerName,
+    string Name,
+    string Phone,
+    string? Company,
+    string? Kind,
+    bool IsAvailable,
+    string? Email,
+    CourierPayee? Payee);
+
+public sealed record CourierMe(
+    IReadOnlyList<CourierMembership> Items,
+    string? Email);
+
+public sealed record CourierTrip(
+    Guid OrderId,
+    string OrderShortId,
+    string PartnerName,
+    string? DeliveryStatus,
+    string? DeliveryAddress,
+    string? OriginAddress,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    double? NetAmount,
+    string? SettlementStatus,
+    string? Currency);
+
+public sealed record CourierTripsPage(
+    IReadOnlyList<CourierTrip> Items,
+    int Page,
+    int PageSize,
+    int TotalCount);
+
+public sealed record CourierEarningsItem(
+    Guid OrderId,
+    string OrderShortId,
+    DateTimeOffset CreatedAt,
+    double NetAmount,
+    string? Status);
+
+public sealed record CourierEarnings(
+    double SettledTotal,
+    double PendingTotal,
+    double ManualTotal,
+    int SettledCount,
+    int PendingCount,
+    string? Currency,
+    IReadOnlyList<CourierEarningsItem> Recent);
+
+public sealed record CourierMpStart(Guid CourierId, string? AuthorizationUrl);
 
 public sealed record PublicDeliveryQuoteResponse(
     bool Available,

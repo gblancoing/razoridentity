@@ -50,7 +50,7 @@ public sealed class CouriersController : ControllerBase
         var items = await _db.Couriers.AsNoTracking()
             .Where(x => x.PartnerId == partnerId)
             .OrderBy(x => x.Name)
-            .Select(x => new CourierResponse(x.Id, x.PartnerId, x.Name, x.Phone, x.Company, x.IsAvailable))
+            .Select(x => new CourierResponse(x.Id, x.PartnerId, x.Name, x.Phone, x.Company, x.IsAvailable, x.Email, x.UserId))
             .ToListAsync();
 
         return Ok(items);
@@ -74,6 +74,12 @@ public sealed class CouriersController : ControllerBase
             return BadRequest(new { message = "El teléfono del repartidor es obligatorio." });
         }
 
+        var email = NormalizeEmail(request.Email);
+        if (request.Email is not null && !string.IsNullOrWhiteSpace(request.Email) && email is null)
+        {
+            return BadRequest(new { message = "El correo del repartidor no es válido." });
+        }
+
         var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(x => x.Id == partnerId);
         if (partner is null)
         {
@@ -88,6 +94,7 @@ public sealed class CouriersController : ControllerBase
             Name = request.Name.Trim(),
             Phone = request.Phone.Trim(),
             Company = string.IsNullOrWhiteSpace(request.Company) ? null : request.Company.Trim(),
+            Email = email,
             IsAvailable = true,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -98,7 +105,7 @@ public sealed class CouriersController : ControllerBase
 
         return Created(
             $"/v1/partners/{partnerId}/couriers/{entity.Id}",
-            new CourierResponse(entity.Id, entity.PartnerId, entity.Name, entity.Phone, entity.Company, entity.IsAvailable));
+            new CourierResponse(entity.Id, entity.PartnerId, entity.Name, entity.Phone, entity.Company, entity.IsAvailable, entity.Email, entity.UserId));
     }
 
     [HttpPatch("/v1/partners/{partnerId:guid}/couriers/{courierId:guid}")]
@@ -130,6 +137,23 @@ public sealed class CouriersController : ControllerBase
             entity.Company = string.IsNullOrWhiteSpace(request.Company) ? null : request.Company.Trim();
         }
 
+        if (request.Email is not null)
+        {
+            var email = NormalizeEmail(request.Email);
+            if (!string.IsNullOrWhiteSpace(request.Email) && email is null)
+            {
+                return BadRequest(new { message = "El correo del repartidor no es válido." });
+            }
+
+            if (!string.Equals(entity.Email, email, StringComparison.OrdinalIgnoreCase))
+            {
+                // Cambiar el correo invalida el vínculo anterior: el nuevo
+                // correo debe reclamar el perfil de nuevo desde el portal.
+                entity.Email = email;
+                entity.UserId = null;
+            }
+        }
+
         if (request.IsAvailable.HasValue)
         {
             entity.IsAvailable = request.IsAvailable.Value;
@@ -138,7 +162,7 @@ public sealed class CouriersController : ControllerBase
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(new CourierResponse(entity.Id, entity.PartnerId, entity.Name, entity.Phone, entity.Company, entity.IsAvailable));
+        return Ok(new CourierResponse(entity.Id, entity.PartnerId, entity.Name, entity.Phone, entity.Company, entity.IsAvailable, entity.Email, entity.UserId));
     }
 
     [HttpDelete("/v1/partners/{partnerId:guid}/couriers/{courierId:guid}")]
@@ -273,6 +297,18 @@ public sealed class CouriersController : ControllerBase
 
         var result = await _deliveryService.UpdateStatusAsync(orderId, DeliveryStatuses.Canceled, HttpContext.RequestAborted);
         return result.Ok ? Ok(new { ok = true }) : BadRequest(new { message = result.Message });
+    }
+
+    /// <summary>Correo normalizado (trim + minúsculas) o null si viene vacío/inválido.</summary>
+    private static string? NormalizeEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return null;
+        }
+
+        var normalized = email.Trim().ToLowerInvariant();
+        return normalized.Contains('@') && normalized.Length >= 5 ? normalized : null;
     }
 
     private async Task<bool> CanManagePartnerAsync(Guid partnerId)

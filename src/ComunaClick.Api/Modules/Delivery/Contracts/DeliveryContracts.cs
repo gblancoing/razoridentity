@@ -14,9 +14,9 @@ public sealed record CourierStatusRequest(
     string Status,
     string Token);
 
-public sealed record CourierCreateRequest(string Name, string Phone, string? Company);
+public sealed record CourierCreateRequest(string Name, string Phone, string? Company, string? Email = null);
 
-public sealed record CourierUpdateRequest(string? Name, string? Phone, string? Company, bool? IsAvailable);
+public sealed record CourierUpdateRequest(string? Name, string? Phone, string? Company, bool? IsAvailable, string? Email = null);
 
 public sealed record CourierResponse(
     Guid Id,
@@ -24,7 +24,9 @@ public sealed record CourierResponse(
     string Name,
     string Phone,
     string? Company,
-    bool IsAvailable);
+    bool IsAvailable,
+    string? Email = null,
+    Guid? UserId = null);
 
 public sealed record AssignCourierRequest(Guid CourierId);
 

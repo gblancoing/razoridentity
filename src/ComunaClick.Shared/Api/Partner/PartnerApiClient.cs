@@ -548,9 +548,11 @@ public sealed record PartnerCourier(
     string Name,
     string Phone,
     string? Company,
-    bool IsAvailable);
+    bool IsAvailable,
+    string? Email = null,
+    Guid? UserId = null);
 
-public sealed record PartnerCourierCreateRequest(string Name, string Phone, string? Company);
+public sealed record PartnerCourierCreateRequest(string Name, string Phone, string? Company, string? Email = null);
 
 public sealed record AssignCourierResult(
     Guid OrderId,

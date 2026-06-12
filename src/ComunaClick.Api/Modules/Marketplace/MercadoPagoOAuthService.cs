@@ -97,7 +97,13 @@ public sealed class MercadoPagoOAuthService
             },
             cancellationToken);
 
-        return $"{_options.AppBaseUrl.TrimEnd('/')}/partner/mercadopago?sellerId={sellerId}&connected=true";
+        // El payee-courier comparte Id con su fila Seller: si el seller es un
+        // repartidor, el retorno va a SU portal y no al panel del comercio.
+        var isCourier = await _db.Couriers.IgnoreQueryFilters()
+            .AnyAsync(x => x.Id == sellerId, cancellationToken);
+        return isCourier
+            ? $"{_options.AppBaseUrl.TrimEnd('/')}/account/courier?mpConnected=true&courierId={sellerId}"
+            : $"{_options.AppBaseUrl.TrimEnd('/')}/partner/mercadopago?sellerId={sellerId}&connected=true";
     }
 
     public async Task DisconnectAsync(Guid sellerId, CancellationToken cancellationToken)

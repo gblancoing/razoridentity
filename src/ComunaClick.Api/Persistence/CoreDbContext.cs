@@ -351,6 +351,8 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Phone).HasColumnName("phone").IsRequired();
             entity.Property(x => x.Company).HasColumnName("company");
+            entity.Property(x => x.Email).HasColumnName("email");
+            entity.Property(x => x.UserId).HasColumnName("user_id");
             entity.Property(x => x.Kind).HasColumnName("kind").HasDefaultValue("courier");
             entity.Property(x => x.IsAvailable).HasColumnName("is_available").HasDefaultValue(true);
             entity.Property(x => x.CurrentLat).HasColumnName("current_lat");
@@ -358,6 +360,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => x.PartnerId);
+            entity.HasIndex(x => x.UserId);
             entity.HasOne(x => x.Partner).WithMany().HasForeignKey(x => x.PartnerId);
         });
 

@@ -1,0 +1,369 @@
+@page "/account/courier"
+@layout AccountHubLayout
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.SharedUI.Services.ApiSessionService ApiSession
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>@L.T("account.courier.title")</PageTitle>
+
+<div class="space-y-6 max-w-3xl">
+    <header>
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081]">@L.T("account.nav.courierSection")</p>
+        <h1 class="mt-1 text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("account.courier.heading")</h1>
+        <p class="mt-2 text-sm text-[#595c5d]">@L.T("account.courier.subtitle")</p>
+    </header>
+
+    @if (_mpConnectedBanner)
+    {
+        <div class="rounded-2xl border border-[#a7f255] bg-[#f8fff1] px-4 py-3 text-sm font-semibold text-[#325800]">
+            ✔ @L.T("account.courier.mp.successBanner")
+        </div>
+    }
+
+    @if (_loading)
+    {
+        <BrandedLoading Compact="true" Title="@L.T("ui.loading")" Message="@L.T("account.courier.loading")" />
+    }
+    else if (_me is null || _me.Items.Count == 0)
+    {
+        <section class="rounded-[2rem] border border-[#e3e6e8] bg-white p-6 md:p-8 space-y-4">
+            <h2 class="text-xl font-black text-[#2c2f30]">@L.T("account.courier.empty.title")</h2>
+            <p class="text-sm text-[#595c5d]">@L.T("account.courier.empty.body")</p>
+            @if (!string.IsNullOrWhiteSpace(MyEmail))
+            {
+                <div class="flex flex-wrap items-center gap-3">
+                    <code class="rounded-xl bg-[#eff1f2] px-4 py-2 text-sm font-bold text-[#2c2f30]">@MyEmail</code>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-xl border border-[#3b6700] px-4 py-2 text-xs font-bold text-[#3b6700]"
+                            @onclick="CopyEmailAsync">
+                        <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                        @(_emailCopied ? L.T("account.courier.empty.copied") : L.T("account.courier.empty.copyEmail"))
+                    </button>
+                </div>
+            }
+        </section>
+    }
+    else
+    {
+        <div class="flex flex-wrap gap-2">
+            <button type="button" class="@TabClass("trips")" @onclick='() => SetTab("trips")'>
+                <span class="material-symbols-outlined text-[16px]">route</span> @L.T("account.courier.tabs.trips")
+            </button>
+            <button type="button" class="@TabClass("earnings")" @onclick='() => SetTab("earnings")'>
+                <span class="material-symbols-outlined text-[16px]">payments</span> @L.T("account.courier.tabs.earnings")
+            </button>
+            <button type="button" class="@TabClass("mp")" @onclick='() => SetTab("mp")'>
+                <span class="material-symbols-outlined text-[16px]">account_balance_wallet</span> @L.T("account.courier.tabs.mp")
+            </button>
+        </div>
+
+        @if (_tab == "trips")
+        {
+            <section class="rounded-[2rem] border border-[#e3e6e8] bg-white p-5 md:p-6 space-y-4">
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="@FilterClass(null)" @onclick="() => SetTripFilterAsync(null)">@L.T("account.courier.trips.all")</button>
+                    <button type="button" class="@FilterClass("activos")" @onclick='() => SetTripFilterAsync("activos")'>@L.T("account.courier.trips.active")</button>
+                    <button type="button" class="@FilterClass("completados")" @onclick='() => SetTripFilterAsync("completados")'>@L.T("account.courier.trips.completed")</button>
+                </div>
+
+                @if (_trips is null || _trips.Items.Count == 0)
+                {
+                    <p class="text-sm text-[#595c5d]">@L.T("account.courier.trips.none")</p>
+                }
+                else
+                {
+                    @foreach (var trip in _trips.Items)
+                    {
+                        <div class="rounded-2xl border border-[#eceae6] p-4 space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <p class="text-sm font-bold text-[#2c2f30]">#@trip.OrderShortId · @trip.PartnerName</p>
+                                <span class="@TripBadgeClass(trip.DeliveryStatus)">@TripStatusLabel(trip.DeliveryStatus)</span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(trip.DeliveryAddress))
+                            {
+                                <p class="text-xs text-[#595c5d]">📍 @trip.DeliveryAddress</p>
+                            }
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-[#7b8081]">
+                                <span>@trip.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>
+                                @if (trip.NetAmount is double net)
+                                {
+                                    <span class="font-bold text-[#3b6700]">@L.T("account.courier.trips.net"): @FormatClp(net)</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                    @if (_trips.TotalCount > _trips.Items.Count)
+                    {
+                        <p class="text-xs text-[#7b8081]">@_trips.Items.Count / @_trips.TotalCount</p>
+                    }
+                }
+            </section>
+        }
+        else if (_tab == "earnings")
+        {
+            <section class="space-y-4">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="rounded-2xl border border-[#e0f2fe] bg-[#f0f9ff] p-4">
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#075985]">@L.T("account.courier.earnings.pending")</p>
+                        <p class="mt-1 text-2xl font-black text-[#075985]">@FormatClp(_earnings?.PendingTotal ?? 0)</p>
+                    </div>
+                    <div class="rounded-2xl border border-[#dcfce7] bg-[#f0fdf4] p-4">
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#14532d]">@L.T("account.courier.earnings.settled")</p>
+                        <p class="mt-1 text-2xl font-black text-[#14532d]">@FormatClp(_earnings?.SettledTotal ?? 0)</p>
+                    </div>
+                    <div class="rounded-2xl border border-[#eceae6] bg-[#fafaf8] p-4">
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#595c5d]">@L.T("account.courier.earnings.manual")</p>
+                        <p class="mt-1 text-2xl font-black text-[#595c5d]">@FormatClp(_earnings?.ManualTotal ?? 0)</p>
+                    </div>
+                </div>
+
+                <section class="rounded-[2rem] border border-[#e3e6e8] bg-white p-5 md:p-6 space-y-3">
+                    <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[#7b8081]">@L.T("account.courier.earnings.recent")</h2>
+                    @if (_earnings is null || _earnings.Recent.Count == 0)
+                    {
+                        <p class="text-sm text-[#595c5d]">@L.T("account.courier.earnings.none")</p>
+                    }
+                    else
+                    {
+                        @foreach (var item in _earnings.Recent)
+                        {
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#f0f1f2] py-2 text-sm last:border-0">
+                                <span class="font-semibold text-[#2c2f30]">#@item.OrderShortId</span>
+                                <span class="text-xs text-[#7b8081]">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
+                                <span class="font-bold text-[#3b6700]">@FormatClp(item.NetAmount)</span>
+                                <span class="@EarningBadgeClass(item.Status)">@EarningStatusLabel(item.Status)</span>
+                            </div>
+                        }
+                    }
+                </section>
+            </section>
+        }
+        else
+        {
+            <section class="space-y-3">
+                <p class="text-sm text-[#595c5d]">@L.T("account.courier.mp.perBusinessHint")</p>
+                @foreach (var membership in _me.Items)
+                {
+                    var ready = membership.Payee?.CheckoutReady == true;
+                    <div class="rounded-[2rem] border border-[#e3e6e8] bg-white p-5 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="font-bold text-[#2c2f30]">@membership.PartnerName</p>
+                            <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold @(ready ? "bg-[#dcfce7] text-[#14532d]" : "bg-[#eff1f2] text-[#595c5d]")">
+                                @(ready ? L.T("account.courier.mp.connected") : L.T("account.courier.mp.notConnected"))
+                            </span>
+                        </div>
+                        @if (!ready)
+                        {
+                            <button type="button"
+                                    class="inline-flex items-center gap-2 rounded-2xl bg-[#009ee3] px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                                    disabled="@(_linkingCourierId == membership.CourierId)"
+                                    @onclick="() => ConnectMpAsync(membership.CourierId)">
+                                <span class="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+                                @L.T("account.courier.mp.connect")
+                            </button>
+                        }
+                        else
+                        {
+                            <p class="text-xs font-semibold text-[#14532d]">@L.T("account.courier.mp.ready")</p>
+                        }
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_mpMessage))
+                {
+                    <p class="text-xs font-medium text-red-600">@_mpMessage</p>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _checked;
+    private string _tab = "trips";
+    private string? _tripFilter;
+    private bool _emailCopied;
+    private bool _mpConnectedBanner;
+    private Guid? _linkingCourierId;
+    private string? _mpMessage;
+
+    private ComunaClick.Shared.Api.Buyer.CourierMe? _me;
+    private ComunaClick.Shared.Api.Buyer.CourierTripsPage? _trips;
+    private ComunaClick.Shared.Api.Buyer.CourierEarnings? _earnings;
+
+    private string? MyEmail => _me?.Email ?? AuthState.Email;
+
+    protected override void OnInitialized() => L.OnChange += HandleChange;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_checked)
+        {
+            return;
+        }
+
+        _checked = true;
+        try
+        {
+            await AuthState.InitializeAsync();
+            if (!AuthState.IsAuthenticated)
+            {
+                var current = Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery;
+                Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(current)}", true);
+                return;
+            }
+
+            _mpConnectedBanner = Navigation.ToAbsoluteUri(Navigation.Uri).Query
+                .Contains("mpConnected=true", StringComparison.OrdinalIgnoreCase);
+            if (_mpConnectedBanner)
+            {
+                _tab = "mp";
+            }
+
+            await ApiSession.EnsureReadyAsync();
+            await LoadAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            _checked = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            _me = await BuyerApi.GetCourierMeAsync();
+            if (_me?.Items is { Count: > 0 })
+            {
+                _trips = await BuyerApi.GetCourierTripsAsync(_tripFilter);
+                _earnings = await BuyerApi.GetCourierEarningsAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _me = null;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetTab(string tab)
+    {
+        _tab = tab;
+    }
+
+    private async Task SetTripFilterAsync(string? filter)
+    {
+        _tripFilter = filter;
+        try
+        {
+            _trips = await BuyerApi.GetCourierTripsAsync(_tripFilter);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private async Task ConnectMpAsync(Guid courierId)
+    {
+        _linkingCourierId = courierId;
+        _mpMessage = null;
+        try
+        {
+            var start = await BuyerApi.StartCourierMercadoPagoAsync(courierId);
+            if (string.IsNullOrWhiteSpace(start?.AuthorizationUrl))
+            {
+                _mpMessage = L.T("account.courier.mp.failed");
+                return;
+            }
+
+            // El repartidor autoriza con SU cuenta MP; al volver, el callback
+            // redirige a este panel con mpConnected=true.
+            Navigation.NavigateTo(start.AuthorizationUrl, forceLoad: true);
+        }
+        catch (HttpRequestException)
+        {
+            _mpMessage = L.T("account.courier.mp.failed");
+        }
+        finally
+        {
+            _linkingCourierId = null;
+        }
+    }
+
+    private async Task CopyEmailAsync()
+    {
+        if (string.IsNullOrWhiteSpace(MyEmail))
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.copyText", MyEmail);
+            _emailCopied = true;
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private string TabClass(string tab)
+        => "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold " +
+           (_tab == tab ? "bg-[#3b6700] text-[#d9ffad]" : "border border-[#dadddf] bg-white text-[#2c2f30]");
+
+    private string FilterClass(string? filter)
+        => "rounded-full px-3 py-1.5 text-[11px] font-bold " +
+           (_tripFilter == filter ? "bg-[#a7f255]/40 text-[#325800]" : "border border-[#dadddf] bg-white text-[#595c5d]");
+
+    private string TripStatusLabel(string? status) => status?.ToLowerInvariant() switch
+    {
+        "assigned" => L.T("partner.delivery.status.assigned"),
+        "picked_up" or "in_transit" => L.T("partner.delivery.status.inTransit"),
+        "delivered" => L.T("partner.delivery.status.delivered"),
+        "canceled" => L.T("partner.delivery.status.canceled"),
+        _ => L.T("partner.delivery.status.pending")
+    };
+
+    private static string TripBadgeClass(string? status) => "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold " + status?.ToLowerInvariant() switch
+    {
+        "delivered" => "bg-[#dcfce7] text-[#14532d]",
+        "canceled" => "bg-[#fecaca] text-[#b42318]",
+        "picked_up" or "in_transit" => "bg-[#a7f255]/30 text-[#325800]",
+        "assigned" => "bg-[#fff4d6] text-[#8a5b00]",
+        _ => "bg-[#eff1f2] text-[#595c5d]"
+    };
+
+    private string EarningStatusLabel(string? status) => status switch
+    {
+        "settled" => L.T("partner.delivery.settlement.status.settled"),
+        "processing" => L.T("partner.delivery.settlement.status.processing"),
+        "manual" => L.T("partner.delivery.settlement.status.manual"),
+        _ => L.T("partner.delivery.settlement.status.pending")
+    };
+
+    private static string EarningBadgeClass(string? status) => "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold " + status switch
+    {
+        "settled" => "bg-[#dcfce7] text-[#14532d]",
+        "processing" => "bg-[#fff4d6] text-[#8a5b00]",
+        "manual" => "bg-[#eff1f2] text-[#595c5d]",
+        _ => "bg-[#e0f2fe] text-[#075985]"
+    };
+
+    private static string FormatClp(double amount)
+        => ((decimal)amount).ToString("C0", new System.Globalization.CultureInfo("es-CL"));
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.OnChange -= HandleChange;
+}

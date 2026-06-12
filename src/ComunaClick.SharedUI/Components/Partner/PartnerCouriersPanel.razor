@@ -7,6 +7,7 @@
     <div>
         <p class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.delivery.couriers.title")</p>
         <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.delivery.couriers.help")</p>
+        <p class="mt-1 text-xs text-[#3b6700]">@L.T("partner.delivery.couriers.emailHint")</p>
     </div>
 
     @if (_couriers.Count > 0)
@@ -14,25 +15,39 @@
         <ul class="space-y-2">
             @foreach (var courier in _couriers)
             {
-                <li class="flex items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-white px-3 py-2">
+                <li class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-white px-3 py-2">
                     <span class="text-sm text-[#2c2f30]">
                         <span class="font-semibold">@courier.Name</span>
                         <span class="text-[#7b8081]"> · @courier.Phone@(string.IsNullOrWhiteSpace(courier.Company) ? "" : $" · {courier.Company}")</span>
+                        @if (!string.IsNullOrWhiteSpace(courier.Email))
+                        {
+                            <span class="block text-xs text-[#7b8081]">@courier.Email</span>
+                        }
                     </span>
-                    <button type="button"
-                            class="text-xs font-bold text-red-700"
-                            disabled="@_busy"
-                            @onclick="() => DeleteAsync(courier)">
-                        @L.T("partner.delivery.couriers.remove")
-                    </button>
+                    <span class="flex items-center gap-2">
+                        @if (courier.UserId is not null)
+                        {
+                            <span class="inline-flex items-center gap-1 rounded-full bg-[#dcfce7] px-2.5 py-1 text-[10px] font-bold text-[#14532d]">
+                                <span class="material-symbols-outlined text-[12px]">verified</span>
+                                @L.T("partner.delivery.couriers.linked")
+                            </span>
+                        }
+                        <button type="button"
+                                class="text-xs font-bold text-red-700"
+                                disabled="@_busy"
+                                @onclick="() => DeleteAsync(courier)">
+                            @L.T("partner.delivery.couriers.remove")
+                        </button>
+                    </span>
                 </li>
             }
         </ul>
     }
 
-    <div class="grid grid-cols-1 gap-2 md:grid-cols-4">
+    <div class="grid grid-cols-1 gap-2 md:grid-cols-5">
         <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" placeholder="@L.T("partner.delivery.couriers.name")" @bind="_newName" />
         <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" type="tel" placeholder="@L.T("partner.delivery.couriers.phone")" @bind="_newPhone" />
+        <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" type="email" placeholder="@L.T("partner.delivery.couriers.email")" @bind="_newEmail" />
         <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" placeholder="@L.T("partner.delivery.couriers.company")" @bind="_newCompany" />
         <button type="button"
                 class="rounded-xl bg-[#3b6700] px-4 py-2 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
@@ -55,6 +70,7 @@
     private readonly List<PartnerApiModels.PartnerCourier> _couriers = new();
     private string _newName = string.Empty;
     private string _newPhone = string.Empty;
+    private string _newEmail = string.Empty;
     private string _newCompany = string.Empty;
     private string? _message;
     private bool _ok;
@@ -101,7 +117,8 @@
                 new PartnerApiModels.PartnerCourierCreateRequest(
                     _newName.Trim(),
                     _newPhone.Trim(),
-                    string.IsNullOrWhiteSpace(_newCompany) ? null : _newCompany.Trim()));
+                    string.IsNullOrWhiteSpace(_newCompany) ? null : _newCompany.Trim(),
+                    string.IsNullOrWhiteSpace(_newEmail) ? null : _newEmail.Trim()));
             if (created is null)
             {
                 _message = L.T("partner.delivery.couriers.failed");
@@ -111,6 +128,7 @@
 
             _newName = string.Empty;
             _newPhone = string.Empty;
+            _newEmail = string.Empty;
             _newCompany = string.Empty;
             await ReloadAsync();
             _message = L.T("partner.delivery.couriers.created");

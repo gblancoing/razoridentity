@@ -84,6 +84,16 @@
                         </span>
                     </a>
                 }
+                @if (ShowCourierNav)
+                {
+                    <a href="@AccountRoutes.Courier" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">two_wheeler</span>
+                        <span>
+                            @L.T("account.nav.courier")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.courier.hint")</span>
+                        </span>
+                    </a>
+                }
                 @if (ShowProfessionalNav)
                 {
                     <a href="@AccountRoutes.Professional" role="menuitem" class="@MenuItemClass" @onclick="Close">
@@ -121,6 +131,7 @@
   [Parameter] public bool ShowCompanyNav { get; set; }
   [Parameter] public bool ShowProfessionalNav { get; set; }
   [Parameter] public bool ShowProfessionalInboxNav { get; set; }
+  [Parameter] public bool ShowCourierNav { get; set; }
 
   private bool _open;
   private bool _authLoaded;
