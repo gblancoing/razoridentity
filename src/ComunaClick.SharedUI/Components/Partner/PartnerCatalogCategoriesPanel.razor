@@ -95,6 +95,7 @@
     private string? _message;
     private bool _ok;
     private bool _busy;
+    private bool _loaded;
 
     private List<PartnerApiModels.PartnerCatalogCategoryInfo> RootCategories => _categories
         .Where(x => x.ParentId is null)
@@ -110,8 +111,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (PartnerId != Guid.Empty)
+        // Cargar UNA sola vez: recargar en cada set de parámetros genera un
+        // loop de renders/requests (cada reload re-renderiza al padre).
+        if (PartnerId != Guid.Empty && !_loaded)
         {
+            _loaded = true;
             await ReloadAsync();
         }
     }

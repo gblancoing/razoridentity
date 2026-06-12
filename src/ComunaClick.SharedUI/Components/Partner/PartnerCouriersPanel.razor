@@ -59,11 +59,15 @@
     private string? _message;
     private bool _ok;
     private bool _busy;
+    private bool _loaded;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (PartnerId != Guid.Empty && _couriers.Count == 0)
+        // Cargar UNA sola vez: recargar mientras la lista está vacía genera un
+        // loop de renders/requests que agota el rate limit del API.
+        if (PartnerId != Guid.Empty && !_loaded)
         {
+            _loaded = true;
             await ReloadAsync();
         }
     }
@@ -112,15 +116,44 @@
             _message = L.T("partner.delivery.couriers.created");
             _ok = true;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            _message = L.T("partner.delivery.couriers.failed");
+            _message = TryExtractApiMessage(ex.Message) ?? L.T("partner.delivery.couriers.failed");
             _ok = false;
         }
         finally
         {
             _busy = false;
         }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
     }
 
     private async Task DeleteAsync(PartnerApiModels.PartnerCourier courier)
