@@ -236,6 +236,29 @@ public sealed class CourierPortalController : ControllerBase
         return Ok(new { courierId = courier.Id, authorizationUrl = start.AuthorizationUrl });
     }
 
+    /// <summary>
+    /// Desvincula la cuenta MercadoPago del repartidor (ej. se vinculó una
+    /// cuenta equivocada). Idempotente: sin cuenta conectada responde ok igual,
+    /// dejando el camino libre para vincular la correcta.
+    /// </summary>
+    [HttpPost("{courierId:guid}/mercadopago/disconnect")]
+    public async Task<IActionResult> DisconnectMercadoPago(Guid courierId, CancellationToken cancellationToken)
+    {
+        var mine = await ResolveMyCouriersAsync(cancellationToken);
+        if (mine.All(x => x.Id != courierId))
+        {
+            return NotFound();
+        }
+
+        var status = await _payeeService.GetStatusAsync(courierId, cancellationToken);
+        if (status.HasSeller && !string.Equals(status.ConnectionStatus, "disconnected", StringComparison.OrdinalIgnoreCase))
+        {
+            await _mpOAuth.DisconnectAsync(courierId, cancellationToken);
+        }
+
+        return Ok(new { courierId, disconnected = true });
+    }
+
     /// <summary>El repartidor se marca disponible / no disponible.</summary>
     [HttpPatch("{courierId:guid}")]
     public async Task<IActionResult> UpdateAvailability(Guid courierId, CourierAvailabilityRequest request, CancellationToken cancellationToken)

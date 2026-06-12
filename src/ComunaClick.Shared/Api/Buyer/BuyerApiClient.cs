@@ -531,6 +531,9 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<CourierMpStart?> StartCourierMercadoPagoAsync(Guid courierId, CancellationToken cancellationToken = default)
         => PostAsync<CourierMpStart>($"/v1/courier/me/{courierId}/mercadopago/start", new { }, cancellationToken);
 
+    public Task<CourierMpDisconnect?> DisconnectCourierMercadoPagoAsync(Guid courierId, CancellationToken cancellationToken = default)
+        => PostAsync<CourierMpDisconnect>($"/v1/courier/me/{courierId}/mercadopago/disconnect", new { }, cancellationToken);
+
     public Task<PublicDeliveryQuoteResponse?> GetDeliveryQuoteAsync(
         Guid partnerId,
         double? destinationLat = null,
@@ -815,6 +818,8 @@ public sealed record CourierEarnings(
     IReadOnlyList<CourierEarningsItem> Recent);
 
 public sealed record CourierMpStart(Guid CourierId, string? AuthorizationUrl);
+
+public sealed record CourierMpDisconnect(Guid CourierId, bool Disconnected);
 
 public sealed record PublicDeliveryQuoteResponse(
     bool Available,

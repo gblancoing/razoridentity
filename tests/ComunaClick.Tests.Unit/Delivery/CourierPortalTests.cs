@@ -156,6 +156,35 @@ public sealed class CourierPortalTests
         Assert.Equal(3, earnings.PendingCount);
     }
 
+    // Desvincular un courier ajeno no revela su existencia.
+    [Fact]
+    public async Task MercadoPagoDisconnect_ForeignCourier_ReturnsNotFound()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, _) = TestDb.SeedCatalog(db, stock: 1);
+        var foreign = SeedCourier(db, tenantId, partner.Id, "otro@test.cl", Guid.NewGuid(), "Otro");
+
+        var controller = CreateController(db, Guid.NewGuid(), "yo@test.cl");
+        var result = await controller.DisconnectMercadoPago(foreign.Id, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    // Idempotente: desvincular sin cuenta MP conectada responde ok igual.
+    [Fact]
+    public async Task MercadoPagoDisconnect_WithoutConnectedAccount_IsIdempotent()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, _) = TestDb.SeedCatalog(db, stock: 1);
+        var userId = Guid.NewGuid();
+        var courier = SeedCourier(db, tenantId, partner.Id, "repa@test.cl", userId);
+
+        var controller = CreateController(db, userId, "repa@test.cl");
+        var result = await controller.DisconnectMercadoPago(courier.Id, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
     // Iniciar la vinculación MP de un courier ajeno no revela su existencia.
     [Fact]
     public async Task MercadoPagoStart_ForeignCourier_ReturnsNotFound()
