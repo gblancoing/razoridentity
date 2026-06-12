@@ -1,7 +1,10 @@
 @using PartnerApiModels = ComunaClick.Shared.Api.Partner
 @inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject IJSRuntime JS
+@implements IAsyncDisposable
 
 @*
     Gestión del envío de un pedido delivery desde el panel del vendedor:
@@ -16,9 +19,52 @@
             <span class="@StatusBadgeClass">@StatusLabel</span>
         </div>
 
+        @* Trazabilidad: misma línea de tiempo que ve el comprador (picked_up
+           e in_transit colapsan en "En camino"). Avanza en vivo vía SignalR
+           cuando el mapa está abierto. *@
+        @if (Status != "canceled")
+        {
+            <ol class="flex flex-wrap items-center gap-2">
+                @foreach (var step in TimelineSteps)
+                {
+                    var reached = StepRank(Status) >= StepRank(step.Key);
+                    var isCurrent = StepRank(Status) == StepRank(step.Key);
+                    <li class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold
+                                     @(isCurrent ? "bg-[#3b6700] text-[#d9ffad]" : reached ? "bg-[#a7f255]/30 text-[#325800]" : "bg-[#eff1f2] text-[#7b8081]")">
+                            <span class="material-symbols-outlined text-[13px]">@(reached ? "check_circle" : "radio_button_unchecked")</span>
+                            @step.Label
+                        </span>
+                    </li>
+                }
+            </ol>
+        }
+
         @if (!string.IsNullOrWhiteSpace(Order.DeliveryAddress))
         {
             <p class="text-sm text-[#595c5d]"><span class="font-bold text-[#2c2f30]">@L.T("partner.delivery.destination"):</span> @Order.DeliveryAddress</p>
+        }
+
+        @* Mapa en vivo del recorrido (mismo módulo JS del comprador; el token
+           se acuña on-demand para el dueño del pedido). El módulo es singleton:
+           abrir el mapa de otro pedido cierra este. *@
+        @if (Status is "assigned" or "picked_up" or "in_transit" or "delivered")
+        {
+            <button type="button"
+                    class="inline-flex items-center gap-2 rounded-xl border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#2c2f30] disabled:opacity-60"
+                    disabled="@_mapBusy"
+                    @onclick="ToggleMapAsync">
+                <span class="material-symbols-outlined text-[16px]">@(_mapOpen ? "visibility_off" : "map")</span>
+                @(_mapOpen ? L.T("partner.delivery.track.hide") : L.T("partner.delivery.track.toggle"))
+            </button>
+            @if (_mapOpen)
+            {
+                <div id="@MapElementId" class="h-[320px] w-full overflow-hidden rounded-2xl border border-[#e3e6e8]"></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_mapMessage))
+            {
+                <p class="text-xs font-medium text-red-600">@_mapMessage</p>
+            }
         }
 
         @if (IsActive)
@@ -138,12 +184,41 @@
     private string? _message;
     private bool _payBusy;
     private string? _payMessage;
+    // Mapa en vivo del recorrido.
+    private bool _mapOpen;
+    private bool _mapBusy;
+    private bool _mapPendingStart;
+    private string? _mapMessage;
+    private string? _trackingToken;
+    private ComunaClick.Shared.Api.Buyer.DeliverySnapshot? _snapshot;
+    private string? _liveStatus;
+    private DotNetObjectReference<PartnerOrderDeliverySection>? _selfRef;
+
+    private string MapElementId => $"partner-track-map-{Order.Id:N}";
 
     private bool IsDeliveryOrder =>
         string.Equals(Order.DeliveryType, "delivery", StringComparison.OrdinalIgnoreCase)
         || !string.IsNullOrWhiteSpace(Order.DeliveryAddress);
 
-    private string Status => Order.DeliveryStatus?.Trim().ToLowerInvariant() ?? "pending";
+    // El estado en vivo (SignalR, con el mapa abierto) prima sobre el del DTO.
+    private string Status => _liveStatus ?? Order.DeliveryStatus?.Trim().ToLowerInvariant() ?? "pending";
+
+    private IReadOnlyList<(string Key, string Label)> TimelineSteps =>
+    [
+        ("pending", L.T("partner.delivery.status.pending")),
+        ("assigned", L.T("partner.delivery.status.assigned")),
+        ("in_transit", L.T("partner.delivery.status.inTransit")),
+        ("delivered", L.T("partner.delivery.status.delivered"))
+    ];
+
+    // Orden lógico de los pasos; picked_up cuenta como in_transit en la UI.
+    private static int StepRank(string status) => status switch
+    {
+        "assigned" => 1,
+        "picked_up" or "in_transit" => 2,
+        "delivered" => 3,
+        _ => 0
+    };
 
     private bool IsActive => Status is "pending" or "assigned" or "picked_up" or "in_transit";
 
@@ -333,6 +408,129 @@
         }
         catch (JSException)
         {
+        }
+    }
+
+    private async Task ToggleMapAsync()
+    {
+        if (_mapOpen)
+        {
+            await StopMapAsync();
+            _mapOpen = false;
+            return;
+        }
+
+        _mapBusy = true;
+        _mapMessage = null;
+        try
+        {
+            // Token de tracking acuñado para el dueño del pedido + snapshot con
+            // las coordenadas (mismo flujo que la página de seguimiento del comprador).
+            var tokenResult = await PartnerApi.GetOrderTrackingTokenAsync(Order.Id);
+            if (tokenResult is null || string.IsNullOrWhiteSpace(tokenResult.Token))
+            {
+                _mapMessage = L.T("partner.delivery.track.failed");
+                return;
+            }
+
+            _trackingToken = tokenResult.Token;
+            _snapshot = await BuyerApi.GetDeliverySnapshotAsync(Order.Id, _trackingToken);
+            if (_snapshot is null)
+            {
+                _mapMessage = L.T("partner.delivery.track.failed");
+                return;
+            }
+
+            _mapOpen = true;
+            // El div del mapa recién existe tras el próximo render.
+            _mapPendingStart = true;
+        }
+        catch (HttpRequestException)
+        {
+            _mapMessage = L.T("partner.delivery.track.failed");
+        }
+        finally
+        {
+            _mapBusy = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_mapPendingStart || _snapshot is null || string.IsNullOrWhiteSpace(_trackingToken))
+        {
+            return;
+        }
+
+        _mapPendingStart = false;
+        _selfRef ??= DotNetObjectReference.Create(this);
+        var apiBase = ApiOptions.Value.ApiBaseUrl.TrimEnd('/');
+
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.deliveryTracking.start", MapElementId, new
+            {
+                hubUrl = $"{apiBase}/deliveryHub",
+                snapshotUrl = $"{apiBase}/v1/public/delivery/{Order.Id}?token={Uri.EscapeDataString(_trackingToken)}",
+                orderId = Order.Id,
+                token = _trackingToken,
+                origin = SanitizeCoords(_snapshot.OriginLat, _snapshot.OriginLng),
+                destination = SanitizeCoords(_snapshot.DestinationLat, _snapshot.DestinationLng),
+                courier = new { lat = _snapshot.LastLat, lng = _snapshot.LastLng },
+                status = Status,
+                labels = new
+                {
+                    origin = L.T("buyer.track.origin"),
+                    destination = L.T("buyer.track.destination"),
+                    courier = L.T("buyer.track.courier")
+                },
+                dotNetRef = _selfRef
+            });
+        }
+        catch (JSException)
+        {
+            _mapMessage = L.T("partner.delivery.track.failed");
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static object SanitizeCoords(double? lat, double? lng)
+        => lat.HasValue && lng.HasValue && ComunaClick.SharedUI.Services.GeoLocationValidator.IsWithinChile(lat.Value, lng.Value)
+            ? new { lat, lng }
+            : new { lat = (double?)null, lng = (double?)null };
+
+    [JSInvokable]
+    public Task OnDeliveryStatusChanged(string status)
+    {
+        _liveStatus = status?.Trim().ToLowerInvariant();
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task StopMapAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.deliveryTracking.stop");
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _selfRef?.Dispose();
+        if (_mapOpen)
+        {
+            await StopMapAsync();
         }
     }
 }

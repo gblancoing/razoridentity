@@ -59,6 +59,16 @@
                 <PartnerCouriersPanel PartnerId="@couriersPartnerId" CouriersChanged="OnCouriersChanged" />
             </div>
         </details>
+
+        <details class="rounded-[2rem] bg-white p-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <summary class="cursor-pointer px-2 text-sm font-bold text-[#2c2f30]">
+                <span class="material-symbols-outlined align-middle text-[18px] text-[#3b6700]">receipt_long</span>
+                @L.T("partner.settlements.title")
+            </summary>
+            <div class="mt-3">
+                <PartnerDeliverySettlementsPanel PartnerId="@couriersPartnerId" Settlements="_settlements" Orders="_items" Changed="ReloadOrdersAsync" />
+            </div>
+        </details>
     }
 
     <section class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
@@ -111,8 +121,8 @@
                                    href="@whatsAppHref"
                                    target="_blank"
                                    rel="noopener">
-                                    <span class="material-symbols-outlined text-[16px]">chat</span>
-                                    @L.T("partner.orders.action.whatsapp")
+                                    <span class="material-symbols-outlined text-[16px]">@(IsDelivered(order) ? "volunteer_activism" : "chat")</span>
+                                    @L.T(IsDelivered(order) ? "partner.orders.action.whatsappDelivered" : "partner.orders.action.whatsapp")
                                 </a>
                             </div>
                         }
@@ -445,14 +455,19 @@
             : $" {order.BuyerName.Trim().Split(' ')[0]}";
         var shortId = order.Id.ToString()[..8];
         var total = Money(order.TotalAmount, order.Currency);
-        var isPaid = string.Equals(order.Status, "paid", StringComparison.OrdinalIgnoreCase);
-        var template = isPaid
-            ? L.T("partner.orders.whatsapp.paid")
-            : L.T("partner.orders.whatsapp.pending");
+        // Entregado: mensaje de agradecimiento; si no, aviso de pago/pendiente.
+        var template = IsDelivered(order)
+            ? L.T("partner.orders.whatsapp.delivered")
+            : string.Equals(order.Status, "paid", StringComparison.OrdinalIgnoreCase)
+                ? L.T("partner.orders.whatsapp.paid")
+                : L.T("partner.orders.whatsapp.pending");
         var message = string.Format(template, firstName, shortId, total);
 
         return $"https://wa.me/{phone}?text={Uri.EscapeDataString(message)}";
     }
+
+    private static bool IsDelivered(ComunaClick.Shared.Api.Partner.Order order)
+        => string.Equals(order.DeliveryStatus, "delivered", StringComparison.OrdinalIgnoreCase);
 
     private void ReplaceOrder(ComunaClick.Shared.Api.Partner.Order updated)
     {

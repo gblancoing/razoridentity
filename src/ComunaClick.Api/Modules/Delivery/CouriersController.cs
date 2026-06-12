@@ -21,19 +21,22 @@ public sealed class CouriersController : ControllerBase
     private readonly IDeliveryService _deliveryService;
     private readonly ICourierPayeeService _payeeService;
     private readonly Marketplace.MercadoPagoOAuthService _mpOAuth;
+    private readonly Orders.IOrderTrackingTokenService _trackingTokens;
 
     public CouriersController(
         CoreDbContext db,
         ITenantContext tenantContext,
         IDeliveryService deliveryService,
         ICourierPayeeService payeeService,
-        Marketplace.MercadoPagoOAuthService mpOAuth)
+        Marketplace.MercadoPagoOAuthService mpOAuth,
+        Orders.IOrderTrackingTokenService trackingTokens)
     {
         _db = db;
         _tenantContext = tenantContext;
         _deliveryService = deliveryService;
         _payeeService = payeeService;
         _mpOAuth = mpOAuth;
+        _trackingTokens = trackingTokens;
     }
 
     [HttpGet("/v1/partners/{partnerId:guid}/couriers")]
@@ -229,6 +232,28 @@ public sealed class CouriersController : ControllerBase
 
         var (result, error) = await _deliveryService.AssignCourierAsync(orderId, request.CourierId, HttpContext.RequestAborted);
         return result is null ? BadRequest(new { message = error }) : Ok(result);
+    }
+
+    /// <summary>
+    /// Token de seguimiento para que el negocio vea el recorrido en vivo de su
+    /// pedido. Es el mismo token HMAC del comprador (snapshot público + hub
+    /// SignalR lo validan igual), acuñado on-demand para el dueño del pedido.
+    /// </summary>
+    [HttpGet("/v1/orders/{orderId:guid}/tracking-token")]
+    public async Task<IActionResult> GetTrackingToken(Guid orderId)
+    {
+        var order = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(x => x.Id == orderId);
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        if (!await CanManagePartnerAsync(order.PartnerId))
+        {
+            return Forbid();
+        }
+
+        return Ok(new { orderId = order.Id, token = _trackingTokens.Create(order.Id, order.CustomerId) });
     }
 
     /// <summary>Cancela el envío (no la orden): difunde el cambio y revoca el token del repartidor.</summary>

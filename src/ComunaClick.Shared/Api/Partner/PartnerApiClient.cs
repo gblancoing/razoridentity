@@ -174,6 +174,12 @@ public sealed class PartnerApiClient : ApiClientBase
         CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<PartnerDeliveryProviderOption>>($"/v1/partners/{partnerId}/delivery-providers", cancellationToken);
 
+    /// <summary>Token de seguimiento para que el negocio vea el recorrido en vivo de su pedido.</summary>
+    public Task<OrderTrackingTokenResult?> GetOrderTrackingTokenAsync(
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+        => GetAsync<OrderTrackingTokenResult>($"/v1/orders/{orderId}/tracking-token", cancellationToken);
+
     public Task<PartnerDto?> UpdatePartnerDeliveryPreferenceAsync(
         Guid partnerId,
         PartnerDeliveryPreferenceUpdateRequest request,
@@ -803,6 +809,8 @@ public sealed record PartnerDeliveryProviderOption(
 );
 
 public sealed record PartnerDeliveryPreferenceUpdateRequest(Guid? PreferredDeliveryProviderId);
+
+public sealed record OrderTrackingTokenResult(Guid OrderId, string Token);
 
 public sealed record ProductCreateRequest(
     Guid PartnerId,
