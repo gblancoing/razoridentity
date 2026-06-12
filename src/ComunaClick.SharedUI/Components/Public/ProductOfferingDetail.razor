@@ -111,6 +111,27 @@
                    class="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3.5 text-sm font-bold text-[#d9ffad] hover:bg-[#335900] @(InStock ? "" : "pointer-events-none opacity-50")">
                     @PrimaryCtaLabel
                 </a>
+                @if (ShowAddToCart)
+                {
+                    @* Carrito multi-negocio: permite juntar productos de varios locales antes de pagar. *@
+                    <button type="button"
+                            class="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#d9ffad] px-5 py-3 text-sm font-bold text-[#3b6700] hover:bg-[#cdf593] disabled:opacity-60"
+                            disabled="@AddToCartBusy"
+                            @onclick="OnAddToCart">
+                        <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                        @(AddToCartBusy ? "..." : L.T("buyer.cart.add"))
+                    </button>
+                    @if (!string.IsNullOrWhiteSpace(CartStatusMessage))
+                    {
+                        <p class="mt-2 text-xs text-[#61897c]">@CartStatusMessage</p>
+                    }
+                    @if (CartAdded)
+                    {
+                        <a href="/buyer/cart" class="mt-3 flex w-full items-center justify-center rounded-2xl border border-[#3b6700] px-5 py-3 text-sm font-bold text-[#3b6700] hover:bg-[#eff8e0]">
+                            @(CartItemCount > 0 ? string.Format(L.T("buyer.cart.viewWithCount"), CartItemCount) : L.T("buyer.cart.view"))
+                        </a>
+                    }
+                }
                 @if (!string.IsNullOrWhiteSpace(SecondaryCtaHref) && !string.IsNullOrWhiteSpace(SecondaryCtaLabel))
                 {
                     <a href="@SecondaryCtaHref" class="mt-3 flex w-full items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30] hover:border-[#3b6700]/40">
@@ -162,6 +183,13 @@
     [Parameter] public string? ShareRelativePath { get; set; }
     [Parameter] public string? ShareTitle { get; set; }
     [Parameter] public IReadOnlyList<(string Label, string Value)> Facts { get; set; } = Array.Empty<(string, string)>();
+    // Agregar al carrito (la lógica vive en la página que hospeda el componente).
+    [Parameter] public bool ShowAddToCart { get; set; }
+    [Parameter] public bool AddToCartBusy { get; set; }
+    [Parameter] public string? CartStatusMessage { get; set; }
+    [Parameter] public bool CartAdded { get; set; }
+    [Parameter] public int CartItemCount { get; set; }
+    [Parameter] public EventCallback OnAddToCart { get; set; }
 
     private int _galleryIndex;
     private int _lightboxIndex;

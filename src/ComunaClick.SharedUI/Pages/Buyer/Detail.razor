@@ -243,7 +243,13 @@
                                PartnerHref="@( _productDetail.PartnerId != Guid.Empty ? $"/buyer/detail/partner/{_productDetail.PartnerId}" : null)"
                                ShareRelativePath="@($"/buyer/detail/product/{_productDetail.Id}")"
                                ShareTitle="@_productDetail.Name"
-                               Facts="@ProductOfferingFacts" />
+                               Facts="@ProductOfferingFacts"
+                               ShowAddToCart="_showAddToCart"
+                               AddToCartBusy="_addingToCart"
+                               CartStatusMessage="@_cartStatusMessage"
+                               CartAdded="_cartAdded"
+                               CartItemCount="_cartItemCount"
+                               OnAddToCart="AddToCartAsync" />
     }
     else if (IsProfessionalDetail && _professionalDetail is not null)
     {
