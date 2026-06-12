@@ -12,6 +12,7 @@
 @inject NavigationManager Navigation
 @inject ApiMediaUrl MediaUrl
 @inject IJSRuntime JSRuntime
+@inject CartState Cart
 @implements IDisposable
 
 <PageTitle>@(_partnerPageTitle)</PageTitle>
@@ -845,14 +846,9 @@
 
             if (_cartAdded)
             {
-                try
-                {
-                    _cartItemCount = await JSRuntime.InvokeAsync<int>("comunaclic.getGuestCartCount");
-                }
-                catch
-                {
-                    _cartItemCount = 0;
-                }
+                // Actualiza también el badge del carrito en el header.
+                await Cart.RefreshAsync(JSRuntime);
+                _cartItemCount = Cart.Count;
             }
         }
         finally

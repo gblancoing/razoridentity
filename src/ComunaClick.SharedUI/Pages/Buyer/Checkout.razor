@@ -7,6 +7,7 @@
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject ComunaClick.SharedUI.Services.CartState CartBadge
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.checkout.title")</PageTitle>
@@ -1158,6 +1159,7 @@ else
         try
         {
             await JSRuntime.InvokeVoidAsync("comunaclic.removeGuestCartGroup", group.Cart.PartnerId.ToString());
+            await CartBadge.RefreshAsync(JSRuntime);
         }
         catch
         {

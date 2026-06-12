@@ -3,6 +3,7 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject CartState CartBadge
 
 <PageTitle>@L.T("buyer.cart.title")</PageTitle>
 
@@ -111,10 +112,13 @@ else
         if (_groups.Count == 0)
         {
             await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
-            return;
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.setGuestCart", GuestCartStore.Serialize(_groups));
         }
 
-        await JSRuntime.InvokeVoidAsync("comunaclic.setGuestCart", GuestCartStore.Serialize(_groups));
+        await CartBadge.RefreshAsync(JSRuntime);
     }
 
     private async Task ChangeQty(GuestCartGroupModel group, GuestCartItemModel line, int delta)
@@ -139,5 +143,6 @@ else
     {
         _groups.Clear();
         await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
+        await CartBadge.RefreshAsync(JSRuntime);
     }
 }

@@ -33,6 +33,7 @@ builder.Services.AddScoped<ComunaClick.SharedUI.Services.SessionTokenHolder>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.AuthStateService>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.ApiSessionService>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.FavoritesLocalStore>();
+builder.Services.AddScoped<ComunaClick.SharedUI.Services.CartState>();
 builder.Services.AddScoped<ComunaClick.Shared.Auth.Interfaces.ITokenStore, ComunaClick.SharedUI.Services.WebTokenStore>();
 builder.Services.Configure<ComunaClick.Shared.Http.ApiOptions>(builder.Configuration.GetSection("Api"));
 builder.Services.AddHttpClient<ComunaClick.Shared.Auth.Acl.AclAuthClient>((sp, client) =>
