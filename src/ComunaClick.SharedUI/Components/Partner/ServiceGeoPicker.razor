@@ -383,6 +383,14 @@
         catch (JSException)
         {
         }
+        catch (InvalidOperationException)
+        {
+            // Prerender estático: no hay interop JS al descartar el componente;
+            // sin esto, la excepción mata el circuito de Blazor.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
 
         _mapInitialized = false;
     }

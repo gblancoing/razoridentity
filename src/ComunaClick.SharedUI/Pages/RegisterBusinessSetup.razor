@@ -412,6 +412,14 @@
         catch (JSException)
         {
         }
+        catch (InvalidOperationException)
+        {
+            // Prerender estático: no hay interop JS disponible (la página se
+            // descarta tras el prerender); sin esto, la excepción mata el circuito.
+        }
+        catch (JSDisconnectedException)
+        {
+        }
 
         _mapRef?.Dispose();
     }
