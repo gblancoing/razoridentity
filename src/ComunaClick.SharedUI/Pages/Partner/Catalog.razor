@@ -109,7 +109,7 @@
                 {
                     <PartnerCatalogCategoriesPanel PartnerId="@_partner.Id" CategoriesChanged="OnStoreCategoriesChanged" />
                 }
-                <EditForm Model="_createProduct" OnValidSubmit="CreateProductAsync">
+                <EditForm Model="_createProduct" OnValidSubmit="CreateProductAsync" OnInvalidSubmit="OnCreateProductInvalid">
                     <DataAnnotationsValidator />
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -179,6 +179,12 @@
                                                     PendingFiles="@_createPendingProductImages"
                                                     PendingFilesChanged="OnCreatePendingProductImagesChanged" />
                             </div>
+                            @if (!string.IsNullOrWhiteSpace(_createFormMessage))
+                            {
+                                <div class="md:col-span-2">
+                                    <p class="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">@_createFormMessage</p>
+                                </div>
+                            }
                             <div class="md:col-span-2">
                                 <button type="submit" class="@PrimaryButtonClass" disabled="@_isCreating">
                                     @(_isCreating ? L.T("partner.quickstart.service.submitting") : L.T("partner.catalog.a.create.product"))
@@ -580,7 +586,7 @@
 
                         @if (_editingProductId == item.Id)
                         {
-                            <EditForm Model="_productEditor" OnValidSubmit="SaveProductAsync">
+                            <EditForm Model="_productEditor" OnValidSubmit="SaveProductAsync" OnInvalidSubmit="OnProductEditInvalid">
                                 <DataAnnotationsValidator />
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f5f6f7] rounded-3xl p-5">
                                     <div class="md:col-span-2">
@@ -641,6 +647,14 @@
                                                             Images="@_editProductImages"
                                                             ImagesChanged="OnEditProductImagesChanged" />
                                     </div>
+                                    @if (!string.IsNullOrWhiteSpace(_editFormMessage) && _editingProductId == item.Id)
+                                    {
+                                        <div class="md:col-span-2">
+                                            <p class="w-full rounded-xl border px-4 py-3 text-sm font-semibold @(_editFormMessageIsError ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-800")">
+                                                @_editFormMessage
+                                            </p>
+                                        </div>
+                                    }
                                     <div class="md:col-span-2 flex flex-wrap gap-3">
                                         <button type="submit" class="@PrimaryButtonClass" disabled="@IsBusy(item.Id)">
                                             <span class="material-symbols-outlined text-[18px]">save</span>
@@ -975,6 +989,7 @@
     private string _statusMessage = "—";
     private string? _editFormMessage;
     private bool _editFormMessageIsError = true;
+    private string? _createFormMessage;
     private bool _isLoading;
     private Guid? _busyItemId;
     private Guid? _editingProductId;
@@ -1313,22 +1328,24 @@
             return;
         }
 
+        _createFormMessage = null;
+
         if (_createDiscoverySubcategoryIds.Count == 0)
         {
-            _statusMessage = L.T("partner.catalog.a.marketplaceCategory.required");
+            _createFormMessage = L.T("partner.catalog.a.marketplaceCategory.required");
             return;
         }
 
         if (_createProduct.PartnerCatalogCategoryId is null)
         {
-            _statusMessage = L.T("partner.catalog.a.storeSection.required");
+            _createFormMessage = L.T("partner.catalog.a.storeSection.required");
             return;
         }
 
         var geoError = await PrepareProductGeoForSaveAsync(_createProduct, _createProductGeoPicker);
         if (geoError is not null)
         {
-            _statusMessage = L.T(geoError);
+            _createFormMessage = L.T(geoError);
             return;
         }
 
@@ -1394,12 +1411,22 @@
         }
         catch (HttpRequestException ex)
         {
-            _statusMessage = FormatApiErrorMessage(ex, $"No se pudo crear el producto ({(int?)ex.StatusCode ?? 0}).");
+            _createFormMessage = FormatApiErrorMessage(ex, $"No se pudo crear el producto ({(int?)ex.StatusCode ?? 0}).");
         }
         finally
         {
             _isCreating = false;
         }
+    }
+
+    private void OnCreateProductInvalid()
+    {
+        _createFormMessage = $"{L.T("partner.catalog.form.invalid")} {L.T("partner.catalog.form.saveHint")}";
+    }
+
+    private void OnProductEditInvalid()
+    {
+        SetEditFormMessage($"{L.T("partner.catalog.form.invalid")} {L.T("partner.catalog.form.saveHint")}");
     }
 
     private async Task CreateServiceAsync()
@@ -1825,9 +1852,11 @@
             return;
         }
 
+        ClearEditFormMessage();
+
         if (_editDiscoverySubcategoryIds.Count == 0)
         {
-            _statusMessage = L.T("partner.catalog.a.marketplaceCategory.required");
+            SetEditFormMessage(L.T("partner.catalog.a.marketplaceCategory.required"));
             return;
         }
 
@@ -1840,7 +1869,7 @@
         var geoError = await PrepareProductGeoForSaveAsync(_productEditor, _editProductGeoPicker);
         if (geoError is not null)
         {
-            _statusMessage = L.T(geoError);
+            SetEditFormMessage(L.T(geoError));
             return;
         }
 
@@ -1880,13 +1909,13 @@
 
                 updated = updated with { Inventory = inventory };
                 ReplaceProduct(updated);
-                _statusMessage = L.T("partner.catalog.a.create.product");
+                _statusMessage = L.T("partner.catalog.form.saveSuccess");
             }
             CancelEdit();
         }
         catch (HttpRequestException ex)
         {
-            _statusMessage = $"No se pudo actualizar el producto ({(int?)ex.StatusCode ?? 0}).";
+            SetEditFormMessage(FormatApiErrorMessage(ex, $"No se pudo actualizar el producto ({(int?)ex.StatusCode ?? 0})."));
         }
         finally
         {
