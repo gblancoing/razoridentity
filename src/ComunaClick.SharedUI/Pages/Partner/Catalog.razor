@@ -366,15 +366,17 @@
                     <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.gross")</p>
                     <p class="text-2xl font-black text-[#2c2f30]">@Money(SalesSummary.Gross)</p>
                 </article>
-                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]" title="@L.T("partner.catalog.a.sales.col.margin.tooltip")">
                     <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.margin")</p>
-                    <p class="text-2xl font-black text-[#3b6700]">@Money(SalesSummary.Margin)</p>
+                    <p class="text-2xl font-black text-[#3b6700]">@FormatMarginPercent(SalesSummary.MarginPercent)</p>
+                    <p class="mt-1 text-[11px] font-semibold text-[#7b8081]">@L.T("partner.catalog.a.sales.metric.profit") @Money(SalesSummary.Gross - SalesSummary.MpFee - SalesSummary.Commission - SalesSummary.Cost)</p>
                 </article>
-                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]" title="@L.T("partner.mp.table.legend")">
                     <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.commission")</p>
-                    <p class="text-2xl font-black text-[#8a5b00]">@Money(SalesSummary.Commission)</p>
+                    <p class="text-2xl font-black text-[#8a5b00]">@Money(SalesSummary.Commission + SalesSummary.MpFee)</p>
+                    <p class="mt-1 text-[11px] font-semibold text-[#7b8081]">MP @Money(SalesSummary.MpFee) · ComunaClic @Money(SalesSummary.Commission)</p>
                 </article>
-                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <article class="bg-white p-6 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]" title="@L.T("partner.mp.col.net.tooltip")">
                     <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.catalog.a.sales.metric.net")</p>
                     <p class="text-2xl font-black text-[#2c2f30]">@Money(SalesSummary.Net)</p>
                 </article>
@@ -405,12 +407,13 @@
                             <thead class="text-left text-[10px] uppercase tracking-[0.14em] text-[#7b8081] border-b border-[#e3e6e8]">
                                 <tr>
                                     <th class="px-5 py-4">@(_salesGroupBy == "category" ? L.T("partner.catalog.a.sales.col.category") : L.T("partner.catalog.a.sales.col.product"))</th>
-                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.units")</th>
-                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.gross")</th>
-                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.cost")</th>
-                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.margin")</th>
-                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.commission")</th>
-                                    <th class="px-5 py-4">@L.T("partner.catalog.a.sales.col.net")</th>
+                                    <th class="px-5 py-4 text-right">@L.T("partner.catalog.a.sales.col.units")</th>
+                                    <th class="px-5 py-4 text-right"><span class="cursor-help" title="@L.T("partner.catalog.a.sales.col.cost.tooltip")">@L.T("partner.catalog.a.sales.col.cost")</span></th>
+                                    <th class="px-5 py-4 text-right"><span class="cursor-help" title="@L.T("partner.mp.col.gross.tooltip")">@L.T("partner.catalog.a.sales.col.gross")</span></th>
+                                    <th class="px-5 py-4 text-right"><span class="cursor-help" title="@L.T("partner.catalog.a.sales.col.margin.tooltip")">@L.T("partner.catalog.a.sales.col.margin")</span></th>
+                                    <th class="px-5 py-4 text-right"><span class="cursor-help" title="@L.T("partner.mp.col.mpFee.tooltip")">@L.T("partner.catalog.a.sales.col.mpFee")</span></th>
+                                    <th class="px-5 py-4 text-right"><span class="cursor-help" title="@L.T("partner.mp.col.platformFee.tooltip")">@L.T("partner.catalog.a.sales.col.commission")</span></th>
+                                    <th class="px-5 py-4 text-right"><span class="cursor-help" title="@L.T("partner.mp.col.net.tooltip")">@L.T("partner.catalog.a.sales.col.net")</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -418,12 +421,13 @@
                                 {
                                     <tr class="border-b border-[#f0f2f3] last:border-0">
                                         <td class="px-5 py-4 font-bold text-[#2c2f30]">@row.Label</td>
-                                        <td class="px-5 py-4 text-[#595c5d]">@row.Units</td>
-                                        <td class="px-5 py-4">@Money(row.Gross)</td>
-                                        <td class="px-5 py-4 text-[#595c5d]">@Money(row.Cost)</td>
-                                        <td class="px-5 py-4 font-semibold text-[#3b6700]">@Money(row.Margin)</td>
-                                        <td class="px-5 py-4 text-[#8a5b00]">@Money(row.Commission)</td>
-                                        <td class="px-5 py-4 font-bold">@Money(row.Net)</td>
+                                        <td class="px-5 py-4 text-right text-[#595c5d]">@row.Units</td>
+                                        <td class="px-5 py-4 text-right text-[#595c5d]">@(row.Cost > 0 ? Money(row.Cost) : "—")</td>
+                                        <td class="px-5 py-4 text-right">@Money(row.Gross)</td>
+                                        <td class="px-5 py-4 text-right font-semibold @(row.MarginPercent is < 0 ? "text-[#b42318]" : "text-[#3b6700]")">@FormatMarginPercent(row.MarginPercent)</td>
+                                        <td class="px-5 py-4 text-right text-[#595c5d]">@FormatFee(row.MpFee, row.EstimatedFees)</td>
+                                        <td class="px-5 py-4 text-right text-[#8a5b00]">@FormatFee(row.Commission, row.EstimatedFees)</td>
+                                        <td class="px-5 py-4 text-right font-bold text-[#3b6700]">@Money(row.Net)</td>
                                     </tr>
                                 }
                             </tbody>
@@ -2590,15 +2594,32 @@
     private static string Money(double value) => $"${value:N0}";
     private static string Money(decimal value) => $"${value:N0}";
 
+    private static string FormatMarginPercent(decimal? percent)
+        => percent is { } value ? $"{value * 100:N1}%" : "—";
+
+    // "~" marca valores estimados por tasa (el pago online aún no confirma la comisión real).
+    private static string FormatFee(decimal amount, bool estimated)
+        => amount <= 0 ? "—" : estimated ? $"~{Money(amount)}" : Money(amount);
+
     private sealed record FilterChip(string Key, string Label);
-    private sealed record SalesRow(string Label, int Units = 0, decimal Gross = 0, decimal Cost = 0, decimal Commission = 0, decimal Net = 0)
+    // Tasas vigentes para estimar comisiones cuando el pago online aún no se confirma
+    // (espejo de la config productiva: MP 3,19% + IVA 19%; ComunaClic 2,61%).
+    private const decimal EstimatedMpFeeRate = 0.0319m * 1.19m;
+    private const decimal EstimatedPlatformFeeRate = 0.0261m;
+
+    private sealed record SalesRow(string Label, int Units = 0, decimal Gross = 0, decimal Cost = 0, decimal MpFee = 0, decimal Commission = 0, decimal Net = 0, bool EstimatedFees = false)
     {
         public decimal Margin => Gross - Cost;
+
+        /// <summary>Margen % sobre el costo: (P. Venta − comisiones − P. Costo) / P. Costo.</summary>
+        public decimal? MarginPercent => Cost > 0 ? (Gross - MpFee - Commission - Cost) / Cost : null;
     }
 
-    private sealed record SalesTotals(decimal Gross, decimal Cost, decimal Commission, decimal Net)
+    private sealed record SalesTotals(decimal Gross, decimal Cost, decimal MpFee, decimal Commission, decimal Net)
     {
         public decimal Margin => Gross - Cost;
+
+        public decimal? MarginPercent => Cost > 0 ? (Gross - MpFee - Commission - Cost) / Cost : null;
     }
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -2704,8 +2725,25 @@
             }
 
             var orderGross = (decimal)(order.GrossAmount > 0 ? order.GrossAmount : order.TotalAmount);
+
+            // Comisiones reales cuando el pago online ya se confirmó; estimadas por tasa mientras tanto.
+            var estimated = false;
             var orderFee = (decimal)order.PlatformFeeAmount;
-            var orderNet = order.NetAmount > 0 ? (decimal)order.NetAmount : decimal.Max(0m, orderGross - orderFee);
+            if (orderFee <= 0)
+            {
+                orderFee = decimal.Round(orderGross * EstimatedPlatformFeeRate, 0, MidpointRounding.AwayFromZero);
+                estimated = true;
+            }
+
+            var orderMpFee = (decimal)(order.MercadoPagoFeeAmount ?? 0);
+            if (orderMpFee <= 0)
+            {
+                orderMpFee = decimal.Round(orderGross * EstimatedMpFeeRate, 0, MidpointRounding.AwayFromZero);
+                estimated = true;
+            }
+
+            // Mismo criterio que la tabla de Mercado Pago: valor total = P. Venta − comisión MP − comisión ComunaClic.
+            var orderNet = orderGross - orderMpFee - orderFee;
             var itemsTotal = order.Items.Sum(x => (decimal)x.TotalPrice);
             if (itemsTotal <= 0)
             {
@@ -2724,6 +2762,7 @@
                 var unitCost = (decimal)(product.CostPrice ?? 0);
                 var lineCost = unitCost * item.Quantity;
                 var lineCommission = orderFee * share;
+                var lineMpFee = orderMpFee * share;
                 var lineNet = orderNet * share;
                 var key = _salesGroupBy == "category"
                     ? product.Category ?? "Sin categoría"
@@ -2743,8 +2782,10 @@
                     Units = row.Units + item.Quantity,
                     Gross = row.Gross + lineGross,
                     Cost = row.Cost + lineCost,
+                    MpFee = row.MpFee + lineMpFee,
                     Commission = row.Commission + lineCommission,
-                    Net = row.Net + lineNet
+                    Net = row.Net + lineNet,
+                    EstimatedFees = row.EstimatedFees || estimated
                 };
             }
         }
@@ -2760,6 +2801,7 @@
         return new SalesTotals(
             rows.Sum(x => x.Gross),
             rows.Sum(x => x.Cost),
+            rows.Sum(x => x.MpFee),
             rows.Sum(x => x.Commission),
             rows.Sum(x => x.Net));
     }

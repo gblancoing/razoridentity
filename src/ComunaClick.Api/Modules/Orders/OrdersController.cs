@@ -187,12 +187,32 @@ public sealed class OrdersController : ControllerBase
             .Where(x => customerIds.Contains(x.Id))
             .Select(x => new { x.Id, x.FullName, x.Phone })
             .ToDictionaryAsync(x => x.Id, x => x);
+
+        // Comisión real de Mercado Pago por orden (si el pago fue online y ya se confirmó).
+        var orderIds = orders.Select(x => x.Id).ToList();
+        var mpFees = await (
+                from p in _db.Payments.AsNoTracking()
+                join f in _db.PaymentFees.AsNoTracking() on p.Id equals f.PaymentId
+                where p.OrderId.HasValue
+                      && orderIds.Contains(p.OrderId.Value)
+                      && p.Provider == "mercadopago"
+                      && f.MercadoPagoFeeAmount != null
+                group f.MercadoPagoFeeAmount!.Value by p.OrderId!.Value
+                into grouped
+                select new { OrderId = grouped.Key, Fee = grouped.Sum() })
+            .ToDictionaryAsync(x => x.OrderId, x => x.Fee);
+
         foreach (var order in orders)
         {
             if (customers.TryGetValue(order.CustomerId, out var customer))
             {
                 order.BuyerName ??= customer.FullName;
                 order.BuyerPhone = customer.Phone;
+            }
+
+            if (mpFees.TryGetValue(order.Id, out var mpFee))
+            {
+                order.MercadoPagoFeeAmount = mpFee;
             }
         }
 

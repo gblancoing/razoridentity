@@ -22,6 +22,10 @@ public sealed class Order
     /// <summary>Teléfono del comprador (de Customer); solo para respuestas del panel partner.</summary>
     [NotMapped]
     public string? BuyerPhone { get; set; }
+
+    /// <summary>Comisión real de Mercado Pago (de PaymentFees); solo para respuestas del panel partner.</summary>
+    [NotMapped]
+    public decimal? MercadoPagoFeeAmount { get; set; }
     public Guid? DeliveryProviderId { get; set; }
     public string? DeliveryProviderName { get; set; }
     public string? DeliveryAddress { get; set; }

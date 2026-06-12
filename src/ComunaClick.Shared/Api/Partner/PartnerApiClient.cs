@@ -492,7 +492,8 @@ public sealed record Order(
     double PlatformFeeAmount = 0,
     double NetAmount = 0,
     string? BuyerName = null,
-    string? BuyerPhone = null
+    string? BuyerPhone = null,
+    double? MercadoPagoFeeAmount = null
 );
 
 public sealed record OrderItem(
