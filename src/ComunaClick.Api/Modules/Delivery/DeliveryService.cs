@@ -14,17 +14,20 @@ public sealed class DeliveryService : IDeliveryService
     private readonly CoreDbContext _db;
     private readonly IHubContext<DeliveryHub> _hub;
     private readonly IDeliveryCourierTokenService _courierTokens;
+    private readonly IDeliverySettlementService _settlements;
     private readonly DeliveryOptions _options;
 
     public DeliveryService(
         CoreDbContext db,
         IHubContext<DeliveryHub> hub,
         IDeliveryCourierTokenService courierTokens,
+        IDeliverySettlementService settlements,
         IOptions<DeliveryOptions> options)
     {
         _db = db;
         _hub = hub;
         _courierTokens = courierTokens;
+        _settlements = settlements;
         _options = options.Value;
     }
 
@@ -250,6 +253,10 @@ public sealed class DeliveryService : IDeliveryService
 
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Si el pago ya generó el slip de liquidación del transporte, se vincula
+        // al transportista recién asignado (la asignación puede ser posterior al pago).
+        await _settlements.AttachCourierAsync(order.Id, courier.Id, cancellationToken);
 
         await _hub.Clients.Group(DeliveryHub.OrderGroup(order.Id))
             .SendAsync("DeliveryStatusChanged", new { status = DeliveryStatuses.Normalize(order.DeliveryStatus) }, cancellationToken);

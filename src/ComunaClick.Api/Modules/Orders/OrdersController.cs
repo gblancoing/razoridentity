@@ -23,6 +23,7 @@ public sealed class OrdersController : ControllerBase
     private readonly IOrderNotificationService _orderNotificationService;
     private readonly IOrderTrackingTokenService _trackingTokens;
     private readonly IOptions<OrderTrackingOptions> _trackingOptions;
+    private readonly ComunaClick.Api.Modules.Delivery.IDeliverySettlementService _deliverySettlementService;
 
     public OrdersController(
         CoreDbContext db,
@@ -31,7 +32,8 @@ public sealed class OrdersController : ControllerBase
         IProductInventoryService inventoryService,
         IOrderNotificationService orderNotificationService,
         IOrderTrackingTokenService trackingTokens,
-        IOptions<OrderTrackingOptions> trackingOptions)
+        IOptions<OrderTrackingOptions> trackingOptions,
+        ComunaClick.Api.Modules.Delivery.IDeliverySettlementService deliverySettlementService)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -40,6 +42,7 @@ public sealed class OrdersController : ControllerBase
         _orderNotificationService = orderNotificationService;
         _trackingTokens = trackingTokens;
         _trackingOptions = trackingOptions;
+        _deliverySettlementService = deliverySettlementService;
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -339,6 +342,10 @@ public sealed class OrdersController : ControllerBase
 
             // Aviso de venta al comercio (encolado, idempotente): solo cuando la orden está pagada.
             await _orderNotificationService.NotifyPartnerOrderPaidAsync(order.Id, cancellationToken);
+
+            // Pago manual (transferencia/efectivo, sin MP): el slip del transporte
+            // se genera igual, con fee MP = 0 (no hubo procesador).
+            await _deliverySettlementService.CreateForPaidOrderAsync(order, payment: null, cancellationToken);
         }
         else if (string.Equals(newStatus, OrderStatusMachine.Cancelled, StringComparison.OrdinalIgnoreCase))
         {

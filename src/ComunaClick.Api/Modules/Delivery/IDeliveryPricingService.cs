@@ -23,8 +23,9 @@ public interface IDeliveryPricingService
 }
 
 /// <summary>
-/// Implementación provisional: tarifa plana de configuración (Delivery:FlatFee)
-/// y, si no está definida, el BaseFee del proveedor (comportamiento histórico).
+/// Implementación plana: tarifa de configuración (Delivery:FlatFee) y, si no
+/// está definida, el BaseFee del proveedor (comportamiento histórico). Hoy es
+/// el fallback del cálculo dinámico cuando faltan coordenadas.
 /// </summary>
 public sealed class FlatRateDeliveryPricingService : IDeliveryPricingService
 {
@@ -45,5 +46,44 @@ public sealed class FlatRateDeliveryPricingService : IDeliveryPricingService
 
         var fee = _options.FlatFee is > 0 ? _options.FlatFee.Value : context.Provider.BaseFee;
         return Task.FromResult(fee);
+    }
+}
+
+/// <summary>
+/// Tarifa dinámica por distancia (GeoDistance) y horario chileno
+/// (DeliveryPricing en appsettings). Si faltan coordenadas válidas cae al
+/// fallback plano por zona; si la distancia excede el radio de cobertura
+/// propaga <see cref="DeliveryOutOfRangeException"/> (el checkout rechaza
+/// la compra con mensaje claro).
+/// </summary>
+public sealed class DynamicDeliveryPricingService : IDeliveryPricingService
+{
+    private readonly IDeliveryFeeCalculator _calculator;
+    private readonly FlatRateDeliveryPricingService _flatFallback;
+
+    public DynamicDeliveryPricingService(IDeliveryFeeCalculator calculator, IOptions<DeliveryOptions> options)
+    {
+        _calculator = calculator;
+        _flatFallback = new FlatRateDeliveryPricingService(options);
+    }
+
+    public async Task<decimal> GetDeliveryFeeAsync(DeliveryPricingContext context, CancellationToken cancellationToken = default)
+    {
+        if (context.Provider is null)
+        {
+            // Mismo contrato histórico: sin proveedor de despacho no se cobra
+            // envío en el checkout (retiro o "envío por pagar" en efectivo).
+            return 0m;
+        }
+
+        var result = _calculator.Calculate(
+            context.OriginLat,
+            context.OriginLng,
+            context.DestinationLat,
+            context.DestinationLng,
+            DateTimeOffset.UtcNow);
+
+        return result?.TotalFee
+            ?? await _flatFallback.GetDeliveryFeeAsync(context, cancellationToken);
     }
 }

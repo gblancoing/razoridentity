@@ -48,7 +48,7 @@ public sealed class MercadoPagoWebhookServiceTests
         var auditService = new MarketplaceAuditService(db);
         var metrics = new MarketplaceMetricsService();
         var oauthService = new MercadoPagoOAuthService(db, client, new AesSecretProtector(options), sellerService, auditService, options, metrics);
-        var service = new MercadoPagoWebhookService(db, client, oauthService, auditService, metrics, new StubProductInventoryService(), new RecordingOrderNotificationService());
+        var service = new MercadoPagoWebhookService(db, client, oauthService, auditService, metrics, new StubProductInventoryService(), new RecordingOrderNotificationService(), TestDb.CreateSettlementService(db));
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Headers["x-request-id"] = "req-1";

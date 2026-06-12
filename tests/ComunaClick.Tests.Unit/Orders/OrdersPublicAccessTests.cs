@@ -98,6 +98,7 @@ public sealed class OrdersPublicAccessTests
             TestDb.CreateInventoryService(db),
             new RecordingOrderNotificationService(),
             tokens,
-            options);
+            options,
+            TestDb.CreateSettlementService(db));
     }
 }

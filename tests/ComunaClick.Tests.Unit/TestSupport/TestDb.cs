@@ -42,6 +42,15 @@ internal static class TestDb
             Options.Create(deliveryOptions ?? new DeliveryOptions()),
             timeProvider ?? TimeProvider.System);
 
+    public static ComunaClick.Api.Modules.Delivery.DeliverySettlementService CreateSettlementService(
+        CoreDbContext db,
+        ComunaClick.Api.Configuration.DeliveryPricingOptions? pricingOptions = null)
+        => new(
+            db,
+            new ComunaClick.Api.Modules.Marketplace.FeeCalculator(),
+            new ComunaClick.Api.Modules.Delivery.CourierPayeeService(db),
+            Options.Create(pricingOptions ?? new ComunaClick.Api.Configuration.DeliveryPricingOptions()));
+
     public static ComunaClick.Api.Modules.Delivery.DeliveryService CreateDeliveryService(
         CoreDbContext db,
         RecordingDeliveryHubContext hub,
@@ -50,6 +59,7 @@ internal static class TestDb
             db,
             hub,
             CreateCourierTokenService(deliveryOptions),
+            CreateSettlementService(db),
             Options.Create(deliveryOptions ?? new DeliveryOptions()));
 
     public static OrderNotificationOptions NotificationOptions(bool enabled = true)

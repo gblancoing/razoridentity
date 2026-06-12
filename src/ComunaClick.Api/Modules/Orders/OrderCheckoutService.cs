@@ -204,16 +204,25 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
 
         var subtotal = items.Sum(x => x.TotalPrice);
         // El costo de despacho se determina en el servidor (nunca el valor del
-        // cliente). El cálculo vive detrás de IDeliveryPricingService: hoy tarifa
-        // plana/BaseFee; la fórmula por kilómetro llegará en una tarea posterior.
-        var deliveryFee = await _deliveryPricing.GetDeliveryFeeAsync(
-            new DeliveryPricingContext(
-                deliveryProvider,
-                partner.Latitude,
-                partner.Longitude,
-                request.DestinationLat,
-                request.DestinationLng),
-            cancellationToken);
+        // cliente). IDeliveryPricingService calcula por distancia + horario
+        // chileno (DeliveryPricing en appsettings) y cae a tarifa plana/BaseFee
+        // cuando faltan coordenadas.
+        decimal deliveryFee;
+        try
+        {
+            deliveryFee = await _deliveryPricing.GetDeliveryFeeAsync(
+                new DeliveryPricingContext(
+                    deliveryProvider,
+                    partner.Latitude,
+                    partner.Longitude,
+                    request.DestinationLat,
+                    request.DestinationLng),
+                cancellationToken);
+        }
+        catch (Delivery.DeliveryOutOfRangeException ex)
+        {
+            return Fail($"Delivery is not available for this address: distance {ex.DistanceKm:0.#} km exceeds the {ex.MaxDistanceKm:0.#} km coverage radius.");
+        }
         var totalAmount = subtotal + deliveryFee;
         var currency = request.NormalizeCurrency(products[0].Currency);
         var subtotalMoney = new Money(subtotal, currency);

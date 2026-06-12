@@ -18,6 +18,7 @@ public sealed class MercadoPagoWebhookService
     private readonly MarketplaceMetricsService _metrics;
     private readonly IProductInventoryService _inventoryService;
     private readonly IOrderNotificationService _orderNotificationService;
+    private readonly ComunaClick.Api.Modules.Delivery.IDeliverySettlementService _deliverySettlementService;
 
     public MercadoPagoWebhookService(
         CoreDbContext db,
@@ -26,7 +27,8 @@ public sealed class MercadoPagoWebhookService
         MarketplaceAuditService auditService,
         MarketplaceMetricsService metrics,
         IProductInventoryService inventoryService,
-        IOrderNotificationService orderNotificationService)
+        IOrderNotificationService orderNotificationService,
+        ComunaClick.Api.Modules.Delivery.IDeliverySettlementService deliverySettlementService)
     {
         _db = db;
         _client = client;
@@ -35,6 +37,7 @@ public sealed class MercadoPagoWebhookService
         _metrics = metrics;
         _inventoryService = inventoryService;
         _orderNotificationService = orderNotificationService;
+        _deliverySettlementService = deliverySettlementService;
     }
 
     public async Task<WebhookEvent> HandleAsync(HttpRequest request, string payloadJson, CancellationToken cancellationToken)
@@ -291,6 +294,19 @@ public sealed class MercadoPagoWebhookService
                     cancellationToken);
 
                 await _orderNotificationService.NotifyPartnerOrderPaidAsync(order.Id, cancellationToken);
+
+                // Liquidación del transporte: slip separado del split del comercio
+                // (bruto envío − fee MP prorrateado − comisión CC = neto transportista).
+                var settlement = await _deliverySettlementService.CreateForPaidOrderAsync(order, payment, cancellationToken);
+                if (settlement is not null && paymentFee?.MercadoPagoFeeAmount is > 0)
+                {
+                    var paymentGross = details.TransactionAmount ?? payment.Amount;
+                    await _deliverySettlementService.ReconcileMercadoPagoFeeAsync(
+                        order.Id,
+                        paymentFee.MercadoPagoFeeAmount.Value,
+                        paymentGross,
+                        cancellationToken);
+                }
             }
         }
         else if (OrderInventoryFulfillment.IsPaidStatus(payment.Status) &&

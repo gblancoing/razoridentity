@@ -19,12 +19,21 @@ public sealed class CouriersController : ControllerBase
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IDeliveryService _deliveryService;
+    private readonly ICourierPayeeService _payeeService;
+    private readonly Marketplace.MercadoPagoOAuthService _mpOAuth;
 
-    public CouriersController(CoreDbContext db, ITenantContext tenantContext, IDeliveryService deliveryService)
+    public CouriersController(
+        CoreDbContext db,
+        ITenantContext tenantContext,
+        IDeliveryService deliveryService,
+        ICourierPayeeService payeeService,
+        Marketplace.MercadoPagoOAuthService mpOAuth)
     {
         _db = db;
         _tenantContext = tenantContext;
         _deliveryService = deliveryService;
+        _payeeService = payeeService;
+        _mpOAuth = mpOAuth;
     }
 
     [HttpGet("/v1/partners/{partnerId:guid}/couriers")]
@@ -156,6 +165,51 @@ public sealed class CouriersController : ControllerBase
         _db.Couriers.Remove(entity);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    /// <summary>
+    /// Inicia la vinculación de la cuenta MercadoPago del transportista
+    /// (reutiliza el OAuth de sellers: el courier tiene su propia fila Seller).
+    /// El negocio comparte la URL devuelta con el repartidor, quien autoriza
+    /// desde su propio dispositivo con SU cuenta MP.
+    /// </summary>
+    [HttpPost("/v1/partners/{partnerId:guid}/couriers/{courierId:guid}/mercadopago/start")]
+    public async Task<IActionResult> StartMercadoPagoLink(Guid partnerId, Guid courierId)
+    {
+        if (!await CanManagePartnerAsync(partnerId))
+        {
+            return Forbid();
+        }
+
+        var courier = await _db.Couriers.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Id == courierId && x.PartnerId == partnerId);
+        if (courier is null)
+        {
+            return NotFound();
+        }
+
+        await _payeeService.EnsurePayeeSellerAsync(courier, HttpContext.RequestAborted);
+        var start = await _mpOAuth.StartAsync(courier.Id, HttpContext.RequestAborted);
+        return Ok(new { courierId = courier.Id, authorizationUrl = start.AuthorizationUrl });
+    }
+
+    /// <summary>Estado de la cuenta de cobro del transportista (conectada / lista para liquidar).</summary>
+    [HttpGet("/v1/partners/{partnerId:guid}/couriers/{courierId:guid}/mercadopago/status")]
+    public async Task<ActionResult<CourierPayeeStatus>> GetMercadoPagoStatus(Guid partnerId, Guid courierId)
+    {
+        if (!await CanManagePartnerAsync(partnerId))
+        {
+            return Forbid();
+        }
+
+        var exists = await _db.Couriers.IgnoreQueryFilters()
+            .AnyAsync(x => x.Id == courierId && x.PartnerId == partnerId);
+        if (!exists)
+        {
+            return NotFound();
+        }
+
+        return Ok(await _payeeService.GetStatusAsync(courierId, HttpContext.RequestAborted));
     }
 
     /// <summary>Asigna (o reasigna) un repartidor al pedido y devuelve el link seguro para compartir.</summary>

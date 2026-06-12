@@ -13,6 +13,9 @@ public sealed class Courier
     public string Phone { get; set; } = string.Empty;
     /// <summary>Empresa externa a la que pertenece el repartidor (opcional).</summary>
     public string? Company { get; set; }
+
+    /// <summary>Tipo de transportista: courier | taxi | ... (extensible a futuro).</summary>
+    public string Kind { get; set; } = "courier";
     public bool IsAvailable { get; set; } = true;
     public double? CurrentLat { get; set; }
     public double? CurrentLng { get; set; }

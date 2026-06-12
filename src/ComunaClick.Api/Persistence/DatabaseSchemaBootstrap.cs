@@ -26,7 +26,9 @@ public static class DatabaseSchemaBootstrap
         ("core", "orders", "20260610_order_inventory_fulfilled.sql", "inventory_fulfilled_at"),
         ("core", "notification_outbox", "20260611_notification_outbox.sql", null),
         ("core", "partner_catalog_categories", "20260611_partner_catalog_subcategories.sql", "parent_id"),
-        ("core", "couriers", "20260612_delivery_tracking.sql", null)
+        ("core", "couriers", "20260612_delivery_tracking.sql", null),
+        ("core", "delivery_settlements", "20260613_delivery_settlements.sql", null),
+        ("core", "couriers", "20260613_delivery_settlements.sql", "kind")
     ];
 
     public static async Task ApplyPendingAsync(string? connectionString, IHostEnvironment env, ILogger logger, CancellationToken cancellationToken = default)

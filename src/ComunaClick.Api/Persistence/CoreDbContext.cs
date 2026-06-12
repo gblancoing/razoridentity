@@ -32,6 +32,7 @@ public sealed class CoreDbContext : DbContext
     public DbSet<PartnerCatalogCategory> PartnerCatalogCategories => Set<PartnerCatalogCategory>();
     public DbSet<Courier> Couriers => Set<Courier>();
     public DbSet<DeliveryTracking> DeliveryTrackings => Set<DeliveryTracking>();
+    public DbSet<DeliverySettlement> DeliverySettlements => Set<DeliverySettlement>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<ProductSubcategory> ProductSubcategories => Set<ProductSubcategory>();
     public DbSet<SiteContentSetting> SiteContentSettings => Set<SiteContentSetting>();
@@ -349,6 +350,7 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Name).HasColumnName("name").IsRequired();
             entity.Property(x => x.Phone).HasColumnName("phone").IsRequired();
             entity.Property(x => x.Company).HasColumnName("company");
+            entity.Property(x => x.Kind).HasColumnName("kind").HasDefaultValue("courier");
             entity.Property(x => x.IsAvailable).HasColumnName("is_available").HasDefaultValue(true);
             entity.Property(x => x.CurrentLat).HasColumnName("current_lat");
             entity.Property(x => x.CurrentLng).HasColumnName("current_lng");
@@ -370,6 +372,31 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.Status).HasColumnName("status").IsRequired();
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => new { x.OrderId, x.CreatedAt });
+        });
+
+        modelBuilder.Entity<DeliverySettlement>(entity =>
+        {
+            entity.ToTable("delivery_settlements");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.OrderId).HasColumnName("order_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.CourierId).HasColumnName("courier_id");
+            entity.Property(x => x.PaymentId).HasColumnName("payment_id");
+            entity.Property(x => x.GrossAmount).HasColumnName("gross_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.PlatformFeeAmount).HasColumnName("platform_fee_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.MercadoPagoFeeAmount).HasColumnName("mercadopago_fee_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.NetToCourierAmount).HasColumnName("net_to_courier_amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").IsRequired();
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.SettledAt).HasColumnName("settled_at");
+            entity.Property(x => x.Notes).HasColumnName("notes");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.OrderId).IsUnique();
+            entity.HasIndex(x => x.PartnerId);
+            entity.HasIndex(x => x.CourierId);
         });
 
         modelBuilder.Entity<OrderItem>(entity =>

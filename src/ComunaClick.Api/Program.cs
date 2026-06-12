@@ -91,7 +91,12 @@ builder.Services.Configure<ComunaClick.Api.Configuration.DeliveryOptions>(
     builder.Configuration.GetSection(ComunaClick.Api.Configuration.DeliveryOptions.SectionName));
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryCourierTokenService, ComunaClick.Api.Modules.Delivery.DeliveryCourierTokenService>();
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryService, ComunaClick.Api.Modules.Delivery.DeliveryService>();
-builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryPricingService, ComunaClick.Api.Modules.Delivery.FlatRateDeliveryPricingService>();
+builder.Services.Configure<ComunaClick.Api.Configuration.DeliveryPricingOptions>(
+    builder.Configuration.GetSection(ComunaClick.Api.Configuration.DeliveryPricingOptions.SectionName));
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryFeeCalculator, ComunaClick.Api.Modules.Delivery.DeliveryFeeCalculator>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryPricingService, ComunaClick.Api.Modules.Delivery.DynamicDeliveryPricingService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliverySettlementService, ComunaClick.Api.Modules.Delivery.DeliverySettlementService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.ICourierPayeeService, ComunaClick.Api.Modules.Delivery.CourierPayeeService>();
 builder.Services.AddScoped<ComunaClick.Api.Jobs.DeliveryTrackingCleanupJob>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
