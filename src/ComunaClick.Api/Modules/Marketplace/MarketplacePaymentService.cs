@@ -112,19 +112,34 @@ public sealed class MarketplacePaymentService
                 $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}",
                 $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}");
 
+            var preferenceItems = order.Items.Select(x =>
+            {
+                var sku = x.ProductId.ToString("N");
+                var matched = request.Items.FirstOrDefault(i => string.Equals(i.Sku, sku, StringComparison.OrdinalIgnoreCase));
+                var title = !string.IsNullOrWhiteSpace(matched?.Title) ? matched!.Title! : "Producto ComunaClic";
+                return new MercadoPagoPreferenceItem(sku, title, x.Quantity, order.Currency, x.UnitPrice);
+            }).ToList();
+
+            // El recargo de despacho va como ítem propio: Checkout Pro cobra la
+            // suma de los ítems de la preferencia, no nuestro GrossAmount. Sin
+            // esta línea MP cobraba solo los productos y el envío quedaba impago.
+            if (order.DeliveryFee > 0)
+            {
+                preferenceItems.Add(new MercadoPagoPreferenceItem(
+                    $"delivery-{order.Id:N}",
+                    "Despacho a domicilio",
+                    1,
+                    order.Currency,
+                    order.DeliveryFee));
+            }
+
             var preference = await _mpClient.CreateCheckoutProPreferenceAsync(
                 accessToken,
                 new MercadoPagoPreferenceRequest(
                     payment.ExternalReference,
                     fee.TotalPlatformFeeAmount,
                     backUrls,
-                    order.Items.Select(x =>
-                    {
-                        var sku = x.ProductId.ToString("N");
-                        var matched = request.Items.FirstOrDefault(i => string.Equals(i.Sku, sku, StringComparison.OrdinalIgnoreCase));
-                        var title = !string.IsNullOrWhiteSpace(matched?.Title) ? matched!.Title! : "Producto ComunaClic";
-                        return new MercadoPagoPreferenceItem(sku, title, x.Quantity, order.Currency, x.UnitPrice);
-                    }).ToArray(),
+                    preferenceItems.ToArray(),
                     new MercadoPagoPreferencePayer(order.BuyerEmail ?? request.Buyer.Email, order.BuyerName ?? request.Buyer.Name),
                     $"{ResolveWebhookBaseUrl()}/api/webhooks/mercadopago"),
                 cancellationToken);
