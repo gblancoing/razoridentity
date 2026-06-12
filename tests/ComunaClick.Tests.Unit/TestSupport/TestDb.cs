@@ -20,12 +20,16 @@ internal static class TestDb
         return new CoreDbContext(options, new TenantContext());
     }
 
-    public static ProductInventoryService CreateInventoryService(CoreDbContext db)
+    public static ProductInventoryService CreateInventoryService(
+        CoreDbContext db,
+        InventoryOptions? options = null,
+        TimeProvider? timeProvider = null)
         => new(
             db,
             new StubStockNotificationService(),
-            Options.Create(new InventoryOptions()),
-            NullLogger<ProductInventoryService>.Instance);
+            Options.Create(options ?? new InventoryOptions()),
+            NullLogger<ProductInventoryService>.Instance,
+            timeProvider);
 
     public static ComunaClick.Api.Modules.Delivery.FlatRateDeliveryPricingService CreateDeliveryPricingService()
         => new(Options.Create(new DeliveryOptions()));

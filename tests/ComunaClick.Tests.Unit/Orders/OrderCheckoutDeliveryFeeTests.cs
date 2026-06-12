@@ -130,6 +130,68 @@ public sealed class OrderCheckoutDeliveryFeeTests
         Assert.Equal(-70.65, result.Order.DestinationLng);
     }
 
+    // La orden de invitado con proveedor de despacho cobra el fee del server
+    // (antes el flujo guest nunca enviaba proveedor y el envío salía $0).
+    [Fact]
+    public async Task CreateGuestOrder_WithDeliveryProvider_ChargesFee()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, product) = TestDb.SeedCatalog(db, stock: 5, price: 1000m);
+
+        var provider = new DeliveryProvider
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "Despacho local",
+            BaseFee = 1500m,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        db.DeliveryProviders.Add(provider);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+
+        var (customer, result) = await service.CreateGuestOrderAsync(
+            new GuestOrderCreateRequest(
+                tenantId,
+                partner.Id,
+                [new OrderItemCreateRequest(product.Id, 1, product.Price)],
+                new GuestContactRequest("Invitada Test", "guest@test.cl", "+56933333333"),
+                DeliveryFee: 0m,
+                Currency: "CLP",
+                DeliveryAddress: "Calle Falsa 123, Santiago",
+                DeliveryProviderId: provider.Id));
+
+        Assert.True(result.Success);
+        Assert.NotNull(customer);
+        Assert.Equal(1500m, result.Order!.DeliveryFee);
+        Assert.Equal(2500m, result.Order.TotalAmount);
+        Assert.Equal(provider.Id, result.Order.DeliveryProviderId);
+    }
+
+    [Fact]
+    public async Task CreateGuestOrder_WithUnknownProvider_Fails()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, _, product) = TestDb.SeedCatalog(db, stock: 5, price: 1000m);
+
+        var service = CreateService(db);
+
+        var (_, result) = await service.CreateGuestOrderAsync(
+            new GuestOrderCreateRequest(
+                tenantId,
+                partner.Id,
+                [new OrderItemCreateRequest(product.Id, 1, product.Price)],
+                new GuestContactRequest("Invitada Test", "guest@test.cl", "+56933333333"),
+                DeliveryFee: 0m,
+                Currency: "CLP",
+                DeliveryProviderId: Guid.NewGuid()));
+
+        Assert.False(result.Success);
+    }
+
     private static OrderCheckoutService CreateService(ComunaClick.Api.Persistence.CoreDbContext db)
         => new(
             db,

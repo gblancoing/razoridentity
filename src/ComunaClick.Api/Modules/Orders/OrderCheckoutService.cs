@@ -99,7 +99,8 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
             request.Items.ToList(),
             DeliveryAddress: request.DeliveryAddress,
             DestinationLat: request.DestinationLat,
-            DestinationLng: request.DestinationLng);
+            DestinationLng: request.DestinationLng,
+            DeliveryProviderId: request.DeliveryProviderId);
 
         var result = await CreateOrderCoreAsync(request.TenantId, orderRequest, cancellationToken);
         return (customer, result);

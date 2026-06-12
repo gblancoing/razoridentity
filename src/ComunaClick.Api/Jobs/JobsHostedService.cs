@@ -36,6 +36,11 @@ public sealed class JobsHostedService : BackgroundService
                 var job = scope.ServiceProvider.GetRequiredService<PaymentReconciliationJob>();
                 await job.RunAsync(stoppingToken);
 
+                // Cancelación formal de pedidos payment_pending vencidos (la
+                // reserva de stock ya se ignora en tiempo real al vencer).
+                var pendingExpiration = scope.ServiceProvider.GetRequiredService<PendingOrderExpirationJob>();
+                await pendingExpiration.RunAsync(stoppingToken);
+
                 // Retención del historial GPS de envíos terminados.
                 var deliveryCleanup = scope.ServiceProvider.GetRequiredService<DeliveryTrackingCleanupJob>();
                 await deliveryCleanup.RunAsync(stoppingToken);

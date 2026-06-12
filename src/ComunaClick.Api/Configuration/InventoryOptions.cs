@@ -13,4 +13,13 @@ public sealed class InventoryOptions
     /// con una venta pagada o un ajuste manual de inventario.
     /// </summary>
     public string[] ReservingOrderStatuses { get; set; } = [];
+
+    /// <summary>
+    /// Minutos que una orden payment_pending retiene su reserva de stock. Pasado
+    /// el plazo, la reserva se ignora en tiempo real al calcular disponible y el
+    /// job de expiración cancela la orden formalmente. 0 = sin expiración.
+    /// Si el pago llega después de expirar, el pago confirmado gana (el webhook
+    /// repone el estado paid y el descuento es idempotente).
+    /// </summary>
+    public int PendingOrderTtlMinutes { get; set; } = 5;
 }

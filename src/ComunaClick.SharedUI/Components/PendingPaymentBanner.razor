@@ -8,16 +8,20 @@
 {
     <div class="mb-6 rounded-2xl border border-[#009ee3]/30 bg-[#e8f7ff] px-4 py-4 sm:px-5">
         <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#0066a1]">@L.T("buyer.pendingMp.eyebrow")</p>
-        <p class="mt-1 text-sm font-semibold text-[#2c2f30]">@L.T("buyer.pendingMp.title")</p>
+        <p class="mt-1 text-sm font-semibold text-[#2c2f30]">
+            @(_payments.Count > 1 ? string.Format(L.T("buyer.pendingMp.multiTitle"), _payments.Count) : L.T("buyer.pendingMp.title"))
+        </p>
         <p class="mt-1 text-sm text-[#595c5d]">@L.T("buyer.pendingMp.body")</p>
         <div class="mt-3 flex flex-wrap gap-2">
-            @if (!string.IsNullOrWhiteSpace(_checkoutUrl))
+            @foreach (var payment in _payments.Where(p => !string.IsNullOrWhiteSpace(p.CheckoutUrl)))
             {
-                <a href="@_checkoutUrl" class="inline-flex items-center rounded-xl bg-[#009ee3] px-4 py-2 text-sm font-bold text-white">@L.T("buyer.checkout.mp.pay")</a>
+                <a href="@payment.CheckoutUrl" target="_blank" rel="noopener" class="inline-flex items-center rounded-xl bg-[#009ee3] px-4 py-2 text-sm font-bold text-white">
+                    @L.T("buyer.checkout.mp.pay")@(_payments.Count > 1 && !string.IsNullOrWhiteSpace(payment.PartnerName) ? $" · {payment.PartnerName}" : string.Empty)
+                </a>
             }
             <button type="button" class="inline-flex items-center rounded-xl border border-[#009ee3] px-4 py-2 text-sm font-bold text-[#0066a1] disabled:opacity-60"
                     disabled="@_busy"
-                    @onclick="() => RefreshCheckoutAsync(silent: false)">
+                    @onclick="() => RefreshCheckoutsAsync(silent: false)">
                 @L.T("buyer.pendingMp.refresh")
             </button>
             <button type="button" class="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold text-[#595c5d]"
@@ -31,10 +35,17 @@
 @code {
     private bool _visible;
     private bool _busy;
-    private string? _checkoutUrl;
-    private Guid? _orderId;
-    private Guid? _bookingId;
-    private Guid? _customerId;
+    private readonly List<PendingPayment> _payments = new();
+
+    private sealed class PendingPayment
+    {
+        public Guid? OrderId { get; set; }
+        public Guid? BookingId { get; set; }
+        public Guid? CustomerId { get; set; }
+        public string? CheckoutUrl { get; set; }
+        public string? PartnerName { get; set; }
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -57,34 +68,28 @@
                 return;
             }
 
-            using var doc = JsonDocument.Parse(raw);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("createdAt", out var createdProp) &&
-                createdProp.TryGetDateTimeOffset(out var created))
+            var parsed = ParsePayments(raw);
+            var cutoff = DateTimeOffset.UtcNow.AddHours(-48);
+            var expired = parsed.Count(p => p.CreatedAt < cutoff);
+            _payments.Clear();
+            _payments.AddRange(parsed.Where(p => p.CreatedAt >= cutoff));
+
+            if (expired > 0)
             {
-                if (created < DateTimeOffset.UtcNow.AddHours(-48))
-                {
-                    await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
-                    return;
-                }
+                await SavePendingAsync();
             }
 
-            _orderId = ReadGuid(root, "orderId");
-            _bookingId = ReadGuid(root, "bookingId");
-            _customerId = ReadGuid(root, "customerId");
-            _checkoutUrl = root.TryGetProperty("checkoutUrl", out var url) ? url.GetString() : null;
-
-            if (_customerId is null || (_orderId is null && _bookingId is null))
+            if (_payments.Count == 0)
             {
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(_checkoutUrl))
+            if (_payments.Any(p => string.IsNullOrWhiteSpace(p.CheckoutUrl)))
             {
-                await RefreshCheckoutAsync(silent: true);
+                await RefreshCheckoutsAsync(silent: true);
             }
 
-            _visible = !string.IsNullOrWhiteSpace(_checkoutUrl) || _orderId is not null;
+            _visible = _payments.Count > 0;
         }
         catch
         {
@@ -92,46 +97,120 @@
         }
     }
 
-    private async Task RefreshCheckoutAsync(bool silent = false)
+    /// <summary>Soporta el shape v1 (objeto único en la raíz) y v2 (lista en "payments").</summary>
+    private static List<PendingPayment> ParsePayments(string raw)
     {
-        if (_customerId is null)
+        var payments = new List<PendingPayment>();
+        try
         {
-            return;
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return payments;
+            }
+
+            if (root.TryGetProperty("payments", out var list) && list.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var element in list.EnumerateArray())
+                {
+                    if (TryParsePayment(element, out var payment))
+                    {
+                        payments.Add(payment);
+                    }
+                }
+            }
+            else if (TryParsePayment(root, out var single))
+            {
+                payments.Add(single);
+            }
+        }
+        catch (JsonException)
+        {
+            // entrada corrupta: se trata como sin pagos pendientes
         }
 
+        return payments;
+    }
+
+    private static bool TryParsePayment(JsonElement element, out PendingPayment payment)
+    {
+        payment = new PendingPayment
+        {
+            OrderId = ReadGuid(element, "orderId"),
+            BookingId = ReadGuid(element, "bookingId"),
+            CustomerId = ReadGuid(element, "customerId"),
+            CheckoutUrl = element.TryGetProperty("checkoutUrl", out var url) ? url.GetString() : null,
+            PartnerName = element.TryGetProperty("partnerName", out var pn) ? pn.GetString() : null
+        };
+
+        if (element.TryGetProperty("createdAt", out var createdProp) && createdProp.TryGetDateTimeOffset(out var created))
+        {
+            payment.CreatedAt = created;
+        }
+
+        return payment.CustomerId is not null && (payment.OrderId is not null || payment.BookingId is not null);
+    }
+
+    private async Task RefreshCheckoutsAsync(bool silent = false)
+    {
         _busy = true;
         try
         {
-            var response = await BuyerApi.ResumeMercadoPagoCheckoutAsync(
-                new PublicMercadoPagoCheckoutRequest(_customerId.Value, _orderId, _bookingId));
-
-            if (!string.IsNullOrWhiteSpace(response?.CheckoutUrl))
+            foreach (var payment in _payments.Where(p => p.CustomerId is not null))
             {
-                _checkoutUrl = response.CheckoutUrl;
-                await SavePendingAsync();
-                if (!silent)
+                if (!silent || string.IsNullOrWhiteSpace(payment.CheckoutUrl))
                 {
-                    await BuyerApi.SendPaymentReminderAsync(
-                        new PublicPaymentReminderRequest(_customerId.Value, _orderId, _bookingId));
+                    try
+                    {
+                        var response = await BuyerApi.ResumeMercadoPagoCheckoutAsync(
+                            new PublicMercadoPagoCheckoutRequest(payment.CustomerId!.Value, payment.OrderId, payment.BookingId));
+                        if (!string.IsNullOrWhiteSpace(response?.CheckoutUrl))
+                        {
+                            payment.CheckoutUrl = response.CheckoutUrl;
+                            if (!silent)
+                            {
+                                await BuyerApi.SendPaymentReminderAsync(
+                                    new PublicPaymentReminderRequest(payment.CustomerId.Value, payment.OrderId, payment.BookingId));
+                            }
+                        }
+                    }
+                    catch (HttpRequestException)
+                    {
+                        // El resto de los pagos pendientes se intenta igual.
+                    }
                 }
             }
+
+            await SavePendingAsync();
         }
         finally
         {
             _busy = false;
-            _visible = _orderId is not null || _bookingId is not null;
+            _visible = _payments.Count > 0;
         }
     }
 
     private async Task SavePendingAsync()
     {
-        var payload = JsonSerializer.Serialize(new Dictionary<string, string?>
+        if (_payments.Count == 0)
         {
-            ["orderId"] = _orderId?.ToString(),
-            ["bookingId"] = _bookingId?.ToString(),
-            ["customerId"] = _customerId?.ToString(),
-            ["checkoutUrl"] = _checkoutUrl,
-            ["createdAt"] = DateTimeOffset.UtcNow.ToString("O")
+            await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+            return;
+        }
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            version = 2,
+            payments = _payments.Select(p => new Dictionary<string, string?>
+            {
+                ["orderId"] = p.OrderId?.ToString(),
+                ["bookingId"] = p.BookingId?.ToString(),
+                ["customerId"] = p.CustomerId?.ToString(),
+                ["checkoutUrl"] = p.CheckoutUrl,
+                ["createdAt"] = p.CreatedAt.ToString("O"),
+                ["partnerName"] = p.PartnerName
+            })
         });
         await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", payload);
     }
@@ -139,6 +218,7 @@
     private async Task DismissAsync()
     {
         await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+        _payments.Clear();
         _visible = false;
     }
 

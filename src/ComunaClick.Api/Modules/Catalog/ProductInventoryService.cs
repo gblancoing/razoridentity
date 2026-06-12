@@ -12,17 +12,20 @@ public sealed class ProductInventoryService : IProductInventoryService
     private readonly IStockNotificationService _stockNotifications;
     private readonly InventoryOptions _options;
     private readonly ILogger<ProductInventoryService> _logger;
+    private readonly TimeProvider _timeProvider;
 
     public ProductInventoryService(
         CoreDbContext db,
         IStockNotificationService stockNotifications,
         IOptions<InventoryOptions> options,
-        ILogger<ProductInventoryService> logger)
+        ILogger<ProductInventoryService> logger,
+        TimeProvider? timeProvider = null)
     {
         _db = db;
         _stockNotifications = stockNotifications;
         _options = options.Value;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<int> GetAvailableQuantityAsync(Guid productId, Guid? excludeOrderId = null, CancellationToken cancellationToken = default)
@@ -284,12 +287,23 @@ public sealed class ProductInventoryService : IProductInventoryService
             return new Dictionary<Guid, int>();
         }
 
+        // Las reservas de payment_pending vencen a los PendingOrderTtlMinutes y
+        // se ignoran EN TIEMPO REAL: el disponible no espera a que el job de
+        // expiración cancele formalmente la orden vencida.
+        var ttlMinutes = _options.PendingOrderTtlMinutes;
+        var pendingCutoff = ttlMinutes > 0
+            ? _timeProvider.GetUtcNow().AddMinutes(-ttlMinutes)
+            : (DateTimeOffset?)null;
+
         var query =
             from item in _db.OrderItems.AsNoTracking()
             join order in _db.Orders.AsNoTracking() on item.OrderId equals order.Id
             where productIds.Contains(item.ProductId)
                   && reservingStatuses.Contains(order.Status)
                   && (!excludeOrderId.HasValue || order.Id != excludeOrderId.Value)
+                  && (pendingCutoff == null
+                      || order.Status != Orders.OrderStatusMachine.PaymentPending
+                      || order.CreatedAt >= pendingCutoff)
             group item by item.ProductId
             into grouped
             select new { ProductId = grouped.Key, Quantity = grouped.Sum(x => x.Quantity) };

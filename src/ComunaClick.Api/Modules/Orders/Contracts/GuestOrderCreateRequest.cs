@@ -15,7 +15,9 @@ public sealed record GuestOrderCreateRequest(
     string? DeliveryAddress = null,
     // Pin de destino fijado por el comprador en el checkout (opcional).
     double? DestinationLat = null,
-    double? DestinationLng = null);
+    double? DestinationLng = null,
+    // Proveedor de despacho de la cotización (el server revalida zona y monto).
+    Guid? DeliveryProviderId = null);
 
 public sealed record GuestOrderCreateResponse(
     Guid OrderId,

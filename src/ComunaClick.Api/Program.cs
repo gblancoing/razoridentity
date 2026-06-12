@@ -95,6 +95,7 @@ builder.Services.Configure<ComunaClick.Api.Configuration.DeliveryPricingOptions>
     builder.Configuration.GetSection(ComunaClick.Api.Configuration.DeliveryPricingOptions.SectionName));
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryFeeCalculator, ComunaClick.Api.Modules.Delivery.DeliveryFeeCalculator>();
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryPricingService, ComunaClick.Api.Modules.Delivery.DynamicDeliveryPricingService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryQuoteService, ComunaClick.Api.Modules.Delivery.DeliveryQuoteService>();
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliverySettlementService, ComunaClick.Api.Modules.Delivery.DeliverySettlementService>();
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.ICourierPayeeService, ComunaClick.Api.Modules.Delivery.CourierPayeeService>();
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliverySettlementPaymentService, ComunaClick.Api.Modules.Delivery.DeliverySettlementPaymentService>();
@@ -134,6 +135,7 @@ builder.Services.AddScoped<MercadoPagoOAuthService>();
 builder.Services.AddScoped<MarketplacePaymentService>();
 builder.Services.AddScoped<MercadoPagoWebhookService>();
 builder.Services.AddScoped<PaymentReconciliationJob>();
+builder.Services.AddScoped<ComunaClick.Api.Jobs.PendingOrderExpirationJob>();
 builder.Services.AddHttpClient<MercadoPagoMarketplaceClient>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Crm.CustomerAvatarStorage>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Catalog.ServiceImageStorage>();

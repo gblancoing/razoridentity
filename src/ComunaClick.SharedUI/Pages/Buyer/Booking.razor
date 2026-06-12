@@ -495,7 +495,8 @@ else
                 ["checkoutUrl"] = checkoutUrl,
                 ["createdAt"] = DateTimeOffset.UtcNow.ToString("O")
             });
-            await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", payload);
+            // Acumula sin pisar otros pagos pendientes (carrito multi-negocio).
+            await JSRuntime.InvokeVoidAsync("comunaclic.addPendingMpPayment", payload);
         }
         catch
         {

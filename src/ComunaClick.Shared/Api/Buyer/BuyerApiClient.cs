@@ -506,6 +506,24 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Professional>($"/v1/public/professionals/{id}", cancellationToken);
 
+    public Task<PublicDeliveryQuoteResponse?> GetDeliveryQuoteAsync(
+        Guid partnerId,
+        double? destinationLat = null,
+        double? destinationLng = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/public/checkout/delivery-quote?partnerId={partnerId}";
+        if (destinationLat is not null)
+        {
+            path += $"&destinationLat={destinationLat.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        }
+        if (destinationLng is not null)
+        {
+            path += $"&destinationLng={destinationLng.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        }
+        return GetAsync<PublicDeliveryQuoteResponse>(path, cancellationToken);
+    }
+
     public Task<SupportTicketResponse?> CreateSupportTicketAsync(SupportTicketRequest request, Guid? tenantId = null, CancellationToken cancellationToken = default)
     {
         var message = new HttpRequestMessage(HttpMethod.Post, "/v1/support/tickets")
@@ -684,7 +702,8 @@ public sealed record GuestOrderCreateRequest(
     string? Currency = null,
     string? DeliveryAddress = null,
     double? DestinationLat = null,
-    double? DestinationLng = null);
+    double? DestinationLng = null,
+    Guid? DeliveryProviderId = null);
 
 public sealed record GuestOrderCreateResponse(
     Guid OrderId,
@@ -710,6 +729,19 @@ public sealed record GuestBookingCreateResponse(
     string? Status,
     double Amount,
     string? Currency);
+
+public sealed record PublicDeliveryQuoteResponse(
+    bool Available,
+    bool FeeApplies,
+    double Fee,
+    string? Currency,
+    double? DistanceKm,
+    string? ProfileName,
+    Guid? DeliveryProviderId,
+    string? DeliveryProviderName,
+    bool OutOfRange,
+    double? MaxDistanceKm,
+    string? Message);
 
 public sealed record PublicPartnerPaymentStatusResponse(
     Guid PartnerId,

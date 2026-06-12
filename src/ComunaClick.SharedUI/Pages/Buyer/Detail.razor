@@ -313,9 +313,10 @@
                             @if (_showAddToCart)
                             {
                                 <button type="button"
-                                        class="block w-full rounded-2xl border border-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#3b6700] disabled:opacity-60"
+                                        class="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#d9ffad] px-5 py-3 text-center text-sm font-bold text-[#3b6700] disabled:opacity-60"
                                         disabled="@_addingToCart"
                                         @onclick="AddToCartAsync">
+                                    <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
                                     @(_addingToCart ? "..." : L.T("buyer.cart.add"))
                                 </button>
                                 @if (!string.IsNullOrWhiteSpace(_cartStatusMessage))
@@ -324,7 +325,9 @@
                                 }
                                 @if (_cartAdded)
                                 {
-                                    <a href="/buyer/cart" class="block text-center text-xs font-bold text-[#3b6700] underline">@L.T("buyer.cart.view")</a>
+                                    <a href="/buyer/cart" class="block w-full rounded-2xl border border-[#3b6700] px-5 py-3 text-center text-sm font-bold text-[#3b6700]">
+                                        @(_cartItemCount > 0 ? string.Format(L.T("buyer.cart.viewWithCount"), _cartItemCount) : L.T("buyer.cart.view"))
+                                    </a>
                                 }
                             }
                             @if (!string.IsNullOrWhiteSpace(_secondaryCtaLabel))
@@ -417,6 +420,7 @@
     private bool _isFollowingPartner;
     private bool _partnerFollowBusy;
     private bool _showAddToCart;
+    private int _cartItemCount;
     private bool _addingToCart;
     private string? _cartStatusMessage;
     private bool _cartAdded;
@@ -823,12 +827,26 @@
                     _cartStatusMessage = L.T("buyer.cart.added");
                     _cartAdded = true;
                     break;
-                case "different_partner":
-                    _cartStatusMessage = L.T("buyer.cart.differentPartner");
+                case "ok_new_group":
+                    // El carrito ahora agrupa por negocio: se crea un pedido por cada uno.
+                    _cartStatusMessage = L.T("buyer.cart.addedNewGroup");
+                    _cartAdded = true;
                     break;
                 default:
                     _cartStatusMessage = L.T("buyer.checkout.missingProduct");
                     break;
+            }
+
+            if (_cartAdded)
+            {
+                try
+                {
+                    _cartItemCount = await JSRuntime.InvokeAsync<int>("comunaclic.getGuestCartCount");
+                }
+                catch
+                {
+                    _cartItemCount = 0;
+                }
             }
         }
         finally
