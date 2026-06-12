@@ -199,6 +199,103 @@ window.comunaclic.deliveryTracking = (function () {
   };
 })();
 
+window.comunaclic.courierMap = (function () {
+  // Mapa de contexto del repartidor: su posición (alimentada por courierGps),
+  // el local de retiro y el destino del cliente, para dimensionar el viaje
+  // antes de aceptar y durante el reparto. Sin hub: la posición es local.
+  var state = null;
+
+  function isPlausible(lat, lng) {
+    return lat != null && lng != null && lat >= -56.5 && lat <= -17 && lng >= -110 && lng <= -66;
+  }
+
+  function icon(emoji, bg) {
+    return L.divIcon({
+      className: "",
+      html:
+        '<div style="width:38px;height:38px;border-radius:50%;background:' + bg + ';' +
+        'display:flex;align-items:center;justify-content:center;font-size:20px;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,.35);border:2px solid #fff;">' + emoji + "</div>",
+      iconSize: [38, 38],
+      iconAnchor: [19, 19],
+    });
+  }
+
+  function fit() {
+    if (!state || !state.map) return;
+    var points = [];
+    if (state.originMarker) points.push(state.originMarker.getLatLng());
+    if (state.destinationMarker) points.push(state.destinationMarker.getLatLng());
+    if (state.selfMarker) points.push(state.selfMarker.getLatLng());
+    if (points.length === 0) {
+      state.map.setView([-33.45, -70.66], 12);
+    } else if (points.length === 1) {
+      state.map.setView(points[0], 15);
+    } else {
+      state.map.fitBounds(L.latLngBounds(points).pad(0.25));
+    }
+  }
+
+  return {
+    // opts: { origin {lat,lng}, destination {lat,lng}, labels {origin,destination,self} }
+    start: function (elementId, opts) {
+      this.stop();
+      var el = document.getElementById(elementId);
+      if (!el || typeof L === "undefined") return;
+      if (window.comunaclic.configureLeafletIcons) {
+        window.comunaclic.configureLeafletIcons();
+      }
+      var map = L.map(elementId, { scrollWheelZoom: false });
+      window.comunaclic.applyLeafletBaseLayers(map, null);
+      state = { map: map, originMarker: null, destinationMarker: null, selfMarker: null, labels: opts.labels || {}, fittedSelf: false };
+
+      if (opts.origin && isPlausible(opts.origin.lat, opts.origin.lng)) {
+        state.originMarker = L.marker([opts.origin.lat, opts.origin.lng], { icon: icon("🏪", "#2c2f30") })
+          .addTo(map)
+          .bindPopup(state.labels.origin || "Local");
+      }
+      if (opts.destination && isPlausible(opts.destination.lat, opts.destination.lng)) {
+        state.destinationMarker = L.marker([opts.destination.lat, opts.destination.lng], { icon: icon("🏠", "#b45309") })
+          .addTo(map)
+          .bindPopup(state.labels.destination || "Cliente");
+      }
+      if (state.originMarker && state.destinationMarker) {
+        L.polyline([state.originMarker.getLatLng(), state.destinationMarker.getLatLng()],
+          { color: "#3b6700", weight: 3, opacity: 0.5, dashArray: "8 8" }).addTo(map);
+      }
+      fit();
+    },
+
+    // courierGps llama esto en cada fix de GPS (si el mapa está activo).
+    updateSelf: function (lat, lng) {
+      if (!state || !state.map || !isPlausible(lat, lng)) return;
+      var pos = [lat, lng];
+      if (!state.selfMarker) {
+        state.selfMarker = L.marker(pos, { icon: icon("🛵", "#3b6700"), zIndexOffset: 1000 })
+          .addTo(state.map)
+          .bindPopup(state.labels.self || "Tú");
+      } else {
+        state.selfMarker.setLatLng(pos);
+      }
+      // Re-encuadrar solo la primera vez que aparece la posición propia.
+      if (!state.fittedSelf) {
+        state.fittedSelf = true;
+        fit();
+      } else if (!state.map.getBounds().contains(pos)) {
+        state.map.panTo(pos);
+      }
+    },
+
+    stop: function () {
+      if (!state) return;
+      if (state.map) {
+        try { state.map.remove(); } catch (e) { /* mapa ya destruido */ }
+      }
+      state = null;
+    },
+  };
+})();
+
 window.comunaclic.courierGps = (function () {
   var state = null;
 
@@ -266,6 +363,9 @@ window.comunaclic.courierGps = (function () {
       state.watchId = navigator.geolocation.watchPosition(
         function (pos) {
           if (!state) return;
+          // El mapa local del repartidor se actualiza en cada fix (es barato);
+          // el envío al API sí va throttled.
+          window.comunaclic.courierMap.updateSelf(pos.coords.latitude, pos.coords.longitude);
           var now = Date.now();
           // Throttle: el GPS puede emitir varias veces por segundo.
           if (now - state.lastSentAt < state.intervalMs) return;

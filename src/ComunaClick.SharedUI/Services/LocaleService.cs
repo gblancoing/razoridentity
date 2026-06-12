@@ -1449,6 +1449,9 @@ public sealed class LocaleService
             ["courier.statusFailed"] = "No se pudo actualizar el estado. Intentá de nuevo.",
             ["courier.finishedDelivered"] = "¡Reparto completado! Gracias.",
             ["courier.finishedCanceled"] = "El reparto fue cancelado por el negocio.",
+            ["courier.map.you"] = "Tú",
+            ["courier.nav.toPickup"] = "Navegar al local de retiro",
+            ["courier.nav.toClient"] = "Navegar a la dirección del cliente",
 
             ["partner.delivery.title"] = "Envío por delivery",
             ["partner.delivery.destination"] = "Destino",
@@ -3399,6 +3402,9 @@ public sealed class LocaleService
             ["courier.statusFailed"] = "Could not update the status. Try again.",
             ["courier.finishedDelivered"] = "Delivery completed! Thank you.",
             ["courier.finishedCanceled"] = "The delivery was canceled by the business.",
+            ["courier.map.you"] = "You",
+            ["courier.nav.toPickup"] = "Navigate to the pickup store",
+            ["courier.nav.toClient"] = "Navigate to the customer's address",
 
             ["partner.delivery.title"] = "Delivery shipping",
             ["partner.delivery.destination"] = "Destination",
