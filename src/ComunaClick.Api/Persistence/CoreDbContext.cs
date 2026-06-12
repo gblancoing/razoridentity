@@ -30,6 +30,8 @@ public sealed class CoreDbContext : DbContext
     public DbSet<ProductInventory> ProductInventories => Set<ProductInventory>();
     public DbSet<ProductDiscoverySubcategory> ProductDiscoverySubcategories => Set<ProductDiscoverySubcategory>();
     public DbSet<PartnerCatalogCategory> PartnerCatalogCategories => Set<PartnerCatalogCategory>();
+    public DbSet<Courier> Couriers => Set<Courier>();
+    public DbSet<DeliveryTracking> DeliveryTrackings => Set<DeliveryTracking>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<ProductSubcategory> ProductSubcategories => Set<ProductSubcategory>();
     public DbSet<SiteContentSetting> SiteContentSettings => Set<SiteContentSetting>();
@@ -80,6 +82,7 @@ public sealed class CoreDbContext : DbContext
         modelBuilder.Entity<ProductImage>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<ProductInventory>().HasQueryFilter(x => !tenantId.HasValue || x.Product.TenantId == tenantId.Value);
         modelBuilder.Entity<PartnerCatalogCategory>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
+        modelBuilder.Entity<Courier>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<Customer>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<BuyerFavorite>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
         modelBuilder.Entity<CustomerPartnerLink>().HasQueryFilter(x => !tenantId.HasValue || x.TenantId == tenantId.Value);
@@ -318,6 +321,15 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.DeliveryProviderId).HasColumnName("delivery_provider_id");
             entity.Property(x => x.DeliveryProviderName).HasColumnName("delivery_provider_name");
             entity.Property(x => x.DeliveryAddress).HasColumnName("delivery_address");
+            entity.Property(x => x.DeliveryType).HasColumnName("delivery_type");
+            entity.Property(x => x.DeliveryStatus).HasColumnName("delivery_status");
+            entity.Property(x => x.CourierId).HasColumnName("courier_id");
+            entity.Property(x => x.CourierTokenKey).HasColumnName("courier_token_key");
+            entity.Property(x => x.OriginLat).HasColumnName("origin_lat");
+            entity.Property(x => x.OriginLng).HasColumnName("origin_lng");
+            entity.Property(x => x.OriginAddress).HasColumnName("origin_address");
+            entity.Property(x => x.DestinationLat).HasColumnName("destination_lat");
+            entity.Property(x => x.DestinationLng).HasColumnName("destination_lng");
             entity.Property(x => x.InventoryFulfilledAt).HasColumnName("inventory_fulfilled_at");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
@@ -325,6 +337,39 @@ public sealed class CoreDbContext : DbContext
                 .IsUnique()
                 .HasFilter("external_reference IS NOT NULL");
             entity.HasMany(x => x.Items).WithOne(x => x.Order).HasForeignKey(x => x.OrderId);
+        });
+
+        modelBuilder.Entity<Courier>(entity =>
+        {
+            entity.ToTable("couriers");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.TenantId).HasColumnName("tenant_id");
+            entity.Property(x => x.PartnerId).HasColumnName("partner_id");
+            entity.Property(x => x.Name).HasColumnName("name").IsRequired();
+            entity.Property(x => x.Phone).HasColumnName("phone").IsRequired();
+            entity.Property(x => x.Company).HasColumnName("company");
+            entity.Property(x => x.IsAvailable).HasColumnName("is_available").HasDefaultValue(true);
+            entity.Property(x => x.CurrentLat).HasColumnName("current_lat");
+            entity.Property(x => x.CurrentLng).HasColumnName("current_lng");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.PartnerId);
+            entity.HasOne(x => x.Partner).WithMany().HasForeignKey(x => x.PartnerId);
+        });
+
+        modelBuilder.Entity<DeliveryTracking>(entity =>
+        {
+            entity.ToTable("delivery_tracking");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.OrderId).HasColumnName("order_id");
+            entity.Property(x => x.CourierId).HasColumnName("courier_id");
+            entity.Property(x => x.Lat).HasColumnName("lat");
+            entity.Property(x => x.Lng).HasColumnName("lng");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => new { x.OrderId, x.CreatedAt });
         });
 
         modelBuilder.Entity<OrderItem>(entity =>

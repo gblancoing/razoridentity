@@ -74,7 +74,8 @@ public sealed class NotificationOutboxTests
             db,
             notifications,
             TestDb.CreateInventoryService(db),
-            new GuestCustomerService(db));
+            new GuestCustomerService(db),
+            TestDb.CreateDeliveryPricingService());
 
         var result = await service.CreateOrderAsync(
             tenantId,
@@ -107,7 +108,8 @@ public sealed class NotificationOutboxTests
             db,
             notifications,
             TestDb.CreateInventoryService(db),
-            new GuestCustomerService(db));
+            new GuestCustomerService(db),
+            TestDb.CreateDeliveryPricingService());
 
         var result = await service.CreateOrderAsync(
             tenantId,

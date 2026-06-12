@@ -87,6 +87,13 @@ builder.Services.Configure<OrderTrackingOptions>(options =>
     }
 });
 builder.Services.AddScoped<IOrderTrackingTokenService, OrderTrackingTokenService>();
+builder.Services.Configure<ComunaClick.Api.Configuration.DeliveryOptions>(
+    builder.Configuration.GetSection(ComunaClick.Api.Configuration.DeliveryOptions.SectionName));
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryCourierTokenService, ComunaClick.Api.Modules.Delivery.DeliveryCourierTokenService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryService, ComunaClick.Api.Modules.Delivery.DeliveryService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryPricingService, ComunaClick.Api.Modules.Delivery.FlatRateDeliveryPricingService>();
+builder.Services.AddScoped<ComunaClick.Api.Jobs.DeliveryTrackingCleanupJob>();
+builder.Services.AddSignalR();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IWhatsAppSender, WhatsAppWebhookSender>();
 builder.Services.AddScoped<NotificationOutboxProcessor>();
@@ -188,6 +195,27 @@ builder.Services.AddRateLimiter(options =>
         CreateFixedWindowLimiter(context, "public-write", builder.Configuration, "RateLimiting:PublicWrite", 20, 60));
     options.AddPolicy("webhook", context =>
         CreateFixedWindowLimiter(context, "webhook", builder.Configuration, "RateLimiting:Webhook", 120, 60));
+    // GPS de repartidores: particionado por token (query ?token=) para que un
+    // link abusivo no afecte a los demás repartidores; fallback a IP.
+    options.AddPolicy("courier-gps", context =>
+    {
+        var token = context.Request.Query["token"].ToString();
+        var section = builder.Configuration.GetSection("RateLimiting:CourierGps");
+        var permitLimit = Math.Max(1, section.GetValue("PermitLimit", 120));
+        var windowSeconds = Math.Max(1, section.GetValue("WindowSeconds", 60));
+        var partitionKey = string.IsNullOrWhiteSpace(token)
+            ? $"courier-gps:{GetRateLimitKey(context)}"
+            : $"courier-gps:tok:{token}";
+
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = TimeSpan.FromSeconds(windowSeconds),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
 });
 
 var app = builder.Build();
@@ -261,6 +289,9 @@ app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
+
+// Hub de tracking en vivo del delivery (los clientes validan token al unirse al grupo).
+app.MapHub<ComunaClick.Api.Modules.Delivery.DeliveryHub>("/deliveryHub").RequireCors("app");
 
 app.Run();
 

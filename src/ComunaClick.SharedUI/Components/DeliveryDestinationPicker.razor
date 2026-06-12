@@ -1,0 +1,152 @@
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@*
+    Pin de destino del delivery en el checkout. Reutiliza el picker Leaflet
+    existente (comunaclic.initProfileAddressPicker): pin arrastrable, click en
+    el mapa y reverse-geocoding con Nominatim (OSM, sin API key).
+*@
+<div class="space-y-2">
+    <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#61897c]">@L.T("buyer.checkout.destination.title")</p>
+    <p class="text-xs text-[#61897c]">@L.T("buyer.checkout.destination.help")</p>
+    <div id="@_mapElementId" class="h-56 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700"></div>
+    <div class="flex flex-wrap items-center gap-3">
+        <button type="button"
+                class="text-xs font-bold text-[#3b6700] underline disabled:opacity-60"
+                disabled="@_isLocating"
+                @onclick="UseCurrentLocationAsync">
+            @(_isLocating ? L.T("buyer.checkout.destination.locating") : L.T("buyer.checkout.destination.useMyLocation"))
+        </button>
+        @if (Latitude is not null && Longitude is not null)
+        {
+            <span class="inline-flex items-center gap-1 text-xs font-semibold text-[#3b6700]">
+                <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                @L.T("buyer.checkout.destination.set")
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public double? Latitude { get; set; }
+    [Parameter] public EventCallback<double?> LatitudeChanged { get; set; }
+    [Parameter] public double? Longitude { get; set; }
+    [Parameter] public EventCallback<double?> LongitudeChanged { get; set; }
+    /// <summary>Dirección legible resuelta por Nominatim al fijar el pin (para prellenar el input de dirección).</summary>
+    [Parameter] public EventCallback<string> AddressResolved { get; set; }
+
+    private readonly string _mapElementId = $"checkout-dest-map-{Guid.NewGuid():N}";
+    private DotNetObjectReference<DeliveryDestinationPicker>? _selfRef;
+    private bool _initialized;
+    private bool _isLocating;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initialized)
+        {
+            return;
+        }
+
+        try
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync(
+                "comunaclic.initProfileAddressPicker",
+                _mapElementId,
+                _selfRef,
+                Latitude ?? 0d,
+                Longitude ?? 0d,
+                false);
+            _initialized = true;
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task UseCurrentLocationAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.profileAddressUseCurrentLocation", _mapElementId);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    [JSInvokable]
+    public Task OnMapMarkerDragged(double latitude, double longitude)
+        => ApplyAsync(latitude, longitude, resolvedAddress: null);
+
+    [JSInvokable]
+    public Task OnMapLocationPicked(
+        double latitude,
+        double longitude,
+        string? label,
+        string? country,
+        string? state,
+        string? city,
+        string? municipality,
+        string? suburb,
+        string? road,
+        string? houseNumber)
+        => ApplyAsync(latitude, longitude, label);
+
+    [JSInvokable]
+    public Task OnMapMarkerAdjustStarted() => Task.CompletedTask;
+
+    [JSInvokable]
+    public Task OnGeolocationStarted()
+    {
+        _isLocating = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnGeolocationFinished(bool success, string? message)
+    {
+        _isLocating = false;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplyAsync(double latitude, double longitude, string? resolvedAddress)
+    {
+        Latitude = Math.Round(latitude, 6);
+        Longitude = Math.Round(longitude, 6);
+        await LatitudeChanged.InvokeAsync(Latitude);
+        await LongitudeChanged.InvokeAsync(Longitude);
+
+        if (!string.IsNullOrWhiteSpace(resolvedAddress))
+        {
+            await AddressResolved.InvokeAsync(resolvedAddress.Trim());
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _selfRef?.Dispose();
+        if (_initialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("comunaclic.destroyProfileAddressPicker", _mapElementId);
+            }
+            catch (JSException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+}

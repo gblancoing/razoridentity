@@ -145,6 +145,13 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<InboxThreadCreateResult?> CreateGuestInboxThreadAsync(GuestInboxThreadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<InboxThreadCreateResult>("/v1/public/inbox/threads", request, cancellationToken);
 
+    public Task<DeliverySnapshot?> GetDeliverySnapshotAsync(Guid orderId, string token, CancellationToken cancellationToken = default)
+        => GetAsync<DeliverySnapshot>($"/v1/public/delivery/{orderId}?token={Uri.EscapeDataString(token)}", cancellationToken);
+
+    /// <summary>Cambio de estado desde la vista del repartidor (autorizado por su token).</summary>
+    public Task SendCourierStatusAsync(Guid orderId, string status, string token, CancellationToken cancellationToken = default)
+        => PostNoContentAsync($"/api/courier/status?token={Uri.EscapeDataString(token)}", new CourierStatusUpdateRequest(orderId, status, token), cancellationToken);
+
     public Task<InboxMessageItem?> ReplyInboxThreadAsync(Guid threadId, string body, CancellationToken cancellationToken = default)
         => PostAsync<InboxMessageItem>($"/v1/inbox/threads/{threadId}/messages", new InboxMessageCreateRequest(body), cancellationToken);
 
@@ -658,7 +665,9 @@ public sealed record OrderCreateRequest(
     string? Currency,
     IReadOnlyList<OrderItemCreateRequest>? Items,
     Guid? DeliveryProviderId = null,
-    string? DeliveryAddress = null
+    string? DeliveryAddress = null,
+    double? DestinationLat = null,
+    double? DestinationLng = null
 );
 
 public sealed record GuestContactRequest(
@@ -673,7 +682,9 @@ public sealed record GuestOrderCreateRequest(
     GuestContactRequest Guest,
     double DeliveryFee = 0,
     string? Currency = null,
-    string? DeliveryAddress = null);
+    string? DeliveryAddress = null,
+    double? DestinationLat = null,
+    double? DestinationLng = null);
 
 public sealed record GuestOrderCreateResponse(
     Guid OrderId,
@@ -1169,6 +1180,26 @@ public sealed record GuestInboxThreadCreateRequest(
     string? Email,
     string? Subject,
     string Body);
+
+public sealed record DeliverySnapshot(
+    Guid OrderId,
+    string? DeliveryStatus,
+    string? DeliveryType,
+    double? OriginLat,
+    double? OriginLng,
+    string? OriginAddress,
+    double? DestinationLat,
+    double? DestinationLng,
+    string? DestinationAddress,
+    string? CourierName,
+    string? CourierPhone,
+    string? BuyerName,
+    string? BuyerPhone,
+    double? LastLat,
+    double? LastLng,
+    DateTimeOffset? LastTimestamp);
+
+public sealed record CourierStatusUpdateRequest(Guid OrderId, string Status, string Token);
 
 public sealed record InboxThreadListItem(
     Guid Id,

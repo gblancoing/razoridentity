@@ -28,6 +28,23 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<IReadOnlyList<Order>?> GetPartnerOrdersAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Order>>($"/v1/partners/{partnerId}/orders", cancellationToken);
 
+    public Task<IReadOnlyList<PartnerCourier>?> GetPartnerCouriersAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PartnerCourier>>($"/v1/partners/{partnerId}/couriers", cancellationToken);
+
+    public Task<PartnerCourier?> CreatePartnerCourierAsync(Guid partnerId, PartnerCourierCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<PartnerCourier>($"/v1/partners/{partnerId}/couriers", request, cancellationToken);
+
+    public Task DeletePartnerCourierAsync(Guid partnerId, Guid courierId, CancellationToken cancellationToken = default)
+        => DeleteAsync($"/v1/partners/{partnerId}/couriers/{courierId}", cancellationToken);
+
+    /// <summary>Asigna (o reasigna) un repartidor al pedido y devuelve el link seguro para compartirle.</summary>
+    public Task<AssignCourierResult?> AssignCourierAsync(Guid orderId, Guid courierId, CancellationToken cancellationToken = default)
+        => PostAsync<AssignCourierResult>($"/v1/orders/{orderId}/assign-courier", new { courierId }, cancellationToken);
+
+    /// <summary>Cancela el envío (no la orden): revoca el link del repartidor y notifica al comprador.</summary>
+    public Task CancelDeliveryAsync(Guid orderId, CancellationToken cancellationToken = default)
+        => PostNoContentAsync($"/v1/orders/{orderId}/cancel-delivery", new { }, cancellationToken);
+
     public Task<Order?> UpdateOrderStatusAsync(Guid orderId, OrderStatusUpdateRequest request, CancellationToken cancellationToken = default)
         => PatchAsync<Order>($"/v1/orders/{orderId}/status", request, cancellationToken);
 
@@ -493,8 +510,30 @@ public sealed record Order(
     double NetAmount = 0,
     string? BuyerName = null,
     string? BuyerPhone = null,
-    double? MercadoPagoFeeAmount = null
+    double? MercadoPagoFeeAmount = null,
+    string? DeliveryAddress = null,
+    string? DeliveryType = null,
+    string? DeliveryStatus = null,
+    Guid? CourierId = null
 );
+
+public sealed record PartnerCourier(
+    Guid Id,
+    Guid PartnerId,
+    string Name,
+    string Phone,
+    string? Company,
+    bool IsAvailable);
+
+public sealed record PartnerCourierCreateRequest(string Name, string Phone, string? Company);
+
+public sealed record AssignCourierResult(
+    Guid OrderId,
+    Guid CourierId,
+    string CourierName,
+    string CourierPhone,
+    string CourierLink,
+    string DeliveryStatus);
 
 public sealed record OrderItem(
     Guid Id,

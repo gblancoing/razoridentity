@@ -35,7 +35,8 @@ public sealed class OrderCheckoutConcurrencyTests
                 db,
                 new RecordingOrderNotificationService(),
                 TestDb.CreateInventoryService(db),
-                new GuestCustomerService(db));
+                new GuestCustomerService(db),
+                TestDb.CreateDeliveryPricingService());
             await gate.Task;
             return await service.CreateOrderAsync(tenantId, customer.Id, request);
         }).ToList();
@@ -76,7 +77,8 @@ public sealed class OrderCheckoutConcurrencyTests
             db,
             new RecordingOrderNotificationService(),
             TestDb.CreateInventoryService(db),
-            new GuestCustomerService(db));
+            new GuestCustomerService(db),
+                TestDb.CreateDeliveryPricingService());
 
         var result = await service.CreateOrderAsync(
             tenantId,

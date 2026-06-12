@@ -35,6 +35,10 @@ public sealed class JobsHostedService : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var job = scope.ServiceProvider.GetRequiredService<PaymentReconciliationJob>();
                 await job.RunAsync(stoppingToken);
+
+                // Retención del historial GPS de envíos terminados.
+                var deliveryCleanup = scope.ServiceProvider.GetRequiredService<DeliveryTrackingCleanupJob>();
+                await deliveryCleanup.RunAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

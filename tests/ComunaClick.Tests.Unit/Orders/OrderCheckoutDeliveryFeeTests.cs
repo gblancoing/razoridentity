@@ -77,5 +77,6 @@ public sealed class OrderCheckoutDeliveryFeeTests
             db,
             new RecordingOrderNotificationService(),
             TestDb.CreateInventoryService(db),
-            new GuestCustomerService(db));
+            new GuestCustomerService(db),
+            TestDb.CreateDeliveryPricingService());
 }

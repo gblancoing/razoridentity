@@ -1,6 +1,7 @@
 using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Modules.Customers;
+using ComunaClick.Api.Modules.Delivery;
 using ComunaClick.Api.Modules.Orders.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -34,17 +35,20 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
     private readonly IOrderNotificationService _orderNotificationService;
     private readonly IProductInventoryService _inventoryService;
     private readonly IGuestCustomerService _guestCustomers;
+    private readonly IDeliveryPricingService _deliveryPricing;
 
     public OrderCheckoutService(
         CoreDbContext db,
         IOrderNotificationService orderNotificationService,
         IProductInventoryService inventoryService,
-        IGuestCustomerService guestCustomers)
+        IGuestCustomerService guestCustomers,
+        IDeliveryPricingService deliveryPricing)
     {
         _db = db;
         _orderNotificationService = orderNotificationService;
         _inventoryService = inventoryService;
         _guestCustomers = guestCustomers;
+        _deliveryPricing = deliveryPricing;
     }
 
     public async Task<OrderCheckoutResult> CreateOrderAsync(
@@ -93,7 +97,9 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
             request.DeliveryFee,
             request.Currency,
             request.Items.ToList(),
-            DeliveryAddress: request.DeliveryAddress);
+            DeliveryAddress: request.DeliveryAddress,
+            DestinationLat: request.DestinationLat,
+            DestinationLng: request.DestinationLng);
 
         var result = await CreateOrderCoreAsync(request.TenantId, orderRequest, cancellationToken);
         return (customer, result);
@@ -197,9 +203,17 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
         }).ToList();
 
         var subtotal = items.Sum(x => x.TotalPrice);
-        // El costo de despacho se determina en el servidor a partir del proveedor/zona.
-        // Nunca se usa el valor enviado por el cliente (evita forzar despacho $0).
-        var deliveryFee = deliveryProvider?.BaseFee ?? 0m;
+        // El costo de despacho se determina en el servidor (nunca el valor del
+        // cliente). El cálculo vive detrás de IDeliveryPricingService: hoy tarifa
+        // plana/BaseFee; la fórmula por kilómetro llegará en una tarea posterior.
+        var deliveryFee = await _deliveryPricing.GetDeliveryFeeAsync(
+            new DeliveryPricingContext(
+                deliveryProvider,
+                partner.Latitude,
+                partner.Longitude,
+                request.DestinationLat,
+                request.DestinationLng),
+            cancellationToken);
         var totalAmount = subtotal + deliveryFee;
         var currency = request.NormalizeCurrency(products[0].Currency);
         var subtotalMoney = new Money(subtotal, currency);
@@ -243,6 +257,16 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
             DeliveryProviderId = deliveryProvider?.Id,
             DeliveryProviderName = deliveryProvider?.Name,
             DeliveryAddress = string.IsNullOrWhiteSpace(request.DeliveryAddress) ? null : request.DeliveryAddress.Trim(),
+            // Datos del envío para el tracking en vivo: con dirección de entrega la
+            // orden es "delivery" (estado pending hasta asignar repartidor); el
+            // origen es el local del vendedor y el destino el pin del comprador.
+            DeliveryType = string.IsNullOrWhiteSpace(request.DeliveryAddress) ? DeliveryTypes.Pickup : DeliveryTypes.Delivery,
+            DeliveryStatus = string.IsNullOrWhiteSpace(request.DeliveryAddress) ? null : DeliveryStatuses.Pending,
+            OriginLat = partner.Latitude,
+            OriginLng = partner.Longitude,
+            OriginAddress = partner.Address,
+            DestinationLat = request.DestinationLat,
+            DestinationLng = request.DestinationLng,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
             Items = items

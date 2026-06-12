@@ -12,7 +12,10 @@ public sealed record GuestOrderCreateRequest(
     GuestContactRequest Guest,
     decimal DeliveryFee = 0,
     string? Currency = null,
-    string? DeliveryAddress = null);
+    string? DeliveryAddress = null,
+    // Pin de destino fijado por el comprador en el checkout (opcional).
+    double? DestinationLat = null,
+    double? DestinationLng = null);
 
 public sealed record GuestOrderCreateResponse(
     Guid OrderId,

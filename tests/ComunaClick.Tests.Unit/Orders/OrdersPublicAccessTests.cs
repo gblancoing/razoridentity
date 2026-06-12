@@ -88,7 +88,8 @@ public sealed class OrdersPublicAccessTests
             db,
             new RecordingOrderNotificationService(),
             TestDb.CreateInventoryService(db),
-            new GuestCustomerService(db));
+            new GuestCustomerService(db),
+            TestDb.CreateDeliveryPricingService());
 
         return new OrdersController(
             db,

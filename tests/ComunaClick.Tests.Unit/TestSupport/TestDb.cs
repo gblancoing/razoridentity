@@ -27,6 +27,31 @@ internal static class TestDb
             Options.Create(new InventoryOptions()),
             NullLogger<ProductInventoryService>.Instance);
 
+    public static ComunaClick.Api.Modules.Delivery.FlatRateDeliveryPricingService CreateDeliveryPricingService()
+        => new(Options.Create(new DeliveryOptions()));
+
+    public static ComunaClick.Api.Modules.Delivery.DeliveryCourierTokenService CreateCourierTokenService(
+        DeliveryOptions? deliveryOptions = null,
+        TimeProvider? timeProvider = null)
+        => new(
+            Options.Create(new OrderTrackingOptions
+            {
+                TrackingTokenSecret = "unit-test-tracking-secret-0123456789-abcdef",
+                TrackingTokenTtlDays = 30
+            }),
+            Options.Create(deliveryOptions ?? new DeliveryOptions()),
+            timeProvider ?? TimeProvider.System);
+
+    public static ComunaClick.Api.Modules.Delivery.DeliveryService CreateDeliveryService(
+        CoreDbContext db,
+        RecordingDeliveryHubContext hub,
+        DeliveryOptions? deliveryOptions = null)
+        => new(
+            db,
+            hub,
+            CreateCourierTokenService(deliveryOptions),
+            Options.Create(deliveryOptions ?? new DeliveryOptions()));
+
     public static OrderNotificationOptions NotificationOptions(bool enabled = true)
         => new()
         {

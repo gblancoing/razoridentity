@@ -157,6 +157,14 @@ else
                                disabled="@_isSubmitting"
                                autocomplete="street-address" />
                     </div>
+                    @if (RequiresDeliveryAddress)
+                    {
+                        @* Pin de destino para el tracking en vivo del delivery (opcional, no bloquea la compra). *@
+                        <DeliveryDestinationPicker @key="_deliveryMode"
+                                                   @bind-Latitude="_destinationLat"
+                                                   @bind-Longitude="_destinationLng"
+                                                   AddressResolved="OnDestinationAddressResolved" />
+                    }
                 </div>
             }
 
@@ -273,6 +281,9 @@ else
     private string DeliveryAddress = string.Empty;
     private string _deliveryMode = GuestCheckoutDeliveryHelper.ModeHome;
     private string? _deliveryHint;
+    // Pin de destino para el tracking en vivo del delivery (opcional).
+    private double? _destinationLat;
+    private double? _destinationLng;
 
     private bool IsPaymentPendingSuccess =>
         _successOrderId is not null &&
@@ -512,7 +523,9 @@ else
             0,
             "CLP",
             new List<OrderItemCreateRequest> { new(productId, Quantity, UnitPrice) },
-            DeliveryAddress: BuildDeliveryAddress());
+            DeliveryAddress: BuildDeliveryAddress(),
+            DestinationLat: DestinationLatForSubmit,
+            DestinationLng: DestinationLngForSubmit);
 
         var order = await BuyerApi.CreateOrderAsync(request, _tenantId ?? AuthState.TenantId);
         _total = order is null ? "$0" : $"{order.TotalAmount:N0}";
@@ -548,6 +561,24 @@ else
 
     private string? BuildDeliveryAddress()
         => GuestCheckoutDeliveryHelper.FormatDeliveryAddress(_deliveryMode, DeliveryAddress);
+
+    // El pin de destino solo aplica a modos con dirección de entrega.
+    private bool RequiresDeliveryAddress
+        => _deliveryMode is GuestCheckoutDeliveryHelper.ModeHome or GuestCheckoutDeliveryHelper.ModePayOnDelivery;
+
+    private double? DestinationLatForSubmit => RequiresDeliveryAddress ? _destinationLat : null;
+    private double? DestinationLngForSubmit => RequiresDeliveryAddress ? _destinationLng : null;
+
+    private Task OnDestinationAddressResolved(string resolvedAddress)
+    {
+        // Prefill solo si el comprador aún no escribió su dirección a mano.
+        if (string.IsNullOrWhiteSpace(DeliveryAddress))
+        {
+            DeliveryAddress = resolvedAddress;
+        }
+
+        return InvokeAsync(StateHasChanged);
+    }
 
     private async Task SubmitGuestOrderAsync(Guid partnerId, Guid productId, Guid tenantId)
     {
@@ -589,7 +620,9 @@ else
                 GuestPhone.Trim()),
             0,
             "CLP",
-            BuildDeliveryAddress());
+            BuildDeliveryAddress(),
+            DestinationLatForSubmit,
+            DestinationLngForSubmit);
 
         var response = await BuyerApi.CreateGuestOrderAsync(request);
         if (response is null)
@@ -649,7 +682,9 @@ else
                 GuestPhone.Trim()),
             0,
             "CLP",
-            BuildDeliveryAddress());
+            BuildDeliveryAddress(),
+            DestinationLatForSubmit,
+            DestinationLngForSubmit);
 
         var response = await BuyerApi.CreateGuestOrderAsync(request);
         if (response is null)
@@ -700,7 +735,9 @@ else
 
         var order = await BuyerApi.CreateOrderAsync(
             new OrderCreateRequest(partnerId, customerId, 0, "CLP", items,
-                DeliveryAddress: BuildDeliveryAddress()),
+                DeliveryAddress: BuildDeliveryAddress(),
+                DestinationLat: DestinationLatForSubmit,
+                DestinationLng: DestinationLngForSubmit),
             tenantId);
 
         if (order is null)

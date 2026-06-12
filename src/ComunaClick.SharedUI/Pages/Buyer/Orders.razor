@@ -178,6 +178,14 @@
                     @if (!string.IsNullOrWhiteSpace(_order.DeliveryAddress))
                     {
                         <p class="text-sm text-[#595c5d]"><span class="font-bold text-[#2c2f30]">@L.T("buyer.checkout.guest.address"):</span> @_order.DeliveryAddress</p>
+                        @if (!string.IsNullOrWhiteSpace(_order.TrackingToken))
+                        {
+                            <a class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad]"
+                               href="@($"/track/{_order.Id}?token={Uri.EscapeDataString(_order.TrackingToken)}")">
+                                <span class="material-symbols-outlined text-[18px]">local_shipping</span>
+                                @L.T("buyer.track.followOnMap")
+                            </a>
+                        }
                     }
 
                     <div class="space-y-3">
