@@ -36,17 +36,20 @@ public sealed class DeliverySettlementsController : ControllerBase
     private readonly ITenantContext _tenantContext;
     private readonly IDeliveryCourierTokenService _courierTokens;
     private readonly IDeliverySettlementService _settlements;
+    private readonly IDeliverySettlementPaymentService _settlementPayments;
 
     public DeliverySettlementsController(
         CoreDbContext db,
         ITenantContext tenantContext,
         IDeliveryCourierTokenService courierTokens,
-        IDeliverySettlementService settlements)
+        IDeliverySettlementService settlements,
+        IDeliverySettlementPaymentService settlementPayments)
     {
         _db = db;
         _tenantContext = tenantContext;
         _courierTokens = courierTokens;
         _settlements = settlements;
+        _settlementPayments = settlementPayments;
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -81,6 +84,27 @@ public sealed class DeliverySettlementsController : ControllerBase
 
         var items = await query.Take(500).ToListAsync(HttpContext.RequestAborted);
         return Ok(items.Select(ToResponse).ToList());
+    }
+
+    /// <summary>
+    /// Genera el link MercadoPago con el que el comercio paga el envío al
+    /// repartidor tras la entrega (collector = cuenta MP del repartidor).
+    /// </summary>
+    [Authorize(Policy = "partner.staff")]
+    [HttpPost("/v1/partners/{partnerId:guid}/delivery-settlements/{id:guid}/pay")]
+    public async Task<IActionResult> Pay(Guid partnerId, Guid id)
+    {
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db, User, partnerId, _tenantContext.TenantId, _tenantContext.PartnerId, HttpContext.RequestAborted);
+        if (access != PartnerAccessResult.Allowed)
+        {
+            return Forbid();
+        }
+
+        var (link, error) = await _settlementPayments.CreatePaymentLinkAsync(id, partnerId, HttpContext.RequestAborted);
+        return link is null
+            ? BadRequest(new { message = error })
+            : Ok(new { initPoint = link.InitPoint, status = link.Status });
     }
 
     /// <summary>Marca el slip como liquidado (la transferencia al transportista ya se efectuó).</summary>

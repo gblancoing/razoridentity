@@ -75,6 +75,49 @@
             </div>
         }
 
+        @* Liquidación del envío: visible tras la entrega. El cliente pagó UNA
+           vez al negocio; aquí el negocio paga el envío al repartidor vía MP
+           (el neto cae directo en la cuenta MP del repartidor). *@
+        @if (Settlement is not null && Status == "delivered")
+        {
+            <div class="rounded-xl border border-[#dadddf] bg-white p-3 space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@L.T("partner.delivery.settlement.title")</span>
+                    <span class="@SettlementBadgeClass">@SettlementStatusLabel</span>
+                </div>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[#595c5d]">
+                    <dt>@L.T("partner.delivery.settlement.gross")</dt>
+                    <dd class="text-right font-semibold text-[#2c2f30]">@FormatClp(Settlement.GrossAmount)</dd>
+                    <dt>@L.T("partner.delivery.settlement.ccFee")</dt>
+                    <dd class="text-right">−@FormatClp(Settlement.PlatformFeeAmount)</dd>
+                    <dt>@L.T("partner.delivery.settlement.mpFee")</dt>
+                    <dd class="text-right">@(Settlement.Status == "settled" ? "−" : "~−")@FormatClp(Settlement.MercadoPagoFeeAmount ?? 0m)</dd>
+                    <dt class="font-bold text-[#2c2f30]">@L.T("partner.delivery.settlement.net")</dt>
+                    <dd class="text-right font-bold text-[#3b6700]">@FormatClp(Settlement.NetToCourierAmount)</dd>
+                </dl>
+
+                @if (Settlement.Status is "pending" or "manual" or "processing")
+                {
+                    <button type="button"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#009ee3] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+                            disabled="@_payBusy"
+                            @onclick="PaySettlementAsync">
+                        <span class="material-symbols-outlined text-[16px]">payments</span>
+                        @(_payBusy ? L.T("partner.delivery.settlement.paying") : L.T("partner.delivery.settlement.pay"))
+                    </button>
+                }
+                else if (Settlement.Status == "settled")
+                {
+                    <p class="text-xs font-semibold text-[#14532d]">@L.T("partner.delivery.settlement.paid")</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(_payMessage))
+                {
+                    <p class="text-xs font-medium text-red-600">@_payMessage</p>
+                }
+            </div>
+        }
+
         @if (!string.IsNullOrWhiteSpace(_message))
         {
             <p class="text-xs font-medium text-red-600">@_message</p>
@@ -85,6 +128,7 @@
 @code {
     [Parameter] public PartnerApiModels.Order Order { get; set; } = null!;
     [Parameter] public IReadOnlyList<PartnerApiModels.PartnerCourier> Couriers { get; set; } = Array.Empty<PartnerApiModels.PartnerCourier>();
+    [Parameter] public PartnerApiModels.PartnerDeliverySettlement? Settlement { get; set; }
     [Parameter] public EventCallback DeliveryChanged { get; set; }
 
     private Guid? _selectedCourierId;
@@ -92,6 +136,8 @@
     private bool _busy;
     private bool _linkCopied;
     private string? _message;
+    private bool _payBusy;
+    private string? _payMessage;
 
     private bool IsDeliveryOrder =>
         string.Equals(Order.DeliveryType, "delivery", StringComparison.OrdinalIgnoreCase)
@@ -136,6 +182,87 @@
                 _assignment.CourierLink);
             return $"https://wa.me/{phone}?text={Uri.EscapeDataString(message)}";
         }
+    }
+
+    private string SettlementStatusLabel => Settlement?.Status switch
+    {
+        "settled" => L.T("partner.delivery.settlement.status.settled"),
+        "processing" => L.T("partner.delivery.settlement.status.processing"),
+        "manual" => L.T("partner.delivery.settlement.status.manual"),
+        _ => L.T("partner.delivery.settlement.status.pending")
+    };
+
+    private string SettlementBadgeClass => "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold " + Settlement?.Status switch
+    {
+        "settled" => "bg-[#dcfce7] text-[#14532d]",
+        "processing" => "bg-[#fff4d6] text-[#8a5b00]",
+        "manual" => "bg-[#eff1f2] text-[#595c5d]",
+        _ => "bg-[#e0f2fe] text-[#075985]"
+    };
+
+    private static string FormatClp(decimal amount)
+        => amount.ToString("C0", new System.Globalization.CultureInfo("es-CL"));
+
+    private async Task PaySettlementAsync()
+    {
+        if (Settlement is null)
+        {
+            return;
+        }
+
+        _payBusy = true;
+        _payMessage = null;
+        try
+        {
+            var result = await PartnerApi.PayDeliverySettlementAsync(Settlement.PartnerId, Settlement.Id);
+            if (result is null || string.IsNullOrWhiteSpace(result.InitPoint))
+            {
+                _payMessage = L.T("partner.delivery.settlement.payFailed");
+                return;
+            }
+
+            // Abre el checkout de MercadoPago en pestaña nueva; el slip queda
+            // "en proceso" y se liquida solo cuando el pago se apruebe (webhook).
+            await JS.InvokeVoidAsync("open", result.InitPoint, "_blank");
+            await DeliveryChanged.InvokeAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _payMessage = TryExtractApiMessage(ex.Message) ?? L.T("partner.delivery.settlement.payFailed");
+        }
+        finally
+        {
+            _payBusy = false;
+        }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
     }
 
     private void OnCourierSelected(ChangeEventArgs e)

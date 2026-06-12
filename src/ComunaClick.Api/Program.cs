@@ -97,6 +97,7 @@ builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryFeeCalculat
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryPricingService, ComunaClick.Api.Modules.Delivery.DynamicDeliveryPricingService>();
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliverySettlementService, ComunaClick.Api.Modules.Delivery.DeliverySettlementService>();
 builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.ICourierPayeeService, ComunaClick.Api.Modules.Delivery.CourierPayeeService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliverySettlementPaymentService, ComunaClick.Api.Modules.Delivery.DeliverySettlementPaymentService>();
 builder.Services.AddScoped<ComunaClick.Api.Jobs.DeliveryTrackingCleanupJob>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();

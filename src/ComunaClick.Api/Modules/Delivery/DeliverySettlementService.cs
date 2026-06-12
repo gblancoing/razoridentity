@@ -27,6 +27,13 @@ public interface IDeliverySettlementService
 
     /// <summary>Marca el slip como liquidado (transferencia efectuada al transportista).</summary>
     Task<(bool Ok, string? Error)> MarkSettledAsync(Guid settlementId, string? notes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resultado del pago comercio → repartidor (external reference cc-delivery-*):
+    /// aprobado ⇒ slip liquidado con el fee MP REAL de esa transacción;
+    /// rechazado/cancelado ⇒ el slip vuelve a pending para reintentar el link.
+    /// </summary>
+    Task ApplyCourierPaymentOutcomeAsync(Payment payment, decimal? realMpFee, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -163,6 +170,48 @@ public sealed class DeliverySettlementService : IDeliverySettlementService
         settlement.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
         return (true, null);
+    }
+
+    public async Task ApplyCourierPaymentOutcomeAsync(Payment payment, decimal? realMpFee, CancellationToken cancellationToken = default)
+    {
+        var prefix = DeliverySettlementPaymentService.ExternalReferencePrefix;
+        if (!payment.ExternalReference.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            || !Guid.TryParse(payment.ExternalReference[prefix.Length..], out var settlementId))
+        {
+            return;
+        }
+
+        var settlement = await _db.DeliverySettlements
+            .FirstOrDefaultAsync(x => x.Id == settlementId, cancellationToken);
+        if (settlement is null || string.Equals(settlement.Status, "settled", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (string.Equals(payment.Status, "approved", StringComparison.OrdinalIgnoreCase))
+        {
+            if (realMpFee is not null)
+            {
+                settlement.MercadoPagoFeeAmount = FeeCalculator.RoundClp(realMpFee.Value);
+            }
+
+            // El residuo del redondeo lo absorbe el neto: bruto = feeMP + feeCC + neto exacto.
+            settlement.NetToCourierAmount = FeeCalculator.RoundClp(
+                settlement.GrossAmount - settlement.PlatformFeeAmount - (settlement.MercadoPagoFeeAmount ?? 0m));
+            settlement.PaymentId = payment.Id;
+            settlement.Status = "settled";
+            settlement.SettledAt = DateTimeOffset.UtcNow;
+            settlement.Notes = $"Pagado vía MercadoPago ({payment.MercadoPagoPaymentId ?? payment.Id.ToString("N")}).";
+            settlement.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        else if (payment.Status is "rejected" or "cancelled" &&
+                 string.Equals(settlement.Status, "processing", StringComparison.OrdinalIgnoreCase))
+        {
+            settlement.Status = "pending";
+            settlement.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     /// <summary>

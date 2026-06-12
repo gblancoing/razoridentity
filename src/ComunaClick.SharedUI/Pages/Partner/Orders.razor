@@ -116,7 +116,7 @@
                                 </a>
                             </div>
                         }
-                        <PartnerOrderDeliverySection Order="order" Couriers="_couriers" DeliveryChanged="ReloadOrdersAsync" />
+                        <PartnerOrderDeliverySection Order="order" Couriers="_couriers" Settlement="SettlementFor(order.Id)" DeliveryChanged="ReloadOrdersAsync" />
                         @if (CanManage(order))
                         {
                             <div class="mt-5 flex flex-wrap gap-2">
@@ -236,6 +236,12 @@
                 _items.AddRange(orders);
             }
 
+            var settlements = await PartnerApi.GetPartnerDeliverySettlementsAsync(partnerId.Value);
+            if (settlements is not null)
+            {
+                _settlements.AddRange(settlements);
+            }
+
             _statusMessage = _items.Count == 0
                 ? L.T("partner.orders.empty.title")
                 : L.T("partner.orders.loaded");
@@ -284,6 +290,13 @@
         return InvokeAsync(StateHasChanged);
     }
 
+    // Liquidaciones del transporte: el padre las carga UNA vez por recarga y
+    // las pasa a cada sección de envío (evita N requests por pedido).
+    private readonly List<ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement> _settlements = new();
+
+    private ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement? SettlementFor(Guid orderId)
+        => _settlements.FirstOrDefault(x => x.OrderId == orderId);
+
     // Recarga las órdenes para reflejar el estado del envío tras asignar/cancelar.
     private async Task ReloadOrdersAsync()
     {
@@ -299,6 +312,13 @@
             {
                 _items.Clear();
                 _items.AddRange(orders);
+            }
+
+            var settlements = await PartnerApi.GetPartnerDeliverySettlementsAsync(partnerId);
+            _settlements.Clear();
+            if (settlements is not null)
+            {
+                _settlements.AddRange(settlements);
             }
         }
         catch (HttpRequestException)

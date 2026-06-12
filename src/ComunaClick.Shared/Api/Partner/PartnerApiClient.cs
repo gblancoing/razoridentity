@@ -45,6 +45,14 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task CancelDeliveryAsync(Guid orderId, CancellationToken cancellationToken = default)
         => PostNoContentAsync($"/v1/orders/{orderId}/cancel-delivery", new { }, cancellationToken);
 
+    /// <summary>Slips de liquidación del transporte de los pedidos del negocio.</summary>
+    public Task<IReadOnlyList<PartnerDeliverySettlement>?> GetPartnerDeliverySettlementsAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PartnerDeliverySettlement>>($"/v1/partners/{partnerId}/delivery-settlements", cancellationToken);
+
+    /// <summary>Genera el link MercadoPago para pagar el envío al repartidor (tras la entrega).</summary>
+    public Task<DeliverySettlementPayResult?> PayDeliverySettlementAsync(Guid partnerId, Guid settlementId, CancellationToken cancellationToken = default)
+        => PostAsync<DeliverySettlementPayResult>($"/v1/partners/{partnerId}/delivery-settlements/{settlementId}/pay", new { }, cancellationToken);
+
     public Task<Order?> UpdateOrderStatusAsync(Guid orderId, OrderStatusUpdateRequest request, CancellationToken cancellationToken = default)
         => PatchAsync<Order>($"/v1/orders/{orderId}/status", request, cancellationToken);
 
@@ -534,6 +542,24 @@ public sealed record AssignCourierResult(
     string CourierPhone,
     string CourierLink,
     string DeliveryStatus);
+
+public sealed record PartnerDeliverySettlement(
+    Guid Id,
+    Guid OrderId,
+    Guid PartnerId,
+    Guid? CourierId,
+    string? CourierName,
+    decimal GrossAmount,
+    decimal PlatformFeeAmount,
+    decimal? MercadoPagoFeeAmount,
+    decimal NetToCourierAmount,
+    string Currency,
+    string Status,
+    DateTimeOffset? SettledAt,
+    string? Notes,
+    DateTimeOffset CreatedAt);
+
+public sealed record DeliverySettlementPayResult(string InitPoint, string Status);
 
 public sealed record OrderItem(
     Guid Id,

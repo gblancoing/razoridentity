@@ -324,6 +324,17 @@ public sealed class MercadoPagoWebhookService
                 }
             }
         }
+        else if (payment.ExternalReference.StartsWith(
+                     ComunaClick.Api.Modules.Delivery.DeliverySettlementPaymentService.ExternalReferencePrefix,
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            // Pago comercio → repartidor: aprueba ⇒ slip liquidado con el fee
+            // MP real de esta transacción; falla ⇒ slip vuelve a pending.
+            await _deliverySettlementService.ApplyCourierPaymentOutcomeAsync(
+                payment,
+                paymentFee?.MercadoPagoFeeAmount,
+                cancellationToken);
+        }
     }
 
     private static string NormalizeMercadoPagoStatus(string? status)

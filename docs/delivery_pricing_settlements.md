@@ -77,8 +77,35 @@ es igual al porcentaje del comercio, el traspaso del neto al courier deja al
 comercio exactamente con el neto de sus productos (los descuentos se cancelan).
 Si difieren, el delta queda en el comercio — calibrar ambas comisiones juntas.
 
+## Pago del envío al repartidor (comercio → courier vía MercadoPago)
+
+El cliente paga UNA sola vez (al comercio, productos + envío). Tras la entrega,
+el comercio paga el envío al transportista con un **link de Checkout Pro donde
+el collector es el repartidor** (su cuenta MP vinculada):
+
+- Monto que paga el comercio = **bruto del envío** (lo que ya cobró al cliente).
+- Del pago salen `application_fee` = comisión CC del transporte y el fee MP de
+  ESA transacción (lo absorbe el collector, como en cualquier venta MP).
+- El neto cae **directo en la cuenta MP del repartidor**, sin pasos manuales.
+- El webhook (`external_reference` con prefijo `cc-delivery-{settlementId}`)
+  liquida el slip automáticamente: el **fee MP real reemplaza el prorrateo
+  estimado**, recalcula el neto (residuo de redondeo al neto) y marca `settled`.
+  Un pago rechazado/cancelado devuelve el slip a `pending` (se puede reintentar).
+
+Estados del slip: `pending → processing (link creado) → settled`; `manual`
+queda para couriers sin cuenta MP (pago directo/efectivo, liquidable desde el
+endpoint admin de settle).
+
+- Endpoint: `POST /v1/partners/{partnerId}/delivery-settlements/{id}/pay`
+  (partner.staff) → `{ initPoint }`. Idempotente: con un pago pendiente
+  devuelve el mismo link; tras un rechazo reutiliza la misma fila Payment con
+  una preference nueva (mismo external reference).
+- UI: en Pedidos del negocio, tarjeta "Liquidación del envío" (desglose bruto /
+  comisión CC / fee MP / neto) con botón **"Pagar envío al repartidor"** cuando
+  el envío está entregado.
+
 ### Futuro
 
-El traspaso efectivo del dinero al courier (hoy `settled` manual desde admin)
-puede automatizarse con la API de money-transfer de MP cuando se habilite;
-el destino ya queda verificado por el OAuth (cuenta conectada del courier).
+La liquidación manual desde admin se mantiene para los casos `manual` (courier
+sin cuenta MP). Si MP habilita money-transfer API, podría automatizarse también
+ese caso; el destino ya queda verificado por el OAuth del courier.
