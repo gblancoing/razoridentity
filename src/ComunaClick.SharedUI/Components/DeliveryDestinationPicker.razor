@@ -51,13 +51,15 @@
         try
         {
             _selfRef = DotNetObjectReference.Create(this);
+            // Sin coordenadas previas el picker centra en Chile y autodetecta la
+            // ubicación del cliente (pide permiso de GPS) para mejorar la precisión.
             await JS.InvokeVoidAsync(
                 "comunaclic.initProfileAddressPicker",
                 _mapElementId,
                 _selfRef,
-                Latitude ?? 0d,
-                Longitude ?? 0d,
-                false);
+                (object?)Latitude,
+                (object?)Longitude,
+                Latitude is null || Longitude is null);
             _initialized = true;
         }
         catch (JSException)

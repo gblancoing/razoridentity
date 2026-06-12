@@ -149,6 +149,14 @@ else
                             <span class="text-sm">@L.T("buyer.checkout.delivery.payOnDelivery")</span>
                         </label>
                     </div>
+                    @if (_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)
+                    {
+                        @* Transparencia de costos: el despacho a domicilio suma un recargo al total. *@
+                        <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800">
+                            <span class="material-symbols-outlined align-middle text-[16px]">local_shipping</span>
+                            @L.T("buyer.checkout.delivery.feeNotice")
+                        </p>
+                    }
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@DeliveryAddressLabel</label>
                         <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
@@ -159,6 +167,13 @@ else
                     </div>
                     @if (RequiresDeliveryAddress)
                     {
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.delivery.detailsLabel")</label>
+                            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                                   @bind="_addressDetails"
+                                   placeholder="@L.T("buyer.checkout.delivery.detailsPlaceholder")"
+                                   disabled="@_isSubmitting" />
+                        </div>
                         @* Pin de destino para el tracking en vivo del delivery (opcional, no bloquea la compra). *@
                         <DeliveryDestinationPicker @key="_deliveryMode"
                                                    @bind-Latitude="_destinationLat"
@@ -284,6 +299,8 @@ else
     // Pin de destino para el tracking en vivo del delivery (opcional).
     private double? _destinationLat;
     private double? _destinationLng;
+    // Referencia adicional de la entrega (depto, torre, indicaciones).
+    private string _addressDetails = string.Empty;
 
     private bool IsPaymentPendingSuccess =>
         _successOrderId is not null &&
@@ -347,6 +364,24 @@ else
             {
                 if (string.IsNullOrEmpty(GuestFullName)) GuestFullName = AuthState.DisplayName ?? string.Empty;
                 if (string.IsNullOrEmpty(GuestEmail)) GuestEmail = AuthState.Email ?? string.Empty;
+            }
+
+            // Compradores registrados: prefill del pin de entrega con la ubicación
+            // guardada en su perfil (pueden ajustarla igual en el mapa).
+            if (_isPersonal && (_tenantId ?? AuthState.TenantId) is { } profileTenantId && profileTenantId != Guid.Empty)
+            {
+                try
+                {
+                    var profile = await BuyerApi.GetBuyerCustomerAsync(profileTenantId);
+                    if (profile?.Latitude is not null && profile.Longitude is not null)
+                    {
+                        _destinationLat ??= profile.Latitude;
+                        _destinationLng ??= profile.Longitude;
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                }
             }
 
             await LoadCheckoutAsync();
@@ -560,7 +595,17 @@ else
     }
 
     private string? BuildDeliveryAddress()
-        => GuestCheckoutDeliveryHelper.FormatDeliveryAddress(_deliveryMode, DeliveryAddress);
+    {
+        // La referencia adicional (depto, torre, indicaciones) se anexa a la
+        // dirección para que vendedor y repartidor la vean junto al destino.
+        var address = DeliveryAddress;
+        if (!string.IsNullOrWhiteSpace(address) && !string.IsNullOrWhiteSpace(_addressDetails))
+        {
+            address = $"{address.Trim()} — {_addressDetails.Trim()}";
+        }
+
+        return GuestCheckoutDeliveryHelper.FormatDeliveryAddress(_deliveryMode, address);
+    }
 
     // El pin de destino solo aplica a modos con dirección de entrega.
     private bool RequiresDeliveryAddress

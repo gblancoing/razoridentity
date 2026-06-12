@@ -1500,6 +1500,9 @@ public sealed class LocaleService
             ["buyer.track.desc.inTransit"] = "¡Tu pedido va en camino! Seguí al repartidor en el mapa.",
             ["buyer.track.desc.delivered"] = "Tu pedido fue entregado. ¡Gracias por comprar local!",
 
+            ["buyer.checkout.delivery.feeNotice"] = "El envío a domicilio incluye un recargo por transporte que se suma al total del pedido.",
+            ["buyer.checkout.delivery.detailsLabel"] = "Depto / casa / referencia (opcional)",
+            ["buyer.checkout.delivery.detailsPlaceholder"] = "Ej: Edificio Mirador, depto 502, torre B — dejar en conserjería",
             ["buyer.checkout.destination.title"] = "Ubicación exacta de entrega",
             ["buyer.checkout.destination.help"] = "Fijá el pin en tu casa para que el repartidor llegue sin perderse y puedas seguirlo en el mapa.",
             ["buyer.checkout.destination.useMyLocation"] = "Usar mi ubicación actual",
@@ -3447,6 +3450,9 @@ public sealed class LocaleService
             ["buyer.track.desc.inTransit"] = "Your order is on the way! Follow the courier on the map.",
             ["buyer.track.desc.delivered"] = "Your order was delivered. Thanks for buying local!",
 
+            ["buyer.checkout.delivery.feeNotice"] = "Home delivery includes a transport surcharge added to the order total.",
+            ["buyer.checkout.delivery.detailsLabel"] = "Apt / house / reference (optional)",
+            ["buyer.checkout.delivery.detailsPlaceholder"] = "E.g.: Mirador building, apt 502, tower B — leave at concierge",
             ["buyer.checkout.destination.title"] = "Exact delivery location",
             ["buyer.checkout.destination.help"] = "Pin your home so the courier arrives without getting lost and you can follow them on the map.",
             ["buyer.checkout.destination.useMyLocation"] = "Use my current location",
