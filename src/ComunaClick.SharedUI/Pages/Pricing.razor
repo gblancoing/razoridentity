@@ -1,62 +1,97 @@
 @page "/precios"
 @inject ComunaClick.SharedUI.Services.LocaleService L
+@inject IJSRuntime JS
 @implements IDisposable
 
+@*
+    Landing de precios orientada a conversión: el gancho dominante es
+    "Si no vendes, no pagas". Mobile-first, paleta verde de marca y CTAs
+    repetidos (hero, tarjetas y cierre).
+*@
 <PageTitle>@L.T("pricing.pageTitle")</PageTitle>
 
 <main class="max-w-6xl mx-auto px-4 sm:px-6 py-10 lg:py-14">
 
-    <!-- Hero -->
-    <div class="text-center max-w-2xl mx-auto mb-10">
-        <p class="text-xs font-bold uppercase tracking-widest text-primary-dim mb-2">@L.T("pricing.hero.eyebrow")</p>
-        <h1 class="text-3xl sm:text-4xl font-black font-headline tracking-tight text-[#111816] dark:text-white mb-3">@L.T("pricing.hero.title")</h1>
-        <p class="text-[#61897c] text-sm sm:text-base">@L.T("pricing.hero.subtitle")</p>
-    </div>
+    <!-- ============ HERO ============ -->
+    <section class="text-center max-w-3xl mx-auto mb-12">
+        <p class="text-xs font-bold uppercase tracking-widest text-primary-dim mb-3">@L.T("pricing.hero.eyebrow")</p>
+        <h1 class="text-4xl sm:text-5xl font-black font-headline tracking-tight text-[#111816] dark:text-white mb-4 leading-[1.05]">
+            @L.T("pricing.hero.title1")
+            <span class="block text-primary">@L.T("pricing.hero.title2")</span>
+        </h1>
+        <p class="text-[#61897c] text-base sm:text-lg max-w-2xl mx-auto mb-6">@L.T("pricing.hero.subtitle")</p>
 
-    <!-- Plan cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <button type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-full bg-primary text-white font-bold px-8 py-4 text-base shadow-lg shadow-primary/25 hover:brightness-110 hover:scale-[1.02] transition-all"
+                @onclick="ScrollToPlansAsync">
+            @L.T("pricing.hero.cta")
+            <span class="material-symbols-outlined text-[20px]">arrow_downward</span>
+        </button>
 
-        <!-- Comercio -->
-        <div class="flex flex-col rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-6 shadow-sm">
-            <div class="relative h-28 rounded-2xl overflow-hidden mb-4 bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center" aria-hidden="true">
+        <!-- Sello visual del gancho -->
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold px-4 py-2">
+                <span class="material-symbols-outlined text-[18px]">redeem</span>@L.T("pricing.hero.seal1")
+            </span>
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-[#fdf3d7] text-[#7a5b00] text-sm font-bold px-4 py-2">
+                <span class="material-symbols-outlined text-[18px]">savings</span>@L.T("pricing.hero.seal2")
+            </span>
+        </div>
+    </section>
+
+    <!-- ============ PLANES ============ -->
+    <section id="planes" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14 scroll-mt-24">
+
+        <!-- Comercio (destacado: "Más elegido") -->
+        <div class="relative flex flex-col rounded-3xl border-2 border-primary bg-white dark:bg-[#10221c] p-6 shadow-lg shadow-primary/10 md:-mt-2 hover:shadow-xl transition-shadow">
+            <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-primary text-white text-xs font-black uppercase tracking-wide px-4 py-1.5 shadow-md">
+                <span class="material-symbols-outlined text-[14px]">star</span>@L.T("pricing.commerce.popular")
+            </span>
+            <div class="relative h-28 rounded-2xl overflow-hidden mb-4 mt-2 bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center" aria-hidden="true">
                 <span class="material-symbols-outlined absolute top-3 right-4 text-3xl text-orange-300">shopping_bag</span>
                 <span class="material-symbols-outlined text-6xl text-orange-500">storefront</span>
             </div>
-            <div class="flex items-center gap-2 mb-3">
+            <div class="flex items-center gap-2 mb-2">
                 <span class="material-symbols-outlined text-primary text-[22px]">storefront</span>
                 <span class="text-[11px] font-bold uppercase tracking-widest text-[#61897c]">@L.T("pricing.commerce.badge")</span>
             </div>
             <h2 class="text-xl font-black font-headline text-[#111816] dark:text-white mb-1">@L.T("pricing.commerce.title")</h2>
             <p class="text-sm text-[#61897c] mb-4">@L.T("pricing.commerce.desc")</p>
 
-            <span class="inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-container text-on-primary-container text-xs font-bold px-3 py-1 mb-4">
-                <span class="material-symbols-outlined text-[16px]">redeem</span>@L.T("pricing.commerce.trial")
-            </span>
+            <div class="flex flex-wrap gap-1.5 mb-4">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-container text-on-primary-container text-xs font-bold px-3 py-1">
+                    <span class="material-symbols-outlined text-[16px]">redeem</span>@L.T("pricing.commerce.trial")
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-[#fdf3d7] text-[#7a5b00] text-xs font-bold px-3 py-1">
+                    <span class="material-symbols-outlined text-[16px]">verified</span>@L.T("pricing.commerce.graceBadge")
+                </span>
+            </div>
 
             <p class="text-xs text-[#61897c]">@L.T("pricing.commerce.priceLabel")</p>
-            <p class="text-2xl font-black font-headline text-[#111816] dark:text-white mb-4">@L.T("pricing.commerce.price")</p>
+            <p class="text-3xl font-black font-headline text-[#111816] dark:text-white">@L.T("pricing.commerce.price")</p>
+            <p class="text-xs font-bold text-primary mb-4">@L.T("pricing.commerce.priceNote")</p>
 
             <div class="rounded-2xl bg-[#f6f1e8] dark:bg-black/20 p-4 mb-5">
-                <p class="text-xs font-bold text-[#111816] dark:text-white mb-2">@L.T("pricing.commerce.feesTitle")</p>
-                <ul class="space-y-1.5 text-xs text-[#61897c]">
-                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">credit_card</span>@L.T("pricing.commerce.fee1")</li>
-                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">storefront</span>@L.T("pricing.commerce.fee2")</li>
+                <ul class="space-y-2 text-xs text-[#61897c]">
+                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">event_busy</span>@L.T("pricing.commerce.grace")</li>
+                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">storefront</span>@L.T("pricing.commerce.fee1")</li>
+                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">credit_card</span>@L.T("pricing.commerce.fee2")</li>
                 </ul>
             </div>
 
-            <a href="/register?role=commerce" class="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-full bg-primary text-white font-bold px-4 py-3 text-sm shadow-sm hover:brightness-110 transition-all">
+            <a href="/register?role=commerce" class="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-full bg-primary text-white font-bold px-4 py-3.5 text-sm shadow-sm hover:brightness-110 transition-all">
                 @L.T("pricing.commerce.cta")
                 <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
             </a>
         </div>
 
         <!-- Servicio -->
-        <div class="flex flex-col rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-6 shadow-sm">
+        <div class="flex flex-col rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-6 shadow-sm hover:shadow-md hover:border-primary/40 transition-all">
             <div class="relative h-28 rounded-2xl overflow-hidden mb-4 bg-gradient-to-br from-sky-50 to-blue-100 flex items-center justify-center" aria-hidden="true">
                 <span class="material-symbols-outlined absolute top-3 right-4 text-3xl text-blue-300">event_available</span>
                 <span class="material-symbols-outlined text-6xl text-blue-500">design_services</span>
             </div>
-            <div class="flex items-center gap-2 mb-3">
+            <div class="flex items-center gap-2 mb-2">
                 <span class="material-symbols-outlined text-primary text-[22px]">event_available</span>
                 <span class="text-[11px] font-bold uppercase tracking-widest text-[#61897c]">@L.T("pricing.service.badge")</span>
             </div>
@@ -68,29 +103,28 @@
             </span>
 
             <p class="text-xs text-[#61897c]">@L.T("pricing.service.priceLabel")</p>
-            <p class="text-2xl font-black font-headline text-[#111816] dark:text-white mb-4">@L.T("pricing.service.price")</p>
+            <p class="text-3xl font-black font-headline text-[#111816] dark:text-white mb-4">@L.T("pricing.service.price")</p>
 
             <div class="rounded-2xl bg-[#f6f1e8] dark:bg-black/20 p-4 mb-5">
-                <p class="text-xs font-bold text-[#111816] dark:text-white mb-2">@L.T("pricing.service.feesTitle")</p>
-                <ul class="space-y-1.5 text-xs text-[#61897c]">
-                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">credit_card</span>@L.T("pricing.service.fee1")</li>
-                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">storefront</span>@L.T("pricing.service.fee2")</li>
+                <ul class="space-y-2 text-xs text-[#61897c]">
+                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">storefront</span>@L.T("pricing.service.fee1")</li>
+                    <li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-primary">credit_card</span>@L.T("pricing.service.fee2")</li>
                 </ul>
             </div>
 
-            <a href="/register?role=commerce" class="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-full bg-primary text-white font-bold px-4 py-3 text-sm shadow-sm hover:brightness-110 transition-all">
+            <a href="/register?role=commerce" class="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-full border-2 border-primary text-primary font-bold px-4 py-3 text-sm hover:bg-primary hover:text-white transition-all">
                 @L.T("pricing.service.cta")
                 <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
             </a>
         </div>
 
         <!-- Profesional -->
-        <div class="flex flex-col rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-6 shadow-sm">
+        <div class="flex flex-col rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-6 shadow-sm hover:shadow-md hover:border-primary/40 transition-all">
             <div class="relative h-28 rounded-2xl overflow-hidden mb-4 bg-gradient-to-br from-violet-50 to-purple-100 flex items-center justify-center" aria-hidden="true">
                 <span class="material-symbols-outlined absolute top-3 right-4 text-3xl text-violet-300">work</span>
                 <span class="material-symbols-outlined text-6xl text-violet-500">badge</span>
             </div>
-            <div class="flex items-center gap-2 mb-3">
+            <div class="flex items-center gap-2 mb-2">
                 <span class="material-symbols-outlined text-primary text-[22px]">badge</span>
                 <span class="text-[11px] font-bold uppercase tracking-widest text-[#61897c]">@L.T("pricing.professional.badge")</span>
             </div>
@@ -102,7 +136,7 @@
             </span>
 
             <p class="text-xs text-[#61897c]">@L.T("pricing.professional.priceLabel")</p>
-            <p class="text-2xl font-black font-headline text-[#111816] dark:text-white mb-4">@L.T("pricing.professional.price")</p>
+            <p class="text-3xl font-black font-headline text-[#111816] dark:text-white mb-4">@L.T("pricing.professional.price")</p>
 
             <div class="rounded-2xl bg-[#f6f1e8] dark:bg-black/20 p-4 mb-5">
                 <p class="text-xs font-bold text-[#111816] dark:text-white mb-2">@L.T("pricing.professional.noteTitle")</p>
@@ -111,37 +145,163 @@
                 </p>
             </div>
 
-            <a href="/register?role=professional" class="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-full bg-primary text-white font-bold px-4 py-3 text-sm shadow-sm hover:brightness-110 transition-all">
+            <a href="/register?role=professional" class="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-full border-2 border-primary text-primary font-bold px-4 py-3 text-sm hover:bg-primary hover:text-white transition-all">
                 @L.T("pricing.professional.cta")
                 <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
             </a>
         </div>
-    </div>
+    </section>
 
-    <!-- Shared benefits -->
-    <div class="rounded-3xl bg-gradient-to-br from-primary to-primary-dim text-white p-8 sm:p-10 mb-8">
-        <h2 class="text-2xl sm:text-3xl font-black font-headline tracking-tight mb-2">@L.T("pricing.benefits.title")</h2>
-        <p class="text-emerald-50 text-sm sm:text-base mb-6 max-w-xl">@L.T("pricing.benefits.subtitle")</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div>
-                <span class="material-symbols-outlined text-emerald-200 text-3xl mb-2 block">event_available</span>
-                <p class="font-bold mb-1">@L.T("pricing.benefits.item1.title")</p>
-                <p class="text-xs text-emerald-50">@L.T("pricing.benefits.item1.desc")</p>
+    <!-- ============ SECCIÓN ESTRELLA: SI NO VENDES, NO PAGAS ============ -->
+    <section class="rounded-3xl bg-gradient-to-br from-primary to-primary-dim text-white p-8 sm:p-12 mb-14">
+        <div class="text-center max-w-2xl mx-auto mb-8">
+            <h2 class="text-3xl sm:text-4xl font-black font-headline tracking-tight mb-3">@L.T("pricing.grace.title")</h2>
+            <p class="text-emerald-50 text-sm sm:text-base">@L.T("pricing.grace.subtitle")</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="rounded-2xl bg-white/10 p-5">
+                <span class="material-symbols-outlined text-emerald-200 text-4xl mb-2 block">rocket_launch</span>
+                <p class="font-bold mb-1">@L.T("pricing.grace.item1.title")</p>
+                <p class="text-xs text-emerald-50">@L.T("pricing.grace.item1.desc")</p>
             </div>
-            <div>
-                <span class="material-symbols-outlined text-emerald-200 text-3xl mb-2 block">inventory_2</span>
-                <p class="font-bold mb-1">@L.T("pricing.benefits.item2.title")</p>
-                <p class="text-xs text-emerald-50">@L.T("pricing.benefits.item2.desc")</p>
+            <div class="rounded-2xl bg-white/10 p-5">
+                <span class="material-symbols-outlined text-emerald-200 text-4xl mb-2 block">paid</span>
+                <p class="font-bold mb-1">@L.T("pricing.grace.item2.title")</p>
+                <p class="text-xs text-emerald-50">@L.T("pricing.grace.item2.desc")</p>
             </div>
-            <div>
-                <span class="material-symbols-outlined text-emerald-200 text-3xl mb-2 block">forum</span>
-                <p class="font-bold mb-1">@L.T("pricing.benefits.item3.title")</p>
-                <p class="text-xs text-emerald-50">@L.T("pricing.benefits.item3.desc")</p>
+            <div class="rounded-2xl bg-white/10 p-5">
+                <span class="material-symbols-outlined text-emerald-200 text-4xl mb-2 block">beach_access</span>
+                <p class="font-bold mb-1">@L.T("pricing.grace.item3.title")</p>
+                <p class="text-xs text-emerald-50">@L.T("pricing.grace.item3.desc")</p>
+            </div>
+            <div class="rounded-2xl bg-white/10 p-5">
+                <span class="material-symbols-outlined text-emerald-200 text-4xl mb-2 block">trending_down</span>
+                <p class="font-bold mb-1">@L.T("pricing.grace.item4.title")</p>
+                <p class="text-xs text-emerald-50">@L.T("pricing.grace.item4.desc")</p>
             </div>
         </div>
-    </div>
+        <p class="text-center text-lg sm:text-xl font-black font-headline">@L.T("pricing.grace.closing")</p>
+    </section>
 
-    <!-- Footnote + help -->
+    <!-- ============ COMPARACIÓN VS APPS TRADICIONALES ============ -->
+    <section class="mb-14">
+        <div class="text-center max-w-2xl mx-auto mb-8">
+            <h2 class="text-2xl sm:text-3xl font-black font-headline tracking-tight text-[#111816] dark:text-white mb-2">@L.T("pricing.compare.title")</h2>
+            <p class="text-[#61897c] text-sm sm:text-base">@L.T("pricing.compare.subtitle")</p>
+        </div>
+
+        <div class="overflow-x-auto rounded-3xl border border-gray-200 dark:border-white/10 mb-6">
+            <table class="w-full min-w-[480px] text-sm bg-white dark:bg-[#10221c]">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-white/10">
+                        <th class="px-4 py-4 text-left text-xs font-bold uppercase tracking-wide text-[#61897c]"></th>
+                        <th class="px-4 py-4 text-left">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-primary text-white text-xs font-black px-3 py-1.5">
+                                <span class="material-symbols-outlined text-[14px]">location_on</span>ComunaClic
+                            </span>
+                        </th>
+                        <th class="px-4 py-4 text-left text-xs font-bold text-[#61897c]">@L.T("pricing.compare.others")</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-white/5 text-[#374845] dark:text-gray-200">
+                    <tr>
+                        <td class="px-4 py-3.5 text-xs font-bold text-[#61897c]">@L.T("pricing.compare.row1.label")</td>
+                        <td class="px-4 py-3.5 font-bold text-primary">@L.T("pricing.compare.row1.us")</td>
+                        <td class="px-4 py-3.5 text-[#9c4a4a] font-semibold">@L.T("pricing.compare.row1.them")</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3.5 text-xs font-bold text-[#61897c]">@L.T("pricing.compare.row2.label")</td>
+                        <td class="px-4 py-3.5 font-bold text-primary">@L.T("pricing.compare.row2.us")</td>
+                        <td class="px-4 py-3.5 text-[#61897c]">@L.T("pricing.compare.row2.them")</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3.5 text-xs font-bold text-[#61897c]">@L.T("pricing.compare.row3.label")</td>
+                        <td class="px-4 py-3.5">@L.T("pricing.compare.row3.us")</td>
+                        <td class="px-4 py-3.5 text-[#61897c]">@L.T("pricing.compare.row3.them")</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3.5 text-xs font-bold text-[#61897c]">@L.T("pricing.compare.row4.label")</td>
+                        <td class="px-4 py-3.5">@L.T("pricing.compare.row4.us")</td>
+                        <td class="px-4 py-3.5 text-[#61897c]">@L.T("pricing.compare.row4.them")</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3.5 text-xs font-bold text-[#61897c]">@L.T("pricing.compare.row5.label")</td>
+                        <td class="px-4 py-3.5 font-bold text-primary">@L.T("pricing.compare.row5.us")</td>
+                        <td class="px-4 py-3.5 text-[#61897c]">@L.T("pricing.compare.row5.them")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Dato impactante -->
+        <div class="rounded-3xl bg-[#f6f1e8] dark:bg-black/20 p-6 sm:p-8 text-center">
+            <p class="text-xs font-bold uppercase tracking-widest text-[#7a5b00] mb-2">@L.T("pricing.compare.fact.eyebrow")</p>
+            <p class="text-lg sm:text-2xl font-black font-headline text-[#111816] dark:text-white leading-snug max-w-3xl mx-auto">
+                @L.T("pricing.compare.fact.part1")
+                <span class="text-[#9c4a4a]">@L.T("pricing.compare.fact.them")</span>@L.T("pricing.compare.fact.part2")
+                <span class="text-primary">@L.T("pricing.compare.fact.us")</span>
+            </p>
+        </div>
+    </section>
+
+    <!-- ============ BENEFICIOS ============ -->
+    <section class="mb-14">
+        <h2 class="text-2xl sm:text-3xl font-black font-headline tracking-tight text-center text-[#111816] dark:text-white mb-8">@L.T("pricing.perks.title")</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-5 hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-primary text-3xl shrink-0">location_on</span>
+                <p class="text-sm font-semibold text-[#374845] dark:text-gray-200">@L.T("pricing.perks.item1")</p>
+            </div>
+            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-5 hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-primary text-3xl shrink-0">lock</span>
+                <p class="text-sm font-semibold text-[#374845] dark:text-gray-200">@L.T("pricing.perks.item2")</p>
+            </div>
+            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-5 hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-primary text-3xl shrink-0">two_wheeler</span>
+                <p class="text-sm font-semibold text-[#374845] dark:text-gray-200">@L.T("pricing.perks.item3")</p>
+            </div>
+            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-5 hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-primary text-3xl shrink-0">bolt</span>
+                <p class="text-sm font-semibold text-[#374845] dark:text-gray-200">@L.T("pricing.perks.item4")</p>
+            </div>
+            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-5 hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-primary text-3xl shrink-0">campaign</span>
+                <p class="text-sm font-semibold text-[#374845] dark:text-gray-200">@L.T("pricing.perks.item5")</p>
+            </div>
+            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#10221c] p-5 hover:border-primary/40 transition-colors">
+                <span class="material-symbols-outlined text-primary text-3xl shrink-0">support_agent</span>
+                <p class="text-sm font-semibold text-[#374845] dark:text-gray-200">@L.T("pricing.perks.item6")</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ PUBLICIDAD OPCIONAL (upsell suave) ============ -->
+    <section class="rounded-3xl border border-[#e8dfc8] bg-[#fdf9ef] dark:bg-black/20 dark:border-white/10 p-6 sm:p-8 mb-14">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+            <span class="material-symbols-outlined text-[#b08900] text-5xl shrink-0">campaign</span>
+            <div class="flex-1">
+                <h2 class="text-xl sm:text-2xl font-black font-headline text-[#111816] dark:text-white mb-1">@L.T("pricing.ads.title")</h2>
+                <p class="text-sm text-[#61897c] mb-1">@L.T("pricing.ads.desc")</p>
+                <p class="text-xs text-[#7a8c84]">@L.T("pricing.ads.optional")</p>
+            </div>
+            <a href="/help" class="inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#b08900] text-[#7a5b00] font-bold px-5 py-3 text-sm hover:bg-[#b08900] hover:text-white transition-all shrink-0">
+                @L.T("pricing.ads.cta")
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- ============ CIERRE / CTA FINAL ============ -->
+    <section class="rounded-3xl bg-gradient-to-br from-primary to-primary-dim text-white p-8 sm:p-12 text-center mb-8">
+        <h2 class="text-2xl sm:text-4xl font-black font-headline tracking-tight mb-4 max-w-2xl mx-auto">@L.T("pricing.final.title")</h2>
+        <a href="/register" class="inline-flex items-center justify-center gap-2 rounded-full bg-white text-primary font-black px-8 py-4 text-base shadow-lg hover:scale-[1.03] transition-transform mb-4">
+            @L.T("pricing.final.cta")
+            <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+        </a>
+        <p class="text-sm text-emerald-50">@L.T("pricing.final.trust")</p>
+    </section>
+
+    <!-- Nota legal + ayuda -->
     <div class="text-center">
         <p class="text-xs text-[#7a8c84] max-w-2xl mx-auto mb-4">@L.T("pricing.note")</p>
         <a href="/help" class="text-sm font-bold text-primary hover:text-primary-dim transition-colors">@L.T("pricing.cta.help")</a>
@@ -155,6 +315,17 @@
     }
 
     private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    private async Task ScrollToPlansAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.scrollToElement", "planes");
+        }
+        catch (JSException)
+        {
+        }
+    }
 
     public void Dispose()
     {
