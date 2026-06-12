@@ -611,8 +611,14 @@ else
     private bool RequiresDeliveryAddress
         => _deliveryMode is GuestCheckoutDeliveryHelper.ModeHome or GuestCheckoutDeliveryHelper.ModePayOnDelivery;
 
-    private double? DestinationLatForSubmit => RequiresDeliveryAddress ? _destinationLat : null;
-    private double? DestinationLngForSubmit => RequiresDeliveryAddress ? _destinationLng : null;
+    // Solo se envía el pin si las coordenadas son plausibles (dentro de Chile):
+    // un pin en 0,0 u otro punto basura rompería el mapa de seguimiento.
+    private bool HasPlausibleDestination
+        => _destinationLat.HasValue && _destinationLng.HasValue
+        && GeoLocationValidator.IsWithinChile(_destinationLat.Value, _destinationLng.Value);
+
+    private double? DestinationLatForSubmit => RequiresDeliveryAddress && HasPlausibleDestination ? _destinationLat : null;
+    private double? DestinationLngForSubmit => RequiresDeliveryAddress && HasPlausibleDestination ? _destinationLng : null;
 
     private Task OnDestinationAddressResolved(string resolvedAddress)
     {

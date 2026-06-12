@@ -237,6 +237,7 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
         }
 
         var orderId = Guid.NewGuid();
+        var hasPlausibleDestination = IsPlausibleChileCoordinate(request.DestinationLat, request.DestinationLng);
         var order = new Order
         {
             Id = orderId,
@@ -265,8 +266,8 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
             OriginLat = partner.Latitude,
             OriginLng = partner.Longitude,
             OriginAddress = partner.Address,
-            DestinationLat = request.DestinationLat,
-            DestinationLng = request.DestinationLng,
+            DestinationLat = hasPlausibleDestination ? request.DestinationLat : null,
+            DestinationLng = hasPlausibleDestination ? request.DestinationLng : null,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
             Items = items
@@ -287,6 +288,13 @@ public sealed class OrderCheckoutService : IOrderCheckoutService
 
         return new OrderCheckoutResult(true, order, null);
     }
+
+    /// <summary>
+    /// ComunaClic opera en Chile: un pin fuera del territorio (ej. 0,0 por un GPS
+    /// fallido) se descarta para no romper el mapa de seguimiento del envío.
+    /// </summary>
+    private static bool IsPlausibleChileCoordinate(double? lat, double? lng)
+        => lat is >= -56.5 and <= -17.0 && lng is >= -110.0 and <= -66.0;
 
     private static OrderCheckoutResult Fail(string message, int? status = null)
         => new(false, null, message, status);

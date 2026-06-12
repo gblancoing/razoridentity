@@ -24,6 +24,12 @@ window.comunaclic.deliveryTracking = (function () {
     });
   }
 
+  function isPlausible(lat, lng) {
+    // ComunaClic opera en Chile: coordenadas fuera del territorio (ej. 0,0 de
+    // un GPS fallido) se descartan para no dibujar marcadores en el océano.
+    return lat != null && lng != null && lat >= -56.5 && lat <= -17 && lng >= -110 && lng <= -66;
+  }
+
   function fitMap() {
     if (!state || !state.map) return;
     var points = [];
@@ -42,7 +48,7 @@ window.comunaclic.deliveryTracking = (function () {
   }
 
   function moveCourier(lat, lng) {
-    if (!state || !state.map) return;
+    if (!state || !state.map || !isPlausible(lat, lng)) return;
     var pos = [lat, lng];
     if (!state.courierMarker) {
       state.courierMarker = L.marker(pos, { icon: createIcon("🛵", "#3b6700"), zIndexOffset: 1000 })
@@ -127,12 +133,12 @@ window.comunaclic.deliveryTracking = (function () {
         courierMarker: null,
       };
 
-      if (opts.origin && opts.origin.lat != null) {
+      if (opts.origin && isPlausible(opts.origin.lat, opts.origin.lng)) {
         state.originMarker = L.marker([opts.origin.lat, opts.origin.lng], { icon: createIcon("🏪", "#2c2f30") })
           .addTo(map)
           .bindPopup(state.labels.origin || "Origen");
       }
-      if (opts.destination && opts.destination.lat != null) {
+      if (opts.destination && isPlausible(opts.destination.lat, opts.destination.lng)) {
         state.destinationMarker = L.marker([opts.destination.lat, opts.destination.lng], { icon: createIcon("🏠", "#b45309") })
           .addTo(map)
           .bindPopup(state.labels.destination || "Destino");

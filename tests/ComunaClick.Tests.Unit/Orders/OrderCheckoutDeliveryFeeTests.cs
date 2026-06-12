@@ -72,6 +72,64 @@ public sealed class OrderCheckoutDeliveryFeeTests
         Assert.Equal(2500m, result.Order.TotalAmount);
     }
 
+    // El pin de destino fuera de Chile (ej. 0,0 de un GPS fallido) no se persiste:
+    // un destino basura dibujaría el marcador del tracking en medio del océano.
+    [Theory]
+    [InlineData(0d, 0d)]
+    [InlineData(-33.45, 0d)]
+    [InlineData(48.85, 2.35)]
+    public async Task CreateOrder_DiscardsImplausibleDestinationCoords(double lat, double lng)
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, customer, product) = TestDb.SeedCatalog(db, stock: 5, price: 1000m);
+
+        var service = CreateService(db);
+
+        var result = await service.CreateOrderAsync(
+            tenantId,
+            customer.Id,
+            new OrderCreateRequest(
+                partner.Id,
+                customer.Id,
+                DeliveryFee: 0m,
+                Currency: "CLP",
+                Items: [new OrderItemCreateRequest(product.Id, 1, product.Price)],
+                DeliveryAddress: "Calle Falsa 123, Santiago",
+                DestinationLat: lat,
+                DestinationLng: lng));
+
+        Assert.True(result.Success);
+        Assert.Null(result.Order!.DestinationLat);
+        Assert.Null(result.Order.DestinationLng);
+    }
+
+    // Un pin válido dentro de Chile sí se guarda tal cual.
+    [Fact]
+    public async Task CreateOrder_KeepsPlausibleDestinationCoords()
+    {
+        await using var db = TestDb.Create();
+        var (tenantId, partner, customer, product) = TestDb.SeedCatalog(db, stock: 5, price: 1000m);
+
+        var service = CreateService(db);
+
+        var result = await service.CreateOrderAsync(
+            tenantId,
+            customer.Id,
+            new OrderCreateRequest(
+                partner.Id,
+                customer.Id,
+                DeliveryFee: 0m,
+                Currency: "CLP",
+                Items: [new OrderItemCreateRequest(product.Id, 1, product.Price)],
+                DeliveryAddress: "Calle Falsa 123, Santiago",
+                DestinationLat: -33.46,
+                DestinationLng: -70.65));
+
+        Assert.True(result.Success);
+        Assert.Equal(-33.46, result.Order!.DestinationLat);
+        Assert.Equal(-70.65, result.Order.DestinationLng);
+    }
+
     private static OrderCheckoutService CreateService(ComunaClick.Api.Persistence.CoreDbContext db)
         => new(
             db,

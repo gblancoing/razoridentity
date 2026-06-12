@@ -159,8 +159,10 @@
                 snapshotUrl = $"{apiBase}/v1/public/delivery/{OrderId}?token={Uri.EscapeDataString(_token)}",
                 orderId = OrderId,
                 token = _token,
-                origin = new { lat = _snapshot.OriginLat, lng = _snapshot.OriginLng },
-                destination = new { lat = _snapshot.DestinationLat, lng = _snapshot.DestinationLng },
+                // Coordenadas implausibles (ej. 0,0 fuera de Chile en órdenes
+                // antiguas) se omiten para no dibujar marcadores en el océano.
+                origin = SanitizeCoords(_snapshot.OriginLat, _snapshot.OriginLng),
+                destination = SanitizeCoords(_snapshot.DestinationLat, _snapshot.DestinationLng),
                 courier = new { lat = _snapshot.LastLat, lng = _snapshot.LastLng },
                 status = _status,
                 labels = new
@@ -179,6 +181,11 @@
         {
         }
     }
+
+    private static object SanitizeCoords(double? lat, double? lng)
+        => lat.HasValue && lng.HasValue && ComunaClick.SharedUI.Services.GeoLocationValidator.IsWithinChile(lat.Value, lng.Value)
+            ? new { lat, lng }
+            : new { lat = (double?)null, lng = (double?)null };
 
     [JSInvokable]
     public Task OnDeliveryStatusChanged(string status)
