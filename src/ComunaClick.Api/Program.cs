@@ -290,8 +290,9 @@ app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
-// Hub de tracking en vivo del delivery (los clientes validan token al unirse al grupo).
-app.MapHub<ComunaClick.Api.Modules.Delivery.DeliveryHub>("/deliveryHub").RequireCors("app");
+// Hub de tracking en vivo del delivery (los clientes validan token al unirse al
+// grupo). CORS lo cubre el middleware global app.UseCors("app").
+app.MapHub<ComunaClick.Api.Modules.Delivery.DeliveryHub>("/deliveryHub");
 
 app.Run();
 
