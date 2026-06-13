@@ -5,7 +5,4 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Payments.App</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ComunaClick.AdminUI\ComunaClick.AdminUI.csproj" />
-  </ItemGroup>
 </Project>

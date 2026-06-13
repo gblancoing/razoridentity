@@ -16,12 +16,16 @@ declare -A PROJECTS=(
   [acl]="src/ComunaClick.Acl/ComunaClick.Acl.csproj"
   [app]="src/ComunaClick/ComunaClick.App.csproj"
   [admin]="src/ComunaClick.Admin/ComunaClick.Admin.csproj"
+  [payments]="src/Payments.Gateway.Api/Payments.Gateway.Api.csproj"
+  [payments-app]="src/Payments.App/Payments.App.csproj"
 )
 
 usage() {
   cat <<EOF
-Uso: SSH_KEY=/ruta/llave.pem $0 <api|acl|app> [...]
+Uso: SSH_KEY=/ruta/llave.pem $0 <api|acl|app|admin|payments|payments-app> [...]
 
+Ejemplo (todos los servicios):
+  SSH_KEY=~/.ssh/comunaclic.pem $0 api payments admin payments-app
 Ejemplo (solo frontend):
   SSH_KEY=~/.ssh/comunaclic.pem $0 app
 EOF

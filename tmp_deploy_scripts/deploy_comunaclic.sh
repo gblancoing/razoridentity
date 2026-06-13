@@ -90,12 +90,16 @@ declare -A REMOTE_DIRS=(
   [acl]="/var/www/comunaclic/acl"
   [app]="/var/www/comunaclic/app"
   [admin]="/var/www/comunaclic/admin"
+  [payments]="/var/www/comunaclic/payments"
+  [payments-app]="/var/www/comunaclic/payments-app"
 )
 declare -A SERVICES=(
   [api]="comunaclic-api.service"
   [acl]="comunaclic-acl.service"
   [app]="comunaclic-app.service"
   [admin]="comunaclic-admin.service"
+  [payments]="comunaclic-payments.service"
+  [payments-app]="comunaclic-payments-app.service"
 )
 
 for target in "$@"; do
