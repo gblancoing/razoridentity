@@ -31,6 +31,9 @@ public static class WhatsAppLinks
     }
 
     public static bool CanHandoff(string? ownPhone, string? counterpartyPhone)
+        => IsValidMobile(counterpartyPhone);
+
+    public static bool CanHandoffFully(string? ownPhone, string? counterpartyPhone)
         => IsValidMobile(ownPhone) && IsValidMobile(counterpartyPhone);
 
     public static string BuildThreadHandoffMessage(string? subject, string? counterpartyName, IReadOnlyList<string>? recentBodies = null)

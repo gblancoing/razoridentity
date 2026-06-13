@@ -23,6 +23,9 @@ internal sealed class StubProductInventoryService : IProductInventoryService
     public Task FulfillOrderAsync(Order order, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 
+    public Task RestoreOrderAsync(Order order, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
     public Task EnsureInventoryRowAsync(Guid productId, int initialQuantity, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 

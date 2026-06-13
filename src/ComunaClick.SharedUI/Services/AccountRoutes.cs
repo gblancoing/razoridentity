@@ -8,7 +8,12 @@ public static class AccountRoutes
     public const string Profile = "/account/profile";
     public const string Buyer = "/account/buyer";
     public const string Messages = "/account/messages";
+    public const string ProfessionalMessages = "/account/professional/messages";
     public const string Professional = "/account/professional";
+    public const string Courier = "/account/courier";
+
+    public static string CompanyNavHref(bool hasPartnerPanel)
+        => hasPartnerPanel ? PartnerSettings : Company;
     public const string Company = "/account/company";
     public const string PartnerProfile = "/partner/account";
     public const string PartnerSettings = "/partner/settings";

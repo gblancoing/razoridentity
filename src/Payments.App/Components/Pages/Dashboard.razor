@@ -1,214 +1,208 @@
 @page "/"
 @inject PaymentGatewayAdminClient Client
-@inject Microsoft.Extensions.Options.IOptions<Payments.App.Services.MercadoPagoAppOptions> MercadoPagoOptions
+
+<PageTitle>Dashboard - Payments.App</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar el dashboard" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else if (_isLoading)
+{
+    <section class="panel-card">
+        <LoadingPanel Message="Cargando resumen de pagos…" />
+    </section>
+}
+else
+{
+    <PageHeader Eyebrow="Dashboard"
+                Title="Monitoreo de pagos y suscripciones"
+                Description="Total transado, alertas operativas, distribución por proveedor y actividad reciente del gateway." />
+
+    <section class="kpi-grid">
+        <KpiCard Label="Transado hoy" Icon="today" Value="@Clp(_summary.CapturedToday)"
+                 Footnote="Pagos capturados desde las 00:00 UTC" />
+        <KpiCard Label="Transado esta semana" Icon="date_range" Value="@Clp(_summary.CapturedThisWeek)"
+                 Footnote="Semana en curso" />
+        <KpiCard Label="Transado este mes" Icon="calendar_month" Value="@Clp(_summary.CapturedThisMonth)"
+                 Footnote="Mes en curso" />
+        <KpiCard Label="Histórico capturado" Icon="payments" Value="@Clp(_summary.CapturedAmount)"
+                 Footnote="@($"{_summary.CapturedCount} pagos confirmados")" />
+    </section>
+
+    <section class="kpi-grid">
+        <KpiCard Label="Pendientes" Icon="hourglass_top" Value="@_summary.PendingCount.ToString("N0")"
+                 Footnote="Esperando callback/webhook" />
+        <KpiCard Label="Fallidos" Icon="error" Value="@_summary.FailedCount.ToString("N0")"
+                 Footnote="Rechazados o cancelados" />
+        <KpiCard Label="Suscripciones activas" Icon="sync" Value="@_summary.ActiveSubscriptionCandidates.ToString("N0")"
+                 Footnote="Planes recurrentes vigentes" />
+        <KpiCard Label="Alertas abiertas" Icon="notifications_active" Value="@((_summary.Alerts?.Total ?? 0).ToString("N0"))"
+                 Footnote="Discrepancias que requieren revisión" />
+    </section>
+
+    @if (_summary.Alerts is { Total: > 0 } alerts)
+    {
+        <section class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Alertas operativas</p>
+                    <h2>Requiere atención</h2>
+                </div>
+                <a class="primary-link" href="/conciliacion">Ir a conciliación</a>
+            </div>
+            <div class="table-list">
+                @if (alerts.StuckPendingCount > 0)
+                {
+                    <a class="row-card" href="/conciliacion">
+                        <div>
+                            <p class="row-title">Pagos pendientes estancados</p>
+                            <p class="row-subtitle">Intents en pending hace más de 24 horas</p>
+                        </div>
+                        <StatusBadge Status="@alerts.StuckPendingCount.ToString()" Kind="pending" />
+                    </a>
+                }
+                @if (alerts.FlaggedCount > 0)
+                {
+                    <a class="row-card" href="/conciliacion">
+                        <div>
+                            <p class="row-title">Marcados para revisión</p>
+                            <p class="row-subtitle">Intents señalados manualmente por el equipo</p>
+                        </div>
+                        <StatusBadge Status="@alerts.FlaggedCount.ToString()" Kind="failed" />
+                    </a>
+                }
+                @if (alerts.FailedLast7DaysCount > 0)
+                {
+                    <a class="row-card" href="/transacciones">
+                        <div>
+                            <p class="row-title">Fallidos últimos 7 días</p>
+                            <p class="row-subtitle">Pagos rechazados o cancelados recientemente</p>
+                        </div>
+                        <StatusBadge Status="@alerts.FailedLast7DaysCount.ToString()" Kind="failed" />
+                    </a>
+                }
+                @if (alerts.ChargesWithoutAuthCount > 0)
+                {
+                    <a class="row-card" href="/conciliacion">
+                        <div>
+                            <p class="row-title">Cargos sin código de autorización</p>
+                            <p class="row-subtitle">Charges aprobados sin authorization_code del proveedor</p>
+                        </div>
+                        <StatusBadge Status="@alerts.ChargesWithoutAuthCount.ToString()" Kind="pending" />
+                    </a>
+                }
+                @if (alerts.CoreNotifyFailingCount > 0)
+                {
+                    <a class="row-card" href="/conciliacion">
+                        <div>
+                            <p class="row-title">Notificaciones a Core fallidas</p>
+                            <p class="row-subtitle">Reintentos sin confirmación de entrega</p>
+                        </div>
+                        <StatusBadge Status="@alerts.CoreNotifyFailingCount.ToString()" Kind="failed" />
+                    </a>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="dashboard-grid">
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Últimas transacciones</p>
+                    <h2>Actividad reciente</h2>
+                </div>
+                <a class="primary-link" href="/transacciones">Ver todas</a>
+            </div>
+            @if (_transactions.Count == 0)
+            {
+                <EmptyState Title="Sin transacciones" Description="Todavía no hay pagos registrados en el gateway." />
+            }
+            else
+            {
+                <div class="table-list">
+                    @foreach (var item in _transactions.Take(6))
+                    {
+                        <a class="table-row" href="@($"/transacciones/{item.Id}")">
+                            <div>
+                                <p class="row-title">@item.ExternalReference</p>
+                                <p class="row-subtitle">@item.Provider · @item.CreatedAt.ToLocalTime().ToString("dd MMM HH:mm", Cl)</p>
+                            </div>
+                            <div class="row-right">
+                                <p class="row-amount">@Clp(item.Amount)</p>
+                                <StatusBadge Status="@item.Status" Label="@StatusLabel(item.Status)" />
+                            </div>
+                        </a>
+                    }
+                </div>
+            }
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Proveedores</p>
+                    <h2>Distribución del monto capturado</h2>
+                </div>
+            </div>
+            @if (_summary.Providers.Count == 0)
+            {
+                <EmptyState Title="Sin datos por proveedor" />
+            }
+            else
+            {
+                <BarList Items="_providerBars" />
+            }
+        </article>
+    </section>
+}
 
 @code {
-    private IReadOnlyList<PaymentTransactionSummary> _transactions = Array.Empty<PaymentTransactionSummary>();
-    private IReadOnlyList<PaymentSubscriptionSummary> _subscriptions = Array.Empty<PaymentSubscriptionSummary>();
-    private AdminDashboardSummaryModel _summary = new(0, 0, 0, 0, 0, Array.Empty<AdminProviderBreakdownDto>());
-    private string? _error;
-    private Payments.App.Services.MercadoPagoAppOptions _mercadoPago = new();
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
 
-    protected override async Task OnInitializedAsync()
+    private AdminDashboardSummaryModel _summary = new(0, 0, 0, 0, 0, Array.Empty<AdminProviderBreakdownDto>());
+    private IReadOnlyList<PaymentTransactionSummary> _transactions = Array.Empty<PaymentTransactionSummary>();
+    private IReadOnlyList<BarList.BarItem> _providerBars = Array.Empty<BarList.BarItem>();
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _mercadoPago = MercadoPagoOptions.Value;
+        _isLoading = true;
+        _error = null;
 
         try
         {
             _summary = await Client.GetDashboardAsync();
             _transactions = await Client.ListTransactionsAsync();
-            _subscriptions = await Client.ListSubscriptionsAsync();
+            _providerBars = _summary.Providers
+                .Select(x => new BarList.BarItem(x.Provider, (double)x.Amount, Clp(x.Amount)))
+                .ToList();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _isLoading = false;
+        }
     }
-}
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <section class="not-found-card">
-        <p class="eyebrow">Acceso</p>
-        <h1>No pudimos cargar el dashboard</h1>
-        <p>@_error</p>
-    </section>
-}
-else
-{
-<section class="page-header">
-    <p class="eyebrow">Dashboard</p>
-    <h1>Resumen de transacciones por suscripción</h1>
-    <p class="page-description">Vista inicial operativa para monitorear pagos recurrentes, últimos cobros y estado de suscripciones.</p>
-</section>
-
-<section class="kpi-grid">
-    <article class="kpi-card">
-        <p class="kpi-label">Monto capturado</p>
-        <h2>@_summary.CapturedAmount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</h2>
-        <p class="kpi-footnote">Suma de pagos confirmados</p>
-    </article>
-    <article class="kpi-card">
-        <p class="kpi-label">Transacciones pendientes</p>
-        <h2>@_summary.PendingCount</h2>
-        <p class="kpi-footnote">Esperando callback/webhook</p>
-    </article>
-    <article class="kpi-card">
-        <p class="kpi-label">Suscripciones activas</p>
-        <h2>@_summary.ActiveSubscriptionCandidates</h2>
-        <p class="kpi-footnote">Planes recurrentes vigentes</p>
-    </article>
-    <article class="kpi-card">
-        <p class="kpi-label">Proveedores conectados</p>
-        <h2>3</h2>
-        <p class="kpi-footnote">Transbank, Khipu, Mercado Pago</p>
-    </article>
-</section>
-}
-
-<section class="dashboard-grid">
-    <article class="panel-card">
-        <div class="panel-head">
-            <div>
-                <p class="eyebrow">Últimas transacciones</p>
-                <h2>Actividad reciente</h2>
-            </div>
-            <a class="primary-link" href="/transacciones">Ver todas</a>
-        </div>
-
-        <div class="table-list">
-            @foreach (var item in _transactions.Take(5))
-            {
-                <a class="table-row" href="@($"/transacciones/{item.Id}")">
-                    <div>
-                        <p class="row-title">@item.ExternalReference</p>
-                        <p class="row-subtitle">@item.CustomerLabel • @item.Provider</p>
-                    </div>
-                    <div class="row-right">
-                        <p class="row-amount">@item.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</p>
-                        <span class="@($"status-badge {StatusClass(item.Status)}")">@StatusLabel(item.Status)</span>
-                    </div>
-                </a>
-            }
-        </div>
-    </article>
-
-    <article class="panel-card">
-        <div class="panel-head">
-            <div>
-                <p class="eyebrow">Suscripciones</p>
-                <h2>Planes recurrentes</h2>
-            </div>
-            <a class="primary-link" href="/suscripciones">Administrar</a>
-        </div>
-
-        <div class="subscription-list">
-            @foreach (var subscription in _subscriptions.Take(4))
-            {
-                <div class="subscription-item">
-                    <div>
-                        <p class="row-title">@subscription.PlanName</p>
-                        <p class="row-subtitle">@subscription.CustomerLabel • próximo cobro @subscription.NextBillingAt.ToString("dd MMM", CultureInfo.GetCultureInfo("es-CL"))</p>
-                    </div>
-                    <span class="@($"status-badge {StatusClass(subscription.Status)}")">@StatusLabel(subscription.Status)</span>
-                </div>
-            }
-        </div>
-    </article>
-
-    <article class="panel-card">
-        <div class="panel-head">
-            <div>
-                <p class="eyebrow">Proveedores</p>
-                <h2>Distribución actual</h2>
-            </div>
-        </div>
-
-        <div class="subscription-list">
-            @foreach (var provider in _summary.Providers)
-            {
-                <div class="subscription-item">
-                    <div>
-                        <p class="row-title">@provider.Provider</p>
-                        <p class="row-subtitle">@provider.Count transacciones registradas</p>
-                    </div>
-                    <p class="row-amount">@provider.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</p>
-                </div>
-            }
-        </div>
-    </article>
-
-    <article class="panel-card">
-        <div class="panel-head">
-            <div>
-                <p class="eyebrow">Mercado Pago</p>
-                <h2>Configuración de integración</h2>
-            </div>
-        </div>
-
-        <div class="subscription-list">
-            <div class="subscription-item">
-                <div>
-                    <p class="row-title">Estado</p>
-                    <p class="row-subtitle">Habilitación para Checkout Pro</p>
-                </div>
-                <span class="@($"status-badge {(_mercadoPago.Enabled ? "status-success" : "status-muted")}")">
-                    @(_mercadoPago.Enabled ? "Habilitado" : "Deshabilitado")
-                </span>
-            </div>
-            <div class="subscription-item">
-                <div>
-                    <p class="row-title">Ambiente</p>
-                    <p class="row-subtitle">sandbox o production</p>
-                </div>
-                <p class="row-amount">@_mercadoPago.Environment</p>
-            </div>
-            <div class="subscription-item">
-                <div>
-                    <p class="row-title">Preference API</p>
-                    <p class="row-subtitle">POST /checkout/preferences</p>
-                </div>
-                <p class="row-subtitle">@_mercadoPago.CreatePreferenceUrl</p>
-            </div>
-            <div class="subscription-item">
-                <div>
-                    <p class="row-title">Payments API</p>
-                    <p class="row-subtitle">@("GET /v1/payments/{id}")</p>
-                </div>
-                <p class="row-subtitle">@_mercadoPago.GetPaymentUrl</p>
-            </div>
-            <div class="subscription-item">
-                <div>
-                    <p class="row-title">Firma de webhook</p>
-                    <p class="row-subtitle">Validación de autenticidad de notificaciones</p>
-                </div>
-                <span class="@($"status-badge {(_mercadoPago.ValidateWebhookSignature ? "status-success" : "status-pending")}")">
-                    @(_mercadoPago.ValidateWebhookSignature ? "Activa" : "Pendiente")
-                </span>
-            </div>
-        </div>
-    </article>
-</section>
-
-@functions {
-    private static string StatusClass(string status) => status.ToLowerInvariant() switch
-    {
-        "captured" or "active" => "status-success",
-        "pending" or "trial" or "past_due" => "status-pending",
-        "failed" or "canceled" or "expired" => "status-failed",
-        _ => "status-muted"
-    };
+    private static string Clp(decimal amount) => amount.ToString("C0", Cl);
 
     private static string StatusLabel(string status) => status.ToLowerInvariant() switch
     {
-        "captured" => "Capturado",
+        "captured" or "approved" => "Capturado",
         "pending" => "Pendiente",
-        "failed" => "Fallido",
-        "canceled" => "Cancelado",
-        "active" => "Activa",
-        "trial" => "Prueba",
-        "past_due" => "Con deuda",
-        "expired" => "Expirada",
+        "failed" or "rejected" => "Fallido",
+        "canceled" or "cancelled" => "Cancelado",
+        "expired" => "Expirado",
         _ => status
     };
 }

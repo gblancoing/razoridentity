@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Inbox.Contracts;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -16,11 +17,16 @@ public sealed class InboxController : ControllerBase
 {
     private readonly CoreDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IInboxNotificationService _inboxNotifications;
 
-    public InboxController(CoreDbContext db, ITenantContext tenantContext)
+    public InboxController(
+        CoreDbContext db,
+        ITenantContext tenantContext,
+        IInboxNotificationService inboxNotifications)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _inboxNotifications = inboxNotifications;
     }
 
     [Authorize(Policy = "buyer.customer")]
@@ -56,6 +62,42 @@ public sealed class InboxController : ControllerBase
             .ToListAsync();
 
         return Ok(threads.Select(x => MapThreadListItem(x, "customer")));
+    }
+
+    /// <summary>Threads where the authenticated user is the professional recipient (independent profile).</summary>
+    [Authorize]
+    [HttpGet("threads/as-professional")]
+    public async Task<ActionResult<IEnumerable<object>>> ListForProfessional(
+        [FromQuery] string? folder = "inbox",
+        [FromQuery] int limit = 50)
+    {
+        limit = Math.Clamp(limit, 1, 100);
+        var email = ResolveEmail(User);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { message = "Authenticated email is required." });
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var professionalIds = await _db.Professionals.AsNoTracking()
+            .Where(x => x.Email != null && x.Email.ToLower() == normalizedEmail)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        if (professionalIds.Count == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var archived = string.Equals(folder, "archived", StringComparison.OrdinalIgnoreCase);
+        var threads = await BuildThreadListQuery()
+            .Where(x => x.ProfessionalId.HasValue && professionalIds.Contains(x.ProfessionalId.Value))
+            .Where(x => archived ? x.Status == "archived" : x.Status != "archived")
+            .OrderByDescending(x => x.LastMessageAt)
+            .Take(limit)
+            .ToListAsync();
+
+        return Ok(threads.Select(x => MapThreadListItem(x, "business")));
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -216,8 +258,9 @@ public sealed class InboxController : ControllerBase
         var existing = await FindOpenThreadAsync(customer.Id, resolvedPartnerId, resolvedProfessionalId);
         if (existing is not null)
         {
-            var reply = await AppendMessageAsync(existing, "customer", request.Body.Trim());
-            return Ok(new { ThreadId = existing.Id, Reused = true, Message = reply });
+            var replyMessage = await AppendMessageAsync(existing, "customer", request.Body.Trim());
+            await _inboxNotifications.NotifyNewInboxMessageAsync(existing.Id, replyMessage.Id, "customer");
+            return Ok(new { ThreadId = existing.Id, Reused = true, Message = MapMessage(replyMessage) });
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -249,6 +292,8 @@ public sealed class InboxController : ControllerBase
         _db.InboxMessages.Add(message);
         await _db.SaveChangesAsync();
 
+        await _inboxNotifications.NotifyNewInboxMessageAsync(thread.Id, message.Id, "customer");
+
         return Created($"/v1/inbox/threads/{thread.Id}", new { ThreadId = thread.Id, Reused = false });
     }
 
@@ -279,8 +324,9 @@ public sealed class InboxController : ControllerBase
             thread.Status = "open";
         }
 
-        var message = await AppendMessageAsync(thread, role, request.Body.Trim());
-        return Ok(message);
+        var saved = await AppendMessageAsync(thread, role, request.Body.Trim());
+        await _inboxNotifications.NotifyNewInboxMessageAsync(thread.Id, saved.Id, role);
+        return Ok(MapMessage(saved));
     }
 
     [Authorize]
@@ -382,10 +428,10 @@ public sealed class InboxController : ControllerBase
             thread.LastMessageAt,
             CounterpartyName = ResolveCounterpartyName(thread, viewerRole),
             CounterpartySubtitle = ResolveCounterpartySubtitle(thread, viewerRole),
-            CustomerName = thread.Customer.FullName ?? thread.Customer.Email,
+            CustomerName = thread.Customer?.FullName ?? thread.Customer?.Email,
             thread.PartnerId,
             thread.ProfessionalId,
-            CustomerPhone = thread.Customer.Phone,
+            CustomerPhone = thread.Customer?.Phone,
             PartnerPhone = thread.Partner?.Phone,
             ProfessionalPhone = thread.Professional?.Phone
         };
@@ -402,7 +448,7 @@ public sealed class InboxController : ControllerBase
             return thread.Professional?.Name ?? "Destinatario";
         }
 
-        return thread.Customer.FullName ?? thread.Customer.Email ?? "Cliente";
+        return thread.Customer?.FullName ?? thread.Customer?.Email ?? "Cliente";
     }
 
     private static string? ResolveCounterpartySubtitle(InboxThread thread, string viewerRole)
@@ -451,7 +497,7 @@ public sealed class InboxController : ControllerBase
             .FirstOrDefaultAsync();
     }
 
-    private async Task<object> AppendMessageAsync(InboxThread thread, string senderRole, string body)
+    private async Task<InboxMessage> AppendMessageAsync(InboxThread thread, string senderRole, string body)
     {
         var now = DateTimeOffset.UtcNow;
         var message = new InboxMessage
@@ -476,14 +522,17 @@ public sealed class InboxController : ControllerBase
         _db.InboxMessages.Add(message);
         await _db.SaveChangesAsync();
 
-        return new
+        return message;
+    }
+
+    private static object MapMessage(InboxMessage message)
+        => new
         {
             message.Id,
             message.SenderRole,
             message.Body,
             message.CreatedAt
         };
-    }
 
     private async Task LinkCustomerPartnerAsync(Guid tenantId, Guid customerId, Guid? partnerId, DateTimeOffset now)
     {
@@ -533,6 +582,19 @@ public sealed class InboxController : ControllerBase
         }
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        if (thread.ProfessionalId.HasValue)
+        {
+            var ownsProfessional = await _db.Professionals.AsNoTracking()
+                .AnyAsync(x => x.Id == thread.ProfessionalId.Value
+                    && x.Email != null
+                    && x.Email.ToLower() == normalizedEmail);
+            if (ownsProfessional)
+            {
+                return "business";
+            }
+        }
+
         var isCustomer = await _db.Customers.IgnoreQueryFilters().AsNoTracking()
             .AnyAsync(x => x.Id == thread.CustomerId && x.Email != null && x.Email.ToLower() == normalizedEmail);
 

@@ -95,6 +95,56 @@ CREATE INDEX IF NOT EXISTS ix_payments_charges_intent
 CREATE INDEX IF NOT EXISTS ix_payments_charges_status
   ON payments.charges(status);
 
+-- =========================
+-- Suscripciones reales (reemplazan la heurística "SUBS" en external_reference)
+-- =========================
+
+CREATE TABLE IF NOT EXISTS payments.subscriptions (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id        text NOT NULL,             -- id lógico del cliente (core)
+  customer_token_id  uuid NULL REFERENCES payments.customer_tokens(id) ON DELETE SET NULL,
+  external_reference text NOT NULL,             -- subscription:{uuid} u otro identificador del core
+  plan_name          text NULL,
+  provider           text NOT NULL DEFAULT 'transbank',
+  amount             numeric(14,2) NOT NULL,
+  currency           text NOT NULL DEFAULT 'CLP',
+  billing_interval   text NOT NULL DEFAULT 'monthly', -- monthly|weekly|yearly
+  status             text NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','past_due','cancelled','expired')),
+  next_charge_at     timestamptz NULL,
+  cancelled_at       timestamptz NULL,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_payments_subscriptions_status
+  ON payments.subscriptions(status);
+
+CREATE INDEX IF NOT EXISTS ix_payments_subscriptions_customer
+  ON payments.subscriptions(customer_id);
+
+CREATE INDEX IF NOT EXISTS ix_payments_subscriptions_external_ref
+  ON payments.subscriptions(external_reference);
+
+-- Historial de intentos de cobro de cada suscripción
+CREATE TABLE IF NOT EXISTS payments.subscription_attempts (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subscription_id uuid NOT NULL REFERENCES payments.subscriptions(id) ON DELETE CASCADE,
+  intent_id       uuid NULL REFERENCES payments.payment_intents(id) ON DELETE SET NULL,
+  charge_id       uuid NULL REFERENCES payments.charges(id) ON DELETE SET NULL,
+  status          text NOT NULL, -- approved|rejected|error
+  error_message   text NULL,
+  attempted_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_payments_subscription_attempts_subscription
+  ON payments.subscription_attempts(subscription_id);
+
+-- Operación admin sobre payment_intents (revisión manual + trazabilidad de notificación a Core)
+ALTER TABLE payments.payment_intents ADD COLUMN IF NOT EXISTS review_status text NULL;       -- flagged|resolved
+ALTER TABLE payments.payment_intents ADD COLUMN IF NOT EXISTS review_note text NULL;
+ALTER TABLE payments.payment_intents ADD COLUMN IF NOT EXISTS core_notified_at timestamptz NULL;
+ALTER TABLE payments.payment_intents ADD COLUMN IF NOT EXISTS core_notify_attempts int NOT NULL DEFAULT 0;
+
 -- updated_at trigger (opcional)
 CREATE OR REPLACE FUNCTION payments.set_updated_at()
 RETURNS trigger AS $$

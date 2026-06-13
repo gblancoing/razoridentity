@@ -33,6 +33,7 @@ builder.Services.AddScoped<ComunaClick.SharedUI.Services.SessionTokenHolder>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.AuthStateService>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.ApiSessionService>();
 builder.Services.AddScoped<ComunaClick.SharedUI.Services.FavoritesLocalStore>();
+builder.Services.AddScoped<ComunaClick.SharedUI.Services.CartState>();
 builder.Services.AddScoped<ComunaClick.Shared.Auth.Interfaces.ITokenStore, ComunaClick.SharedUI.Services.WebTokenStore>();
 builder.Services.Configure<ComunaClick.Shared.Http.ApiOptions>(builder.Configuration.GetSection("Api"));
 builder.Services.AddHttpClient<ComunaClick.Shared.Auth.Acl.AclAuthClient>((sp, client) =>
@@ -68,6 +69,7 @@ builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerBooking
 builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerLeadService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerLeadService>();
 builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerPayoutService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerPayoutService>();
 builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerNotificationService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerNotificationService>();
+builder.Services.AddScoped<ComunaClick.SharedUI.Services.Partner.PartnerNotificationsBadgeService>();
 
 var app = builder.Build();
 

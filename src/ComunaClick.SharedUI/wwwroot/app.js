@@ -139,7 +139,41 @@ window.comunaclic.setLastTracking = function (json) {
   }
 };
 
-/** Guest cart: { tenantId, partnerId, partnerName, currency, items:[{productId,name,quantity,unitPrice,maxAvailable}] } */
+/**
+ * Guest cart v2 (multi-negocio): { version: 2, groups: [{ tenantId, partnerId,
+ * partnerName, currency, items:[{productId,name,quantity,unitPrice,maxAvailable}] }] }
+ * El shape v1 (un solo negocio en la raíz) se migra de forma lazy al leer/escribir.
+ */
+window.comunaclic._migrateGuestCart = function (raw) {
+  try {
+    if (!raw) return null;
+    var parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed) return null;
+    if (Array.isArray(parsed.groups)) {
+      parsed.version = 2;
+      parsed.groups = parsed.groups.filter(function (g) {
+        return g && g.partnerId && Array.isArray(g.items) && g.items.length > 0;
+      });
+      return parsed.groups.length > 0 ? parsed : null;
+    }
+    if (parsed.partnerId && Array.isArray(parsed.items) && parsed.items.length > 0) {
+      return { version: 2, groups: [parsed] };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+window.comunaclic._saveGuestCart = function (cart) {
+  if (!cart || !Array.isArray(cart.groups) || cart.groups.length === 0) {
+    window.comunaclic.setGuestCart(null);
+  } else {
+    cart.version = 2;
+    window.comunaclic.setGuestCart(JSON.stringify(cart));
+  }
+};
+
 window.comunaclic.getGuestCart = function () {
   try {
     return localStorage.getItem("comunaclic.guestCart") || "";
@@ -168,26 +202,29 @@ window.comunaclic.addGuestCartItem = function (itemJson) {
   try {
     var item = typeof itemJson === "string" ? JSON.parse(itemJson) : itemJson;
     if (!item || !item.productId || !item.partnerId || !item.tenantId) return "invalid";
-    var raw = window.comunaclic.getGuestCart();
-    var cart = raw ? JSON.parse(raw) : null;
-    if (cart && cart.partnerId && cart.partnerId !== item.partnerId) {
-      return "different_partner";
-    }
-    if (!cart) {
-      cart = {
+    var cart = window.comunaclic._migrateGuestCart(window.comunaclic.getGuestCart())
+      || { version: 2, groups: [] };
+
+    var group = cart.groups.find(function (g) { return g.partnerId === item.partnerId; });
+    var isNewGroup = false;
+    if (!group) {
+      isNewGroup = cart.groups.length > 0;
+      group = {
         tenantId: item.tenantId,
         partnerId: item.partnerId,
         partnerName: item.partnerName || "",
         currency: item.currency || "CLP",
         items: []
       };
+      cart.groups.push(group);
     }
-    var existing = cart.items.find(function (x) { return x.productId === item.productId; });
+
+    var existing = group.items.find(function (x) { return x.productId === item.productId; });
     var qty = Math.max(1, parseInt(item.quantity, 10) || 1);
     if (existing) {
       existing.quantity = Math.min((existing.maxAvailable || 99), existing.quantity + qty);
     } else {
-      cart.items.push({
+      group.items.push({
         productId: item.productId,
         name: item.name || "Producto",
         quantity: qty,
@@ -195,14 +232,70 @@ window.comunaclic.addGuestCartItem = function (itemJson) {
         maxAvailable: item.maxAvailable || 99
       });
     }
-    window.comunaclic.setGuestCart(JSON.stringify(cart));
-    return "ok";
+    window.comunaclic._saveGuestCart(cart);
+    return isNewGroup ? "ok_new_group" : "ok";
   } catch {
     return "error";
   }
 };
 
-/** Pending MP: { orderId?, bookingId?, customerId, createdAt, checkoutUrl? } */
+/** Quita el grupo de un negocio (p. ej. cuando su pedido ya fue creado). */
+window.comunaclic.removeGuestCartGroup = function (partnerId) {
+  try {
+    var cart = window.comunaclic._migrateGuestCart(window.comunaclic.getGuestCart());
+    if (!cart) return;
+    cart.groups = cart.groups.filter(function (g) { return g.partnerId !== partnerId; });
+    window.comunaclic._saveGuestCart(cart);
+  } catch {
+    // ignore
+  }
+};
+
+/** Total de unidades en el carrito (para el contador "Ver carrito (N)"). */
+window.comunaclic.getGuestCartCount = function () {
+  try {
+    var cart = window.comunaclic._migrateGuestCart(window.comunaclic.getGuestCart());
+    if (!cart) return 0;
+    return cart.groups.reduce(function (sum, g) {
+      return sum + g.items.reduce(function (s, x) { return s + (parseInt(x.quantity, 10) || 0); }, 0);
+    }, 0);
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Pending MP v2 (varios pagos en paralelo, uno por negocio):
+ * { version: 2, payments: [{ orderId?, bookingId?, customerId, createdAt, checkoutUrl?, partnerName? }] }
+ * El shape v1 (un solo objeto en la raíz) se migra de forma lazy.
+ */
+window.comunaclic._migratePendingMp = function (raw) {
+  try {
+    if (!raw) return null;
+    var parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed) return null;
+    if (Array.isArray(parsed.payments)) {
+      parsed.version = 2;
+      return parsed.payments.length > 0 ? parsed : null;
+    }
+    if (parsed.orderId || parsed.bookingId) {
+      return { version: 2, payments: [parsed] };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+window.comunaclic._savePendingMp = function (pending) {
+  if (!pending || !Array.isArray(pending.payments) || pending.payments.length === 0) {
+    window.comunaclic.setPendingMpPayment(null);
+  } else {
+    pending.version = 2;
+    window.comunaclic.setPendingMpPayment(JSON.stringify(pending));
+  }
+};
+
 window.comunaclic.getPendingMpPayment = function () {
   try {
     return localStorage.getItem("comunaclic.pendingMpPayment") || "";
@@ -218,6 +311,40 @@ window.comunaclic.setPendingMpPayment = function (json) {
     } else {
       localStorage.setItem("comunaclic.pendingMpPayment", json);
     }
+  } catch {
+    // ignore
+  }
+};
+
+/** Agrega o reemplaza (por orderId/bookingId) un pago pendiente. */
+window.comunaclic.addPendingMpPayment = function (entryJson) {
+  try {
+    var entry = typeof entryJson === "string" ? JSON.parse(entryJson) : entryJson;
+    if (!entry || (!entry.orderId && !entry.bookingId)) return;
+    var pending = window.comunaclic._migratePendingMp(window.comunaclic.getPendingMpPayment())
+      || { version: 2, payments: [] };
+    pending.payments = pending.payments.filter(function (p) {
+      if (entry.orderId) return p.orderId !== entry.orderId;
+      return p.bookingId !== entry.bookingId;
+    });
+    pending.payments.push(entry);
+    window.comunaclic._savePendingMp(pending);
+  } catch {
+    // ignore
+  }
+};
+
+/** Remueve solo el pago de una orden/reserva (el resto sigue pendiente). */
+window.comunaclic.removePendingMpPayment = function (orderId, bookingId) {
+  try {
+    var pending = window.comunaclic._migratePendingMp(window.comunaclic.getPendingMpPayment());
+    if (!pending) return;
+    pending.payments = pending.payments.filter(function (p) {
+      if (orderId && p.orderId === orderId) return false;
+      if (bookingId && p.bookingId === bookingId) return false;
+      return true;
+    });
+    window.comunaclic._savePendingMp(pending);
   } catch {
     // ignore
   }
@@ -1310,7 +1437,8 @@ window.comunaclic.profileAddressUseCurrentLocation = function (elementId) {
   return window.comunaclic
     .getCurrentPosition({ forceFresh: true, timeout: 15000 })
     .then(function (pos) {
-      picker.applyCoords(pos.latitude, pos.longitude, 16);
+      picker.userAdjusted = false;
+      picker.applyCoords(pos.latitude, pos.longitude, 16, true);
       return picker.notify(pos.latitude, pos.longitude).then(function () {
         if (dotNetHelper) {
           return dotNetHelper.invokeMethodAsync("OnGeolocationFinished", true, "");

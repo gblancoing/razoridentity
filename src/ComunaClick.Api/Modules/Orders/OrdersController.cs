@@ -1,3 +1,4 @@
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Orders.Contracts;
 using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ComunaClick.Api.Modules.Orders;
 
@@ -18,17 +20,29 @@ public sealed class OrdersController : ControllerBase
     private readonly ITenantContext _tenantContext;
     private readonly IOrderCheckoutService _orderCheckoutService;
     private readonly IProductInventoryService _inventoryService;
+    private readonly IOrderNotificationService _orderNotificationService;
+    private readonly IOrderTrackingTokenService _trackingTokens;
+    private readonly IOptions<OrderTrackingOptions> _trackingOptions;
+    private readonly ComunaClick.Api.Modules.Delivery.IDeliverySettlementService _deliverySettlementService;
 
     public OrdersController(
         CoreDbContext db,
         ITenantContext tenantContext,
         IOrderCheckoutService orderCheckoutService,
-        IProductInventoryService inventoryService)
+        IProductInventoryService inventoryService,
+        IOrderNotificationService orderNotificationService,
+        IOrderTrackingTokenService trackingTokens,
+        IOptions<OrderTrackingOptions> trackingOptions,
+        ComunaClick.Api.Modules.Delivery.IDeliverySettlementService deliverySettlementService)
     {
         _db = db;
         _tenantContext = tenantContext;
         _orderCheckoutService = orderCheckoutService;
         _inventoryService = inventoryService;
+        _orderNotificationService = orderNotificationService;
+        _trackingTokens = trackingTokens;
+        _trackingOptions = trackingOptions;
+        _deliverySettlementService = deliverySettlementService;
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -62,16 +76,35 @@ public sealed class OrdersController : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting("public-read")]
     [HttpGet("/v1/public/orders/{id:guid}")]
-    public async Task<ActionResult<object>> GetPublic(Guid id, [FromQuery] Guid customerId)
+    public async Task<ActionResult<object>> GetPublic(
+        Guid id,
+        [FromQuery] Guid? customerId,
+        [FromQuery] string? token)
     {
-        if (customerId == Guid.Empty)
+        // Acceso preferente por token firmado con expiración. El par id+customerId de los
+        // enlaces antiguos solo se acepta durante el período de gracia (flag configurable).
+        Guid resolvedCustomerId;
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            if (!_trackingTokens.TryValidate(token, id, out resolvedCustomerId))
+            {
+                return NotFound();
+            }
+        }
+        else if (_trackingOptions.Value.AllowLegacyPublicAccess
+                 && customerId is { } legacyCustomerId
+                 && legacyCustomerId != Guid.Empty)
+        {
+            resolvedCustomerId = legacyCustomerId;
+        }
+        else
         {
             return NotFound();
         }
 
         var order = await _db.Orders.AsNoTracking()
             .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id && x.CustomerId == customerId);
+            .FirstOrDefaultAsync(x => x.Id == id && x.CustomerId == resolvedCustomerId);
 
         if (order is null)
         {
@@ -99,6 +132,9 @@ public sealed class OrdersController : ControllerBase
             order.DeliveryAddress,
             order.CreatedAt,
             order.UpdatedAt,
+            // Token fresco para que el frontend siga usando acceso por token (y deje de depender
+            // del par id+customerId). Permite migrar y, luego, apagar AllowLegacyPublicAccess.
+            TrackingToken = _trackingTokens.Create(order.Id, resolvedCustomerId),
             Partner = partner is null ? null : new
             {
                 partner.Id,
@@ -143,9 +179,46 @@ public sealed class OrdersController : ControllerBase
 
         var orders = await _db.Orders
             .AsNoTracking()
+            .Include(x => x.Items)
             .Where(x => x.TenantId == tenantId.Value && x.PartnerId == partnerId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
+        // Nombre y teléfono del comprador para que el partner pueda contactarlo (ej. WhatsApp).
+        var customerIds = orders.Select(x => x.CustomerId).Distinct().ToList();
+        var customers = await _db.Customers.AsNoTracking()
+            .Where(x => customerIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.FullName, x.Phone })
+            .ToDictionaryAsync(x => x.Id, x => x);
+
+        // Comisión real de Mercado Pago por orden (si el pago fue online y ya se confirmó).
+        var orderIds = orders.Select(x => x.Id).ToList();
+        var mpFees = await (
+                from p in _db.Payments.AsNoTracking()
+                join f in _db.PaymentFees.AsNoTracking() on p.Id equals f.PaymentId
+                where p.OrderId.HasValue
+                      && orderIds.Contains(p.OrderId.Value)
+                      && p.Provider == "mercadopago"
+                      && f.MercadoPagoFeeAmount != null
+                group f.MercadoPagoFeeAmount!.Value by p.OrderId!.Value
+                into grouped
+                select new { OrderId = grouped.Key, Fee = grouped.Sum() })
+            .ToDictionaryAsync(x => x.OrderId, x => x.Fee);
+
+        foreach (var order in orders)
+        {
+            if (customers.TryGetValue(order.CustomerId, out var customer))
+            {
+                order.BuyerName ??= customer.FullName;
+                order.BuyerPhone = customer.Phone;
+            }
+
+            if (mpFees.TryGetValue(order.Id, out var mpFee))
+            {
+                order.MercadoPagoFeeAmount = mpFee;
+            }
+        }
+
         return Ok(orders);
     }
 
@@ -184,7 +257,9 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
-        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+        var order = await _db.Orders
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (order is null)
         {
             return NotFound();
@@ -195,24 +270,7 @@ public sealed class OrdersController : ControllerBase
             return Forbid();
         }
 
-        var previousStatus = order.Status;
-        var newStatus = request.Status.Trim();
-        order.Status = newStatus;
-        order.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
-
-        var orderWithItems = await _db.Orders
-            .Include(x => x.Items)
-            .FirstAsync(x => x.Id == order.Id, HttpContext.RequestAborted);
-        await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
-            _db,
-            _inventoryService,
-            orderWithItems,
-            previousStatus,
-            newStatus,
-            HttpContext.RequestAborted);
-
-        return Ok(order);
+        return await TransitionOrderAsync(order, request.Status, HttpContext.RequestAborted);
     }
 
     [Authorize(Policy = "partner.staff")]
@@ -225,7 +283,9 @@ public sealed class OrdersController : ControllerBase
             return BadRequest(new { message = "TenantId is required." });
         }
 
-        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
+        var order = await _db.Orders
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId.Value);
         if (order is null)
         {
             return NotFound();
@@ -236,9 +296,93 @@ public sealed class OrdersController : ControllerBase
             return Forbid();
         }
 
-        order.Status = "cancelled";
+        return await TransitionOrderAsync(order, OrderStatusMachine.Cancelled, HttpContext.RequestAborted);
+    }
+
+    private async Task<ActionResult<Order>> TransitionOrderAsync(Order order, string requestedStatus, CancellationToken cancellationToken)
+    {
+        var newStatus = OrderStatusMachine.Normalize(requestedStatus);
+        if (!OrderStatusMachine.CanTransition(order.Status, newStatus, out var error))
+        {
+            return BadRequest(new { message = error });
+        }
+
+        var previousStatus = OrderStatusMachine.Normalize(order.Status);
+        if (string.Equals(previousStatus, newStatus, StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(order);
+        }
+
+        // Sin reservas, varias órdenes pendientes pueden apuntar al mismo stock:
+        // al marcar pagada manualmente se exige stock físico suficiente.
+        if (string.Equals(newStatus, OrderStatusMachine.Paid, StringComparison.OrdinalIgnoreCase)
+            && order.InventoryFulfilledAt is null)
+        {
+            var stockCheck = await _inventoryService.ValidateLineItemsAsync(
+                order.Items.Select(x => (x.ProductId, x.Quantity)).ToList(),
+                cancellationToken: cancellationToken);
+            if (!stockCheck.Ok)
+            {
+                return BadRequest(new { message = stockCheck.Message });
+            }
+        }
+
+        order.Status = newStatus;
         order.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (string.Equals(newStatus, OrderStatusMachine.Paid, StringComparison.OrdinalIgnoreCase))
+        {
+            await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
+                _db,
+                _inventoryService,
+                order,
+                newStatus,
+                cancellationToken);
+
+            // Aviso de venta al comercio (encolado, idempotente): solo cuando la orden está pagada.
+            await _orderNotificationService.NotifyPartnerOrderPaidAsync(order.Id, cancellationToken);
+
+            // Pago manual (transferencia/efectivo, sin MP): el slip del transporte
+            // se genera igual, con fee MP = 0 (no hubo procesador).
+            await _deliverySettlementService.CreateForPaidOrderAsync(order, payment: null, cancellationToken);
+        }
+        else if (string.Equals(newStatus, OrderStatusMachine.Cancelled, StringComparison.OrdinalIgnoreCase))
+        {
+            await HandleCancellationAsync(order, previousStatus, cancellationToken);
+        }
+
         return Ok(order);
+    }
+
+    private async Task HandleCancellationAsync(Order order, string previousStatus, CancellationToken cancellationToken)
+    {
+        if (order.InventoryFulfilledAt is not null)
+        {
+            await _inventoryService.RestoreOrderAsync(order, cancellationToken);
+        }
+
+        // Orden cancelada después de pagada: dejar registrado que requiere reembolso
+        // (la ejecución del reembolso es un proceso aparte).
+        if (string.Equals(previousStatus, OrderStatusMachine.Paid, StringComparison.OrdinalIgnoreCase))
+        {
+            _db.Interactions.Add(new Interaction
+            {
+                TenantId = order.TenantId,
+                CustomerId = order.CustomerId,
+                PartnerId = order.PartnerId,
+                Type = "order_refund_required",
+                ReferenceId = order.Id,
+                Payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    order.TotalAmount,
+                    order.Currency,
+                    previousStatus,
+                    cancelledAt = DateTimeOffset.UtcNow
+                }),
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
     }
 }

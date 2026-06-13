@@ -133,11 +133,24 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<IReadOnlyList<InboxThreadListItem>?> GetMyInboxThreadsAsync(string folder = "inbox", CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<InboxThreadListItem>>($"/v1/inbox/threads/mine?folder={Uri.EscapeDataString(folder)}", cancellationToken);
 
+    public Task<IReadOnlyList<InboxThreadListItem>?> GetProfessionalInboxThreadsAsync(string folder = "inbox", CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<InboxThreadListItem>>($"/v1/inbox/threads/as-professional?folder={Uri.EscapeDataString(folder)}", cancellationToken);
+
     public Task<InboxThreadDetailResponse?> GetInboxThreadAsync(Guid threadId, CancellationToken cancellationToken = default)
         => GetAsync<InboxThreadDetailResponse>($"/v1/inbox/threads/{threadId}", cancellationToken);
 
     public Task<InboxThreadCreateResult?> CreateInboxThreadAsync(InboxThreadCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<InboxThreadCreateResult>("/v1/inbox/threads", request, cancellationToken);
+
+    public Task<InboxThreadCreateResult?> CreateGuestInboxThreadAsync(GuestInboxThreadCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<InboxThreadCreateResult>("/v1/public/inbox/threads", request, cancellationToken);
+
+    public Task<DeliverySnapshot?> GetDeliverySnapshotAsync(Guid orderId, string token, CancellationToken cancellationToken = default)
+        => GetAsync<DeliverySnapshot>($"/v1/public/delivery/{orderId}?token={Uri.EscapeDataString(token)}", cancellationToken);
+
+    /// <summary>Cambio de estado desde la vista del repartidor (autorizado por su token).</summary>
+    public Task SendCourierStatusAsync(Guid orderId, string status, string token, CancellationToken cancellationToken = default)
+        => PostNoContentAsync($"/api/courier/status?token={Uri.EscapeDataString(token)}", new CourierStatusUpdateRequest(orderId, status, token), cancellationToken);
 
     public Task<InboxMessageItem?> ReplyInboxThreadAsync(Guid threadId, string body, CancellationToken cancellationToken = default)
         => PostAsync<InboxMessageItem>($"/v1/inbox/threads/{threadId}/messages", new InboxMessageCreateRequest(body), cancellationToken);
@@ -283,11 +296,137 @@ public sealed class BuyerApiClient : ApiClientBase
         return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
     }
 
+    public async Task<BuyerProfessionalProfile?> UploadBuyerProfessionalBannerAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(streamContent, "file", fileName);
+        var path = "/v1/buyer/professional-profile/banner";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = multipart };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public Task<BuyerProfessionalProfile?> RemoveBuyerProfessionalBannerAsync(
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/banner";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> AddBuyerProfessionalCertificationAsync(
+        BuyerAddCertificationRequest request,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/certifications";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(request) };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> RemoveBuyerProfessionalCertificationAsync(
+        string certId,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/buyer/professional-profile/certifications/{certId}";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public async Task<BuyerProfessionalProfile?> UploadBuyerProfessionalPhotoAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(streamContent, "file", fileName);
+        var path = "/v1/buyer/professional-profile/photo";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path) { Content = multipart };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        return await SendAsync<BuyerProfessionalProfile>(message, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<ProfessionalFollowItem>?> GetProfessionalFollowsAsync(Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/follows";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        return GetAsync<IReadOnlyList<ProfessionalFollowItem>>(path, cancellationToken);
+    }
+
+    public async Task<bool> FollowProfessionalEntityAsync(string followedType, Guid followedId, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = "/v1/buyer/professional-profile/follows";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(new { followedType, followedId })
+        };
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        var result = await SendAsync<FollowStatusResponse>(message, cancellationToken);
+        return result?.IsFollowing ?? false;
+    }
+
+    public async Task<bool> UnfollowProfessionalEntityAsync(string followedType, Guid followedId, Guid? tenantId = null, CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/buyer/professional-profile/follows/{followedType}/{followedId}";
+        if (tenantId is not null && tenantId != Guid.Empty)
+            path += $"?tenantId={tenantId.Value}";
+        var message = new HttpRequestMessage(HttpMethod.Delete, path);
+        if (tenantId is not null && tenantId != Guid.Empty)
+            message.Headers.Add("X-Tenant-Id", tenantId.Value.ToString());
+        var result = await SendAsync<FollowStatusResponse>(message, cancellationToken);
+        return result?.IsFollowing ?? false;
+    }
+
     public Task TrackFunnelEventAsync(FunnelEventRequest request, CancellationToken cancellationToken = default)
         => PostNoContentAsync("/v1/funnel/events", request, cancellationToken);
 
-    public Task<OrderTracking?> GetOrderAsync(Guid id, Guid customerId, CancellationToken cancellationToken = default)
-        => GetAsync<OrderTracking>($"/v1/public/orders/{id}?customerId={customerId}", cancellationToken);
+    public Task<OrderTracking?> GetOrderAsync(
+        Guid id,
+        Guid? customerId = null,
+        string? trackingToken = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Acceso preferente por token firmado; el customerId queda solo como respaldo legacy.
+        var query = !string.IsNullOrWhiteSpace(trackingToken)
+            ? $"token={Uri.EscapeDataString(trackingToken)}"
+            : $"customerId={customerId}";
+        return GetAsync<OrderTracking>($"/v1/public/orders/{id}?{query}", cancellationToken);
+    }
 
     public Task<BookingTracking?> GetBookingAsync(Guid id, Guid customerId, CancellationToken cancellationToken = default)
         => GetAsync<BookingTracking>($"/v1/public/bookings/{id}?customerId={customerId}", cancellationToken);
@@ -366,6 +505,52 @@ public sealed class BuyerApiClient : ApiClientBase
 
     public Task<Professional?> GetProfessionalAsync(Guid id, CancellationToken cancellationToken = default)
         => GetAsync<Professional>($"/v1/public/professionals/{id}", cancellationToken);
+
+    // ----- Portal del repartidor (usuario autenticado; identidad por email/user_id) -----
+
+    public Task<CourierMe?> GetCourierMeAsync(CancellationToken cancellationToken = default)
+        => GetAsync<CourierMe>("/v1/courier/me", cancellationToken);
+
+    public Task<CourierTripsPage?> GetCourierTripsAsync(
+        string? status = null,
+        int page = 1,
+        int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/courier/me/trips?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            path += $"&status={Uri.EscapeDataString(status)}";
+        }
+        return GetAsync<CourierTripsPage>(path, cancellationToken);
+    }
+
+    public Task<CourierEarnings?> GetCourierEarningsAsync(CancellationToken cancellationToken = default)
+        => GetAsync<CourierEarnings>("/v1/courier/me/earnings", cancellationToken);
+
+    public Task<CourierMpStart?> StartCourierMercadoPagoAsync(Guid courierId, CancellationToken cancellationToken = default)
+        => PostAsync<CourierMpStart>($"/v1/courier/me/{courierId}/mercadopago/start", new { }, cancellationToken);
+
+    public Task<CourierMpDisconnect?> DisconnectCourierMercadoPagoAsync(Guid courierId, CancellationToken cancellationToken = default)
+        => PostAsync<CourierMpDisconnect>($"/v1/courier/me/{courierId}/mercadopago/disconnect", new { }, cancellationToken);
+
+    public Task<PublicDeliveryQuoteResponse?> GetDeliveryQuoteAsync(
+        Guid partnerId,
+        double? destinationLat = null,
+        double? destinationLng = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/public/checkout/delivery-quote?partnerId={partnerId}";
+        if (destinationLat is not null)
+        {
+            path += $"&destinationLat={destinationLat.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        }
+        if (destinationLng is not null)
+        {
+            path += $"&destinationLng={destinationLng.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        }
+        return GetAsync<PublicDeliveryQuoteResponse>(path, cancellationToken);
+    }
 
     public Task<SupportTicketResponse?> CreateSupportTicketAsync(SupportTicketRequest request, Guid? tenantId = null, CancellationToken cancellationToken = default)
     {
@@ -449,7 +634,9 @@ public sealed record SearchResultItem(
     double? DistanceKm = null,
     double? Latitude = null,
     double? Longitude = null,
-    string? LogoUrl = null);
+    string? LogoUrl = null,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null);
 
 public sealed record Order(
     Guid Id,
@@ -482,7 +669,8 @@ public sealed record OrderTracking(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     OrderTrackingPartner? Partner,
-    IReadOnlyList<OrderTrackingItem>? Items
+    IReadOnlyList<OrderTrackingItem>? Items,
+    string? TrackingToken = null
 );
 
 public sealed record OrderTrackingPartner(
@@ -523,7 +711,9 @@ public sealed record OrderCreateRequest(
     string? Currency,
     IReadOnlyList<OrderItemCreateRequest>? Items,
     Guid? DeliveryProviderId = null,
-    string? DeliveryAddress = null
+    string? DeliveryAddress = null,
+    double? DestinationLat = null,
+    double? DestinationLng = null
 );
 
 public sealed record GuestContactRequest(
@@ -538,14 +728,18 @@ public sealed record GuestOrderCreateRequest(
     GuestContactRequest Guest,
     double DeliveryFee = 0,
     string? Currency = null,
-    string? DeliveryAddress = null);
+    string? DeliveryAddress = null,
+    double? DestinationLat = null,
+    double? DestinationLng = null,
+    Guid? DeliveryProviderId = null);
 
 public sealed record GuestOrderCreateResponse(
     Guid OrderId,
     Guid CustomerId,
     string? Status,
     double TotalAmount,
-    string? Currency);
+    string? Currency,
+    string? TrackingToken = null);
 
 public sealed record GuestBookingCreateRequest(
     Guid TenantId,
@@ -563,6 +757,82 @@ public sealed record GuestBookingCreateResponse(
     string? Status,
     double Amount,
     string? Currency);
+
+public sealed record CourierPayee(
+    Guid CourierId,
+    bool HasSeller,
+    string? ConnectionStatus,
+    bool CheckoutReady,
+    string? MpUserId,
+    DateTimeOffset? ConnectedAt);
+
+public sealed record CourierMembership(
+    Guid CourierId,
+    Guid PartnerId,
+    string PartnerName,
+    string Name,
+    string Phone,
+    string? Company,
+    string? Kind,
+    bool IsAvailable,
+    string? Email,
+    CourierPayee? Payee);
+
+public sealed record CourierMe(
+    IReadOnlyList<CourierMembership> Items,
+    string? Email);
+
+public sealed record CourierTrip(
+    Guid OrderId,
+    string OrderShortId,
+    string PartnerName,
+    string? DeliveryStatus,
+    string? DeliveryAddress,
+    string? OriginAddress,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    double? NetAmount,
+    string? SettlementStatus,
+    string? Currency);
+
+public sealed record CourierTripsPage(
+    IReadOnlyList<CourierTrip> Items,
+    int Page,
+    int PageSize,
+    int TotalCount);
+
+public sealed record CourierEarningsItem(
+    Guid OrderId,
+    string OrderShortId,
+    DateTimeOffset CreatedAt,
+    double NetAmount,
+    string? Status);
+
+public sealed record CourierEarnings(
+    double SettledTotal,
+    double PendingTotal,
+    double ManualTotal,
+    int SettledCount,
+    int PendingCount,
+    string? Currency,
+    IReadOnlyList<CourierEarningsItem> Recent);
+
+public sealed record CourierMpStart(Guid CourierId, string? AuthorizationUrl);
+
+public sealed record CourierMpDisconnect(Guid CourierId, bool Disconnected);
+
+public sealed record PublicDeliveryQuoteResponse(
+    bool Available,
+    bool FeeApplies,
+    double Fee,
+    string? Currency,
+    double? DistanceKm,
+    string? ProfileName,
+    Guid? DeliveryProviderId,
+    string? DeliveryProviderName,
+    bool OutOfRange,
+    double? MaxDistanceKm,
+    string? Message);
 
 public sealed record PublicPartnerPaymentStatusResponse(
     Guid PartnerId,
@@ -782,7 +1052,11 @@ public sealed record BuyerProfessionalProfile(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null);
+    string? OtherLinkUrl = null,
+    string? BannerUrl = null,
+    string? ProfilePhotoUrl = null,
+    long ProfileViewCount = 0,
+    string? CertificationsJson = null);
 
 public sealed record BuyerProfessionalProfileUpsertRequest(
     Guid? TenantId,
@@ -907,8 +1181,39 @@ public sealed record Professional(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null
+    string? OtherLinkUrl = null,
+    string? ProfilePhotoUrl = null,
+    long ProfileViewCount = 0,
+    string? CertificationsJson = null,
+    long FollowerCount = 0
 );
+
+public sealed record ProfessionalCertification(
+    string Id,
+    string Name,
+    string? Institution = null,
+    int? Year = null,
+    string? Url = null
+);
+
+public sealed record BuyerAddCertificationRequest(
+    string Name,
+    string? Institution = null,
+    int? Year = null,
+    string? Url = null
+);
+
+public sealed record ProfessionalFollowItem(
+    Guid FollowId,
+    string FollowedType,
+    Guid FollowedId,
+    string? Name,
+    string? Subtitle,
+    string? PhotoUrl,
+    DateTimeOffset FollowedAt
+);
+
+public sealed record FollowStatusResponse(bool IsFollowing);
 
 public sealed record PublicCountryItem(
     Guid Id,
@@ -990,6 +1295,35 @@ public sealed record InboxThreadStatusRequest(string Status);
 
 public sealed record InboxThreadCreateResult(Guid ThreadId, bool Reused);
 
+public sealed record GuestInboxThreadCreateRequest(
+    Guid? PartnerId,
+    Guid? ProfessionalId,
+    string FullName,
+    string Phone,
+    string? Email,
+    string? Subject,
+    string Body);
+
+public sealed record DeliverySnapshot(
+    Guid OrderId,
+    string? DeliveryStatus,
+    string? DeliveryType,
+    double? OriginLat,
+    double? OriginLng,
+    string? OriginAddress,
+    double? DestinationLat,
+    double? DestinationLng,
+    string? DestinationAddress,
+    string? CourierName,
+    string? CourierPhone,
+    string? BuyerName,
+    string? BuyerPhone,
+    double? LastLat,
+    double? LastLng,
+    DateTimeOffset? LastTimestamp);
+
+public sealed record CourierStatusUpdateRequest(Guid OrderId, string Status, string Token);
+
 public sealed record InboxThreadListItem(
     Guid Id,
     string? Subject,
@@ -1062,7 +1396,8 @@ public sealed record CategoryProfessionalItem(
     string? Specialty,
     string? Bio,
     string? Email,
-    string? Phone
+    string? Phone,
+    string? ProfilePhotoUrl = null
 );
 
 public sealed record CategoryNearbyResponse(
@@ -1137,7 +1472,9 @@ public sealed record PartnerProfileProduct(
     string? Description,
     string? Category,
     double Price,
-    string? Currency
+    string? Currency,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null
 );
 
 public sealed record PartnerProfileService(

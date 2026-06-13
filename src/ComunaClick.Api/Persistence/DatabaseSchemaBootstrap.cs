@@ -18,7 +18,19 @@ public static class DatabaseSchemaBootstrap
         ("core", "partners", "20260530_partner_bank_account.sql", "bank_account_number"),
         ("core", "partners", "20260531_partner_logo_url.sql", "logo_url"),
         ("core", "partners", "20260601_profile_web_links.sql", "website_url"),
-        ("core", "services", "20260602_service_geo_coordinates.sql", "latitude")
+        ("core", "services", "20260602_service_geo_coordinates.sql", "latitude"),
+        ("core", "sellers", "2026-04-23_marketplace_mercadopago.sql", null),
+        ("core", "professionals", "20260609_professional_photo_url.sql", "profile_photo_url"),
+        ("core", "professionals", "20260609_professional_stats_certifications.sql", "profile_view_count"),
+        ("core", "professional_follows", "20260609_professional_follows.sql", null),
+        ("core", "orders", "20260610_order_inventory_fulfilled.sql", "inventory_fulfilled_at"),
+        ("core", "notification_outbox", "20260611_notification_outbox.sql", null),
+        ("core", "partner_catalog_categories", "20260611_partner_catalog_subcategories.sql", "parent_id"),
+        ("core", "couriers", "20260612_delivery_tracking.sql", null),
+        ("core", "delivery_settlements", "20260613_delivery_settlements.sql", null),
+        ("core", "couriers", "20260613_delivery_settlements.sql", "kind"),
+        ("core", "partners", "20260614_partner_preferred_delivery_provider.sql", "preferred_delivery_provider_id"),
+        ("core", "couriers", "20260615_courier_account_link.sql", "email")
     ];
 
     public static async Task ApplyPendingAsync(string? connectionString, IHostEnvironment env, ILogger logger, CancellationToken cancellationToken = default)

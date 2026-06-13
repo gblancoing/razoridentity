@@ -8,11 +8,13 @@ public static class RegistrationFlow
     public const string RoleNatural = "natural";
     public const string RoleCommerce = "commerce";
     public const string RoleProfessional = "professional";
+    public const string RoleCourier = "courier";
 
     public static string NormalizeRole(string? role)
     {
         if (string.Equals(role, RoleCommerce, StringComparison.OrdinalIgnoreCase)) return RoleCommerce;
         if (string.Equals(role, RoleProfessional, StringComparison.OrdinalIgnoreCase)) return RoleProfessional;
+        if (string.Equals(role, RoleCourier, StringComparison.OrdinalIgnoreCase)) return RoleCourier;
         return RoleNatural;
     }
 
@@ -36,6 +38,13 @@ public static class RegistrationFlow
         if (string.Equals(normalized, RoleProfessional, StringComparison.OrdinalIgnoreCase))
         {
             return PartnerOnboardingPath(RoleProfessional);
+        }
+
+        if (string.Equals(normalized, RoleCourier, StringComparison.OrdinalIgnoreCase))
+        {
+            // Sin onboarding extra: si el negocio registró su correo, el panel
+            // se llena solo; si no, muestra el empty-state con su correo.
+            return AccountRoutes.Courier + "?welcome=1";
         }
 
         return BuildBuyerCompletePath(returnUrl);

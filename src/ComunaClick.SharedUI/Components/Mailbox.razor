@@ -6,16 +6,21 @@
 @inject AuthStateService AuthState
 @inject ApiSessionService ApiSession
 @inject NavigationManager Navigation
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @implements IDisposable
 
-<div class="flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl border border-[#dadddf] bg-white shadow-[0_12px_40px_-24px_rgba(0,0,0,0.25)]">
+<div class="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#dadddf] bg-white shadow-[0_12px_40px_-24px_rgba(0,0,0,0.25)]">
     <header class="flex shrink-0 items-center justify-between gap-4 border-b border-[#e3e6e8] bg-[#fafbfc] px-4 py-3 sm:px-6">
         <div>
             <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-[#7b8081]">@L.T("inbox.badge")</p>
-            <h1 class="text-lg font-black tracking-[-0.03em] text-[#2c2f30] sm:text-xl">@L.T("inbox.title")</h1>
-            @if (!IsCustomerMode)
+            <h1 class="text-lg font-black tracking-[-0.03em] text-[#2c2f30] sm:text-xl">@L.T(InboxTitleKey)</h1>
+            @if (IsPartnerMode)
             {
                 <p class="mt-1 max-w-xl text-sm text-[#595c5d]">@L.T("inbox.partnerSubtitle")</p>
+            }
+            else if (IsProfessionalMode)
+            {
+                <p class="mt-1 max-w-xl text-sm text-[#595c5d]">@L.T("inbox.professionalSubtitle")</p>
             }
         </div>
         @if (IsCustomerMode && !_composeOpen)
@@ -34,11 +39,11 @@
         <div class="shrink-0 border-b border-[#e3e6e8] bg-[#fff8e6] px-4 py-2 text-sm text-[#5c4a00] sm:px-6">@_bannerMessage</div>
     }
 
-    <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside class="flex w-full shrink-0 flex-col border-b border-[#e3e6e8] bg-[#f5f6f7] lg:w-52 lg:border-b-0 lg:border-r">
-            <div class="p-3">
-                <p class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">@L.T("inbox.folders")</p>
-                <nav class="mt-2 space-y-1">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <aside class="flex w-full shrink-0 flex-row gap-2 border-b border-[#e3e6e8] bg-[#f5f6f7] p-2 lg:w-52 lg:flex-col lg:gap-0 lg:border-b-0 lg:border-r lg:p-3">
+            <div class="min-w-0 flex-1 lg:flex-none">
+                <p class="hidden px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081] lg:block">@L.T("inbox.folders")</p>
+                <nav class="flex gap-1 lg:mt-2 lg:block lg:space-y-1">
                     <button type="button" class="@FolderClass("inbox")" @onclick='() => SelectFolderAsync("inbox")'>
                         <span class="material-symbols-outlined text-[18px]">inbox</span>
                         @L.T("inbox.folder.inbox")
@@ -55,15 +60,15 @@
             </div>
         </aside>
 
-        <section class="flex min-h-0 min-w-0 flex-1 flex-col border-[#e3e6e8] lg:w-80 lg:shrink-0 lg:border-r">
-            <div class="border-b border-[#e3e6e8] px-4 py-3">
+        <section class="@($"{ListPaneClass} min-h-0 min-w-0 flex-1 flex-col border-[#e3e6e8] lg:w-80 lg:shrink-0 lg:border-r")">
+            <div class="shrink-0 border-b border-[#e3e6e8] px-3 py-2 sm:px-4 sm:py-3">
                 <input type="search"
-                       class="w-full rounded-xl border border-[#dadddf] bg-white px-3 py-2 text-sm outline-none focus:border-[#3b6700]"
+                       class="w-full rounded-xl border border-[#dadddf] bg-white px-3 py-2.5 text-base outline-none focus:border-[#3b6700] sm:text-sm"
                        placeholder="@L.T("inbox.searchPlaceholder")"
                        @bind="_search"
                        @bind:event="oninput" />
             </div>
-            <div class="min-h-0 flex-1 overflow-y-auto">
+            <div class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
                 @if (_loadingList)
                 {
                     <div class="p-6">
@@ -73,7 +78,7 @@
                 else if (!FilteredThreads.Any())
                 {
                     <div class="p-8 text-center text-sm text-[#595c5d]">
-                        @(IsCustomerMode ? L.T("inbox.emptyList") : L.T("inbox.emptyList.partner"))
+                        @(IsCustomerMode ? L.T("inbox.emptyList") : IsProfessionalMode ? L.T("inbox.emptyList.professional") : L.T("inbox.emptyList.partner"))
                     </div>
                 }
                 else
@@ -100,29 +105,63 @@
             </div>
         </section>
 
-        <section class="flex min-h-0 min-w-0 flex-1 flex-col bg-[#fafbfc]">
+        <section class="@($"{DetailPaneClass} min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#fafbfc]")">
             @if (_composeOpen)
             {
-                <div class="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
-                    <h2 class="text-lg font-black text-[#2c2f30]">@L.T("inbox.composeTitle")</h2>
-                    <p class="mt-1 text-sm text-[#595c5d]">@L.T("inbox.composeSubtitle")</p>
-                    <div class="mt-4 space-y-3">
-                        <div>
-                            <label class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@L.T("inbox.field.subject")</label>
-                            <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" @bind="_composeSubject" />
+                <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <div class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] p-3 sm:p-6">
+                        <button type="button"
+                                class="mb-3 inline-flex items-center gap-1.5 text-sm font-bold text-[#3b6700] lg:hidden"
+                                @onclick="BackToMobileList">
+                            <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                            @L.T("inbox.backToList")
+                        </button>
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h2 class="text-lg font-black text-[#2c2f30]">@L.T("inbox.composeTitle")</h2>
+                                <p class="mt-1 text-sm text-[#595c5d]">@L.T("inbox.composeSubtitle")</p>
+                                @if (!string.IsNullOrWhiteSpace(_composeCounterpartyName))
+                                {
+                                    <p class="mt-2 text-sm font-semibold text-[#2c2f30]">
+                                        @L.T("inbox.compose.toLabel"): @_composeCounterpartyName
+                                    </p>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(_composeWhatsAppUrl))
+                            {
+                                <a href="@_composeWhatsAppUrl"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-bold text-white hover:bg-[#1ebe57]">
+                                    <span class="material-symbols-outlined text-[16px]">chat</span>
+                                    @L.T("inbox.whatsapp.continue")
+                                </a>
+                            }
                         </div>
-                        <div>
-                            <label class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@L.T("inbox.field.message")</label>
-                            <textarea class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" rows="8" @bind="_composeBody"></textarea>
+                        @if (!string.IsNullOrWhiteSpace(_composeWhatsAppUrl))
+                        {
+                            <p class="mt-2 text-xs text-[#7b8081]">@L.T("inbox.whatsapp.hint.ready")</p>
+                        }
+                        <div class="mt-4 space-y-3">
+                            <div>
+                                <label class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@L.T("inbox.field.subject")</label>
+                                <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2.5 text-base sm:text-sm" @bind="_composeSubject" />
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@L.T("inbox.field.message")</label>
+                                <textarea class="mt-1 w-full rounded-xl border border-[#dadddf] px-3 py-2.5 text-base sm:text-sm" rows="6" @bind="_composeBody"></textarea>
+                            </div>
                         </div>
                     </div>
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        <button type="button" class="rounded-xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad] disabled:opacity-60" disabled="@_sending" @onclick="SendComposeAsync">
-                            @L.T("inbox.send")
-                        </button>
-                        <button type="button" class="rounded-xl border border-[#dadddf] px-5 py-2.5 text-sm font-bold text-[#2c2f30]" @onclick="CloseCompose">
-                            @L.T("inbox.cancel")
-                        </button>
+                    <div class="shrink-0 border-t border-[#e3e6e8] bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-6">
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" class="min-h-11 rounded-xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad] disabled:opacity-60" disabled="@_sending" @onclick="SendComposeAsync">
+                                @L.T("inbox.send")
+                            </button>
+                            <button type="button" class="min-h-11 rounded-xl border border-[#dadddf] px-5 py-2.5 text-sm font-bold text-[#2c2f30]" @onclick="CloseCompose">
+                                @L.T("inbox.cancel")
+                            </button>
+                        </div>
                     </div>
                 </div>
             }
@@ -141,10 +180,17 @@
             }
             else
             {
-                <div class="shrink-0 border-b border-[#e3e6e8] bg-white px-4 py-4 sm:px-6">
+                <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div class="shrink-0 border-b border-[#e3e6e8] bg-white px-3 py-3 sm:px-6 sm:py-4">
+                    <button type="button"
+                            class="mb-2 inline-flex items-center gap-1.5 text-sm font-bold text-[#3b6700] lg:hidden"
+                            @onclick="BackToMobileList">
+                        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                        @L.T("inbox.backToList")
+                    </button>
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30] truncate">
+                            <h2 class="text-lg font-black tracking-[-0.03em] text-[#2c2f30] truncate sm:text-xl">
                                 @(_selectedThread.Subject ?? L.T("inbox.noSubject"))
                             </h2>
                             <p class="mt-1 text-sm text-[#595c5d]">
@@ -197,7 +243,7 @@
                     }
                 </div>
 
-                <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                <div class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] px-3 py-3 sm:px-6 sm:py-4">
                     @if (_messages.Count == 0)
                     {
                         <p class="text-sm text-[#595c5d]">@L.T("inbox.noMessages")</p>
@@ -224,11 +270,14 @@
 
                 @if (_selectedThread.Status != "archived")
                 {
-                    <div class="shrink-0 border-t border-[#e3e6e8] bg-white p-4 sm:p-6">
+                    <div class="shrink-0 border-t border-[#e3e6e8] bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-6">
                         <label class="text-xs font-bold uppercase tracking-wide text-[#7b8081]">@L.T("inbox.replyLabel")</label>
-                        <textarea class="mt-2 w-full rounded-xl border border-[#dadddf] px-3 py-2 text-sm" rows="4" @bind="_replyBody"></textarea>
+                        <textarea class="mt-2 w-full rounded-xl border border-[#dadddf] px-3 py-2.5 text-base sm:text-sm"
+                                  rows="3"
+                                  @bind="_replyBody"
+                                  @bind:event="oninput"></textarea>
                         <button type="button"
-                                class="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                                class="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad] disabled:opacity-60 sm:w-auto"
                                 disabled="@(_sending || string.IsNullOrWhiteSpace(_replyBody))"
                                 @onclick="SendReplyAsync">
                             <span class="material-symbols-outlined text-[18px]">send</span>
@@ -236,6 +285,7 @@
                         </button>
                     </div>
                 }
+                </div>
             }
         </section>
     </div>
@@ -246,6 +296,25 @@
 
     private bool IsCustomerMode => string.Equals(Mode, "customer", StringComparison.OrdinalIgnoreCase);
 
+    private bool IsPartnerMode => string.Equals(Mode, "partner", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsProfessionalMode => string.Equals(Mode, "professional", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsBusinessInboxMode => IsPartnerMode || IsProfessionalMode;
+
+    private string InboxTitleKey => IsProfessionalMode
+        ? "inbox.title.professional"
+        : IsPartnerMode
+            ? "inbox.title.partner"
+            : "inbox.title";
+
+    /// <summary>On small screens: true = thread list, false = conversation or compose.</summary>
+    private bool _mobileListMode = true;
+
+    private string ListPaneClass => _mobileListMode ? "flex" : "hidden lg:flex";
+
+    private string DetailPaneClass => _mobileListMode ? "hidden lg:flex" : "flex";
+
     private string _folder = "inbox";
     private string _search = string.Empty;
     private bool _loadingList = true;
@@ -255,8 +324,14 @@
     private string? _bannerMessage;
     private Guid? _partnerId;
     private string? _partnerPhone;
+    private string? _professionalPhone;
     private Guid? _composePartnerId;
     private Guid? _composeProfessionalId;
+    private Guid? _composeProductId;
+    private Guid? _composeServiceId;
+    private string? _composeCounterpartyName;
+    private string? _composeCounterpartyPhone;
+    private string? _composeWhatsAppUrl;
     private string _composeSubject = string.Empty;
     private string _composeBody = string.Empty;
     private string _replyBody = string.Empty;
@@ -265,6 +340,8 @@
     private List<InboxMessageItem> _messages = new();
     private Guid? _selectedThreadId;
     private bool _initialized;
+    private bool _disposed;
+    private string? _lastAppliedQuery;
 
     private int UnreadCount => _threads.Count(x => x.Unread);
 
@@ -306,7 +383,7 @@
         try
         {
             await AuthState.InitializeAsync();
-            if (!IsCustomerMode)
+            if (IsPartnerMode)
             {
                 if (!await ApiSession.EnsureReadyAsync())
                 {
@@ -326,32 +403,67 @@
                 var partner = await PartnerApi.GetPartnerAsync(_partnerId.Value);
                 _partnerPhone = partner?.Phone;
             }
-
-            ParseQueryCompose();
-            await LoadThreadsAsync();
-
-            if (_composePartnerId.HasValue || _composeProfessionalId.HasValue)
+            else if (IsProfessionalMode)
             {
-                _composeOpen = true;
-            }
-            else if (_selectedThreadId.HasValue)
-            {
-                await SelectThreadAsync(_selectedThreadId.Value);
+                if (!await ApiSession.EnsureReadyAsync())
+                {
+                    _bannerMessage = L.T("inbox.sessionRequired");
+                    _loadingList = false;
+                    return;
+                }
+
+                var tenantId = AuthState.TenantId ?? ApiOptions.Value.DefaultTenantId;
+                if (tenantId == Guid.Empty)
+                {
+                    _bannerMessage = L.T("inbox.professionalRequired");
+                    _loadingList = false;
+                    return;
+                }
+
+                var profile = await BuyerApi.GetBuyerProfessionalProfileAsync(tenantId);
+                if (profile?.HasProfile != true)
+                {
+                    _bannerMessage = L.T("inbox.professionalRequired");
+                    _loadingList = false;
+                    return;
+                }
+
+                _professionalPhone = profile.Phone;
             }
 
+            await ApplyDeepLinkFromQueryAsync();
             _initialized = true;
         }
         catch (InvalidOperationException)
         {
+            _loadingList = false;
+            _loadingDetail = false;
+        }
+        catch (Exception ex)
+        {
+            _bannerMessage = FormatInboxError(ex);
+            _loadingList = false;
+            _loadingDetail = false;
+            _initialized = true;
         }
     }
 
     private void ParseQueryCompose()
     {
+        _selectedThreadId = null;
+        _composePartnerId = null;
+        _composeProfessionalId = null;
+        _composeProductId = null;
+        _composeServiceId = null;
+        _composeSubject = string.Empty;
+        _composeBody = string.Empty;
+
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var q = uri.Query.TrimStart('?');
         if (string.IsNullOrWhiteSpace(q))
         {
+            _composeSubject = L.T("inbox.defaultSubject");
+            _composeBody = L.T("inbox.defaultBody");
             return;
         }
 
@@ -370,6 +482,12 @@
                     break;
                 case "professionalid" when Guid.TryParse(value, out var profId):
                     _composeProfessionalId = profId;
+                    break;
+                case "productid" when Guid.TryParse(value, out var productId):
+                    _composeProductId = productId;
+                    break;
+                case "serviceid" when Guid.TryParse(value, out var serviceId):
+                    _composeServiceId = serviceId;
                     break;
                 case "subject":
                     _composeSubject = value;
@@ -391,7 +509,176 @@
         }
     }
 
-    private async Task LoadThreadsAsync()
+    private async Task ApplyDeepLinkFromQueryAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+        if (string.Equals(_lastAppliedQuery, query, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastAppliedQuery = query;
+        ParseQueryCompose();
+        _composeOpen = false;
+        _selectedThread = null;
+        _messages.Clear();
+        _composeWhatsAppUrl = null;
+
+        try
+        {
+            _bannerMessage = null;
+
+            if (_selectedThreadId is Guid threadId)
+            {
+                await LoadThreadsAsync();
+                if (!_disposed)
+                {
+                    await SelectThreadAsync(threadId);
+                }
+
+                return;
+            }
+
+            if (IsCustomerMode && !IsProfessionalMode && (_composePartnerId.HasValue || _composeProfessionalId.HasValue))
+            {
+                await LoadComposeCounterpartyAsync();
+                await EnrichComposeBodyFromOfferAsync();
+                RefreshComposeWhatsAppUrl();
+                await LoadThreadsAsync();
+
+                if (_disposed)
+                {
+                    return;
+                }
+
+                var existing = _threads.FirstOrDefault(MatchesComposeRecipient);
+                if (existing is not null)
+                {
+                    await SelectThreadAsync(existing.Id);
+                    return;
+                }
+
+                _composeOpen = true;
+                _mobileListMode = false;
+                return;
+            }
+
+            await LoadThreadsAsync();
+        }
+        catch (Exception ex)
+        {
+            _bannerMessage = FormatInboxError(ex);
+            _loadingList = false;
+            _loadingDetail = false;
+        }
+    }
+
+    private bool MatchesComposeRecipient(InboxThreadListItem thread)
+    {
+        if (_composePartnerId is Guid partnerId && thread.PartnerId == partnerId)
+        {
+            return true;
+        }
+
+        if (_composeProfessionalId is Guid professionalId && thread.ProfessionalId == professionalId)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task LoadComposeCounterpartyAsync()
+    {
+        _composeCounterpartyName = null;
+        _composeCounterpartyPhone = null;
+
+        try
+        {
+            if (_composePartnerId is Guid partnerId)
+            {
+                var profile = await BuyerApi.GetPartnerProfileAsync(partnerId);
+                if (profile?.Partner is not null)
+                {
+                    _composeCounterpartyName = profile.Partner.Name;
+                    _composeCounterpartyPhone = profile.Partner.Phone;
+                }
+
+                return;
+            }
+
+            if (_composeProfessionalId is Guid professionalId)
+            {
+                var professional = await BuyerApi.GetProfessionalAsync(professionalId);
+                if (professional is not null)
+                {
+                    _composeCounterpartyName = professional.Name;
+                    _composeCounterpartyPhone = professional.Phone;
+                }
+            }
+        }
+        catch
+        {
+            // Optional enrichment for compose/WhatsApp; inbox still loads without it.
+        }
+    }
+
+    private async Task EnrichComposeBodyFromOfferAsync()
+    {
+        if (_composeBody != L.T("inbox.defaultBody"))
+        {
+            return;
+        }
+
+        try
+        {
+            if (_composeProductId is Guid productId)
+            {
+                var product = await BuyerApi.GetProductAsync(productId);
+                if (!string.IsNullOrWhiteSpace(product?.Name))
+                {
+                    _composeBody = string.Format(L.T("inbox.compose.productContext"), product.Name);
+                }
+
+                return;
+            }
+
+            if (_composeServiceId is Guid serviceId)
+            {
+                var service = await BuyerApi.GetServiceAsync(serviceId);
+                if (!string.IsNullOrWhiteSpace(service?.Name))
+                {
+                    _composeBody = string.Format(L.T("inbox.compose.serviceContext"), service.Name);
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void RefreshComposeWhatsAppUrl()
+    {
+        if (!WhatsAppLinks.IsValidMobile(_composeCounterpartyPhone))
+        {
+            _composeWhatsAppUrl = null;
+            return;
+        }
+
+        var message = WhatsAppLinks.BuildThreadHandoffMessage(
+            _composeSubject,
+            _composeCounterpartyName,
+            string.IsNullOrWhiteSpace(_composeBody) ? null : new[] { _composeBody });
+
+        _composeWhatsAppUrl = WhatsAppLinks.TryBuildChatUrl(_composeCounterpartyPhone, message);
+    }
+
+    private async Task LoadThreadsAsync(bool suppressErrorBanner = false)
     {
         _loadingList = true;
         try
@@ -401,16 +688,29 @@
                 var list = await BuyerApi.GetMyInboxThreadsAsync(_folder);
                 _threads = list?.ToList() ?? new List<InboxThreadListItem>();
             }
+            else if (IsProfessionalMode)
+            {
+                var list = await BuyerApi.GetProfessionalInboxThreadsAsync(_folder);
+                _threads = list?.ToList() ?? new List<InboxThreadListItem>();
+            }
             else if (_partnerId.HasValue)
             {
                 var list = await PartnerApi.GetPartnerInboxThreadsAsync(_partnerId.Value, _folder);
                 _threads = list?.ToList() ?? new List<InboxThreadListItem>();
             }
+
+            if (!suppressErrorBanner)
+            {
+                _bannerMessage = null;
+            }
         }
         catch (Exception ex)
         {
-            _bannerMessage = FormatInboxError(ex);
-            _threads = new List<InboxThreadListItem>();
+            if (!suppressErrorBanner)
+            {
+                _bannerMessage = FormatInboxError(ex);
+                _threads = new List<InboxThreadListItem>();
+            }
         }
         finally
         {
@@ -429,31 +729,33 @@
         _selectedThread = null;
         _messages.Clear();
         _selectedThreadId = null;
+        _mobileListMode = true;
         await LoadThreadsAsync();
     }
 
     private async Task SelectThreadAsync(Guid threadId)
     {
+        _mobileListMode = false;
         _selectedThreadId = threadId;
         _composeOpen = false;
         _loadingDetail = true;
         try
         {
             InboxThreadDetailResponse? detail;
-            if (IsCustomerMode)
+            if (IsCustomerMode || IsProfessionalMode)
             {
                 detail = await BuyerApi.GetInboxThreadAsync(threadId);
-                await BuyerApi.MarkInboxThreadReadAsync(threadId);
             }
             else
             {
                 detail = await PartnerApi.GetInboxThreadAsync(threadId);
-                await PartnerApi.MarkInboxThreadReadAsync(threadId);
             }
 
             _selectedThread = detail?.Thread;
             _messages = detail?.Messages?.ToList() ?? new List<InboxMessageItem>();
-            await LoadThreadsAsync();
+            _bannerMessage = null;
+            await TryMarkThreadReadAsync(threadId);
+            await LoadThreadsAsync(suppressErrorBanner: true);
         }
         catch (Exception ex)
         {
@@ -467,6 +769,25 @@
         }
     }
 
+    private async Task TryMarkThreadReadAsync(Guid threadId)
+    {
+        try
+        {
+            if (IsCustomerMode || IsProfessionalMode)
+            {
+                await BuyerApi.MarkInboxThreadReadAsync(threadId);
+            }
+            else
+            {
+                await PartnerApi.MarkInboxThreadReadAsync(threadId);
+            }
+        }
+        catch
+        {
+            // Non-critical: thread detail is already visible.
+        }
+    }
+
     private async Task SendReplyAsync()
     {
         if (_selectedThreadId is null || string.IsNullOrWhiteSpace(_replyBody))
@@ -477,7 +798,7 @@
         _sending = true;
         try
         {
-            if (IsCustomerMode)
+            if (IsCustomerMode || IsProfessionalMode)
             {
                 await BuyerApi.ReplyInboxThreadAsync(_selectedThreadId.Value, _replyBody.Trim());
             }
@@ -556,7 +877,7 @@
 
         try
         {
-            if (IsCustomerMode)
+            if (IsCustomerMode || IsProfessionalMode)
             {
                 await BuyerApi.UpdateInboxThreadStatusAsync(_selectedThreadId.Value, status);
             }
@@ -589,27 +910,54 @@
     private void OpenComposePanel()
     {
         _composeOpen = true;
+        _mobileListMode = false;
         _selectedThread = null;
         _messages.Clear();
         _selectedThreadId = null;
     }
 
+    private void BackToMobileList()
+    {
+        _mobileListMode = true;
+    }
+
     private void CloseCompose()
     {
         _composeOpen = false;
+        _mobileListMode = _selectedThread is null;
         _composePartnerId = null;
         _composeProfessionalId = null;
+        _composeProductId = null;
+        _composeServiceId = null;
+        _composeCounterpartyName = null;
+        _composeCounterpartyPhone = null;
     }
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        ParseQueryCompose();
-        if (_composePartnerId.HasValue || _composeProfessionalId.HasValue)
+        if (_disposed || !_initialized)
         {
-            _composeOpen = true;
+            return;
         }
 
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await ApplyDeepLinkFromQueryAsync();
+            if (!_disposed)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            _bannerMessage = FormatInboxError(ex);
+            _loadingList = false;
+            _loadingDetail = false;
+            if (!_disposed)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
     }
 
     private void HandleLocaleChange() => InvokeAsync(StateHasChanged);
@@ -628,8 +976,8 @@
     {
         var active = string.Equals(_folder, folder, StringComparison.OrdinalIgnoreCase);
         return active
-            ? "flex w-full items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-bold text-[#3b6700] shadow-sm"
-            : "flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#5c5b5b] hover:bg-white/70";
+            ? "flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-2 py-2 text-xs font-bold text-[#3b6700] shadow-sm lg:w-full lg:justify-start lg:gap-2 lg:px-3 lg:py-2.5 lg:text-sm"
+            : "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-[#5c5b5b] hover:bg-white/70 lg:w-full lg:justify-start lg:gap-2 lg:px-3 lg:py-2.5 lg:text-sm";
     }
 
     private string ThreadRowClass(InboxThreadListItem thread)
@@ -669,9 +1017,8 @@
             return null;
         }
 
-        var ownPhone = ResolveOwnPhone(_selectedThread);
         var counterpartyPhone = ResolveCounterpartyPhone(_selectedThread);
-        if (!WhatsAppLinks.CanHandoff(ownPhone, counterpartyPhone))
+        if (!WhatsAppLinks.IsValidMobile(counterpartyPhone))
         {
             return null;
         }
@@ -705,6 +1052,13 @@
         var ownOk = WhatsAppLinks.IsValidMobile(ownPhone);
         var otherOk = WhatsAppLinks.IsValidMobile(counterpartyPhone);
 
+        if (otherOk && !ownOk)
+        {
+            return IsCustomerMode
+                ? L.T("inbox.whatsapp.hint.missingOwn.customer")
+                : L.T("inbox.whatsapp.hint.missingOwn.partner");
+        }
+
         if (ownOk && otherOk)
         {
             return L.T("inbox.whatsapp.hint.ready");
@@ -732,7 +1086,9 @@
     private string? ResolveOwnPhone(InboxThreadDetail thread)
         => IsCustomerMode
             ? thread.CustomerPhone
-            : _partnerPhone ?? thread.PartnerPhone ?? thread.ProfessionalPhone;
+            : IsProfessionalMode
+                ? _professionalPhone ?? thread.ProfessionalPhone
+                : _partnerPhone ?? thread.PartnerPhone ?? thread.ProfessionalPhone;
 
     private string? ResolveCounterpartyPhone(InboxThreadDetail thread)
         => IsCustomerMode
@@ -741,6 +1097,7 @@
 
     public void Dispose()
     {
+        _disposed = true;
         L.OnChange -= HandleLocaleChange;
         Navigation.LocationChanged -= OnLocationChanged;
     }

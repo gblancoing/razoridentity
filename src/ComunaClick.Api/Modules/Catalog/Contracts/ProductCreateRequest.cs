@@ -11,4 +11,11 @@ public sealed record ProductCreateRequest(
     decimal? CostPrice,
     string? Currency,
     bool? IsActive,
-    int? InitialStock);
+    int? InitialStock,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null);

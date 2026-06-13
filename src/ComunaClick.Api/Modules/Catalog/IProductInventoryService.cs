@@ -18,6 +18,8 @@ public interface IProductInventoryService
 
     Task FulfillOrderAsync(Order order, CancellationToken cancellationToken = default);
 
+    Task RestoreOrderAsync(Order order, CancellationToken cancellationToken = default);
+
     Task EnsureInventoryRowAsync(Guid productId, int initialQuantity, CancellationToken cancellationToken = default);
 
     Task NotifyStockLevelsAsync(

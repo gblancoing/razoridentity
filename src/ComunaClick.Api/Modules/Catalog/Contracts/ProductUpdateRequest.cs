@@ -9,4 +9,11 @@ public sealed record ProductUpdateRequest(
     decimal? Price,
     decimal? CostPrice,
     string? Currency,
-    bool? IsActive);
+    bool? IsActive,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null);

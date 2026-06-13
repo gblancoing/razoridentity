@@ -11,6 +11,15 @@ public sealed class PaymentIntent
     public string? ProviderToken { get; set; }
     public string? AuthorizationCode { get; set; }
     public string RawResponse { get; set; } = "{}";
+
+    /// <summary>Marca de revisión manual desde el panel: flagged | resolved.</summary>
+    public string? ReviewStatus { get; set; }
+    public string? ReviewNote { get; set; }
+
+    /// <summary>Última notificación exitosa (o reintentada) hacia el Core.</summary>
+    public DateTimeOffset? CoreNotifiedAt { get; set; }
+    public int CoreNotifyAttempts { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

@@ -46,7 +46,8 @@
                 </div>
                 <div>
                     <label class="text-sm font-semibold">@L.T("partner.settings.team.field.phone")</label>
-                    <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm" @bind="_form.Phone" />
+                    <input class="mt-1 w-full rounded-xl border border-[#dadddf] px-4 py-3 text-sm" @bind="_form.Phone" type="tel" autocomplete="tel" />
+                    <PhoneFieldHint Value="@_form.Phone" />
                 </div>
                 <div class="md:col-span-2">
                     <label class="text-sm font-semibold">@L.T("partner.settings.team.field.bio")</label>

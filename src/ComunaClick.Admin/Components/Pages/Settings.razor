@@ -3,19 +3,21 @@
 
 <PageTitle>Configuración - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Sistema</p>
-    <h1>Configuración operativa</h1>
-    <p class="page-description">Vista rápida de endpoints y dependencias principales del panel admin.</p>
-</section>
+<PageHeader Eyebrow="Sistema"
+            Title="Configuración operativa"
+            Description="Vista rápida de endpoints y dependencias principales del panel admin." />
 
-<section class="dashboard-grid">
+<section class="detail-grid">
     <article class="panel-card">
         <div class="panel-head"><div><p class="eyebrow">ACL</p><h2>Autenticación</h2></div></div>
-        <p class="page-description">@Configuration["Acl:BaseUrl"]</p>
+        <p class="row-subtitle">@Configuration["Acl:BaseUrl"]</p>
     </article>
     <article class="panel-card">
         <div class="panel-head"><div><p class="eyebrow">API</p><h2>Backoffice</h2></div></div>
-        <p class="page-description">@Configuration["AdminApi:BaseUrl"]</p>
+        <p class="row-subtitle">@Configuration["AdminApi:BaseUrl"]</p>
+    </article>
+    <article class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Payments</p><h2>Panel de pagos</h2></div></div>
+        <p class="row-subtitle">@Configuration["AdminApi:PaymentsAppUrl"]</p>
     </article>
 </section>

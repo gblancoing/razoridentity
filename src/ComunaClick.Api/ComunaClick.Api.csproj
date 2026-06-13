@@ -23,17 +23,13 @@
     <ProjectReference Include="..\Payments.Common\Payments.Common.csproj" />
   </ItemGroup>
 
+  <!--
+    Copia TODOS los .sql de infra/migrations al publish (carpeta migrations/), para que
+    DatabaseSchemaBootstrap los encuentre en runtime. El glob evita olvidar agregar nuevas
+    migraciones a mano (causa del incidente del 2026-06-11 con notification_outbox).
+  -->
   <ItemGroup>
-    <Content Include="..\..\infra\migrations\2026-04-23_product_image_url.sql" Link="migrations\2026-04-23_product_image_url.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260525_inbox_messages.sql" Link="migrations\20260525_inbox_messages.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260526_service_catalog_type_b.sql" Link="migrations\20260526_service_catalog_type_b.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260527_service_images_address.sql" Link="migrations\20260527_service_images_address.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260528_partner_professional_storefront.sql" Link="migrations\20260528_partner_professional_storefront.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260529_commerce_type_a.sql" Link="migrations\20260529_commerce_type_a.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260530_partner_bank_account.sql" Link="migrations\20260530_partner_bank_account.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260531_partner_logo_url.sql" Link="migrations\20260531_partner_logo_url.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260601_profile_web_links.sql" Link="migrations\20260601_profile_web_links.sql" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\infra\migrations\20260602_service_geo_coordinates.sql" Link="migrations\20260602_service_geo_coordinates.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\infra\migrations\*.sql" Link="migrations\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

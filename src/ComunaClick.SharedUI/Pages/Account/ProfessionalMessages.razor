@@ -1,0 +1,49 @@
+@page "/account/professional/messages"
+@layout AccountHubLayout
+@inject LocaleService L
+@inject AuthStateService AuthState
+@inject NavigationManager Navigation
+<PageTitle>@L.T("inbox.pageTitle.professional")</PageTitle>
+
+@if (!_ready)
+{
+    <BrandedLoading Title="@L.T("ui.loading")" Message="@L.T("inbox.loadingSession")" />
+}
+else if (!AuthState.IsAuthenticated)
+{
+    <section class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+        <h1 class="text-2xl font-black text-[#2c2f30]">@L.T("inbox.loginRequired")</h1>
+        <a href="@LoginHref" class="mt-4 inline-flex rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">@L.T("nav.login")</a>
+    </section>
+}
+else
+{
+    <div class="fixed inset-x-0 bottom-0 top-16 z-20 flex flex-col bg-[#f5f6f7] lg:left-72">
+        <div class="flex h-full min-h-0 flex-col p-2 sm:p-4 lg:p-6">
+            <Mailbox Mode="professional" />
+        </div>
+    </div>
+}
+
+@code {
+    private bool _ready;
+    private string LoginHref => $"/login?returnUrl={Uri.EscapeDataString(Navigation.ToAbsoluteUri(Navigation.Uri).PathAndQuery)}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await AuthState.InitializeAsync();
+            _ready = true;
+            StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+}

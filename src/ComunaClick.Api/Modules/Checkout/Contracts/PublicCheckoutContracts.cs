@@ -19,3 +19,21 @@ public sealed record PublicPaymentReminderRequest(
     Guid CustomerId,
     Guid? OrderId,
     Guid? BookingId);
+
+/// <summary>
+/// Cotización de despacho previa al checkout. <c>Fee</c> usa exactamente el
+/// mismo cálculo que aplicará la creación de la orden (paridad cotización ==
+/// cobro); el detalle distancia/perfil es informativo.
+/// </summary>
+public sealed record PublicDeliveryQuoteResponse(
+    bool Available,
+    bool FeeApplies,
+    decimal Fee,
+    string Currency,
+    double? DistanceKm,
+    string? ProfileName,
+    Guid? DeliveryProviderId,
+    string? DeliveryProviderName,
+    bool OutOfRange,
+    double? MaxDistanceKm,
+    string? Message);

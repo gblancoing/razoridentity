@@ -1,4 +1,5 @@
 using ComunaClick.Api.Modules.Checkout.Contracts;
+using ComunaClick.Api.Modules.Delivery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -10,10 +11,37 @@ namespace ComunaClick.Api.Modules.Checkout;
 public sealed class PublicCheckoutController : ControllerBase
 {
     private readonly IBuyerCheckoutPaymentService _checkoutPayments;
+    private readonly IDeliveryQuoteService _deliveryQuotes;
 
-    public PublicCheckoutController(IBuyerCheckoutPaymentService checkoutPayments)
+    public PublicCheckoutController(
+        IBuyerCheckoutPaymentService checkoutPayments,
+        IDeliveryQuoteService deliveryQuotes)
     {
         _checkoutPayments = checkoutPayments;
+        _deliveryQuotes = deliveryQuotes;
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
+    [HttpGet("delivery-quote")]
+    public async Task<ActionResult<PublicDeliveryQuoteResponse>> GetDeliveryQuote(
+        [FromQuery] Guid partnerId,
+        [FromQuery] double? destinationLat,
+        [FromQuery] double? destinationLng,
+        CancellationToken cancellationToken)
+    {
+        if (partnerId == Guid.Empty)
+        {
+            return BadRequest(new { message = "partnerId is required." });
+        }
+
+        var quote = await _deliveryQuotes.GetQuoteAsync(partnerId, destinationLat, destinationLng, cancellationToken);
+        if (!quote.Available)
+        {
+            return NotFound(new { message = quote.Message ?? "Partner not found." });
+        }
+
+        return Ok(quote);
     }
 
     [AllowAnonymous]

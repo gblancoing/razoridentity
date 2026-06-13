@@ -7,6 +7,7 @@
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject ComunaClick.SharedUI.Services.CartState CartBadge
 @implements IDisposable
 
 <PageTitle>@L.T("buyer.checkout.title")</PageTitle>
@@ -31,7 +32,7 @@ else
             <h1 class="text-2xl font-bold">@L.T("buyer.checkout.heading")</h1>
             <p class="text-sm text-[#61897c]">@(_isPersonal ? L.T("buyer.checkout.subtitle") : L.T("buyer.checkout.guestSubtitle"))</p>
 
-            @if (_successOrderId is Guid successId)
+            @if (!_isCartMode && _successOrderId is Guid successId)
             {
                 <div class="mt-6 rounded-[1.5rem] border border-[#a7f255] bg-[#f8fff1] p-5 space-y-3">
                     <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">@L.T("buyer.checkout.success.eyebrow")</p>
@@ -48,14 +49,9 @@ else
                     {
                         <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.mp.offlineDetail")</p>
                     }
-                    @if (IsPaymentPendingSuccess && string.IsNullOrWhiteSpace(_mercadoPagoCheckoutUrl))
-                    {
-                        <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.cartKeptUntilPaid")</p>
-                        <a href="/buyer/cart" class="inline-flex text-sm font-bold text-[#3b6700] underline">@L.T("buyer.cart.view")</a>
-                    }
                     <div class="flex flex-col sm:flex-row gap-3">
                         <a href="@TrackingHref" class="inline-flex items-center justify-center rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad]">@L.T("buyer.checkout.success.track")</a>
-                        @if (!_isPersonal)
+                        @if (!_isPersonal && !AuthState.IsAuthenticated)
                         {
                             <a href="@RegisterHref" class="inline-flex items-center justify-center rounded-2xl border border-[#3b6700] px-5 py-3 text-sm font-bold text-[#3b6700]">@L.T("buyer.checkout.success.register")</a>
                         }
@@ -64,7 +60,51 @@ else
                 </div>
             }
 
-            @if (!_isPersonal && _successOrderId is null)
+            @if (_isCartMode && _cartGroups.Any(g => g.State == CartGroupState.Created))
+            {
+                @* Multi-local: un pedido (y un pago Mercado Pago) por cada negocio. *@
+                <div class="mt-6 rounded-[1.5rem] border border-[#a7f255] bg-[#f8fff1] p-5 space-y-3">
+                    <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#396300]">@L.T("buyer.checkout.success.eyebrow")</p>
+                    <h2 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.checkout.multi.successTitle")</h2>
+                    <p class="text-sm text-[#595c5d]">@L.T("buyer.checkout.multi.payEach")</p>
+                    @foreach (var group in _cartGroups.Where(g => g.State == CartGroupState.Created))
+                    {
+                        <div class="rounded-xl border border-[#cde9a4] bg-white p-4 space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <p class="text-sm font-bold text-[#2c2f30]">@group.Cart.PartnerName</p>
+                                <span class="text-sm font-semibold text-[#595c5d]">@($"{group.OrderTotal:N0}")</span>
+                            </div>
+                            @if (group.OrderId is Guid groupOrderId)
+                            {
+                                <p class="text-xs text-[#595c5d]">@string.Format(L.T("buyer.checkout.multi.orderRow"), ShortId(groupOrderId), group.OrderStatus ?? "payment_pending")</p>
+                            }
+                            <div class="flex flex-wrap items-center gap-3">
+                                @if (!string.IsNullOrWhiteSpace(group.MpCheckoutUrl))
+                                {
+                                    <a href="@group.MpCheckoutUrl" target="_blank" rel="noopener" class="inline-flex items-center justify-center rounded-2xl bg-[#009ee3] px-4 py-2 text-xs font-bold text-white">@L.T("buyer.checkout.mp.pay")</a>
+                                }
+                                else if (group.MpChecked && !group.AcceptsOnlinePayment)
+                                {
+                                    <span class="text-xs text-[#595c5d]">@L.T("buyer.checkout.mp.offlineDetail")</span>
+                                }
+                                @if (group.OrderId is Guid trackOrderId && group.OrderCustomerId is Guid trackCustomerId)
+                                {
+                                    <a href="@($"/buyer/orders?orderId={trackOrderId}&customerId={trackCustomerId}")" class="inline-flex items-center justify-center rounded-2xl border border-[#3b6700] px-4 py-2 text-xs font-bold text-[#3b6700]">@L.T("buyer.checkout.success.track")</a>
+                                }
+                            </div>
+                        </div>
+                    }
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        @if (!_isPersonal && !AuthState.IsAuthenticated)
+                        {
+                            <a href="@RegisterHref" class="inline-flex items-center justify-center rounded-2xl border border-[#3b6700] px-5 py-3 text-sm font-bold text-[#3b6700]">@L.T("buyer.checkout.success.register")</a>
+                        }
+                        <a href="/categorias" class="inline-flex items-center justify-center rounded-2xl border border-[#dadddf] px-5 py-3 text-sm font-bold text-[#2c2f30]">@L.T("buyer.checkout.success.browse")</a>
+                    </div>
+                </div>
+            }
+
+            @if (!_isPersonal && !AuthState.IsAuthenticated && !CheckoutCompleted)
             {
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-[#fafafa] px-4 py-3 text-sm">
                     <span class="text-[#595c5d]">@L.T("buyer.checkout.guestLoginHint")</span>
@@ -72,15 +112,68 @@ else
                 </div>
             }
 
-            @if (_isCartMode && _cartLines.Count > 0)
+            @if (_isCartMode && _cartGroups.Count > 0)
             {
-                <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm space-y-2">
-                    <p>@string.Format(L.T("buyer.checkout.cartMode"), _cartLines.Count)</p>
-                    @foreach (var line in _cartLines)
+                <div class="mt-4 space-y-3 text-sm">
+                    <p class="text-[#61897c]">@string.Format(L.T("buyer.checkout.cartMode"), _cartGroups.Sum(g => g.Cart.ItemCount), _cartGroups.Count)</p>
+                    @foreach (var group in _cartGroups)
                     {
-                        <div class="flex justify-between gap-3 border-t border-primary/10 pt-2">
-                            <span>@line.Name × @line.Quantity</span>
-                            <span class="font-semibold">@($"{line.UnitPrice * line.Quantity:N0}")</span>
+                        <div class="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <p class="font-bold text-[#2c2f30]">@group.Cart.PartnerName</p>
+                                @if (group.State == CartGroupState.Created)
+                                {
+                                    <span class="inline-flex items-center rounded-full bg-[#e6f9d2] px-3 py-1 text-[11px] font-bold text-[#396300]">@L.T("buyer.checkout.multi.created")</span>
+                                }
+                                else if (group.State == CartGroupState.Submitting)
+                                {
+                                    <span class="inline-flex items-center rounded-full bg-[#fef3c7] px-3 py-1 text-[11px] font-bold text-[#92400e]">@L.T("buyer.checkout.submitting")</span>
+                                }
+                            </div>
+                            @foreach (var line in group.Cart.Items)
+                            {
+                                <div class="flex justify-between gap-3 border-t border-primary/10 pt-2">
+                                    <span>@line.Name × @line.Quantity</span>
+                                    <span class="font-semibold">@($"{line.UnitPrice * line.Quantity:N0}")</span>
+                                </div>
+                            }
+                            @if (_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)
+                            {
+                                <div class="flex justify-between gap-3 border-t border-primary/10 pt-2 text-xs">
+                                    <span>@L.T("buyer.checkout.group.fee")</span>
+                                    @if (group.QuoteLoading)
+                                    {
+                                        <span class="font-semibold text-[#61897c]">@L.T("buyer.checkout.deliveryFee.calculating")</span>
+                                    }
+                                    else if (group.QuoteOutOfRange)
+                                    {
+                                        <span class="font-semibold text-red-600">@L.T("buyer.checkout.group.outOfRange")</span>
+                                    }
+                                    else if (group.Quote?.FeeApplies == true)
+                                    {
+                                        <span class="font-semibold">
+                                            @($"{group.QuotedFee:N0}")
+                                            @if (!string.IsNullOrWhiteSpace(group.Quote?.DeliveryProviderName))
+                                            {
+                                                <span class="font-normal text-[#61897c]"> · @group.Quote!.DeliveryProviderName</span>
+                                            }
+                                        </span>
+                                    }
+                                    else if (group.Quote is { Available: true, FeeApplies: false })
+                                    {
+                                        @* Sin transportista en la zona: no hay recargo (≠ cotización pendiente). *@
+                                        <span class="font-semibold text-[#61897c]">@L.T("buyer.checkout.group.feeNone")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="font-semibold text-[#61897c]">@L.T("buyer.checkout.group.feePending")</span>
+                                    }
+                                </div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(group.ErrorMessage))
+                            {
+                                <p class="text-xs font-semibold text-red-600">@group.ErrorMessage</p>
+                            }
                         </div>
                     }
                 </div>
@@ -94,7 +187,7 @@ else
                 </div>
             }
 
-            @if (!_isPersonal && _successOrderId is null)
+            @if (!_isPersonal && !CheckoutCompleted)
             {
                 <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div class="md:col-span-2">
@@ -113,17 +206,18 @@ else
                                autocomplete="email" />
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.guest.phone")</label>
+                        <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.guest.phone") *</label>
                         <input type="tel"
                                class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
                                @bind="GuestPhone"
                                disabled="@_isSubmitting"
-                               autocomplete="tel" />
+                               autocomplete="tel"
+                               placeholder="+56 9 1234 5678" />
                     </div>
                 </div>
             }
 
-            @if (_successOrderId is null)
+            @if (!CheckoutCompleted)
             {
                 <div class="mt-6 md:col-span-2 space-y-3 text-sm">
                     <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#61897c]">@L.T("buyer.checkout.delivery.heading")</p>
@@ -148,6 +242,34 @@ else
                             <span class="text-sm">@L.T("buyer.checkout.delivery.payOnDelivery")</span>
                         </label>
                     </div>
+                    @if (_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)
+                    {
+                        @* Transparencia de costos: el despacho a domicilio suma un recargo al total. *@
+                        <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800">
+                            <span class="material-symbols-outlined align-middle text-[16px]">local_shipping</span>
+                            @if (!_isCartMode && !_quoteLoading && _quote?.FeeApplies == true && !_quoteOutOfRange)
+                            {
+                                @if (!string.IsNullOrWhiteSpace(_quote?.DeliveryProviderName))
+                                {
+                                    @string.Format(L.T("buyer.checkout.delivery.feeAmountProvider"), $"{_deliveryFee:N0}", _quote!.DeliveryProviderName)
+                                }
+                                else
+                                {
+                                    @string.Format(L.T("buyer.checkout.delivery.feeAmount"), $"{_deliveryFee:N0}")
+                                }
+                            }
+                            else
+                            {
+                                @L.T("buyer.checkout.delivery.feeNotice")
+                            }
+                        </p>
+                        @if (HasOutOfRangeQuote)
+                        {
+                            <p class="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-700">
+                                @string.Format(L.T("buyer.checkout.delivery.outOfRange"), $"{OutOfRangeMaxKm:0.#}")
+                            </p>
+                        }
+                    }
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@DeliveryAddressLabel</label>
                         <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
@@ -156,6 +278,23 @@ else
                                disabled="@_isSubmitting"
                                autocomplete="street-address" />
                     </div>
+                    @if (RequiresDeliveryAddress)
+                    {
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-[0.12em] text-[#61897c] mb-1">@L.T("buyer.checkout.delivery.detailsLabel")</label>
+                            <input class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
+                                   @bind="_addressDetails"
+                                   placeholder="@L.T("buyer.checkout.delivery.detailsPlaceholder")"
+                                   disabled="@_isSubmitting" />
+                        </div>
+                        @* Pin de destino para el tracking en vivo del delivery (opcional, no bloquea la compra). *@
+                        <DeliveryDestinationPicker @key="_deliveryMode"
+                                                   Latitude="_destinationLat"
+                                                   LatitudeChanged="OnDestinationLatChanged"
+                                                   Longitude="_destinationLng"
+                                                   LongitudeChanged="OnDestinationLngChangedAsync"
+                                                   AddressResolved="OnDestinationAddressResolved" />
+                    }
                 </div>
             }
 
@@ -176,7 +315,8 @@ else
                                max="@MaxQuantity"
                                class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 h-12 w-full"
                                @bind="Quantity"
-                               disabled="@(_isSubmitting || _successOrderId is not null || !CanPurchase)" />
+                               @bind:after="OnQuantityChanged"
+                               disabled="@(_isSubmitting || CheckoutCompleted || !CanPurchase)" />
                         @if (_maxAvailable > 0)
                         {
                             <p class="mt-1 text-xs text-[#61897c]">@string.Format(L.T("buyer.checkout.stockAvailable"), _maxAvailable)</p>
@@ -200,21 +340,103 @@ else
         <div class="bg-white dark:bg-[#1a2e28] border border-gray-200 dark:border-gray-800 rounded-xl p-6">
             <h2 class="text-lg font-bold">@L.T("buyer.checkout.summary")</h2>
             <div class="mt-4 space-y-2 text-sm">
-                <div class="flex justify-between">
-                    <span>@L.T("buyer.checkout.total")</span>
-                    <span class="font-semibold">@_total</span>
+                @if (_isCartMode)
+                {
+                    @foreach (var group in _cartGroups)
+                    {
+                        <div class="flex justify-between gap-3">
+                            <span class="truncate">@group.Cart.PartnerName</span>
+                            <span class="font-semibold">@($"{group.Cart.Subtotal:N0}")</span>
+                        </div>
+                    }
+                    @if (_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)
+                    {
+                        <div class="flex justify-between gap-3 border-t border-gray-100 dark:border-gray-700 pt-2">
+                            <span>@string.Format(L.T("buyer.checkout.multi.shippingRow"), _cartGroups.Count)</span>
+                            <span class="font-semibold">
+                                @if (_cartGroups.Any(g => g.QuoteLoading))
+                                {
+                                    @L.T("buyer.checkout.deliveryFee.calculating")
+                                }
+                                else
+                                {
+                                    @($"{_cartGroups.Sum(g => g.QuotedFee):N0}")
+                                }
+                            </span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="flex justify-between gap-3">
+                        <span>@L.T("buyer.checkout.subtotal")</span>
+                        <span class="font-semibold">@_subtotal</span>
+                    </div>
+                    @if (_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)
+                    {
+                        <div class="flex justify-between gap-3">
+                            <span>@L.T("buyer.checkout.deliveryFee")</span>
+                            <span class="font-semibold">
+                                @if (_quoteLoading)
+                                {
+                                    @L.T("buyer.checkout.deliveryFee.calculating")
+                                }
+                                else if (_quoteOutOfRange)
+                                {
+                                    <span class="text-red-600">—</span>
+                                }
+                                else if (_quote?.FeeApplies == true)
+                                {
+                                    @($"{_deliveryFee:N0}")
+                                    @if (!string.IsNullOrWhiteSpace(_quote?.DeliveryProviderName))
+                                    {
+                                        <span class="font-normal text-[#61897c]"> · @_quote!.DeliveryProviderName</span>
+                                    }
+                                }
+                                else if (_quote is { Available: true, FeeApplies: false })
+                                {
+                                    @* Sin transportista en la zona: no hay recargo (≠ cotización pendiente). *@
+                                    <span class="text-[#61897c]">@L.T("buyer.checkout.group.feeNone")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-[#61897c]">@L.T("buyer.checkout.group.feePending")</span>
+                                }
+                            </span>
+                        </div>
+                        @if (!HasPlausibleDestination && !_quoteLoading && _quote?.FeeApplies != true)
+                        {
+                            <p class="text-xs text-[#61897c]">@L.T("buyer.checkout.deliveryFee.pendingPin")</p>
+                        }
+                    }
+                }
+                <div class="flex justify-between gap-3 border-t border-gray-200 dark:border-gray-700 pt-2">
+                    <span class="font-bold">@L.T("buyer.checkout.total")</span>
+                    <span class="font-bold">@_total</span>
                 </div>
+                @if (_isCartMode && _cartGroups.Count > 1)
+                {
+                    <p class="text-xs text-[#61897c]">@string.Format(L.T("buyer.checkout.multi.note"), _cartGroups.Count)</p>
+                }
+                @if (HasOutOfRangeQuote)
+                {
+                    <p class="text-xs font-semibold text-red-600">@string.Format(L.T("buyer.checkout.delivery.outOfRange"), $"{OutOfRangeMaxKm:0.#}")</p>
+                }
             </div>
             <button class="w-full mt-6 bg-primary text-[#111816] px-4 py-2 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                     @onclick="HandleCheckout"
-                    disabled="@(_isSubmitting || _successOrderId is not null || (!_isCartMode && !CanPurchase) || (_isCartMode && _cartLines.Count == 0))">
+                    disabled="@(_isSubmitting || CheckoutCompleted || (!_isCartMode && !CanPurchase) || (_isCartMode && _cartGroups.Count == 0) || HasOutOfRangeQuote)">
                 @if (_isSubmitting)
                 {
                     <span>@L.T("buyer.checkout.submitting")</span>
                 }
-                else if (_successOrderId is not null)
+                else if (CheckoutCompleted)
                 {
                     <span>@L.T("buyer.checkout.completed")</span>
+                }
+                else if (_isCartMode && _cartGroups.Any(g => g.State == CartGroupState.Failed))
+                {
+                    <span>@L.T("buyer.checkout.multi.retry")</span>
                 }
                 else
                 {
@@ -255,27 +477,63 @@ else
     private bool _mercadoPagoChecked;
     private bool _partnerAcceptsOnlinePayment;
     private bool _isCartMode;
-    private readonly List<GuestCartCheckoutLine> _cartLines = new();
+    private readonly List<CheckoutCartGroup> _cartGroups = new();
+
+    // Cotización de despacho (modo producto único). El monto es informativo:
+    // el server siempre recalcula el fee al crear la orden.
+    private PublicDeliveryQuoteResponse? _quote;
+    private bool _quoteLoading;
+    private bool _quoteOutOfRange;
+    private double _deliveryFee;
+    private string _subtotal = "0";
+    // Guard contra respuestas de cotización fuera de orden (pin movido rápido).
+    private int _quoteSeq;
 
     private string GuestFullName = string.Empty;
 
-    private sealed class GuestCartCheckoutLine
+    private enum CartGroupState { Pending, Submitting, Created, Failed }
+
+    // Un grupo del carrito = un negocio = una orden (y un pago MP) propios.
+    private sealed class CheckoutCartGroup
     {
-        public Guid ProductId { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public int Quantity { get; set; }
-        public double UnitPrice { get; set; }
-        public int MaxAvailable { get; set; }
+        public GuestCartGroupModel Cart { get; init; } = new();
+        public PublicDeliveryQuoteResponse? Quote { get; set; }
+        public bool QuoteLoading { get; set; }
+        public bool QuoteOutOfRange => Quote?.OutOfRange == true;
+        public double QuotedFee => Quote is { FeeApplies: true, OutOfRange: false } ? Quote.Fee : 0;
+        public CartGroupState State { get; set; } = CartGroupState.Pending;
+        public string? ErrorMessage { get; set; }
+        public Guid? OrderId { get; set; }
+        public Guid? OrderCustomerId { get; set; }
+        public string? OrderStatus { get; set; }
+        public double OrderTotal { get; set; }
+        public string? TrackingToken { get; set; }
+        public string? MpCheckoutUrl { get; set; }
+        public bool MpChecked { get; set; }
+        public bool AcceptsOnlinePayment { get; set; }
     }
+
+    private bool CheckoutCompleted => _isCartMode
+        ? _cartGroups.Count > 0 && _cartGroups.All(g => g.State == CartGroupState.Created)
+        : _successOrderId is not null;
+
+    private bool HasOutOfRangeQuote => _deliveryMode == GuestCheckoutDeliveryHelper.ModeHome
+        && (_isCartMode ? _cartGroups.Any(g => g.QuoteOutOfRange) : _quoteOutOfRange);
+
+    private double OutOfRangeMaxKm => (_isCartMode
+        ? _cartGroups.FirstOrDefault(g => g.QuoteOutOfRange)?.Quote?.MaxDistanceKm
+        : _quote?.MaxDistanceKm) ?? 0;
+
     private string GuestEmail = string.Empty;
     private string GuestPhone = string.Empty;
     private string DeliveryAddress = string.Empty;
     private string _deliveryMode = GuestCheckoutDeliveryHelper.ModeHome;
     private string? _deliveryHint;
-
-    private bool IsPaymentPendingSuccess =>
-        _successOrderId is not null &&
-        string.Equals(_successStatus, "payment_pending", StringComparison.OrdinalIgnoreCase);
+    // Pin de destino para el tracking en vivo del delivery (opcional).
+    private double? _destinationLat;
+    private double? _destinationLng;
+    // Referencia adicional de la entrega (depto, torre, indicaciones).
+    private string _addressDetails = string.Empty;
 
     private string DeliveryAddressLabel => _deliveryMode switch
     {
@@ -328,13 +586,34 @@ else
         {
             await AuthState.InitializeAsync();
             _isPersonal = AuthState.IsPersonalAccount;
-            _isPartnerBlocked = AuthState.IsAuthenticated && !_isPersonal;
+            _isPartnerBlocked = false;
             _initializing = false;
 
-            if (!_isPartnerBlocked)
+            if (!_isPersonal && AuthState.IsPartnerAccount)
             {
-                await LoadCheckoutAsync();
+                if (string.IsNullOrEmpty(GuestFullName)) GuestFullName = AuthState.DisplayName ?? string.Empty;
+                if (string.IsNullOrEmpty(GuestEmail)) GuestEmail = AuthState.Email ?? string.Empty;
             }
+
+            // Compradores registrados: prefill del pin de entrega con la ubicación
+            // guardada en su perfil (pueden ajustarla igual en el mapa).
+            if (_isPersonal && (_tenantId ?? AuthState.TenantId) is { } profileTenantId && profileTenantId != Guid.Empty)
+            {
+                try
+                {
+                    var profile = await BuyerApi.GetBuyerCustomerAsync(profileTenantId);
+                    if (profile?.Latitude is not null && profile.Longitude is not null)
+                    {
+                        _destinationLat ??= profile.Latitude;
+                        _destinationLng ??= profile.Longitude;
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                }
+            }
+
+            await LoadCheckoutAsync();
 
             StateHasChanged();
         }
@@ -346,7 +625,7 @@ else
 
     private async Task HandleCheckout()
     {
-        if (_isSubmitting || _successOrderId is not null)
+        if (_isSubmitting || CheckoutCompleted)
         {
             return;
         }
@@ -357,16 +636,9 @@ else
 
         if (_isCartMode)
         {
-            if (_cartLines.Count == 0 || !Guid.TryParse(PartnerId, out var cartPartnerId))
+            if (_cartGroups.Count == 0)
             {
                 _statusMessage = L.T("buyer.checkout.missingProduct");
-                _statusLevel = "warning";
-                return;
-            }
-
-            if (_tenantId is not Guid cartTenantId || cartTenantId == Guid.Empty)
-            {
-                _statusMessage = L.T("buyer.checkout.missingTenant");
                 _statusLevel = "warning";
                 return;
             }
@@ -374,21 +646,7 @@ else
             _isSubmitting = true;
             try
             {
-                if (_isPersonal)
-                {
-                    await SubmitPersonalCartOrderAsync(cartPartnerId, cartTenantId);
-                }
-                else
-                {
-                    await SubmitGuestCartOrderAsync(cartPartnerId, cartTenantId);
-                }
-            }
-            catch (HttpRequestException ex)
-            {
-                _statusMessage = ex.StatusCode == System.Net.HttpStatusCode.BadRequest
-                    ? L.T("buyer.checkout.stockRejected")
-                    : string.Format(L.T("buyer.checkout.httpError"), (int?)ex.StatusCode ?? 0);
-                _statusLevel = "error";
+                await SubmitCartGroupsAsync();
             }
             finally
             {
@@ -508,7 +766,10 @@ else
             0,
             "CLP",
             new List<OrderItemCreateRequest> { new(productId, Quantity, UnitPrice) },
-            DeliveryAddress: BuildDeliveryAddress());
+            DeliveryProviderId: DeliveryProviderIdForSubmit(_quote),
+            DeliveryAddress: BuildDeliveryAddress(),
+            DestinationLat: DestinationLatForSubmit,
+            DestinationLng: DestinationLngForSubmit);
 
         var order = await BuyerApi.CreateOrderAsync(request, _tenantId ?? AuthState.TenantId);
         _total = order is null ? "$0" : $"{order.TotalAmount:N0}";
@@ -520,7 +781,7 @@ else
             return;
         }
 
-        await OnOrderCreatedAsync(order.Id, order.CustomerId, order.Status, order.TotalAmount, clearCartOnPaidOnly: true);
+        ApplySuccess(order.Id, order.CustomerId, order.Status, order.TotalAmount);
         _statusMessage = $"{L.T("buyer.status.orderCreated")} #{order.Id}";
         _statusLevel = "success";
     }
@@ -528,7 +789,14 @@ else
     private void SetDeliveryMode(string mode)
     {
         _deliveryMode = mode;
+        UpdateTotal();
+        _ = RefreshDeliveryQuotesAsync();
     }
+
+    // El proveedor de la cotización se reenvía solo en envío a domicilio; el
+    // server revalida zona y recalcula el monto (el cliente no fija precios).
+    private Guid? DeliveryProviderIdForSubmit(PublicDeliveryQuoteResponse? quote)
+        => _deliveryMode == GuestCheckoutDeliveryHelper.ModeHome ? quote?.DeliveryProviderId : null;
 
     private bool TryValidateDelivery(out string message)
     {
@@ -539,11 +807,166 @@ else
             return false;
         }
 
+        if (HasOutOfRangeQuote)
+        {
+            message = string.Format(L.T("buyer.checkout.delivery.outOfRange"), $"{OutOfRangeMaxKm:0.#}");
+            return false;
+        }
+
         return true;
     }
 
     private string? BuildDeliveryAddress()
-        => GuestCheckoutDeliveryHelper.FormatDeliveryAddress(_deliveryMode, DeliveryAddress);
+    {
+        // La referencia adicional (depto, torre, indicaciones) se anexa a la
+        // dirección para que vendedor y repartidor la vean junto al destino.
+        var address = DeliveryAddress;
+        if (!string.IsNullOrWhiteSpace(address) && !string.IsNullOrWhiteSpace(_addressDetails))
+        {
+            address = $"{address.Trim()} — {_addressDetails.Trim()}";
+        }
+
+        return GuestCheckoutDeliveryHelper.FormatDeliveryAddress(_deliveryMode, address);
+    }
+
+    // El pin de destino solo aplica a modos con dirección de entrega.
+    private bool RequiresDeliveryAddress
+        => _deliveryMode is GuestCheckoutDeliveryHelper.ModeHome or GuestCheckoutDeliveryHelper.ModePayOnDelivery;
+
+    // Solo se envía el pin si las coordenadas son plausibles (dentro de Chile):
+    // un pin en 0,0 u otro punto basura rompería el mapa de seguimiento.
+    private bool HasPlausibleDestination
+        => _destinationLat.HasValue && _destinationLng.HasValue
+        && GeoLocationValidator.IsWithinChile(_destinationLat.Value, _destinationLng.Value);
+
+    private double? DestinationLatForSubmit => RequiresDeliveryAddress && HasPlausibleDestination ? _destinationLat : null;
+    private double? DestinationLngForSubmit => RequiresDeliveryAddress && HasPlausibleDestination ? _destinationLng : null;
+
+    private Task OnDestinationAddressResolved(string resolvedAddress)
+    {
+        // Prefill solo si el comprador aún no escribió su dirección a mano.
+        if (string.IsNullOrWhiteSpace(DeliveryAddress))
+        {
+            DeliveryAddress = resolvedAddress;
+        }
+
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void OnDestinationLatChanged(double? value)
+    {
+        _destinationLat = value;
+    }
+
+    // El picker emite lat y luego lng: la cotización se refresca acá para
+    // hacerlo una sola vez con ambas coordenadas ya actualizadas.
+    private async Task OnDestinationLngChangedAsync(double? value)
+    {
+        _destinationLng = value;
+        await RefreshDeliveryQuotesAsync();
+    }
+
+    private void OnQuantityChanged()
+    {
+        UpdateTotal();
+    }
+
+    /// <summary>
+    /// Cotiza el despacho con el endpoint público (por negocio en modo carrito).
+    /// Un fallo de cotización nunca bloquea el checkout: el server recalcula
+    /// el fee real al crear la orden.
+    /// </summary>
+    private async Task RefreshDeliveryQuotesAsync()
+    {
+        var seq = ++_quoteSeq;
+
+        if (_deliveryMode != GuestCheckoutDeliveryHelper.ModeHome)
+        {
+            _quote = null;
+            _quoteOutOfRange = false;
+            _deliveryFee = 0;
+            _quoteLoading = false;
+            foreach (var group in _cartGroups)
+            {
+                group.Quote = null;
+                group.QuoteLoading = false;
+            }
+
+            UpdateTotal();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (_isCartMode)
+        {
+            foreach (var group in _cartGroups)
+            {
+                group.QuoteLoading = true;
+            }
+
+            await InvokeAsync(StateHasChanged);
+            foreach (var group in _cartGroups)
+            {
+                try
+                {
+                    var quote = await BuyerApi.GetDeliveryQuoteAsync(group.Cart.PartnerId, DestinationLatForSubmit, DestinationLngForSubmit);
+                    if (seq != _quoteSeq)
+                    {
+                        return;
+                    }
+
+                    group.Quote = quote;
+                }
+                catch
+                {
+                    group.Quote = null;
+                }
+                finally
+                {
+                    group.QuoteLoading = false;
+                }
+            }
+
+            UpdateTotal();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (!Guid.TryParse(PartnerId, out var partnerId) || partnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        _quoteLoading = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var quote = await BuyerApi.GetDeliveryQuoteAsync(partnerId, DestinationLatForSubmit, DestinationLngForSubmit);
+            if (seq != _quoteSeq)
+            {
+                return;
+            }
+
+            _quote = quote;
+            _quoteOutOfRange = quote?.OutOfRange == true;
+            _deliveryFee = quote is { FeeApplies: true, OutOfRange: false } ? quote.Fee : 0;
+        }
+        catch
+        {
+            _quote = null;
+            _quoteOutOfRange = false;
+            _deliveryFee = 0;
+        }
+        finally
+        {
+            if (seq == _quoteSeq)
+            {
+                _quoteLoading = false;
+                UpdateTotal();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
 
     private async Task SubmitGuestOrderAsync(Guid partnerId, Guid productId, Guid tenantId)
     {
@@ -568,6 +991,13 @@ else
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(GuestPhone))
+        {
+            _statusMessage = L.T("buyer.checkout.guest.phoneRequired");
+            _statusLevel = "warning";
+            return;
+        }
+
         var request = new GuestOrderCreateRequest(
             tenantId,
             partnerId,
@@ -575,10 +1005,13 @@ else
             new GuestContactRequest(
                 GuestFullName.Trim(),
                 GuestEmail.Trim(),
-                string.IsNullOrWhiteSpace(GuestPhone) ? null : GuestPhone.Trim()),
+                GuestPhone.Trim()),
             0,
             "CLP",
-            BuildDeliveryAddress());
+            BuildDeliveryAddress(),
+            DestinationLatForSubmit,
+            DestinationLngForSubmit,
+            DeliveryProviderIdForSubmit(_quote));
 
         var response = await BuyerApi.CreateGuestOrderAsync(request);
         if (response is null)
@@ -591,10 +1024,15 @@ else
 
         CustomerId = response.CustomerId.ToString();
         await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-        await OnGuestOrderCreatedAsync(response);
+        OnGuestOrderCreated(response);
     }
 
-    private async Task SubmitGuestCartOrderAsync(Guid partnerId, Guid tenantId)
+    /// <summary>
+    /// Crea una orden por cada negocio del carrito, en secuencia. Los grupos
+    /// con error quedan en el carrito y se pueden reintentar sin duplicar los
+    /// pedidos ya creados.
+    /// </summary>
+    private async Task SubmitCartGroupsAsync()
     {
         if (!TryValidateDelivery(out var deliveryError))
         {
@@ -603,140 +1041,234 @@ else
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(GuestFullName) || GuestFullName.Trim().Length < 2)
+        Guid customerId = Guid.Empty;
+        if (_isPersonal)
         {
-            _statusMessage = L.T("buyer.checkout.guest.fullNameRequired");
-            _statusLevel = "warning";
-            return;
-        }
+            await AuthState.InitializeAsync();
+            if (!AuthState.IsPersonalAccount)
+            {
+                _statusMessage = L.T("buyer.checkout.personalSessionRequired");
+                _statusLevel = "warning";
+                return;
+            }
 
-        if (string.IsNullOrWhiteSpace(GuestEmail) || !GuestEmail.Contains('@'))
-        {
-            _statusMessage = L.T("buyer.checkout.guest.emailRequired");
-            _statusLevel = "warning";
-            return;
-        }
-
-        var items = _cartLines
-            .Select(x => new OrderItemCreateRequest(x.ProductId, x.Quantity, x.UnitPrice))
-            .ToList();
-
-        var request = new GuestOrderCreateRequest(
-            tenantId,
-            partnerId,
-            items,
-            new GuestContactRequest(
-                GuestFullName.Trim(),
-                GuestEmail.Trim(),
-                string.IsNullOrWhiteSpace(GuestPhone) ? null : GuestPhone.Trim()),
-            0,
-            "CLP",
-            BuildDeliveryAddress());
-
-        var response = await BuyerApi.CreateGuestOrderAsync(request);
-        if (response is null)
-        {
-            _statusMessage = L.T("buyer.status.orderFailed");
-            _statusLevel = "error";
-            return;
-        }
-
-        CustomerId = response.CustomerId.ToString();
-        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-        await OnGuestOrderCreatedAsync(response);
-    }
-
-    private async Task SubmitPersonalCartOrderAsync(Guid partnerId, Guid tenantId)
-    {
-        if (!TryValidateDelivery(out var deliveryError))
-        {
-            _statusMessage = deliveryError;
-            _statusLevel = "warning";
-            return;
-        }
-
-        await AuthState.InitializeAsync();
-        if (!AuthState.IsPersonalAccount)
-        {
-            _statusMessage = L.T("buyer.checkout.personalSessionRequired");
-            _statusLevel = "warning";
-            return;
-        }
-
-        if (!Guid.TryParse(CustomerId, out var customerId))
-        {
-            await ResolveCustomerIdAsync();
             if (!Guid.TryParse(CustomerId, out customerId))
             {
-                _statusMessage = L.T("buyer.checkout.customerMissing");
+                await ResolveCustomerIdAsync();
+                if (!Guid.TryParse(CustomerId, out customerId))
+                {
+                    _statusMessage = L.T("buyer.checkout.customerMissing");
+                    _statusLevel = "warning";
+                    return;
+                }
+            }
+
+            await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(GuestFullName) || GuestFullName.Trim().Length < 2)
+            {
+                _statusMessage = L.T("buyer.checkout.guest.fullNameRequired");
+                _statusLevel = "warning";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(GuestEmail) || !GuestEmail.Contains('@'))
+            {
+                _statusMessage = L.T("buyer.checkout.guest.emailRequired");
+                _statusLevel = "warning";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(GuestPhone))
+            {
+                _statusMessage = L.T("buyer.checkout.guest.phoneRequired");
                 _statusLevel = "warning";
                 return;
             }
         }
 
-        await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
-
-        var items = _cartLines
-            .Select(x => new OrderItemCreateRequest(x.ProductId, x.Quantity, x.UnitPrice))
-            .ToList();
-
-        var order = await BuyerApi.CreateOrderAsync(
-            new OrderCreateRequest(partnerId, customerId, 0, "CLP", items,
-                DeliveryAddress: BuildDeliveryAddress()),
-            tenantId);
-
-        if (order is null)
+        foreach (var group in _cartGroups.Where(g => g.State != CartGroupState.Created))
         {
-            _statusMessage = L.T("buyer.status.orderFailed");
-            _statusLevel = "error";
+            group.State = CartGroupState.Submitting;
+            group.ErrorMessage = null;
+            await InvokeAsync(StateHasChanged);
+
+            var items = group.Cart.Items
+                .Select(x => new OrderItemCreateRequest(x.ProductId, x.Quantity, x.UnitPrice))
+                .ToList();
+            var providerId = DeliveryProviderIdForSubmit(group.Quote);
+
+            try
+            {
+                if (_isPersonal)
+                {
+                    var order = await BuyerApi.CreateOrderAsync(
+                        new OrderCreateRequest(group.Cart.PartnerId, customerId, 0, group.Cart.Currency, items,
+                            DeliveryProviderId: providerId,
+                            DeliveryAddress: BuildDeliveryAddress(),
+                            DestinationLat: DestinationLatForSubmit,
+                            DestinationLng: DestinationLngForSubmit),
+                        group.Cart.TenantId);
+
+                    if (order is null)
+                    {
+                        group.State = CartGroupState.Failed;
+                        group.ErrorMessage = L.T("buyer.status.orderFailed");
+                        continue;
+                    }
+
+                    await ApplyGroupSuccessAsync(group, order.Id, order.CustomerId, order.Status, order.TotalAmount, null);
+                }
+                else
+                {
+                    var response = await BuyerApi.CreateGuestOrderAsync(new GuestOrderCreateRequest(
+                        group.Cart.TenantId,
+                        group.Cart.PartnerId,
+                        items,
+                        new GuestContactRequest(GuestFullName.Trim(), GuestEmail.Trim(), GuestPhone.Trim()),
+                        0,
+                        group.Cart.Currency,
+                        BuildDeliveryAddress(),
+                        DestinationLatForSubmit,
+                        DestinationLngForSubmit,
+                        providerId));
+
+                    if (response is null)
+                    {
+                        group.State = CartGroupState.Failed;
+                        group.ErrorMessage = L.T("buyer.status.orderFailed");
+                        continue;
+                    }
+
+                    CustomerId = response.CustomerId.ToString();
+                    await JSRuntime.InvokeVoidAsync("comunaclic.setCustomerId", CustomerId);
+                    await ApplyGroupSuccessAsync(group, response.OrderId, response.CustomerId, response.Status, response.TotalAmount, response.TrackingToken);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                group.State = CartGroupState.Failed;
+                group.ErrorMessage = ex.StatusCode == System.Net.HttpStatusCode.BadRequest
+                    ? L.T("buyer.checkout.stockRejected")
+                    : string.Format(L.T("buyer.checkout.httpError"), (int?)ex.StatusCode ?? 0);
+            }
+        }
+
+        var createdCount = _cartGroups.Count(g => g.State == CartGroupState.Created);
+        if (createdCount == _cartGroups.Count)
+        {
+            _completed = true;
+            _statusMessage = L.T("buyer.checkout.guestSuccessPendingPayment");
+            _statusLevel = "success";
+        }
+        else
+        {
+            _statusMessage = string.Format(L.T("buyer.checkout.multi.partial"), createdCount, _cartGroups.Count);
+            _statusLevel = "warning";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplyGroupSuccessAsync(CheckoutCartGroup group, Guid orderId, Guid customerId, string? status, double totalAmount, string? trackingToken)
+    {
+        group.State = CartGroupState.Created;
+        group.OrderId = orderId;
+        group.OrderCustomerId = customerId;
+        group.OrderStatus = status;
+        group.OrderTotal = totalAmount;
+        group.TrackingToken = trackingToken;
+
+        // El grupo sale del carrito apenas su pedido existe: si otro negocio
+        // falla, el carrito retiene solo lo pendiente para reintentar.
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("comunaclic.removeGuestCartGroup", group.Cart.PartnerId.ToString());
+            await CartBadge.RefreshAsync(JSRuntime);
+        }
+        catch
+        {
+            // Ignore storage errors.
+        }
+
+        _ = PersistLastTrackingAsync(orderId, customerId, trackingToken);
+        _ = TrackAsync("submit_checkout", "submit", "success");
+        await TryOfferMercadoPagoForGroupAsync(group);
+    }
+
+    private async Task TryOfferMercadoPagoForGroupAsync(CheckoutCartGroup group)
+    {
+        if (group.OrderId is not Guid orderId || group.OrderCustomerId is not Guid customerId)
+        {
+            group.MpChecked = true;
             return;
         }
 
-        await OnOrderCreatedAsync(order.Id, order.CustomerId, order.Status, order.TotalAmount, clearCartOnPaidOnly: true);
-        _statusMessage = $"{L.T("buyer.status.orderCreated")} #{order.Id}";
-        _statusLevel = "success";
+        try
+        {
+            var status = await BuyerApi.GetPartnerPaymentStatusAsync(group.Cart.PartnerId);
+            group.AcceptsOnlinePayment = status?.MercadoPagoReady == true;
+            if (!group.AcceptsOnlinePayment)
+            {
+                return;
+            }
+
+            var checkout = await BuyerApi.CreateMercadoPagoCheckoutAsync(
+                new PublicMercadoPagoCheckoutRequest(customerId, orderId, null));
+            if (!string.IsNullOrWhiteSpace(checkout?.CheckoutUrl))
+            {
+                group.MpCheckoutUrl = checkout.CheckoutUrl;
+                await SavePendingMpPaymentAsync(orderId, customerId, checkout.CheckoutUrl, group.Cart.PartnerName);
+            }
+        }
+        catch
+        {
+            group.AcceptsOnlinePayment = false;
+        }
+        finally
+        {
+            group.MpChecked = true;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
-    private async Task OnGuestOrderCreatedAsync(GuestOrderCreateResponse response)
+    private void OnGuestOrderCreated(GuestOrderCreateResponse response)
     {
-        await OnOrderCreatedAsync(response.OrderId, response.CustomerId, response.Status, response.TotalAmount, clearCartOnPaidOnly: true);
+        ApplySuccess(response.OrderId, response.CustomerId, response.Status, response.TotalAmount, response.TrackingToken);
         _statusMessage = string.Equals(response.Status, "payment_pending", StringComparison.OrdinalIgnoreCase)
             ? L.T("buyer.checkout.guestSuccessPendingPayment")
             : L.T("buyer.checkout.guestSuccess");
         _statusLevel = "success";
     }
 
-    private async Task OnOrderCreatedAsync(Guid orderId, Guid customerId, string? status, double totalAmount, bool clearCartOnPaidOnly)
-    {
-        ApplySuccess(orderId, customerId, status, totalAmount);
-        if (clearCartOnPaidOnly && string.Equals(status, "paid", StringComparison.OrdinalIgnoreCase))
-        {
-            await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
-        }
-    }
-
-    private void ApplySuccess(Guid orderId, Guid customerId, string? status, double totalAmount)
+    private void ApplySuccess(Guid orderId, Guid customerId, string? status, double totalAmount, string? trackingToken = null)
     {
         _successOrderId = orderId;
         _successCustomerId = customerId;
         _successStatus = status;
         _total = $"{totalAmount:N0}";
         _completed = true;
-        _ = PersistLastTrackingAsync(orderId, customerId);
+        _ = PersistLastTrackingAsync(orderId, customerId, trackingToken);
         _ = TrackAsync("submit_checkout", "submit", "success");
         _ = TryOfferMercadoPagoAsync(orderId, customerId);
     }
 
-    private async Task PersistLastTrackingAsync(Guid orderId, Guid customerId)
+    private async Task PersistLastTrackingAsync(Guid orderId, Guid customerId, string? trackingToken = null)
     {
         try
         {
-            var payload = JsonSerializer.Serialize(new Dictionary<string, string>
+            var payload = new Dictionary<string, string>
             {
                 ["orderId"] = orderId.ToString(),
                 ["customerId"] = customerId.ToString()
-            });
-            await JSRuntime.InvokeVoidAsync("comunaclic.setLastTracking", payload);
+            };
+            if (!string.IsNullOrWhiteSpace(trackingToken))
+            {
+                payload["token"] = trackingToken;
+            }
+            await JSRuntime.InvokeVoidAsync("comunaclic.setLastTracking", JsonSerializer.Serialize(payload));
         }
         catch
         {
@@ -758,6 +1290,7 @@ else
             _partnerAcceptsOnlinePayment = status?.MercadoPagoReady == true;
             if (!_partnerAcceptsOnlinePayment)
             {
+                _statusMessage = L.T("buyer.checkout.guestSuccess");
                 return;
             }
 
@@ -766,7 +1299,7 @@ else
             if (!string.IsNullOrWhiteSpace(checkout?.CheckoutUrl))
             {
                 _mercadoPagoCheckoutUrl = checkout.CheckoutUrl;
-                await SavePendingMpPaymentAsync(orderId, customerId, checkout.CheckoutUrl);
+                await SavePendingMpPaymentAsync(orderId, customerId, checkout.CheckoutUrl, null);
             }
         }
         catch
@@ -780,7 +1313,7 @@ else
         }
     }
 
-    private async Task SavePendingMpPaymentAsync(Guid orderId, Guid customerId, string checkoutUrl)
+    private async Task SavePendingMpPaymentAsync(Guid orderId, Guid customerId, string checkoutUrl, string? partnerName)
     {
         try
         {
@@ -789,9 +1322,11 @@ else
                 ["orderId"] = orderId.ToString(),
                 ["customerId"] = customerId.ToString(),
                 ["checkoutUrl"] = checkoutUrl,
-                ["createdAt"] = DateTimeOffset.UtcNow.ToString("O")
+                ["createdAt"] = DateTimeOffset.UtcNow.ToString("O"),
+                ["partnerName"] = string.IsNullOrWhiteSpace(partnerName) ? null : partnerName
             });
-            await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", payload);
+            // addPendingMpPayment acumula varios pagos pendientes (uno por negocio).
+            await JSRuntime.InvokeVoidAsync("comunaclic.addPendingMpPayment", payload);
         }
         catch
         {
@@ -806,9 +1341,15 @@ else
 
     private void UpdateTotal()
     {
-        _total = _isCartMode
-            ? $"{_cartLines.Sum(x => x.UnitPrice * x.Quantity):N0}"
-            : $"{(Quantity * UnitPrice):N0}";
+        var subtotal = _isCartMode
+            ? _cartGroups.Sum(g => g.Cart.Subtotal)
+            : Quantity * UnitPrice;
+        _subtotal = $"{subtotal:N0}";
+
+        var fee = _deliveryMode == GuestCheckoutDeliveryHelper.ModeHome
+            ? (_isCartMode ? _cartGroups.Sum(g => g.QuotedFee) : _deliveryFee)
+            : 0;
+        _total = $"{subtotal + fee:N0}";
     }
 
     private async Task LoadCheckoutAsync()
@@ -879,6 +1420,8 @@ else
         }
 
         UpdateTotal();
+        // Cotización inicial (cubre el pin prellenado desde el perfil del comprador).
+        await RefreshDeliveryQuotesAsync();
         await TrackAsync("start_checkout", "start", "started");
         _startedTracked = true;
     }
@@ -886,56 +1429,25 @@ else
     private async Task LoadGuestCartCheckoutAsync()
     {
         _isCartMode = true;
-        _cartLines.Clear();
+        _cartGroups.Clear();
 
         var raw = await JSRuntime.InvokeAsync<string>("comunaclic.getGuestCart");
-        if (string.IsNullOrWhiteSpace(raw))
+        var groups = GuestCartStore.Parse(raw);
+        if (groups.Count == 0)
         {
             _statusMessage = L.T("buyer.cart.emptyTitle");
             _statusLevel = "warning";
             return;
         }
 
-        using var doc = JsonDocument.Parse(raw);
-        var root = doc.RootElement;
-        PartnerId = root.TryGetProperty("partnerId", out var p) ? p.GetString() ?? string.Empty : string.Empty;
-        _productName = root.TryGetProperty("partnerName", out var pn) ? pn.GetString() : L.T("buyer.cart.heading");
-        if (root.TryGetProperty("tenantId", out var t) && Guid.TryParse(t.GetString(), out var tenantId))
+        foreach (var group in groups)
         {
-            _tenantId = tenantId;
+            _cartGroups.Add(new CheckoutCartGroup { Cart = group });
         }
 
-        if (!root.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
-        {
-            _statusMessage = L.T("buyer.cart.emptyTitle");
-            _statusLevel = "warning";
-            return;
-        }
-
-        foreach (var item in items.EnumerateArray())
-        {
-            if (!item.TryGetProperty("productId", out var pid) || !Guid.TryParse(pid.GetString(), out var productId))
-            {
-                continue;
-            }
-
-            _cartLines.Add(new GuestCartCheckoutLine
-            {
-                ProductId = productId,
-                Name = item.TryGetProperty("name", out var n) ? n.GetString() ?? "Producto" : "Producto",
-                Quantity = item.TryGetProperty("quantity", out var q) && q.TryGetInt32(out var qi) ? qi : 1,
-                UnitPrice = item.TryGetProperty("unitPrice", out var up) && up.TryGetDouble(out var price) ? price : 0,
-                MaxAvailable = item.TryGetProperty("maxAvailable", out var m) && m.TryGetInt32(out var max) ? max : 99
-            });
-        }
-
-        if (_cartLines.Count == 0)
-        {
-            _statusMessage = L.T("buyer.cart.emptyTitle");
-            _statusLevel = "warning";
-            return;
-        }
-
+        // Hint de tenant para resolver el perfil del comprador logueado; cada
+        // orden usa el tenant de su propio grupo al enviarse.
+        _tenantId = groups[0].TenantId;
         _inStock = true;
         _maxAvailable = 99;
 
@@ -945,6 +1457,7 @@ else
         }
 
         UpdateTotal();
+        await RefreshDeliveryQuotesAsync();
         await TrackAsync("start_checkout", "start", "started");
         _startedTracked = true;
     }

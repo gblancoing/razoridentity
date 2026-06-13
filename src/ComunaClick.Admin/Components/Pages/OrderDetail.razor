@@ -1,0 +1,187 @@
+@page "/ordenes/{Id:guid}"
+@using System.Globalization
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Detalle de orden - ComunaClick.Admin</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar la orden" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else if (_isLoading)
+{
+    <section class="panel-card">
+        <LoadingPanel Message="Cargando orden…" />
+    </section>
+}
+else if (_order is null)
+{
+    <section class="not-found-card">
+        <p class="eyebrow">Órdenes</p>
+        <h1>No encontramos esta orden</h1>
+        <a class="primary-link" href="/ordenes">Volver al listado</a>
+    </section>
+}
+else
+{
+    <PageHeader Eyebrow="Orden"
+                Title="@($"Orden #{_order.Id.ToString()[..8]}…")"
+                Description="@($"{_order.PartnerName} · {_order.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", Cl)}")" />
+
+    <section class="detail-grid">
+        <article class="panel-card">
+            <div class="panel-head">
+                <div><p class="eyebrow">Resumen</p><h2>Datos del pedido</h2></div>
+                <StatusBadge Status="@_order.Status" Label="@OrderStatusLabel(_order.Status)" />
+            </div>
+            <dl class="detail-list">
+                <div><dt>Partner</dt><dd>@_order.PartnerName</dd></div>
+                <div><dt>Comprador</dt><dd>@(_order.BuyerName ?? _order.BuyerEmail ?? "—")</dd></div>
+                <div><dt>Email</dt><dd>@(_order.BuyerEmail ?? "—")</dd></div>
+                <div><dt>Subtotal</dt><dd>@_order.Subtotal.ToString("C0", Cl)</dd></div>
+                <div><dt>Despacho</dt><dd>@_order.DeliveryFee.ToString("C0", Cl)</dd></div>
+                <div><dt>Total</dt><dd>@_order.TotalAmount.ToString("C0", Cl)</dd></div>
+                <div><dt>Comisión plataforma</dt><dd>@_order.PlatformFeeAmount.ToString("C0", Cl)</dd></div>
+                <div><dt>Neto partner</dt><dd>@_order.NetAmount.ToString("C0", Cl)</dd></div>
+                <div><dt>Tipo despacho</dt><dd>@(_order.DeliveryType ?? "—")</dd></div>
+                <div><dt>Estado despacho</dt>
+                    <dd>
+                        @if (!string.IsNullOrWhiteSpace(_order.DeliveryStatus))
+                        {
+                            <StatusBadge Status="@_order.DeliveryStatus" />
+                        }
+                        else { <span>—</span> }
+                    </dd>
+                </div>
+                <div><dt>Dirección</dt><dd>@(_order.DeliveryAddress ?? "—")</dd></div>
+                <div><dt>Proveedor delivery</dt><dd>@(_order.DeliveryProviderName ?? "—")</dd></div>
+                <div><dt>Repartidor</dt><dd>@(_order.CourierName ?? "—")</dd></div>
+                <div><dt>Creada</dt><dd>@_order.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss", Cl)</dd></div>
+                <div><dt>Actualizada</dt><dd>@_order.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss", Cl)</dd></div>
+            </dl>
+        </article>
+
+        @if (_order.Payment is not null)
+        {
+            <article class="panel-card">
+                <div class="panel-head">
+                    <div><p class="eyebrow">Pago</p><h2>Marketplace MP</h2></div>
+                    <StatusBadge Status="@_order.Payment.Status" />
+                </div>
+                <dl class="detail-list">
+                    <div><dt>Proveedor</dt><dd>@_order.Payment.Provider</dd></div>
+                    <div><dt>Monto</dt><dd>@_order.Payment.Amount.ToString("C0", Cl)</dd></div>
+                    @if (_order.Payment.PaidAmount.HasValue)
+                    {
+                        <div><dt>Cobrado</dt><dd>@_order.Payment.PaidAmount.Value.ToString("C0", Cl)</dd></div>
+                    }
+                    <div><dt>MP Payment ID</dt><dd>@(_order.Payment.MercadoPagoPaymentId ?? "—")</dd></div>
+                    <div><dt>Método</dt><dd>@(_order.Payment.PaymentMethod ?? "—")</dd></div>
+                    <div><dt>Detalle estado</dt><dd>@(_order.Payment.StatusDetail ?? "—")</dd></div>
+                    @if (_order.Payment.DateApproved.HasValue)
+                    {
+                        <div><dt>Aprobado</dt><dd>@_order.Payment.DateApproved.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm", Cl)</dd></div>
+                    }
+                    <div><dt>Creado</dt><dd>@_order.Payment.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss", Cl)</dd></div>
+                </dl>
+            </article>
+        }
+
+        @if (_order.DeliverySettlement is not null)
+        {
+            <article class="panel-card">
+                <div class="panel-head">
+                    <div><p class="eyebrow">Liquidación</p><h2>Slip repartidor</h2></div>
+                    <StatusBadge Status="@_order.DeliverySettlement.Status" />
+                </div>
+                <dl class="detail-list">
+                    <div><dt>Bruto</dt><dd>@_order.DeliverySettlement.GrossAmount.ToString("C0", Cl)</dd></div>
+                    <div><dt>Fee plataforma</dt><dd>@_order.DeliverySettlement.PlatformFeeAmount.ToString("C0", Cl)</dd></div>
+                    @if (_order.DeliverySettlement.MercadoPagoFeeAmount.HasValue)
+                    {
+                        <div><dt>Fee MP</dt><dd>@_order.DeliverySettlement.MercadoPagoFeeAmount.Value.ToString("C0", Cl)</dd></div>
+                    }
+                    <div><dt>Neto repartidor</dt><dd>@_order.DeliverySettlement.NetToCourierAmount.ToString("C0", Cl)</dd></div>
+                    @if (_order.DeliverySettlement.SettledAt.HasValue)
+                    {
+                        <div><dt>Liquidado</dt><dd>@_order.DeliverySettlement.SettledAt.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm", Cl)</dd></div>
+                    }
+                </dl>
+            </article>
+        }
+    </section>
+
+    @if (_order.Items.Count > 0)
+    {
+        <section class="panel-card">
+            <div class="panel-head"><div><p class="eyebrow">Contenido</p><h2>Productos</h2></div></div>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio unitario</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _order.Items)
+                        {
+                            <tr>
+                                <td class="cell-title">@item.ProductName</td>
+                                <td>@item.Quantity</td>
+                                <td class="cell-amount">@item.UnitPrice.ToString("C0", Cl)</td>
+                                <td class="cell-amount">@item.TotalPrice.ToString("C0", Cl)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    [Parameter] public Guid Id { get; set; }
+
+    private AdminOrderDetailDto? _order;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _order = await Client.GetOrderDetailAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string OrderStatusLabel(string s) => s switch
+    {
+        "pending" => "Pendiente",
+        "confirmed" => "Confirmado",
+        "preparing" => "Preparando",
+        "ready" => "Listo",
+        "in_transit" => "En camino",
+        "delivered" => "Entregado",
+        "cancelled" => "Cancelado",
+        _ => s
+    };
+}

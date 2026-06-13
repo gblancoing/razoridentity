@@ -178,6 +178,14 @@
                     @if (!string.IsNullOrWhiteSpace(_order.DeliveryAddress))
                     {
                         <p class="text-sm text-[#595c5d]"><span class="font-bold text-[#2c2f30]">@L.T("buyer.checkout.guest.address"):</span> @_order.DeliveryAddress</p>
+                        @if (!string.IsNullOrWhiteSpace(_order.TrackingToken))
+                        {
+                            <a class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad]"
+                               href="@($"/track/{_order.Id}?token={Uri.EscapeDataString(_order.TrackingToken)}")">
+                                <span class="material-symbols-outlined text-[18px]">local_shipping</span>
+                                @L.T("buyer.track.followOnMap")
+                            </a>
+                        }
                     }
 
                     <div class="space-y-3">
@@ -319,6 +327,7 @@
     private bool _isLoading;
     private bool _isLoadingRecentBookings;
     private Guid? _customerId;
+    private string? _orderToken;
     private bool _browserCustomerReady;
     private string? _recentOrderId;
     private string? _recentBookingId;
@@ -506,8 +515,9 @@
                 await PersistLastTrackingFromInputsAsync();
                 if (_order is not null && string.Equals(_order.Status, "paid", StringComparison.OrdinalIgnoreCase))
                 {
-                    await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
-                    await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+                    // Solo se limpia el pago pendiente de ESTA orden: con carrito
+                    // multi-negocio pueden existir otros pagos (y grupos) vigentes.
+                    await JSRuntime.InvokeVoidAsync("comunaclic.removePendingMpPayment", _order.Id.ToString(), null);
                 }
             }
         }
@@ -566,8 +576,16 @@
         {
             _statusMessage = L.T("buyer.checkout.mp.returnApproved");
             _statusLevel = "success";
-            await JSRuntime.InvokeVoidAsync("comunaclic.clearGuestCart");
-            await JSRuntime.InvokeVoidAsync("comunaclic.setPendingMpPayment", null);
+            // Remueve solo el pago de la orden/reserva del retorno; otros pagos
+            // pendientes del carrito multi-negocio siguen vigentes.
+            if (Guid.TryParse(OrderId, out var paidOrderId) && paidOrderId != Guid.Empty)
+            {
+                await JSRuntime.InvokeVoidAsync("comunaclic.removePendingMpPayment", paidOrderId.ToString(), null);
+            }
+            else if (Guid.TryParse(BookingId, out var paidBookingId) && paidBookingId != Guid.Empty)
+            {
+                await JSRuntime.InvokeVoidAsync("comunaclic.removePendingMpPayment", null, paidBookingId.ToString());
+            }
         }
         else if (string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase))
         {

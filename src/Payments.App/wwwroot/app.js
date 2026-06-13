@@ -1,5 +1,25 @@
 window.paymentsApp = window.paymentsApp || {};
 
+// Descarga un archivo desde un endpoint protegido con bearer token
+// (un <a href> directo no sirve: el JWT no viaja en cookies).
+window.paymentsApp.downloadWithAuth = async function (url, token, filename) {
+  const response = await fetch(url, {
+    headers: { Authorization: "Bearer " + token }
+  });
+  if (!response.ok) {
+    throw new Error("Descarga fallida (" + response.status + ")");
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename || "export.csv";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+};
+
 window.paymentsApp.getTokens = function () {
   try {
     return localStorage.getItem("payments.tokens") || "";

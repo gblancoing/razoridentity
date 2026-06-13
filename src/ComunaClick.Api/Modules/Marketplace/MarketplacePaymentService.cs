@@ -45,6 +45,9 @@ public sealed class MarketplacePaymentService
         _options = options.Value;
     }
 
+    private string ResolveWebhookBaseUrl()
+        => (string.IsNullOrWhiteSpace(_options.WebhookBaseUrl) ? _options.AppBaseUrl : _options.WebhookBaseUrl).TrimEnd('/');
+
     public async Task<MarketplacePaymentResponse> CreateAsync(CreateMarketplacePaymentRequest request, CancellationToken cancellationToken)
     {
         ValidateCreateRequest(request);
@@ -109,21 +112,36 @@ public sealed class MarketplacePaymentService
                 $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}",
                 $"{_options.AppBaseUrl.TrimEnd('/')}/buyer/orders?orderId={order.Id}");
 
+            var preferenceItems = order.Items.Select(x =>
+            {
+                var sku = x.ProductId.ToString("N");
+                var matched = request.Items.FirstOrDefault(i => string.Equals(i.Sku, sku, StringComparison.OrdinalIgnoreCase));
+                var title = !string.IsNullOrWhiteSpace(matched?.Title) ? matched!.Title! : "Producto ComunaClic";
+                return new MercadoPagoPreferenceItem(sku, title, x.Quantity, order.Currency, x.UnitPrice);
+            }).ToList();
+
+            // El recargo de despacho va como ítem propio: Checkout Pro cobra la
+            // suma de los ítems de la preferencia, no nuestro GrossAmount. Sin
+            // esta línea MP cobraba solo los productos y el envío quedaba impago.
+            if (order.DeliveryFee > 0)
+            {
+                preferenceItems.Add(new MercadoPagoPreferenceItem(
+                    $"delivery-{order.Id:N}",
+                    "Despacho a domicilio",
+                    1,
+                    order.Currency,
+                    order.DeliveryFee));
+            }
+
             var preference = await _mpClient.CreateCheckoutProPreferenceAsync(
                 accessToken,
                 new MercadoPagoPreferenceRequest(
                     payment.ExternalReference,
                     fee.TotalPlatformFeeAmount,
                     backUrls,
-                    order.Items.Select(x =>
-                    {
-                        var sku = x.ProductId.ToString("N");
-                        var matched = request.Items.FirstOrDefault(i => string.Equals(i.Sku, sku, StringComparison.OrdinalIgnoreCase));
-                        var title = !string.IsNullOrWhiteSpace(matched?.Title) ? matched!.Title! : "Producto ComunaClic";
-                        return new MercadoPagoPreferenceItem(sku, title, x.Quantity, order.Currency, x.UnitPrice);
-                    }).ToArray(),
+                    preferenceItems.ToArray(),
                     new MercadoPagoPreferencePayer(order.BuyerEmail ?? request.Buyer.Email, order.BuyerName ?? request.Buyer.Name),
-                    $"{_options.AppBaseUrl.TrimEnd('/')}/api/webhooks/mercadopago"),
+                    $"{ResolveWebhookBaseUrl()}/api/webhooks/mercadopago"),
                 cancellationToken);
 
             payment.ProviderToken = preference.Id;
@@ -185,7 +203,8 @@ public sealed class MarketplacePaymentService
             payment.Status = NormalizeMercadoPagoStatus(mpPayment.Status);
             payment.StatusDetail = mpPayment.StatusDetail;
             payment.PaidAmount = mpPayment.TransactionAmount;
-            payment.DateApproved = mpPayment.DateApproved;
+            // MP devuelve date_approved con offset local (-04:00); Npgsql solo acepta UTC en timestamptz.
+            payment.DateApproved = mpPayment.DateApproved?.ToUniversalTime();
             payment.RawResponseJson = JsonSerializer.Serialize(mpPayment, JsonOptions);
 
             response = new MarketplacePaymentResponse(
@@ -326,6 +345,12 @@ public sealed class MarketplacePaymentService
             .Select(x => new MarketplacePaymentStatusItemResponse(x.PreviousStatus, x.NewStatus, x.Detail, x.CreatedAt))
             .ToListAsync(cancellationToken);
 
+        // Neto que efectivamente recibe el vendedor: bruto − comisión plataforma − comisión MP.
+        // Lo almacenado (NetToSellerAmount) solo descuenta la comisión de plataforma porque el
+        // fee de MP recién se conoce cuando el pago se confirma.
+        var netBeforeMpFee = fee?.NetToSellerAmount ?? order?.NetAmount ?? 0m;
+        var netToSeller = netBeforeMpFee - (fee?.MercadoPagoFeeAmount ?? 0m);
+
         return new MarketplacePaymentDetailResponse(
             payment.Id,
             payment.OrderId ?? Guid.Empty,
@@ -339,7 +364,7 @@ public sealed class MarketplacePaymentService
             payment.Currency,
             order?.GrossAmount ?? payment.Amount,
             fee?.PlatformFeeAmount ?? order?.PlatformFeeAmount ?? 0m,
-            fee?.NetToSellerAmount ?? order?.NetAmount ?? 0m,
+            netToSeller,
             fee?.MercadoPagoFeeAmount,
             payment.PaidAmount,
             payment.ExternalReference,
@@ -435,7 +460,7 @@ public sealed class MarketplacePaymentService
             {
                 SellerId = sellerId,
                 FixedFeeAmount = 0m,
-                PercentageFee = 0m,
+                PercentageFee = 2.61m,
                 IsActive = true
             };
         }
@@ -570,7 +595,7 @@ public sealed class MarketplacePaymentService
                         grossAmount)
                 },
                 new MercadoPagoPreferencePayer(buyerEmail, buyerName),
-                $"{baseUrl}/api/webhooks/mercadopago"),
+                $"{ResolveWebhookBaseUrl()}/api/webhooks/mercadopago"),
             cancellationToken);
 
         payment.ProviderToken = preference.Id;

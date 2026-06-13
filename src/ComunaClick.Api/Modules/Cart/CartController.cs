@@ -370,9 +370,9 @@ public sealed class CartController : ControllerBase
         }).ToList();
 
         var subtotal = items.Sum(x => x.TotalPrice);
-        var deliveryFee = deliveryProvider is null
-            ? Math.Max(0, request.DeliveryFee)
-            : Math.Max(deliveryProvider.BaseFee, request.DeliveryFee);
+        // El costo de despacho se calcula server-side a partir del proveedor/zona;
+        // el valor del request no se usa para el cobro (evita forzar despacho $0).
+        var deliveryFee = deliveryProvider?.BaseFee ?? 0m;
         var totalAmount = subtotal + deliveryFee;
         var currency = string.IsNullOrWhiteSpace(request.Currency) ? (products[0].Currency ?? "CLP") : request.Currency.Trim();
 
@@ -401,7 +401,9 @@ public sealed class CartController : ControllerBase
             .FirstOrDefaultAsync(x => x.Id == order.CustomerId && x.TenantId == tenantId, cancellationToken);
         if (customer is not null)
         {
-            await _orderNotificationService.NotifyPartnerAsync(order, partner, customer, items, cancellationToken);
+            // Confirmación al comprador (encolada). El aviso de venta al comercio se dispara
+            // al confirmarse el pago, no al crear la orden en estado payment_pending.
+            await _orderNotificationService.NotifyBuyerOrderAsync(order, partner, customer, cancellationToken);
         }
 
         return order;

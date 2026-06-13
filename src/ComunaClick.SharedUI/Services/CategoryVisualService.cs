@@ -38,7 +38,8 @@ public static class CategoryVisualService
         ["stationery-office"] = "_content/ComunaClick.SharedUI/category-images/libreria.png",
         ["crafts-entrepreneurs"] = "_content/ComunaClick.SharedUI/category-images/artesania.png",
         ["inmuebles"] = "_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png",
-        ["real-estate"] = "_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png"
+        ["real-estate"] = "_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png",
+        ["home-improvement-gardening"] = "_content/ComunaClick.SharedUI/category-images/hogar-limpieza.png"
     };
 
     private static readonly Dictionary<string, string> DisplayNameMap = new(StringComparer.OrdinalIgnoreCase)
@@ -57,7 +58,8 @@ public static class CategoryVisualService
         ["crafts-entrepreneurs"] = "Artesanía y Emprendimientos",
         ["ALIMENTOS"] = "Alimentos y Bebidas",
         ["inmuebles"] = "Inmuebles",
-        ["real-estate"] = "Inmuebles"
+        ["real-estate"] = "Inmuebles",
+        ["home-improvement-gardening"] = "Mejoramiento del hogar y jardinería"
     };
 
     private static readonly string[] FallbackImages =
@@ -340,6 +342,8 @@ public static class CategoryVisualService
             var s when s.Contains("comercio", StringComparison.Ordinal) || s.Contains("tienda", StringComparison.Ordinal) || s.Contains("retail", StringComparison.Ordinal) || s.Contains("boutique", StringComparison.Ordinal) || s.Contains("gondola", StringComparison.Ordinal)
                 => ImgModa,
             var s when s.Contains("hogar", StringComparison.Ordinal) || s.Contains("limpieza", StringComparison.Ordinal) || s.Contains("ferreter", StringComparison.Ordinal)
+                => ImgHogar,
+            var s when s.Contains("mejoramiento", StringComparison.Ordinal) || s.Contains("jardiner", StringComparison.Ordinal) || s.Contains("jardin", StringComparison.Ordinal) || s.Contains("herramient", StringComparison.Ordinal) || s.Contains("bricol", StringComparison.Ordinal)
                 => ImgHogar,
             var s when s.Contains("salud", StringComparison.Ordinal) || s.Contains("cuidado", StringComparison.Ordinal) || s.Contains("wellness", StringComparison.Ordinal) || s.Contains("perfumer", StringComparison.Ordinal)
                 => ImgSalud,

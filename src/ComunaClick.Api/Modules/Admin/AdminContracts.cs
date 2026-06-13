@@ -118,6 +118,21 @@ public sealed record AdminDeliveryProviderDto(
     bool IsActive,
     DateTimeOffset UpdatedAt);
 
+public sealed record AdminSellerFeeItemDto(
+    Guid SellerId,
+    string SellerName,
+    decimal FixedFeeAmount,
+    decimal PercentageFee,
+    bool IsActive);
+
+public sealed record AdminGlobalFeeUpdateRequest(
+    decimal PercentageFee,
+    decimal FixedFeeAmount);
+
+public sealed record AdminSellerFeeUpdateRequest(
+    decimal PercentageFee,
+    decimal FixedFeeAmount);
+
 public sealed record AdminDeliveryProviderUpsertRequest(
     Guid? TenantId,
     Guid? RegionId,

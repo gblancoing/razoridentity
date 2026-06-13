@@ -1,6 +1,7 @@
 @inject LocaleService L
 @inject AuthStateService AuthState
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <div class="relative">
     @if (_open)
@@ -73,13 +74,23 @@
                         </span>
                     </a>
                 }
-                @if (ShowCompanyNav && !HasPartnerPanel)
+                @if (ShowCompanyNav)
                 {
-                    <a href="@AccountRoutes.Company" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                    <a href="@AccountRoutes.CompanyNavHref(HasPartnerPanel)" role="menuitem" class="@MenuItemClass" @onclick="Close">
                         <span class="material-symbols-outlined text-[20px]">storefront</span>
                         <span>
                             @L.T("account.nav.company")
                             <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.company.hint")</span>
+                        </span>
+                    </a>
+                }
+                @if (ShowCourierNav)
+                {
+                    <a href="@AccountRoutes.Courier" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">two_wheeler</span>
+                        <span>
+                            @L.T("account.nav.courier")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.courier.hint")</span>
                         </span>
                     </a>
                 }
@@ -90,6 +101,16 @@
                         <span>
                             @L.T("account.nav.professional")
                             <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.professional.hint")</span>
+                        </span>
+                    </a>
+                }
+                @if (ShowProfessionalInboxNav)
+                {
+                    <a href="@AccountRoutes.ProfessionalMessages" role="menuitem" class="@MenuItemClass" @onclick="Close">
+                        <span class="material-symbols-outlined text-[20px]">mail</span>
+                        <span>
+                            @L.T("account.nav.professionalMessages")
+                            <span class="block text-[10px] font-normal text-[#8a8f90]">@L.T("account.nav.professionalMessages.hint")</span>
                         </span>
                     </a>
                 }
@@ -109,8 +130,11 @@
   [Parameter] public bool HasPartnerPanel { get; set; }
   [Parameter] public bool ShowCompanyNav { get; set; }
   [Parameter] public bool ShowProfessionalNav { get; set; }
+  [Parameter] public bool ShowProfessionalInboxNav { get; set; }
+  [Parameter] public bool ShowCourierNav { get; set; }
 
   private bool _open;
+  private bool _authLoaded;
 
   private string UserLabel => AuthState.DisplayName ?? AuthState.Email ?? "ComunaClic";
   private string UserInitial => string.IsNullOrWhiteSpace(UserLabel) ? "C" : UserLabel.Trim()[0].ToString().ToUpperInvariant();
@@ -135,10 +159,44 @@
 
           return path.StartsWith(AccountRoutes.Profile, StringComparison.OrdinalIgnoreCase)
               || path.StartsWith(AccountRoutes.Company, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.PartnerSettings, StringComparison.OrdinalIgnoreCase)
               || path.StartsWith(AccountRoutes.Professional, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.ProfessionalMessages, StringComparison.OrdinalIgnoreCase)
+              || path.StartsWith(AccountRoutes.Messages, StringComparison.OrdinalIgnoreCase)
               || (HasPartnerPanel && string.Equals(path, "/partner", StringComparison.OrdinalIgnoreCase));
       }
   }
+
+  protected override void OnInitialized()
+  {
+      AuthState.OnChange += HandleAuthChange;
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+      if (_authLoaded || AuthState.IsAuthenticated)
+      {
+          return;
+      }
+
+      // El layout restaura la sesión en paralelo; este fallback cubre los casos
+      // en que el menú se renderiza antes de que los tokens estén disponibles.
+      try
+      {
+          await AuthState.InitializeAsync();
+          _authLoaded = true;
+      }
+      catch (InvalidOperationException)
+      {
+      }
+  }
+
+  private void HandleAuthChange()
+  {
+      _ = InvokeAsync(StateHasChanged);
+  }
+
+  public void Dispose() => AuthState.OnChange -= HandleAuthChange;
 
   private void Toggle() => _open = !_open;
 

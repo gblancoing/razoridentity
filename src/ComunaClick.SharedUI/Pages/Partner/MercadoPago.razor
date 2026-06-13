@@ -1,30 +1,37 @@
 @page "/partner/mercadopago"
 @layout PartnerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <PageTitle>Mercado Pago - ComunaClic</PageTitle>
 
-<div class="space-y-8">
-    <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-            <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">Marketplace</p>
-            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">Mercado Pago</h1>
-            <p class="mt-2 text-sm text-[#595c5d]">Conecta tu cuenta, configura la comisión y revisa los cobros marketplace de ComunaClic.</p>
+<div class="space-y-6">
+
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#fff159] flex items-center justify-center shadow-[0_8px_20px_-8px_rgba(0,0,0,0.15)]">
+                <span class="material-symbols-outlined text-[#2c2f30] text-[22px]">point_of_sale</span>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">Marketplace</p>
+                <h1 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Mercado Pago</h1>
+            </div>
         </div>
         <div class="flex flex-wrap gap-3">
-            <button class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
-                    @onclick="ConnectAsync"
-                    disabled="@_busy">
-                <span class="material-symbols-outlined text-[18px]">link</span>
-                Conectar Mercado Pago
+            <button class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-2.5 text-sm font-bold text-[#d9ffad] shadow-[0_8px_20px_-8px_rgba(59,103,0,0.5)] hover:bg-[#335900] transition-colors disabled:opacity-50"
+                    @onclick="ConnectAsync" disabled="@_busy">
+                <span class="material-symbols-outlined text-[17px]">link</span>
+                Conectar cuenta
             </button>
-            <button class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-5 py-3 text-sm font-bold text-[#2c2f30] disabled:opacity-60"
+            <button class="inline-flex items-center gap-2 rounded-2xl border border-[#e3e6e8] bg-white px-5 py-2.5 text-sm font-bold text-[#595c5d] hover:bg-[#f5f6f7] transition-colors disabled:opacity-50"
                     @onclick="DisconnectAsync"
-                    disabled="@_busy || _status is null || _status.ConnectionStatus != "connected"">
-                <span class="material-symbols-outlined text-[18px]">link_off</span>
-                Desconectar cuenta
+                    disabled="@(_busy || _status is null || _status.ConnectionStatus != "connected")">
+                <span class="material-symbols-outlined text-[17px]">link_off</span>
+                Desconectar
             </button>
         </div>
     </header>
@@ -36,121 +43,160 @@
 
     @if (_loading)
     {
-        <BrandedLoading Title="Mercado Pago" Message="Estamos consultando la configuración del marketplace." />
+        <BrandedLoading Title="Mercado Pago" Message="Consultando configuración del marketplace…" />
     }
     else if (_status is not null)
     {
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <section class="xl:col-span-2 rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                <div class="flex items-center justify-between gap-4">
+        <!-- Estado de conexión -->
+        <div class="grid grid-cols-1 gap-5">
+
+            <!-- Tarjeta estado de conexión -->
+            <section class="rounded-3xl border border-[#e3e6e8] bg-white shadow-[0_8px_24px_-12px_rgba(0,0,0,0.06)] overflow-hidden">
+                <!-- Banner estado -->
+                <div class="@(IsConnected ? "bg-gradient-to-r from-[#e8f5d0] to-[#f0fae3]" : "bg-[#fef3f2]") px-8 py-5 flex items-center justify-between gap-4 border-b border-[#e3e6e8]">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-3 w-3 relative">
+                            @if (IsConnected)
+                            {
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3b6700] opacity-40"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-[#3b6700]"></span>
+                            }
+                            else
+                            {
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-[#e53935]"></span>
+                            }
+                        </span>
+                        <span class="text-sm font-bold @(IsConnected ? "text-[#3b6700]" : "text-[#c62828]")">
+                            @(IsConnected ? "Cuenta conectada" : "Sin conexión")
+                        </span>
+                    </div>
+                    <span class="text-xs text-[#7b8081]">@_status.SellerName</span>
+                </div>
+
+                <!-- Info grid -->
+                <div class="p-8 grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div>
-                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Estado de conexión</p>
-                        <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@_status.ConnectionStatus</h2>
-                        <p class="mt-2 text-sm text-[#595c5d]">Vendedor: @_status.SellerName</p>
+                        <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">MP User ID</p>
+                        <p class="mt-1.5 text-base font-black text-[#2c2f30]">@(_status.MpUserId ?? "—")</p>
                     </div>
-                    <div class="rounded-2xl bg-[#f5f6f7] px-5 py-4 text-right">
-                        <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">MP user</p>
-                        <p class="mt-2 text-sm font-bold text-[#2c2f30]">@(_status.MpUserId ?? "Sin conectar")</p>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">Conectado</p>
+                        <p class="mt-1.5 text-sm font-semibold text-[#2c2f30]">@FormatDateShort(_status.ConnectedAt)</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">Token expira</p>
+                        <p class="mt-1.5 text-sm font-semibold @(IsTokenNearExpiry ? "text-[#e65100]" : "text-[#2c2f30]")">
+                            @FormatDateShort(_status.TokenExpiresAt)
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.15em] font-bold text-[#7b8081]">Seller ID</p>
+                        <p class="mt-1.5 text-xs font-mono text-[#595c5d] truncate" title="@_status.SellerId">
+                            @ShortId(_status.SellerId)…
+                        </p>
                     </div>
                 </div>
 
-                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#595c5d]">
-                    <p><span class="font-bold text-[#2c2f30]">Scope:</span> @(_status.Scope ?? "-")</p>
-                    <p><span class="font-bold text-[#2c2f30]">Conectado:</span> @FormatDate(_status.ConnectedAt)</p>
-                    <p><span class="font-bold text-[#2c2f30]">Expira token:</span> @FormatDate(_status.TokenExpiresAt)</p>
-                    <p><span class="font-bold text-[#2c2f30]">SellerId:</span> @_status.SellerId</p>
-                </div>
+                <!-- Permisos colapsables -->
+                @if (!string.IsNullOrWhiteSpace(_status.Scope))
+                {
+                    <div class="px-8 pb-6">
+                        <button class="text-xs font-bold text-[#7b8081] flex items-center gap-1 hover:text-[#3b6700] transition-colors"
+                                @onclick="() => _scopeExpanded = !_scopeExpanded">
+                            <span class="material-symbols-outlined text-[15px]">@(_scopeExpanded ? "expand_less" : "expand_more")</span>
+                            @(_scopeExpanded ? "Ocultar permisos" : "Ver permisos OAuth")
+                        </button>
+                        @if (_scopeExpanded)
+                        {
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                @foreach (var scope in _status.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <span class="inline-flex items-center rounded-lg bg-[#f0f2f3] px-2.5 py-1 text-[10px] font-mono text-[#595c5d]">@scope</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
             </section>
 
-            <section class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
-                <div>
-                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Comisión plataforma</p>
-                    <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Configuración</h2>
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">Fijo CLP</label>
-                    <input class="mt-2 h-11 w-full rounded-2xl border border-[#dadddf] px-3 text-sm"
-                           type="number"
-                           @bind="_fixedFeeAmount" />
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">Porcentaje</label>
-                    <input class="mt-2 h-11 w-full rounded-2xl border border-[#dadddf] px-3 text-sm"
-                           type="number"
-                           step="0.01"
-                           @bind="_percentageFee" />
-                </div>
-                <label class="flex items-center gap-3 rounded-2xl border border-[#dadddf] px-4 py-3 text-sm">
-                    <input type="checkbox" @bind="_feesEnabled" />
-                    Comisión activa
-                </label>
-
-                <button class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#3b6700] px-5 py-3 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
-                        @onclick="SaveFeesAsync"
-                        disabled="@_busy">
-                    <span class="material-symbols-outlined text-[18px]">save</span>
-                    Guardar comisión
-                </button>
-            </section>
         </div>
 
-        <section class="rounded-3xl border border-[#e3e6e8] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-5">
-            <div class="flex items-center justify-between gap-4">
+        <!-- Tabla de pagos -->
+        <section class="rounded-3xl border border-[#e3e6e8] bg-white shadow-[0_8px_24px_-12px_rgba(0,0,0,0.06)]">
+            <div class="flex items-center justify-between gap-4 px-8 py-5 border-b border-[#e3e6e8]">
                 <div>
-                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Pagos</p>
-                    <h2 class="mt-2 text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">Últimos pagos</h2>
+                    <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">Historial</p>
+                    <h2 class="mt-0.5 text-lg font-black tracking-[-0.02em] text-[#2c2f30]">Últimos pagos</h2>
                 </div>
-                <button class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white px-4 py-2 text-sm font-bold text-[#2c2f30]"
-                        @onclick="LoadAsync"
-                        disabled="@_busy">
-                    <span class="material-symbols-outlined text-[18px]">refresh</span>
+                <button class="inline-flex items-center gap-2 rounded-2xl border border-[#e3e6e8] bg-white px-4 py-2 text-xs font-bold text-[#595c5d] hover:bg-[#f5f6f7] transition-colors"
+                        @onclick="LoadAsync" disabled="@_busy">
+                    <span class="material-symbols-outlined text-[16px] @(_busy ? "animate-spin" : "")">refresh</span>
                     Actualizar
                 </button>
             </div>
 
             @if (_payments.Count == 0)
             {
-                <p class="text-sm text-[#595c5d]">Todavía no hay pagos marketplace registrados para este vendedor.</p>
+                <div class="flex flex-col items-center justify-center py-16 text-center px-8">
+                    <div class="w-14 h-14 rounded-2xl bg-[#f5f6f7] flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-[28px] text-[#b0b5b7]">receipt_long</span>
+                    </div>
+                    <p class="text-sm font-bold text-[#2c2f30]">Sin pagos registrados</p>
+                    <p class="mt-1 text-xs text-[#7b8081]">Los cobros aparecerán aquí una vez que se realice la primera venta.</p>
+                </div>
             }
             else
             {
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm">
                         <thead>
-                            <tr class="border-b border-[#e3e6e8] text-left text-[#7b8081]">
-                                <th class="py-3 pr-4">Fecha</th>
-                                <th class="py-3 pr-4">Orden</th>
-                                <th class="py-3 pr-4">Bruto</th>
-                                <th class="py-3 pr-4">Comisión</th>
-                                <th class="py-3 pr-4">Neto</th>
-                                <th class="py-3 pr-4">Estado</th>
-                                <th class="py-3 pr-4">Externo</th>
-                                <th class="py-3">Acciones</th>
+                            <tr class="text-left text-[#7b8081] text-[11px] uppercase tracking-[0.1em]">
+                                <th class="px-8 py-3 font-bold">Fecha</th>
+                                <th class="px-4 py-3 font-bold">Orden</th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.gross.tooltip")">Bruto<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.mpFee.tooltip")">Comisión MP<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.platformFee.tooltip")">Comisión ComunaClic<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
+                                <th class="px-4 py-3 font-bold text-right">
+                                    <span class="inline-flex items-center gap-1 cursor-help" title="@L.T("partner.mp.col.net.tooltip")">Neto<span class="material-symbols-outlined text-[13px] normal-case">info</span></span>
+                                </th>
+                                <th class="px-4 py-3 font-bold">Estado</th>
+                                <th class="px-4 py-3 font-bold">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-[#f0f2f3]">
                             @foreach (var payment in _payments)
                             {
-                                <tr class="border-b border-[#f0f2f3]">
-                                    <td class="py-3 pr-4">@payment.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td class="py-3 pr-4">@ShortId(payment.OrderId)</td>
-                                    <td class="py-3 pr-4">@FormatMoney(payment.GrossAmount)</td>
-                                    <td class="py-3 pr-4">@FormatMoney(payment.PlatformFeeAmount)</td>
-                                    <td class="py-3 pr-4">@FormatMoney(payment.NetAmount)</td>
-                                    <td class="py-3 pr-4">@payment.Status</td>
-                                    <td class="py-3 pr-4">@(payment.MercadoPagoPaymentId ?? payment.ExternalReference)</td>
-                                    <td class="py-3">
-                                        <div class="flex flex-wrap gap-2">
-                                            <a class="inline-flex items-center gap-1 rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                <tr class="hover:bg-[#fafbfb] transition-colors">
+                                    <td class="px-8 py-4 text-[#595c5d] text-xs">@payment.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="px-4 py-4 font-mono text-xs text-[#7b8081]">@ShortId(payment.OrderId)</td>
+                                    <td class="px-4 py-4 text-right font-semibold text-[#2c2f30]">@FormatMoney(payment.GrossAmount)</td>
+                                    <td class="px-4 py-4 text-right text-[#595c5d] font-semibold">
+                                        @(payment.MercadoPagoFeeAmount.HasValue ? $"-{FormatMoney(payment.MercadoPagoFeeAmount.Value)}" : "—")
+                                    </td>
+                                    <td class="px-4 py-4 text-right text-[#e65100] font-semibold">-@FormatMoney(payment.PlatformFeeAmount)</td>
+                                    <td class="px-4 py-4 text-right font-black text-[#3b6700]">@FormatMoney(payment.NetAmount)</td>
+                                    <td class="px-4 py-4">
+                                        <span class="@StatusBadgeClass(payment.Status) inline-flex items-center rounded-xl px-2.5 py-1 text-[11px] font-bold">
+                                            @payment.Status
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex gap-2">
+                                            <a class="inline-flex items-center gap-1 rounded-xl border border-[#e3e6e8] px-3 py-1.5 text-xs font-bold text-[#2c2f30] hover:bg-[#f5f6f7] transition-colors"
                                                href="@($"/partner/mercadopago/payments/{payment.PaymentId}")">
-                                                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
-                                                Detalle
+                                                <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                                                Ver
                                             </a>
-                                            <button class="inline-flex items-center gap-1 rounded-xl border border-[#dadddf] px-3 py-2 text-xs font-bold text-[#2c2f30]"
+                                            <button class="inline-flex items-center gap-1 rounded-xl border border-[#e3e6e8] px-3 py-1.5 text-xs font-bold text-[#2c2f30] hover:bg-[#f5f6f7] transition-colors"
                                                     @onclick="() => RetrySyncAsync(payment.PaymentId)">
-                                                <span class="material-symbols-outlined text-[16px]">sync</span>
-                                                Reintentar
+                                                <span class="material-symbols-outlined text-[14px]">sync</span>
+                                                Sync
                                             </button>
                                         </div>
                                     </td>
@@ -159,6 +205,10 @@
                         </tbody>
                     </table>
                 </div>
+                <p class="px-8 pb-4 pt-3 text-xs text-[#7b8081]">
+                    <span class="material-symbols-outlined align-middle text-[14px]">info</span>
+                    @L.T("partner.mp.table.legend")
+                </p>
             }
         </section>
     }
@@ -169,11 +219,18 @@
     private readonly List<MarketplacePaymentDetail> _payments = new();
     private bool _loading = true;
     private bool _busy;
+    private bool _scopeExpanded;
     private string? _message;
     private string _messageLevel = "info";
-    private decimal _fixedFeeAmount;
-    private decimal _percentageFee;
-    private bool _feesEnabled = true;
+
+    private bool IsConnected => _status?.ConnectionStatus == "connected";
+    private bool IsTokenNearExpiry => _status?.TokenExpiresAt.HasValue == true
+        && _status.TokenExpiresAt!.Value < DateTimeOffset.UtcNow.AddDays(14);
+
+    protected override void OnInitialized()
+    {
+        AuthState.OnChange += HandleAuthChange;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -183,14 +240,25 @@
         }
     }
 
+    private void HandleAuthChange()
+    {
+        if (CurrentSellerId != Guid.Empty && _status is null && !_loading)
+        {
+            InvokeAsync(LoadAsync);
+        }
+    }
+
+    public void Dispose()
+    {
+        AuthState.OnChange -= HandleAuthChange;
+    }
+
     private Guid CurrentSellerId => AuthState.PartnerId ?? Guid.Empty;
 
     private async Task LoadAsync()
     {
         if (CurrentSellerId == Guid.Empty)
         {
-            _message = "No encontramos un seller activo en la sesión.";
-            _messageLevel = "warning";
             _loading = false;
             StateHasChanged();
             return;
@@ -200,17 +268,7 @@
         _status = await PartnerApi.GetMercadoPagoStatusAsync(CurrentSellerId);
         _payments.Clear();
         var payments = await PartnerApi.GetMarketplacePaymentsAsync(CurrentSellerId);
-        if (payments is not null)
-        {
-            _payments.AddRange(payments);
-        }
-
-        if (_status is not null)
-        {
-            _fixedFeeAmount = _status.FeeSettings.FixedFeeAmount;
-            _percentageFee = _status.FeeSettings.PercentageFee;
-            _feesEnabled = _status.FeeSettings.IsActive;
-        }
+        if (payments is not null) _payments.AddRange(payments);
 
         _loading = false;
         await InvokeAsync(StateHasChanged);
@@ -223,14 +281,9 @@
         {
             var start = await PartnerApi.StartMercadoPagoOAuthAsync(CurrentSellerId);
             if (!string.IsNullOrWhiteSpace(start?.AuthorizationUrl))
-            {
                 Navigation.NavigateTo(start.AuthorizationUrl, true);
-            }
         }
-        finally
-        {
-            _busy = false;
-        }
+        finally { _busy = false; }
     }
 
     private async Task DisconnectAsync()
@@ -243,26 +296,7 @@
             _messageLevel = "success";
             await LoadAsync();
         }
-        finally
-        {
-            _busy = false;
-        }
-    }
-
-    private async Task SaveFeesAsync()
-    {
-        _busy = true;
-        try
-        {
-            await PartnerApi.UpdateSellerFeesAsync(CurrentSellerId, new UpdateSellerFees(_fixedFeeAmount, _percentageFee, _feesEnabled));
-            _message = "Comisión guardada correctamente.";
-            _messageLevel = "success";
-            await LoadAsync();
-        }
-        finally
-        {
-            _busy = false;
-        }
+        finally { _busy = false; }
     }
 
     private async Task RetrySyncAsync(Guid paymentId)
@@ -275,13 +309,19 @@
             _messageLevel = "success";
             await LoadAsync();
         }
-        finally
-        {
-            _busy = false;
-        }
+        finally { _busy = false; }
     }
 
-    private static string FormatMoney(double amount) => $"CLP {amount:N0}";
-    private static string ShortId(Guid id) => id == Guid.Empty ? "-" : id.ToString("N")[..8];
-    private static string FormatDate(DateTimeOffset? value) => value.HasValue ? value.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-";
+    private static string StatusBadgeClass(string? status) => status switch
+    {
+        "approved" => "bg-[#e8f5d0] text-[#3b6700]",
+        "pending"  => "bg-[#fff8e1] text-[#e65100]",
+        "rejected" => "bg-[#fef3f2] text-[#c62828]",
+        _          => "bg-[#f0f2f3] text-[#595c5d]"
+    };
+
+    private static string FormatMoney(double amount) => $"$ {amount:N0}";
+    private static string ShortId(Guid id) => id == Guid.Empty ? "—" : id.ToString("N")[..8];
+    private static string FormatDateShort(DateTimeOffset? value) =>
+        value.HasValue ? value.Value.ToLocalTime().ToString("dd MMM yyyy") : "—";
 }

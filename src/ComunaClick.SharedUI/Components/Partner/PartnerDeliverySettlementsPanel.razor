@@ -1,0 +1,237 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject IJSRuntime JS
+
+@*
+    Tabla de gestión del pago al transporte: por cada pedido entregado muestra
+    el desglose monto productos vs transporte, comisiones y neto al repartidor,
+    con la acción de pago vía MercadoPago (collector = cuenta MP del repartidor,
+    comisión ComunaClic como application_fee).
+*@
+@if (_loading)
+{
+    <p class="text-sm text-[#595c5d]">@L.T("account.courier.loading")</p>
+}
+else if (_settlements.Count == 0)
+{
+    <p class="text-sm text-[#595c5d]">@L.T("partner.settlements.empty")</p>
+}
+else
+{
+    <div class="overflow-x-auto">
+        <table class="min-w-[760px] w-full text-sm">
+            <thead>
+                <tr class="border-b border-[#e3e6e8] text-left text-[11px] uppercase tracking-[0.12em] text-[#7b8081]">
+                    <th class="py-2 pr-3">@L.T("partner.settlements.col.order")</th>
+                    <th class="py-2 pr-3">@L.T("partner.settlements.col.date")</th>
+                    <th class="py-2 pr-3 text-right">@L.T("partner.settlements.col.products")</th>
+                    <th class="py-2 pr-3 text-right">@L.T("partner.settlements.col.shipping")</th>
+                    <th class="py-2 pr-3 text-right">@L.T("partner.settlements.col.ccFee")</th>
+                    <th class="py-2 pr-3 text-right">@L.T("partner.settlements.col.mpFee")</th>
+                    <th class="py-2 pr-3 text-right">@L.T("partner.settlements.col.net")</th>
+                    <th class="py-2 pr-3">@L.T("partner.settlements.col.status")</th>
+                    <th class="py-2">@L.T("partner.settlements.col.action")</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var settlement in _settlements.OrderByDescending(x => x.CreatedAt))
+                {
+                    var order = OrderFor(settlement.OrderId);
+                    <tr class="border-b border-[#f0f1f2] align-middle">
+                        <td class="py-2.5 pr-3 font-bold text-[#2c2f30]">#@settlement.OrderId.ToString()[..8]</td>
+                        <td class="py-2.5 pr-3 text-[#595c5d]">@settlement.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
+                        <td class="py-2.5 pr-3 text-right text-[#595c5d]">@(order is null ? "—" : FormatClp((decimal)order.Subtotal))</td>
+                        <td class="py-2.5 pr-3 text-right font-semibold text-[#2c2f30]">@FormatClp(settlement.GrossAmount)</td>
+                        <td class="py-2.5 pr-3 text-right text-[#595c5d]">−@FormatClp(settlement.PlatformFeeAmount)</td>
+                        <td class="py-2.5 pr-3 text-right text-[#595c5d]">@(settlement.Status == "settled" ? "−" : "~−")@FormatClp(settlement.MercadoPagoFeeAmount ?? 0m)</td>
+                        <td class="py-2.5 pr-3 text-right">
+                            <span class="font-bold text-[#3b6700]">@FormatClp(settlement.NetToCourierAmount)</span>
+                            @if (!string.IsNullOrWhiteSpace(settlement.CourierName))
+                            {
+                                <span class="block text-[11px] text-[#7b8081]">@settlement.CourierName</span>
+                            }
+                        </td>
+                        <td class="py-2.5 pr-3">
+                            <span class="@BadgeClass(settlement.Status)">@StatusLabel(settlement.Status)</span>
+                        </td>
+                        <td class="py-2.5">
+                            @if (settlement.Status is "pending" or "processing" or "manual")
+                            {
+                                <button type="button"
+                                        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-[#009ee3] px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
+                                        disabled="@(_payingId == settlement.Id)"
+                                        @onclick="() => PayAsync(settlement)">
+                                    <span class="material-symbols-outlined text-[14px]">payments</span>
+                                    @(_payingId == settlement.Id ? L.T("partner.delivery.settlement.paying") : L.T("partner.settlements.payShort"))
+                                </button>
+                                @if (settlement.Status == "manual")
+                                {
+                                    <span class="mt-1 block text-[10px] text-[#7b8081]">@L.T("partner.settlements.manualHint")</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-xs font-semibold text-[#14532d]">@L.T("partner.delivery.settlement.status.settled") ✔</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="text-xs font-bold text-[#2c2f30]">
+                    <td colspan="3" class="py-3 pr-3">
+                        @L.T("partner.settlements.totals.pending"): <span class="text-[#075985]">@FormatClp(PendingTotal)</span>
+                    </td>
+                    <td colspan="6" class="py-3">
+                        @L.T("partner.settlements.totals.paid"): <span class="text-[#14532d]">@FormatClp(PaidTotal)</span>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_payMessage))
+    {
+        <p class="mt-2 text-xs font-medium text-red-600">@_payMessage</p>
+    }
+}
+
+@code {
+    [Parameter] public Guid PartnerId { get; set; }
+    [Parameter] public IReadOnlyList<PartnerApiModels.Order> Orders { get; set; } = Array.Empty<PartnerApiModels.Order>();
+    [Parameter] public EventCallback Changed { get; set; }
+    // Notifica al padre las liquidaciones cargadas (alimenta el desglose inline por pedido).
+    [Parameter] public EventCallback<IReadOnlyList<PartnerApiModels.PartnerDeliverySettlement>> SettlementsChanged { get; set; }
+
+    // El panel carga sus PROPIAS liquidaciones (igual que "Mis repartidores"),
+    // para no depender de la carga del padre que podía quedar vacía en prerender.
+    private readonly List<PartnerApiModels.PartnerDeliverySettlement> _settlements = new();
+    private bool _loading = true;
+    private bool _loaded;
+    private Guid? _payingId;
+    private string? _payMessage;
+
+    private decimal PendingTotal => _settlements.Where(x => x.Status != "settled").Sum(x => x.GrossAmount);
+    private decimal PaidTotal => _settlements.Where(x => x.Status == "settled").Sum(x => x.GrossAmount);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Cargar UNA sola vez con un PartnerId válido (patrón de PartnerCouriersPanel).
+        if (PartnerId != Guid.Empty && !_loaded)
+        {
+            _loaded = true;
+            await RefreshAsync();
+        }
+    }
+
+    /// <summary>Recarga las liquidaciones desde el API y avisa al padre.</summary>
+    public async Task RefreshAsync()
+    {
+        if (PartnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            var list = await PartnerApi.GetPartnerDeliverySettlementsAsync(PartnerId);
+            _settlements.Clear();
+            if (list is not null)
+            {
+                _settlements.AddRange(list);
+            }
+
+            await SettlementsChanged.InvokeAsync(_settlements.ToList());
+        }
+        catch (HttpRequestException)
+        {
+            // Sin liquidaciones: se mantiene el estado vacío.
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private PartnerApiModels.Order? OrderFor(Guid orderId)
+        => Orders.FirstOrDefault(x => x.Id == orderId);
+
+    private string StatusLabel(string? status) => status switch
+    {
+        "settled" => L.T("partner.delivery.settlement.status.settled"),
+        "processing" => L.T("partner.delivery.settlement.status.processing"),
+        "manual" => L.T("partner.delivery.settlement.status.manual"),
+        _ => L.T("partner.delivery.settlement.status.pending")
+    };
+
+    private static string BadgeClass(string? status) => "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-bold " + status switch
+    {
+        "settled" => "bg-[#dcfce7] text-[#14532d]",
+        "processing" => "bg-[#fff4d6] text-[#8a5b00]",
+        "manual" => "bg-[#eff1f2] text-[#595c5d]",
+        _ => "bg-[#e0f2fe] text-[#075985]"
+    };
+
+    private static string FormatClp(decimal amount)
+        => amount.ToString("C0", new System.Globalization.CultureInfo("es-CL"));
+
+    private async Task PayAsync(PartnerApiModels.PartnerDeliverySettlement settlement)
+    {
+        _payingId = settlement.Id;
+        _payMessage = null;
+        try
+        {
+            var result = await PartnerApi.PayDeliverySettlementAsync(PartnerId, settlement.Id);
+            if (result is null || string.IsNullOrWhiteSpace(result.InitPoint))
+            {
+                _payMessage = L.T("partner.delivery.settlement.payFailed");
+                return;
+            }
+
+            // Abre el checkout de MercadoPago en pestaña nueva; el slip queda
+            // "en proceso" y se liquida solo cuando el pago se apruebe (webhook).
+            await JS.InvokeVoidAsync("open", result.InitPoint, "_blank");
+            await RefreshAsync();
+            await Changed.InvokeAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _payMessage = TryExtractApiMessage(ex.Message) ?? L.T("partner.delivery.settlement.payFailed");
+        }
+        finally
+        {
+            _payingId = null;
+        }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
+    }
+}

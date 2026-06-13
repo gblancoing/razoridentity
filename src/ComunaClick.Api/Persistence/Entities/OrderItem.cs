@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ComunaClick.Api.Persistence.Entities;
 
 public sealed class OrderItem
@@ -9,5 +11,7 @@ public sealed class OrderItem
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice { get; set; }
 
+    // JsonIgnore: evita el ciclo Order → Items → Order al serializar respuestas de la API.
+    [JsonIgnore]
     public Order Order { get; set; } = null!;
 }

@@ -13,4 +13,6 @@ public sealed record SearchResultItem(
     double? DistanceKm = null,
     double? Latitude = null,
     double? Longitude = null,
-    string? LogoUrl = null);
+    string? LogoUrl = null,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? ImageUrls = null);

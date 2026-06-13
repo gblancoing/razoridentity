@@ -8,6 +8,7 @@
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @inject IJSRuntime JSRuntime
 @implements IDisposable
+@using ComunaClick.SharedUI.Services
 
 <PageTitle>@L.T("login.title")</PageTitle>
 
@@ -115,6 +116,7 @@
                         <a class="text-primary font-bold hover:underline" href="/register?role=natural">@L.T("login.signup.personal")</a>
                         <a class="text-primary font-bold hover:underline" href="/register?role=commerce">@L.T("login.signup.commercial")</a>
                         <a class="text-primary font-bold hover:underline" href="/register?role=professional">@L.T("login.signup.professional")</a>
+                        <a class="text-primary font-bold hover:underline" href="/register?role=courier">@L.T("login.signup.courier")</a>
                     </div>
                 </div>
             </div>
@@ -248,6 +250,7 @@
                 recaptchaToken));
             await AuthState.SetTokensAsync(tokens);
             var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
+            await PersistAccountRoleAfterLoginAsync(isPersonalAccount);
             var destination = ResolvePostLoginTarget(isPersonalAccount, _returnUrl);
             Logger.LogInformation("Login successful for {Email}. Redirecting to {Destination}", Email, destination);
             Navigation.NavigateTo(destination);
@@ -315,6 +318,7 @@
                 PartnerId: null));
             await AuthState.SetTokensAsync(tokens);
             var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
+            await PersistAccountRoleAfterLoginAsync(isPersonalAccount);
             var storedReturnUrl = await JSRuntime.InvokeAsync<string>("comunaclic.consumeGoogleLoginReturnUrl");
             var returnUrl = string.IsNullOrWhiteSpace(storedReturnUrl) ? _returnUrl : storedReturnUrl;
             var destination = ResolvePostLoginTarget(isPersonalAccount, returnUrl);
@@ -330,6 +334,27 @@
         finally
         {
             _isSubmitting = false;
+        }
+    }
+
+    private async Task PersistAccountRoleAfterLoginAsync(bool isPersonalAccount)
+    {
+        try
+        {
+            if (!isPersonalAccount)
+            {
+                await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", RegistrationFlow.RoleCommerce);
+                return;
+            }
+
+            var stored = await JSRuntime.InvokeAsync<string>("comunaclic.getAccountRole");
+            if (!string.IsNullOrWhiteSpace(stored))
+            {
+                return;
+            }
+        }
+        catch (InvalidOperationException)
+        {
         }
     }
 }

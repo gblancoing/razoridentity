@@ -3,83 +3,91 @@
 
 <PageTitle>Delivery - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Despacho por zona</p>
-    <h1>Empresas delivery</h1>
-    <p class="page-description">Mantén proveedores de despacho por tenant/comuna/región para usarlos en checkout.</p>
-</section>
+<PageHeader Eyebrow="Despacho por zona"
+            Title="Empresas delivery"
+            Description="Mantén proveedores de despacho por tenant/comuna/región para usarlos en checkout." />
 
-<section class="panel-card">
-    <div class="panel-head"><div><p class="eyebrow">Delivery</p><h2>Mantenedor</h2></div></div>
-    @if (_items is null)
-    {
-        <p class="page-description">Cargando empresas delivery...</p>
-    }
-    else
-    {
-        <div class="panel-card">
-            <label class="kpi-label">Nombre</label>
-            <input class="filter-input" @bind="_newName" />
-            <label class="kpi-label">TenantId (opcional)</label>
-            <input class="filter-input" @bind="_newTenantId" />
-            <label class="kpi-label">RegionId (opcional)</label>
-            <input class="filter-input" @bind="_newRegionId" />
-            <label class="kpi-label">ComunaId (opcional)</label>
-            <input class="filter-input" @bind="_newComunaId" />
-            <label class="kpi-label">Teléfono contacto</label>
-            <input class="filter-input" @bind="_newContactPhone" />
-            <label class="kpi-label">Email contacto</label>
-            <input class="filter-input" @bind="_newContactEmail" />
-            <label class="kpi-label">Tarifa base</label>
-            <input class="filter-input" type="number" min="0" step="100" @bind="_newBaseFee" />
-            <label class="kpi-label">ETA minutos</label>
-            <input class="filter-input" type="number" min="0" step="5" @bind="_newEstimatedMinutes" />
-            <div class="flex gap-3 mt-4">
-                <button class="primary-link" @onclick="CreateAsync">Crear empresa</button>
-            </div>
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar empresas delivery" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <section class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Nueva empresa</p><h2>Agregar proveedor</h2></div></div>
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
+            <div class="filter-field"><label>Nombre</label><input class="filter-input" @bind="_newName" /></div>
+            <div class="filter-field"><label>TenantId (opcional)</label><input class="filter-input" @bind="_newTenantId" /></div>
+            <div class="filter-field"><label>RegionId (opcional)</label><input class="filter-input" @bind="_newRegionId" /></div>
+            <div class="filter-field"><label>ComunaId (opcional)</label><input class="filter-input" @bind="_newComunaId" /></div>
+            <div class="filter-field"><label>Teléfono</label><input class="filter-input" @bind="_newContactPhone" /></div>
+            <div class="filter-field"><label>Email</label><input class="filter-input" @bind="_newContactEmail" /></div>
+            <div class="filter-field"><label>Tarifa base</label><input class="filter-input" type="number" min="0" step="100" @bind="_newBaseFee" /></div>
+            <div class="filter-field"><label>ETA (min)</label><input class="filter-input" type="number" min="0" step="5" @bind="_newEstimatedMinutes" /></div>
         </div>
+        <button class="btn btn-primary" type="button" @onclick="CreateAsync">
+            <span class="material-symbols-outlined">add</span>
+            Crear empresa
+        </button>
+    </section>
 
-        @foreach (var item in _items)
+    <section class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Delivery</p><h2>Mantenedor</h2></div></div>
+        @if (_items is null)
         {
-            <div class="row-card">
-                <div>
-                    <p class="row-title">@item.Name</p>
-                    <p class="row-subtitle">
-                        Zona: @(item.ComunaId?.ToString() ?? item.RegionId?.ToString() ?? "Global") ·
-                        Tarifa: @item.BaseFee.ToString("N0") ·
-                        @(item.IsActive ? "Activo" : "Inactivo")
-                    </p>
-                </div>
-                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
-            </div>
-
-            @if (_editingId == item.Id)
+            <LoadingPanel Message="Cargando empresas delivery…" />
+        }
+        else if (_items.Count == 0)
+        {
+            <EmptyState Title="Sin empresas" Description="No hay proveedores de delivery configurados." />
+        }
+        else
+        {
+            @foreach (var item in _items)
             {
-                <div class="panel-card">
-                    <label class="kpi-label">Nombre</label>
-                    <input class="filter-input" @bind="_name" />
-                    <label class="kpi-label">Teléfono contacto</label>
-                    <input class="filter-input" @bind="_contactPhone" />
-                    <label class="kpi-label">Email contacto</label>
-                    <input class="filter-input" @bind="_contactEmail" />
-                    <label class="kpi-label">Tarifa base</label>
-                    <input class="filter-input" type="number" min="0" step="100" @bind="_baseFee" />
-                    <label class="kpi-label">ETA minutos</label>
-                    <input class="filter-input" type="number" min="0" step="5" @bind="_estimatedMinutes" />
-                    <label class="kpi-label">Activo</label>
-                    <input type="checkbox" @bind="_isActive" />
-                    <div class="flex gap-3 mt-4">
-                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
-                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                <div class="row-card">
+                    <div>
+                        <p class="row-title">@item.Name</p>
+                        <p class="row-subtitle">
+                            Zona: @(item.ComunaId?.ToString() ?? item.RegionId?.ToString() ?? "Global") ·
+                            Tarifa: @item.BaseFee.ToString("N0")
+                        </p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem">
+                        <StatusBadge Status="@(item.IsActive ? "active" : "inactive")"
+                                     Label="@(item.IsActive ? "Activo" : "Inactivo")" />
+                        <button class="btn btn-ghost" type="button" @onclick="() => BeginEdit(item)">Editar</button>
                     </div>
                 </div>
+
+                @if (_editingId == item.Id)
+                {
+                    <div class="panel-card" style="margin:0.5rem 0 1rem">
+                        <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
+                            <div class="filter-field"><label>Nombre</label><input class="filter-input" @bind="_name" /></div>
+                            <div class="filter-field"><label>Teléfono</label><input class="filter-input" @bind="_contactPhone" /></div>
+                            <div class="filter-field"><label>Email</label><input class="filter-input" @bind="_contactEmail" /></div>
+                            <div class="filter-field"><label>Tarifa base</label><input class="filter-input" type="number" min="0" step="100" @bind="_baseFee" /></div>
+                            <div class="filter-field"><label>ETA (min)</label><input class="filter-input" type="number" min="0" step="5" @bind="_estimatedMinutes" /></div>
+                        </div>
+                        <label class="kpi-label">Activo</label>
+                        <input type="checkbox" @bind="_isActive" />
+                        <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                            <button class="btn btn-primary" type="button" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                            <button class="btn btn-ghost" type="button" @onclick="Cancel">Cancelar</button>
+                        </div>
+                    </div>
+                }
             }
         }
-    }
-</section>
+    </section>
+}
 
 @code {
     private List<ComunaClick.Admin.Models.AdminDeliveryProviderDto>? _items;
+    private string? _error;
     private Guid? _editingId;
     private string _name = string.Empty;
     private string? _contactPhone;
@@ -97,9 +105,19 @@
     private decimal _newBaseFee;
     private int? _newEstimatedMinutes;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _items = await Client.GetDeliveryProvidersAsync() ?? new();
+        _error = null;
+        try
+        {
+            _items = await Client.GetDeliveryProvidersAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private void BeginEdit(ComunaClick.Admin.Models.AdminDeliveryProviderDto item)
@@ -113,70 +131,39 @@
         _isActive = item.IsActive;
     }
 
-    private void Cancel()
-    {
-        _editingId = null;
-    }
+    private void Cancel() => _editingId = null;
 
     private async Task SaveAsync(Guid id)
     {
         var updated = await Client.UpdateDeliveryProviderAsync(id, new
         {
-            name = _name,
-            contactPhone = _contactPhone,
-            contactEmail = _contactEmail,
-            baseFee = _baseFee,
-            estimatedMinutes = _estimatedMinutes,
-            isActive = _isActive
+            name = _name, contactPhone = _contactPhone, contactEmail = _contactEmail,
+            baseFee = _baseFee, estimatedMinutes = _estimatedMinutes, isActive = _isActive
         });
-
         if (updated is not null && _items is not null)
         {
             var index = _items.FindIndex(x => x.Id == id);
-            if (index >= 0)
-            {
-                _items[index] = updated;
-            }
+            if (index >= 0) _items[index] = updated;
         }
-
         Cancel();
     }
 
     private async Task CreateAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newName))
-        {
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(_newName)) return;
 
-        Guid? ParseGuid(string? value)
-            => Guid.TryParse(value, out var parsed) ? parsed : null;
+        Guid? ParseGuid(string? v) => Guid.TryParse(v, out var g) ? g : null;
 
         var created = await Client.CreateDeliveryProviderAsync(new
         {
-            name = _newName,
-            tenantId = ParseGuid(_newTenantId),
-            regionId = ParseGuid(_newRegionId),
-            comunaId = ParseGuid(_newComunaId),
-            contactPhone = _newContactPhone,
-            contactEmail = _newContactEmail,
-            baseFee = _newBaseFee,
-            estimatedMinutes = _newEstimatedMinutes,
-            isActive = true
+            name = _newName, tenantId = ParseGuid(_newTenantId), regionId = ParseGuid(_newRegionId),
+            comunaId = ParseGuid(_newComunaId), contactPhone = _newContactPhone,
+            contactEmail = _newContactEmail, baseFee = _newBaseFee,
+            estimatedMinutes = _newEstimatedMinutes, isActive = true
         });
+        if (created is not null) { _items ??= new(); _items.Insert(0, created); }
 
-        if (created is not null && _items is not null)
-        {
-            _items.Insert(0, created);
-        }
-
-        _newName = string.Empty;
-        _newTenantId = null;
-        _newRegionId = null;
-        _newComunaId = null;
-        _newContactPhone = null;
-        _newContactEmail = null;
-        _newBaseFee = 0;
-        _newEstimatedMinutes = null;
+        _newName = string.Empty; _newTenantId = null; _newRegionId = null; _newComunaId = null;
+        _newContactPhone = null; _newContactEmail = null; _newBaseFee = 0; _newEstimatedMinutes = null;
     }
 }

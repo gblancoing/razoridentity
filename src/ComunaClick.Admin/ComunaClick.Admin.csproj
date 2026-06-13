@@ -6,6 +6,6 @@
     <RootNamespace>ComunaClick.Admin</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MudBlazor" Version="8.6.0" />
+    <ProjectReference Include="..\ComunaClick.AdminUI\ComunaClick.AdminUI.csproj" />
   </ItemGroup>
 </Project>

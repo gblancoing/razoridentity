@@ -3,44 +3,44 @@
 
 <PageTitle>Usuarios - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Acceso</p>
-    <h1>Usuarios administrativos</h1>
-    <p class="page-description">Activa, desactiva y resetea contraseñas de cuentas que operan sobre ACL.</p>
-</section>
+<PageHeader Eyebrow="Acceso"
+            Title="Usuarios administrativos"
+            Description="Activa, desactiva y resetea contraseñas de cuentas que operan sobre ACL." />
 
-<section class="panel-card">
-    <div class="panel-head">
-        <div>
-            <p class="eyebrow">Usuarios</p>
-            <h2>Listado</h2>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(_status))
-    {
-        <p class="page-description">@_status</p>
-    }
-
-    @if (_isLoading)
-    {
-        <p class="page-description">Cargando usuarios...</p>
-    }
-    else
-    {
-        <div class="space-y-4">
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar usuarios" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <section class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Usuarios</p><h2>Listado</h2></div></div>
+        @if (_isLoading)
+        {
+            <LoadingPanel Message="Cargando usuarios…" />
+        }
+        else if (_items.Count == 0)
+        {
+            <EmptyState Title="Sin usuarios" Description="No hay usuarios administrativos registrados." />
+        }
+        else
+        {
             @foreach (var item in _items)
             {
                 <div class="row-card">
                     <div>
-                        <p class="row-title">@item.DisplayName ?? @item.Email</p>
+                        <p class="row-title">@(item.DisplayName ?? item.Email)</p>
                         <p class="row-subtitle">@item.Email · @string.Join(", ", item.Roles)</p>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button class="primary-link" @onclick="() => ToggleAsync(item)">
+                    <div style="display:flex;align-items:center;gap:0.75rem">
+                        <StatusBadge Status="@(item.IsActive ? "active" : "inactive")"
+                                     Label="@(item.IsActive ? "Activo" : "Inactivo")" />
+                        <button class="btn btn-ghost" type="button" @onclick="() => ToggleAsync(item)">
                             @(item.IsActive ? "Desactivar" : "Activar")
                         </button>
-                        <button class="primary-link" @onclick="() => ShowReset(item.Id)">
+                        <button class="btn btn-ghost" type="button" @onclick="() => ShowReset(item.Id)">
                             Resetear clave
                         </button>
                     </div>
@@ -48,42 +48,48 @@
 
                 @if (_resetUserId == item.Id)
                 {
-                    <div class="panel-card">
+                    <div class="panel-card" style="margin:0.5rem 0 1rem">
                         <label class="kpi-label">Nueva contraseña</label>
-                        <input class="filter-input" @bind="_newPassword" />
-                        <div class="flex gap-3 mt-4">
-                            <button class="primary-link" @onclick="() => ResetAsync(item.Id)">Guardar</button>
-                            <button class="primary-link" @onclick="CancelReset">Cancelar</button>
+                        <input class="filter-input" type="password" @bind="_newPassword" />
+                        <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                            <button class="btn btn-primary" type="button" @onclick="() => ResetAsync(item.Id)">Guardar</button>
+                            <button class="btn btn-ghost" type="button" @onclick="CancelReset">Cancelar</button>
                         </div>
                     </div>
                 }
             }
-        </div>
-    }
-</section>
+        }
+    </section>
+}
+
+@if (!string.IsNullOrWhiteSpace(_statusMessage))
+{
+    <section class="panel-card">
+        <p class="text-sm">@_statusMessage</p>
+    </section>
+}
 
 @code {
     private IReadOnlyList<ComunaClick.Admin.Models.AdminUserDto> _items = Array.Empty<ComunaClick.Admin.Models.AdminUserDto>();
     private bool _isLoading = true;
-    private string? _status;
+    private string? _error;
+    private string? _statusMessage;
     private Guid? _resetUserId;
     private string _newPassword = string.Empty;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadAsync();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
         _isLoading = true;
+        _error = null;
         try
         {
             _items = await Client.GetUsersAsync();
         }
         catch (Exception ex)
         {
-            _status = ex.Message;
+            _error = ex.Message;
         }
         finally
         {
@@ -94,7 +100,7 @@
     private async Task ToggleAsync(ComunaClick.Admin.Models.AdminUserDto item)
     {
         await Client.ToggleUserActiveAsync(item.Id, !item.IsActive);
-        _status = item.IsActive ? "Usuario desactivado." : "Usuario activado.";
+        _statusMessage = item.IsActive ? "Usuario desactivado." : "Usuario activado.";
         await LoadAsync();
     }
 
@@ -114,12 +120,11 @@
     {
         if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword.Length < 8)
         {
-            _status = "La nueva contraseña debe tener al menos 8 caracteres.";
+            _statusMessage = "La nueva contraseña debe tener al menos 8 caracteres.";
             return;
         }
-
         await Client.ResetPasswordAsync(id, _newPassword);
-        _status = "Contraseña restablecida correctamente.";
+        _statusMessage = "Contraseña restablecida correctamente.";
         CancelReset();
     }
 }

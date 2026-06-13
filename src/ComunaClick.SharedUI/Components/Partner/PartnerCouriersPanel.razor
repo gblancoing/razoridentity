@@ -1,0 +1,210 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject ComunaClick.SharedUI.Services.LocaleService L
+
+@* Alta/baja de repartidores propios del negocio (pueden ser de empresas distintas). *@
+<div class="rounded-2xl border border-[#dbe6e2] bg-[#fafcf8] p-4 space-y-3">
+    <div>
+        <p class="text-sm font-semibold text-[#2c2f30]">@L.T("partner.delivery.couriers.title")</p>
+        <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.delivery.couriers.help")</p>
+        <p class="mt-1 text-xs text-[#3b6700]">@L.T("partner.delivery.couriers.emailHint")</p>
+    </div>
+
+    @if (_couriers.Count > 0)
+    {
+        <ul class="space-y-2">
+            @foreach (var courier in _couriers)
+            {
+                <li class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dadddf] bg-white px-3 py-2">
+                    <span class="text-sm text-[#2c2f30]">
+                        <span class="font-semibold">@courier.Name</span>
+                        <span class="text-[#7b8081]"> · @courier.Phone@(string.IsNullOrWhiteSpace(courier.Company) ? "" : $" · {courier.Company}")</span>
+                        @if (!string.IsNullOrWhiteSpace(courier.Email))
+                        {
+                            <span class="block text-xs text-[#7b8081]">@courier.Email</span>
+                        }
+                    </span>
+                    <span class="flex flex-wrap items-center gap-2">
+                        @if (courier.UserId is not null)
+                        {
+                            <span class="inline-flex items-center gap-1 rounded-full bg-[#e0f2fe] px-2.5 py-1 text-[10px] font-bold text-[#075985]">
+                                <span class="material-symbols-outlined text-[12px]">person_check</span>
+                                @L.T("partner.delivery.couriers.accountCreated")
+                            </span>
+                        }
+                        @if (courier.MercadoPagoConnected)
+                        {
+                            <span class="inline-flex items-center gap-1 rounded-full bg-[#dcfce7] px-2.5 py-1 text-[10px] font-bold text-[#14532d]">
+                                <span class="material-symbols-outlined text-[12px]">account_balance_wallet</span>
+                                @L.T("partner.delivery.couriers.mpConnected")
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-1 text-[10px] font-bold text-[#8a5b00]">
+                                @L.T("partner.delivery.couriers.mpPending")
+                            </span>
+                        }
+                        <button type="button"
+                                class="text-xs font-bold text-red-700"
+                                disabled="@_busy"
+                                @onclick="() => DeleteAsync(courier)">
+                            @L.T("partner.delivery.couriers.remove")
+                        </button>
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="grid grid-cols-1 gap-2 md:grid-cols-5">
+        <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" placeholder="@L.T("partner.delivery.couriers.name")" @bind="_newName" />
+        <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" type="tel" placeholder="@L.T("partner.delivery.couriers.phone")" @bind="_newPhone" />
+        <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" type="email" placeholder="@L.T("partner.delivery.couriers.email")" @bind="_newEmail" />
+        <input class="rounded-xl border border-[#dadddf] px-3 py-2 text-sm" placeholder="@L.T("partner.delivery.couriers.company")" @bind="_newCompany" />
+        <button type="button"
+                class="rounded-xl bg-[#3b6700] px-4 py-2 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                disabled="@(_busy || string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newPhone))"
+                @onclick="CreateAsync">
+            @L.T("partner.delivery.couriers.add")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <p class="text-xs font-medium @(_ok ? "text-[#3b6700]" : "text-red-600")">@_message</p>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid PartnerId { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<PartnerApiModels.PartnerCourier>> CouriersChanged { get; set; }
+
+    private readonly List<PartnerApiModels.PartnerCourier> _couriers = new();
+    private string _newName = string.Empty;
+    private string _newPhone = string.Empty;
+    private string _newEmail = string.Empty;
+    private string _newCompany = string.Empty;
+    private string? _message;
+    private bool _ok;
+    private bool _busy;
+    private bool _loaded;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Cargar UNA sola vez: recargar mientras la lista está vacía genera un
+        // loop de renders/requests que agota el rate limit del API.
+        if (PartnerId != Guid.Empty && !_loaded)
+        {
+            _loaded = true;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            var list = await PartnerApi.GetPartnerCouriersAsync(PartnerId);
+            _couriers.Clear();
+            if (list is not null)
+            {
+                _couriers.AddRange(list);
+            }
+
+            await CouriersChanged.InvokeAsync(_couriers);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var created = await PartnerApi.CreatePartnerCourierAsync(
+                PartnerId,
+                new PartnerApiModels.PartnerCourierCreateRequest(
+                    _newName.Trim(),
+                    _newPhone.Trim(),
+                    string.IsNullOrWhiteSpace(_newCompany) ? null : _newCompany.Trim(),
+                    string.IsNullOrWhiteSpace(_newEmail) ? null : _newEmail.Trim()));
+            if (created is null)
+            {
+                _message = L.T("partner.delivery.couriers.failed");
+                _ok = false;
+                return;
+            }
+
+            _newName = string.Empty;
+            _newPhone = string.Empty;
+            _newEmail = string.Empty;
+            _newCompany = string.Empty;
+            await ReloadAsync();
+            _message = L.T("partner.delivery.couriers.created");
+            _ok = true;
+        }
+        catch (HttpRequestException ex)
+        {
+            _message = TryExtractApiMessage(ex.Message) ?? L.T("partner.delivery.couriers.failed");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
+    }
+
+    private async Task DeleteAsync(PartnerApiModels.PartnerCourier courier)
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            await PartnerApi.DeletePartnerCourierAsync(PartnerId, courier.Id);
+            await ReloadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            // El API bloquea la eliminación si el repartidor tiene envíos activos.
+            _message = L.T("partner.delivery.couriers.deleteBlocked");
+            _ok = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -16,11 +16,36 @@ public sealed class PaymentsAuthStateService
     public PaymentsAuthTokens? Tokens { get; private set; }
     public bool IsInitialized { get; private set; }
     public bool IsAuthenticated => Tokens is not null && Tokens.ExpiresAt > DateTimeOffset.UtcNow;
-    public bool IsPaymentsAdmin =>
+
+    // Viewer: puede ver todas las páginas de lectura.
+    public bool IsViewer =>
         IsAuthenticated &&
         Tokens!.Roles.Any(role =>
-            string.Equals(role, "tenant_admin", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(role, "platform_admin", StringComparison.OrdinalIgnoreCase));
+            role.Equals("payments.viewer",   StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("payments.operator", StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("payments.admin",    StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("tenant_admin",      StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("platform_admin",    StringComparison.OrdinalIgnoreCase));
+
+    // Operator: puede ejecutar reintentos, revisiones y cancelaciones.
+    public bool IsOperator =>
+        IsAuthenticated &&
+        Tokens!.Roles.Any(role =>
+            role.Equals("payments.operator", StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("payments.admin",    StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("tenant_admin",      StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("platform_admin",    StringComparison.OrdinalIgnoreCase));
+
+    // Admin: acceso completo al gateway.
+    public bool IsAdmin =>
+        IsAuthenticated &&
+        Tokens!.Roles.Any(role =>
+            role.Equals("payments.admin", StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("tenant_admin",   StringComparison.OrdinalIgnoreCase) ||
+            role.Equals("platform_admin", StringComparison.OrdinalIgnoreCase));
+
+    // Backwards compat: alias de IsViewer para código existente.
+    public bool IsPaymentsAdmin => IsViewer;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {

@@ -5,6 +5,7 @@
 @inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
 @using ComunaClick.Shared.Api.Buyer
 @using System.Net
+@using System.Text.Json
 
 <section class="bg-white border border-gray-200 rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
     <div class="flex flex-wrap items-start justify-between gap-4">
@@ -38,6 +39,78 @@
 
         @if (_professionalActivate || _hasProfessionalRole)
         {
+            @* Foto de perfil *@
+            <div class="mt-8">
+                <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">Foto de perfil</label>
+                <div class="mt-3 flex items-center gap-5">
+                    @* Avatar preview *@
+                    <div class="relative shrink-0">
+                        <div class="h-24 w-24 rounded-full overflow-hidden border-2 border-[#dbe6e2] flex items-center justify-center"
+                             style="background:linear-gradient(135deg,#3b6700,#a7f255)">
+                            @if (!string.IsNullOrWhiteSpace(_profilePhotoUrl))
+                            {
+                                <img src="@_profilePhotoUrl" alt="Foto de perfil" class="w-full h-full object-cover" />
+                            }
+                            else
+                            {
+                                <span style="font-size:1.75rem;font-weight:900;color:white;letter-spacing:-0.02em">@AvatarInitials</span>
+                            }
+                        </div>
+                        @* Camera badge *@
+                        <label class="absolute bottom-0 right-0 cursor-pointer flex h-7 w-7 items-center justify-center rounded-full shadow"
+                               style="background:#3b6700" title="Cambiar foto">
+                            <span class="material-symbols-outlined" style="font-size:15px;color:white">@(_isUploadingPhoto ? "hourglass_empty" : "photo_camera")</span>
+                            <InputFile OnChange="HandlePhotoSelected" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" disabled="@_isUploadingPhoto" />
+                        </label>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-[#2c2f30]">Foto circular del perfil</p>
+                        <p class="mt-0.5 text-xs text-[#9aafa8]">JPG, PNG, WebP o GIF · máx 4 MB</p>
+                        @if (!string.IsNullOrWhiteSpace(_photoStatus))
+                        {
+                            <p class="mt-1 text-xs @(_photoStatusIsError ? "text-red-600" : "text-[#3b6700]")">@_photoStatus</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Banner section *@
+            <div class="mt-6">
+                <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">Imagen de banner</label>
+                <div class="mt-3 relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#e8f5e2] to-[#c8e6c9]" style="height:140px">
+                    @if (!string.IsNullOrWhiteSpace(_bannerUrl))
+                    {
+                        <img src="@_bannerUrl" alt="Banner" class="w-full h-full object-cover" />
+                    }
+                    else
+                    {
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[48px] text-[#a5d6a7] opacity-60">panorama</span>
+                        </div>
+                    }
+                    <div class="absolute bottom-3 right-3 flex gap-2">
+                        <label class="cursor-pointer inline-flex items-center gap-1.5 bg-white/90 backdrop-blur text-[#2c2f30] text-xs font-bold px-3 py-1.5 rounded-xl shadow hover:bg-white transition">
+                            <span class="material-symbols-outlined text-[16px]">@(_isUploadingBanner ? "hourglass_empty" : "upload")</span>
+                            @(_isUploadingBanner ? "Subiendo…" : (string.IsNullOrWhiteSpace(_bannerUrl) ? "Subir banner" : "Cambiar"))
+                            <InputFile OnChange="HandleBannerSelected" accept="image/jpeg,image/png,image/webp" class="hidden" disabled="@_isUploadingBanner" />
+                        </label>
+                        @if (!string.IsNullOrWhiteSpace(_bannerUrl))
+                        {
+                            <button type="button" @onclick="HandleRemoveBanner" disabled="@_isUploadingBanner"
+                                    class="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur text-[#c62828] text-xs font-bold px-3 py-1.5 rounded-xl shadow hover:bg-white transition disabled:opacity-60">
+                                <span class="material-symbols-outlined text-[16px]">delete</span>
+                                Eliminar
+                            </button>
+                        }
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_bannerStatus))
+                {
+                    <p class="mt-2 text-xs @(_bannerStatusIsError ? "text-red-600" : "text-[#3b6700]")">@_bannerStatus</p>
+                }
+                <p class="mt-1 text-xs text-[#9aafa8]">JPG, PNG o WebP · máximo 5 MB · recomendado 1440×320 px</p>
+            </div>
+
             <div class="mt-8 space-y-5">
                 <div>
                     <label class="text-xs uppercase tracking-[0.16em] font-bold text-[#61897c]">@L.T("buyer.profile.pro.specialty")</label>
@@ -57,11 +130,116 @@
                 <ProfileWebLinksEditor Model="@_linksEditor" />
             </div>
 
-            <button type="button" @onclick="HandleSaveProfessional" disabled="@_isSavingProfessional"
-                    class="mt-8 inline-flex items-center gap-2 bg-[#3b6700] text-white px-6 py-3 rounded-2xl font-bold disabled:opacity-60">
-                <span class="material-symbols-outlined text-[20px]">badge</span>
-                @(_isSavingProfessional ? L.T("ui.loading") : L.T("buyer.profile.pro.save"))
-            </button>
+            @* Certificaciones *@
+            <div class="mt-8 rounded-2xl border border-[#dbe6e2] bg-white p-6">
+                <h3 class="text-sm font-black tracking-[-0.02em] text-[#2c2f30]">Licencias y certificaciones</h3>
+                <p class="mt-1 text-xs text-[#9aafa8]">Agrega certificaciones, cursos o licencias profesionales</p>
+
+                @* Lista de certificaciones existentes *@
+                @if (_certifications.Count > 0)
+                {
+                    <ul class="mt-4 space-y-3">
+                        @foreach (var cert in _certifications)
+                        {
+                            <li class="flex items-start gap-3 rounded-xl border border-[#dbe6e2] bg-[#f9fafb] px-4 py-3">
+                                <span class="material-symbols-outlined text-[20px] text-[#3b6700] mt-0.5 shrink-0">workspace_premium</span>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-[#2c2f30]">@cert.Name</p>
+                                    @if (!string.IsNullOrWhiteSpace(cert.Institution))
+                                    {
+                                        <p class="text-xs text-[#61897c]">@cert.Institution @(cert.Year.HasValue ? $"· {cert.Year}" : "")</p>
+                                    }
+                                    else if (cert.Year.HasValue)
+                                    {
+                                        <p class="text-xs text-[#61897c]">@cert.Year</p>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(cert.Url))
+                                    {
+                                        <a href="@cert.Url" target="_blank" rel="noopener noreferrer"
+                                           class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#3b6700] hover:underline">
+                                            <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+                                            Ver credencial
+                                        </a>
+                                    }
+                                </div>
+                                <button type="button" @onclick="() => HandleRemoveCertification(cert.Id)"
+                                        class="shrink-0 text-[#c62828] hover:bg-red-50 rounded-lg p-1 transition" title="Eliminar">
+                                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                @* Formulario agregar certificación *@
+                @if (_showCertForm)
+                {
+                    <div class="mt-4 rounded-xl border border-[#dbe6e2] bg-[#f0fdf4] p-4 space-y-3">
+                        <div>
+                            <label class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#61897c]">Nombre *</label>
+                            <input @bind="_newCertName" placeholder="ej. Ingeniero Civil Certificado"
+                                   class="mt-1 w-full rounded-xl border border-[#dbe6e2] bg-white px-4 h-10 text-sm" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#61897c]">Institución</label>
+                                <input @bind="_newCertInstitution" placeholder="ej. Universidad de Chile"
+                                       class="mt-1 w-full rounded-xl border border-[#dbe6e2] bg-white px-4 h-10 text-sm" />
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#61897c]">Año</label>
+                                <input @bind="_newCertYear" type="number" min="1970" max="2030" placeholder="ej. 2022"
+                                       class="mt-1 w-full rounded-xl border border-[#dbe6e2] bg-white px-4 h-10 text-sm" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#61897c]">URL de credencial (opcional)</label>
+                            <input @bind="_newCertUrl" placeholder="https://..."
+                                   class="mt-1 w-full rounded-xl border border-[#dbe6e2] bg-white px-4 h-10 text-sm" type="url" />
+                        </div>
+                        <div class="flex gap-2 pt-1">
+                            <button type="button" @onclick="HandleAddCertification" disabled="@_isSavingCert"
+                                    class="inline-flex items-center gap-1.5 bg-[#3b6700] text-white text-sm font-bold px-4 py-2 rounded-xl disabled:opacity-60">
+                                <span class="material-symbols-outlined text-[16px]">add</span>
+                                @(_isSavingCert ? "Guardando…" : "Agregar")
+                            </button>
+                            <button type="button" @onclick="() => _showCertForm = false"
+                                    class="text-sm font-semibold text-[#61897c] px-4 py-2 rounded-xl hover:bg-[#f0f0f0] transition">
+                                Cancelar
+                            </button>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(_certStatus))
+                        {
+                            <p class="text-xs @(_certStatusIsError ? "text-red-600" : "text-[#3b6700]")">@_certStatus</p>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <button type="button" @onclick="() => { _showCertForm = true; _certStatus = string.Empty; }"
+                            class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#3b6700] hover:underline">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                        Agregar certificación
+                    </button>
+                }
+            </div>
+
+            <div class="mt-8 flex flex-wrap items-center gap-3">
+                <button type="button" @onclick="HandleSaveProfessional" disabled="@_isSavingProfessional"
+                        class="inline-flex items-center gap-2 bg-[#3b6700] text-white px-6 py-3 rounded-2xl font-bold disabled:opacity-60">
+                    <span class="material-symbols-outlined text-[20px]">badge</span>
+                    @(_isSavingProfessional ? L.T("ui.loading") : L.T("buyer.profile.pro.save"))
+                </button>
+                @if (_hasProfessionalRole && _professionalVerified && _professionalId.HasValue)
+                {
+                    <a href="/buyer/detail/professional/@_professionalId.Value"
+                       target="_blank"
+                       class="inline-flex items-center gap-2 border border-[#3b6700] text-[#3b6700] px-6 py-3 rounded-2xl font-bold hover:bg-[#f0fdf4] transition">
+                        <span class="material-symbols-outlined text-[20px]">open_in_new</span>
+                        Ver mi perfil público
+                    </a>
+                }
+            </div>
             @if (!string.IsNullOrWhiteSpace(_proStatus))
             {
                 <div class="mt-4">
@@ -80,6 +258,64 @@
     }
 </section>
 
+@* Mis conexiones *@
+@if (_hasProfessionalRole && AuthState.IsAuthenticated)
+{
+    <section class="bg-white border border-gray-200 rounded-[2rem] p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">Mis conexiones</h2>
+            @if (_follows.Count > 0)
+            {
+                <span class="text-xs font-bold text-[#7b8081]">@_follows.Count siguiendo</span>
+            }
+        </div>
+
+        @if (!_followsLoaded)
+        {
+            <p class="text-sm text-[#7b8081]">Cargando conexiones…</p>
+        }
+        else if (_follows.Count == 0)
+        {
+            <p class="text-sm text-[#7b8081]">Aún no sigues a ningún profesional ni empresa. Visita perfiles y haz clic en "Seguir".</p>
+        }
+        else
+        {
+            <ul class="space-y-3">
+                @foreach (var f in _follows)
+                {
+                    <li class="flex items-center gap-3 rounded-2xl border border-[#e8eaec] bg-[#fafafa] px-4 py-3">
+                        @if (!string.IsNullOrWhiteSpace(f.PhotoUrl))
+                        {
+                            <img src="@f.PhotoUrl" alt="@f.Name"
+                                 class="h-10 w-10 rounded-full object-cover shrink-0" />
+                        }
+                        else
+                        {
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#3b6700]/10 text-sm font-black text-[#2c4a16]">
+                                @(f.Name is { Length: > 0 } n ? n[0].ToString().ToUpperInvariant() : "?")
+                            </div>
+                        }
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-bold text-[#2c2f30] truncate">@f.Name</p>
+                            @if (!string.IsNullOrWhiteSpace(f.Subtitle))
+                            {
+                                <p class="text-xs text-[#7b8081] truncate">@f.Subtitle</p>
+                            }
+                            <p class="text-[11px] text-[#aaa]">@(f.FollowedType == "professional" ? "Profesional" : "Empresa")</p>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <a href="@(f.FollowedType == "professional" ? $"/buyer/detail/professional/{f.FollowedId}" : $"/buyer/detail/partner/{f.FollowedId}")"
+                               class="text-xs font-bold text-[#3b6700] hover:underline">Ver</a>
+                            <button @onclick="() => HandleUnfollow(f)"
+                                    class="text-xs font-semibold text-[#e65100] hover:underline">Dejar de seguir</button>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
 @code {
     private string ProSpecialty = string.Empty;
     private string ProBio = string.Empty;
@@ -88,11 +324,31 @@
     private bool _professionalActivate;
     private bool _hasProfessionalRole;
     private bool _professionalVerified;
+    private Guid? _professionalId;
+    private string _bannerUrl = string.Empty;
+    private string _profilePhotoUrl = string.Empty;
+    private bool _isUploadingBanner;
+    private bool _isUploadingPhoto;
+    private string _bannerStatus = string.Empty;
+    private bool _bannerStatusIsError;
+    private string _photoStatus = string.Empty;
+    private bool _photoStatusIsError;
+    private List<ProfessionalCertification> _certifications = [];
+    private bool _showCertForm;
+    private bool _isSavingCert;
+    private string _certStatus = string.Empty;
+    private bool _certStatusIsError;
+    private string _newCertName = string.Empty;
+    private string _newCertInstitution = string.Empty;
+    private int? _newCertYear;
+    private string _newCertUrl = string.Empty;
     private string _proStatus = string.Empty;
     private string _proStatusLevel = "info";
     private bool _isSavingProfessional;
     private bool _initialized;
     private readonly ProfileWebLinksEditorModel _linksEditor = new();
+    private List<ProfessionalFollowItem> _follows = [];
+    private bool _followsLoaded;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -127,6 +383,17 @@
             if (pro is not null)
             {
                 ApplyProfessional(pro);
+
+                if (pro.HasProfile)
+                {
+                    try
+                    {
+                        var follows = await BuyerApi.GetProfessionalFollowsAsync(tenantId);
+                        _follows = follows?.ToList() ?? [];
+                    }
+                    catch { }
+                    _followsLoaded = true;
+                }
             }
         }
         catch (HttpRequestException)
@@ -135,6 +402,18 @@
 
         _initialized = true;
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleUnfollow(ProfessionalFollowItem f)
+    {
+        var tenantId = ResolveTenantId();
+        try
+        {
+            await BuyerApi.UnfollowProfessionalEntityAsync(f.FollowedType, f.FollowedId, tenantId);
+            _follows.Remove(f);
+            StateHasChanged();
+        }
+        catch { }
     }
 
     private Guid? ResolveTenantId()
@@ -148,10 +427,154 @@
         _hasProfessionalRole = pro.HasProfile;
         _professionalVerified = pro.IsVerified;
         _professionalActivate = pro.HasProfile && pro.IsActive;
+        _professionalId = pro.ProfessionalId;
+        _bannerUrl = pro.BannerUrl ?? string.Empty;
+        _profilePhotoUrl = pro.ProfilePhotoUrl ?? string.Empty;
+        _certifications = DeserializeCerts(pro.CertificationsJson);
         if (!string.IsNullOrWhiteSpace(pro.Specialty)) ProSpecialty = pro.Specialty;
         if (!string.IsNullOrWhiteSpace(pro.Bio)) ProBio = pro.Bio;
         if (!string.IsNullOrWhiteSpace(pro.Phone)) ProPhone = pro.Phone;
         ProfileWebLinksHelper.Apply(_linksEditor, ProfileWebLinksHelper.FromBuyerProfessional(pro));
+    }
+
+    private string AvatarInitials
+    {
+        get
+        {
+            var display = AuthState.DisplayName ?? AuthState.Email ?? "?";
+            var parts = display.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return parts.Length >= 2
+                ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
+                : display.Length >= 2 ? display[..2].ToUpperInvariant() : display.ToUpperInvariant();
+        }
+    }
+
+    private async Task HandlePhotoSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue || !_professionalId.HasValue) return;
+
+        const long maxBytes = 4 * 1024 * 1024;
+        if (file.Size > maxBytes)
+        {
+            _photoStatus = "El archivo supera el límite de 4 MB.";
+            _photoStatusIsError = true;
+            return;
+        }
+
+        _isUploadingPhoto = true;
+        _photoStatus = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxBytes);
+            var result = await BuyerApi.UploadBuyerProfessionalPhotoAsync(
+                stream, file.Name, file.ContentType, tenantId, CancellationToken.None);
+
+            if (result is not null)
+            {
+                ApplyProfessional(result);
+                _photoStatus = "Foto actualizada correctamente.";
+                _photoStatusIsError = false;
+            }
+            else
+            {
+                _photoStatus = "No se pudo subir la foto. Usa JPG, PNG, WebP o GIF, máx 4 MB.";
+                _photoStatusIsError = true;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _photoStatus = "Error al subir la foto. Intenta nuevamente.";
+            _photoStatusIsError = true;
+        }
+        finally
+        {
+            _isUploadingPhoto = false;
+        }
+    }
+
+    private async Task HandleBannerSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue || !_professionalId.HasValue) return;
+
+        const long maxBytes = 5 * 1024 * 1024;
+        if (file.Size > maxBytes)
+        {
+            _bannerStatus = "El archivo supera el límite de 5 MB.";
+            _bannerStatusIsError = true;
+            return;
+        }
+
+        _isUploadingBanner = true;
+        _bannerStatus = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxBytes);
+            var result = await BuyerApi.UploadBuyerProfessionalBannerAsync(
+                stream, file.Name, file.ContentType, tenantId, CancellationToken.None);
+
+            if (result is not null)
+            {
+                ApplyProfessional(result);
+                _bannerStatus = "Banner actualizado correctamente.";
+                _bannerStatusIsError = false;
+            }
+            else
+            {
+                _bannerStatus = "No se pudo subir el banner. Usa JPG, PNG o WebP, máx 5 MB.";
+                _bannerStatusIsError = true;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _bannerStatus = "Error al subir el banner. Intenta nuevamente.";
+            _bannerStatusIsError = true;
+        }
+        finally
+        {
+            _isUploadingBanner = false;
+        }
+    }
+
+    private async Task HandleRemoveBanner()
+    {
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue) return;
+
+        _isUploadingBanner = true;
+        _bannerStatus = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var result = await BuyerApi.RemoveBuyerProfessionalBannerAsync(tenantId, CancellationToken.None);
+            if (result is not null)
+            {
+                ApplyProfessional(result);
+                _bannerStatus = "Banner eliminado.";
+                _bannerStatusIsError = false;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _bannerStatus = "Error al eliminar el banner.";
+            _bannerStatusIsError = true;
+        }
+        finally
+        {
+            _isUploadingBanner = false;
+        }
     }
 
     private async Task HandleSaveProfessional()
@@ -217,6 +640,66 @@
         {
             _isSavingProfessional = false;
         }
+    }
+
+    private async Task HandleAddCertification()
+    {
+        if (string.IsNullOrWhiteSpace(_newCertName)) return;
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue) return;
+
+        _isSavingCert = true;
+        _certStatus = string.Empty;
+        try
+        {
+            var result = await BuyerApi.AddBuyerProfessionalCertificationAsync(
+                new BuyerAddCertificationRequest(
+                    _newCertName.Trim(),
+                    string.IsNullOrWhiteSpace(_newCertInstitution) ? null : _newCertInstitution.Trim(),
+                    _newCertYear,
+                    string.IsNullOrWhiteSpace(_newCertUrl) ? null : _newCertUrl.Trim()),
+                tenantId, CancellationToken.None);
+
+            if (result is not null)
+            {
+                ApplyProfessional(result);
+                _showCertForm = false;
+                _newCertName = string.Empty;
+                _newCertInstitution = string.Empty;
+                _newCertYear = null;
+                _newCertUrl = string.Empty;
+            }
+            else
+            {
+                _certStatus = "No se pudo agregar la certificación.";
+                _certStatusIsError = true;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _certStatus = "Error al guardar. Intenta nuevamente.";
+            _certStatusIsError = true;
+        }
+        finally { _isSavingCert = false; }
+    }
+
+    private async Task HandleRemoveCertification(string certId)
+    {
+        var tenantId = ResolveTenantId();
+        if (!tenantId.HasValue) return;
+        try
+        {
+            var result = await BuyerApi.RemoveBuyerProfessionalCertificationAsync(certId, tenantId, CancellationToken.None);
+            if (result is not null) ApplyProfessional(result);
+        }
+        catch (HttpRequestException) { }
+    }
+
+    private static List<ProfessionalCertification> DeserializeCerts(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return JsonSerializer.Deserialize<List<ProfessionalCertification>>(json) ?? []; }
+        catch { return []; }
     }
 
     private static string? Null(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

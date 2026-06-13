@@ -1,0 +1,536 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@*
+    Gestión del envío de un pedido delivery desde el panel del vendedor:
+    estado, asignación/reasignación de repartidor (genera el link seguro a
+    compartir por WhatsApp) y cancelación del envío.
+*@
+@if (IsDeliveryOrder)
+{
+    <div class="mt-4 rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4 space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@L.T("partner.delivery.title")</span>
+            <span class="@StatusBadgeClass">@StatusLabel</span>
+        </div>
+
+        @* Trazabilidad: misma línea de tiempo que ve el comprador (picked_up
+           e in_transit colapsan en "En camino"). Avanza en vivo vía SignalR
+           cuando el mapa está abierto. *@
+        @if (Status != "canceled")
+        {
+            <ol class="flex flex-wrap items-center gap-2">
+                @foreach (var step in TimelineSteps)
+                {
+                    var reached = StepRank(Status) >= StepRank(step.Key);
+                    var isCurrent = StepRank(Status) == StepRank(step.Key);
+                    <li class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold
+                                     @(isCurrent ? "bg-[#3b6700] text-[#d9ffad]" : reached ? "bg-[#a7f255]/30 text-[#325800]" : "bg-[#eff1f2] text-[#7b8081]")">
+                            <span class="material-symbols-outlined text-[13px]">@(reached ? "check_circle" : "radio_button_unchecked")</span>
+                            @step.Label
+                        </span>
+                    </li>
+                }
+            </ol>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Order.DeliveryAddress))
+        {
+            <p class="text-sm text-[#595c5d]"><span class="font-bold text-[#2c2f30]">@L.T("partner.delivery.destination"):</span> @Order.DeliveryAddress</p>
+        }
+
+        @* Mapa en vivo del recorrido (mismo módulo JS del comprador; el token
+           se acuña on-demand para el dueño del pedido). El módulo es singleton:
+           abrir el mapa de otro pedido cierra este. *@
+        @if (Status is "assigned" or "picked_up" or "in_transit" or "delivered")
+        {
+            <button type="button"
+                    class="inline-flex items-center gap-2 rounded-xl border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#2c2f30] disabled:opacity-60"
+                    disabled="@_mapBusy"
+                    @onclick="ToggleMapAsync">
+                <span class="material-symbols-outlined text-[16px]">@(_mapOpen ? "visibility_off" : "map")</span>
+                @(_mapOpen ? L.T("partner.delivery.track.hide") : L.T("partner.delivery.track.toggle"))
+            </button>
+            @if (_mapOpen)
+            {
+                <div id="@MapElementId" class="h-[320px] w-full overflow-hidden rounded-2xl border border-[#e3e6e8]"></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_mapMessage))
+            {
+                <p class="text-xs font-medium text-red-600">@_mapMessage</p>
+            }
+        }
+
+        @if (IsActive)
+        {
+            <div class="flex flex-wrap items-center gap-2">
+                <select class="h-10 flex-1 min-w-[180px] rounded-xl border border-[#dadddf] px-3 text-sm"
+                        value="@(_selectedCourierId?.ToString() ?? "")"
+                        @onchange="OnCourierSelected"
+                        disabled="@_busy">
+                    <option value="">@L.T("partner.delivery.selectCourier")</option>
+                    @foreach (var courier in Couriers)
+                    {
+                        <option value="@courier.Id">@courier.Name@(string.IsNullOrWhiteSpace(courier.Company) ? "" : $" ({courier.Company})")</option>
+                    }
+                </select>
+                <button type="button"
+                        class="inline-flex items-center gap-2 rounded-xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad] disabled:opacity-60"
+                        disabled="@(_busy || _selectedCourierId is null)"
+                        @onclick="AssignAsync">
+                    <span class="material-symbols-outlined text-[16px]">two_wheeler</span>
+                    @(Order.CourierId is null ? L.T("partner.delivery.assign") : L.T("partner.delivery.reassign"))
+                </button>
+                <button type="button"
+                        class="inline-flex items-center rounded-xl border border-[#fecaca] px-4 py-2 text-xs font-bold text-[#b42318] disabled:opacity-60"
+                        disabled="@_busy"
+                        @onclick="CancelDeliveryAsync">
+                    @L.T("partner.delivery.cancel")
+                </button>
+            </div>
+        }
+
+        @if (_assignment is not null)
+        {
+            <div class="rounded-xl border border-[#a7f255] bg-[#f8fff1] p-3 space-y-2">
+                <p class="text-xs font-semibold text-[#325800]">
+                    @string.Format(L.T("partner.delivery.assignedTo"), _assignment.CourierName)
+                    — @L.T("partner.delivery.shareHint")
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <a class="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2 text-xs font-bold text-white"
+                       href="@CourierWhatsAppHref"
+                       target="_blank"
+                       rel="noopener">
+                        <span class="material-symbols-outlined text-[16px]">chat</span>
+                        @L.T("partner.delivery.shareWhatsApp")
+                    </a>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-xl border border-[#dadddf] bg-white px-4 py-2 text-xs font-bold text-[#2c2f30]"
+                            @onclick="CopyLinkAsync">
+                        <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                        @(_linkCopied ? L.T("partner.delivery.linkCopied") : L.T("partner.delivery.copyLink"))
+                    </button>
+                </div>
+            </div>
+        }
+
+        @* Liquidación del envío: visible tras la entrega. El cliente pagó UNA
+           vez al negocio; aquí el negocio paga el envío al repartidor vía MP
+           (el neto cae directo en la cuenta MP del repartidor). *@
+        @if (Settlement is not null && Status == "delivered")
+        {
+            <div class="rounded-xl border border-[#dadddf] bg-white p-3 space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@L.T("partner.delivery.settlement.title")</span>
+                    <span class="@SettlementBadgeClass">@SettlementStatusLabel</span>
+                </div>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[#595c5d]">
+                    <dt>@L.T("partner.delivery.settlement.gross")</dt>
+                    <dd class="text-right font-semibold text-[#2c2f30]">@FormatClp(Settlement.GrossAmount)</dd>
+                    <dt>@L.T("partner.delivery.settlement.ccFee")</dt>
+                    <dd class="text-right">−@FormatClp(Settlement.PlatformFeeAmount)</dd>
+                    <dt>@L.T("partner.delivery.settlement.mpFee")</dt>
+                    <dd class="text-right">@(Settlement.Status == "settled" ? "−" : "~−")@FormatClp(Settlement.MercadoPagoFeeAmount ?? 0m)</dd>
+                    <dt class="font-bold text-[#2c2f30]">@L.T("partner.delivery.settlement.net")</dt>
+                    <dd class="text-right font-bold text-[#3b6700]">@FormatClp(Settlement.NetToCourierAmount)</dd>
+                </dl>
+
+                @if (Settlement.Status is "pending" or "manual" or "processing")
+                {
+                    <button type="button"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#009ee3] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+                            disabled="@_payBusy"
+                            @onclick="PaySettlementAsync">
+                        <span class="material-symbols-outlined text-[16px]">payments</span>
+                        @(_payBusy ? L.T("partner.delivery.settlement.paying") : L.T("partner.delivery.settlement.pay"))
+                    </button>
+                }
+                else if (Settlement.Status == "settled")
+                {
+                    <p class="text-xs font-semibold text-[#14532d]">@L.T("partner.delivery.settlement.paid")</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(_payMessage))
+                {
+                    <p class="text-xs font-medium text-red-600">@_payMessage</p>
+                }
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <p class="text-xs font-medium text-red-600">@_message</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public PartnerApiModels.Order Order { get; set; } = null!;
+    [Parameter] public IReadOnlyList<PartnerApiModels.PartnerCourier> Couriers { get; set; } = Array.Empty<PartnerApiModels.PartnerCourier>();
+    [Parameter] public PartnerApiModels.PartnerDeliverySettlement? Settlement { get; set; }
+    [Parameter] public EventCallback DeliveryChanged { get; set; }
+
+    private Guid? _selectedCourierId;
+    private PartnerApiModels.AssignCourierResult? _assignment;
+    private bool _busy;
+    private bool _linkCopied;
+    private string? _message;
+    private bool _payBusy;
+    private string? _payMessage;
+    // Mapa en vivo del recorrido.
+    private bool _mapOpen;
+    private bool _mapBusy;
+    private bool _mapPendingStart;
+    private string? _mapMessage;
+    private string? _trackingToken;
+    private ComunaClick.Shared.Api.Buyer.DeliverySnapshot? _snapshot;
+    private string? _liveStatus;
+    private DotNetObjectReference<PartnerOrderDeliverySection>? _selfRef;
+
+    private string MapElementId => $"partner-track-map-{Order.Id:N}";
+
+    private bool IsDeliveryOrder =>
+        string.Equals(Order.DeliveryType, "delivery", StringComparison.OrdinalIgnoreCase)
+        || !string.IsNullOrWhiteSpace(Order.DeliveryAddress);
+
+    // El estado en vivo (SignalR, con el mapa abierto) prima sobre el del DTO.
+    private string Status => _liveStatus ?? Order.DeliveryStatus?.Trim().ToLowerInvariant() ?? "pending";
+
+    private IReadOnlyList<(string Key, string Label)> TimelineSteps =>
+    [
+        ("pending", L.T("partner.delivery.status.pending")),
+        ("assigned", L.T("partner.delivery.status.assigned")),
+        ("in_transit", L.T("partner.delivery.status.inTransit")),
+        ("delivered", L.T("partner.delivery.status.delivered"))
+    ];
+
+    // Orden lógico de los pasos; picked_up cuenta como in_transit en la UI.
+    private static int StepRank(string status) => status switch
+    {
+        "assigned" => 1,
+        "picked_up" or "in_transit" => 2,
+        "delivered" => 3,
+        _ => 0
+    };
+
+    private bool IsActive => Status is "pending" or "assigned" or "picked_up" or "in_transit";
+
+    private string StatusLabel => Status switch
+    {
+        "assigned" => L.T("partner.delivery.status.assigned"),
+        "picked_up" or "in_transit" => L.T("partner.delivery.status.inTransit"),
+        "delivered" => L.T("partner.delivery.status.delivered"),
+        "canceled" => L.T("partner.delivery.status.canceled"),
+        _ => L.T("partner.delivery.status.pending")
+    };
+
+    private string StatusBadgeClass => "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold " + Status switch
+    {
+        "delivered" => "bg-[#dcfce7] text-[#14532d]",
+        "canceled" => "bg-[#fecaca] text-[#b42318]",
+        "picked_up" or "in_transit" => "bg-[#a7f255]/30 text-[#325800]",
+        "assigned" => "bg-[#fff4d6] text-[#8a5b00]",
+        _ => "bg-[#eff1f2] text-[#595c5d]"
+    };
+
+    private string CourierWhatsAppHref
+    {
+        get
+        {
+            if (_assignment is null)
+            {
+                return "#";
+            }
+
+            var phone = new string(_assignment.CourierPhone.Where(char.IsDigit).ToArray());
+            var message = string.Format(
+                L.T("partner.delivery.whatsappMessage"),
+                _assignment.CourierName.Trim().Split(' ')[0],
+                Order.Id.ToString()[..8],
+                _assignment.CourierLink);
+            return $"https://wa.me/{phone}?text={Uri.EscapeDataString(message)}";
+        }
+    }
+
+    private string SettlementStatusLabel => Settlement?.Status switch
+    {
+        "settled" => L.T("partner.delivery.settlement.status.settled"),
+        "processing" => L.T("partner.delivery.settlement.status.processing"),
+        "manual" => L.T("partner.delivery.settlement.status.manual"),
+        _ => L.T("partner.delivery.settlement.status.pending")
+    };
+
+    private string SettlementBadgeClass => "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold " + Settlement?.Status switch
+    {
+        "settled" => "bg-[#dcfce7] text-[#14532d]",
+        "processing" => "bg-[#fff4d6] text-[#8a5b00]",
+        "manual" => "bg-[#eff1f2] text-[#595c5d]",
+        _ => "bg-[#e0f2fe] text-[#075985]"
+    };
+
+    private static string FormatClp(decimal amount)
+        => amount.ToString("C0", new System.Globalization.CultureInfo("es-CL"));
+
+    private async Task PaySettlementAsync()
+    {
+        if (Settlement is null)
+        {
+            return;
+        }
+
+        _payBusy = true;
+        _payMessage = null;
+        try
+        {
+            var result = await PartnerApi.PayDeliverySettlementAsync(Settlement.PartnerId, Settlement.Id);
+            if (result is null || string.IsNullOrWhiteSpace(result.InitPoint))
+            {
+                _payMessage = L.T("partner.delivery.settlement.payFailed");
+                return;
+            }
+
+            // Abre el checkout de MercadoPago en pestaña nueva; el slip queda
+            // "en proceso" y se liquida solo cuando el pago se apruebe (webhook).
+            await JS.InvokeVoidAsync("open", result.InitPoint, "_blank");
+            await DeliveryChanged.InvokeAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _payMessage = TryExtractApiMessage(ex.Message) ?? L.T("partner.delivery.settlement.payFailed");
+        }
+        finally
+        {
+            _payBusy = false;
+        }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
+    }
+
+    private void OnCourierSelected(ChangeEventArgs e)
+        => _selectedCourierId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+
+    private async Task AssignAsync()
+    {
+        if (_selectedCourierId is not { } courierId)
+        {
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+        _linkCopied = false;
+        try
+        {
+            _assignment = await PartnerApi.AssignCourierAsync(Order.Id, courierId);
+            if (_assignment is null)
+            {
+                _message = L.T("partner.delivery.assignFailed");
+                return;
+            }
+
+            await DeliveryChanged.InvokeAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.delivery.assignFailed");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CancelDeliveryAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            await PartnerApi.CancelDeliveryAsync(Order.Id);
+            _assignment = null;
+            await DeliveryChanged.InvokeAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _message = L.T("partner.delivery.cancelFailed");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        if (_assignment is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.copyText", _assignment.CourierLink);
+            _linkCopied = true;
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task ToggleMapAsync()
+    {
+        if (_mapOpen)
+        {
+            await StopMapAsync();
+            _mapOpen = false;
+            return;
+        }
+
+        _mapBusy = true;
+        _mapMessage = null;
+        try
+        {
+            // Token de tracking acuñado para el dueño del pedido + snapshot con
+            // las coordenadas (mismo flujo que la página de seguimiento del comprador).
+            var tokenResult = await PartnerApi.GetOrderTrackingTokenAsync(Order.Id);
+            if (tokenResult is null || string.IsNullOrWhiteSpace(tokenResult.Token))
+            {
+                _mapMessage = L.T("partner.delivery.track.failed");
+                return;
+            }
+
+            _trackingToken = tokenResult.Token;
+            _snapshot = await BuyerApi.GetDeliverySnapshotAsync(Order.Id, _trackingToken);
+            if (_snapshot is null)
+            {
+                _mapMessage = L.T("partner.delivery.track.failed");
+                return;
+            }
+
+            _mapOpen = true;
+            // El div del mapa recién existe tras el próximo render.
+            _mapPendingStart = true;
+        }
+        catch (HttpRequestException)
+        {
+            _mapMessage = L.T("partner.delivery.track.failed");
+        }
+        finally
+        {
+            _mapBusy = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_mapPendingStart || _snapshot is null || string.IsNullOrWhiteSpace(_trackingToken))
+        {
+            return;
+        }
+
+        _mapPendingStart = false;
+        _selfRef ??= DotNetObjectReference.Create(this);
+        var apiBase = ApiOptions.Value.ApiBaseUrl.TrimEnd('/');
+
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.deliveryTracking.start", MapElementId, new
+            {
+                hubUrl = $"{apiBase}/deliveryHub",
+                snapshotUrl = $"{apiBase}/v1/public/delivery/{Order.Id}?token={Uri.EscapeDataString(_trackingToken)}",
+                orderId = Order.Id,
+                token = _trackingToken,
+                origin = SanitizeCoords(_snapshot.OriginLat, _snapshot.OriginLng),
+                destination = SanitizeCoords(_snapshot.DestinationLat, _snapshot.DestinationLng),
+                courier = new { lat = _snapshot.LastLat, lng = _snapshot.LastLng },
+                status = Status,
+                labels = new
+                {
+                    origin = L.T("buyer.track.origin"),
+                    destination = L.T("buyer.track.destination"),
+                    courier = L.T("buyer.track.courier")
+                },
+                dotNetRef = _selfRef
+            });
+        }
+        catch (JSException)
+        {
+            _mapMessage = L.T("partner.delivery.track.failed");
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static object SanitizeCoords(double? lat, double? lng)
+        => lat.HasValue && lng.HasValue && ComunaClick.SharedUI.Services.GeoLocationValidator.IsWithinChile(lat.Value, lng.Value)
+            ? new { lat, lng }
+            : new { lat = (double?)null, lng = (double?)null };
+
+    [JSInvokable]
+    public Task OnDeliveryStatusChanged(string status)
+    {
+        _liveStatus = status?.Trim().ToLowerInvariant();
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task StopMapAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.deliveryTracking.stop");
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _selfRef?.Dispose();
+        if (_mapOpen)
+        {
+            await StopMapAsync();
+        }
+    }
+}

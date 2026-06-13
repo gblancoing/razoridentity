@@ -28,6 +28,37 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<IReadOnlyList<Order>?> GetPartnerOrdersAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Order>>($"/v1/partners/{partnerId}/orders", cancellationToken);
 
+    public Task<IReadOnlyList<PartnerCourier>?> GetPartnerCouriersAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PartnerCourier>>($"/v1/partners/{partnerId}/couriers", cancellationToken);
+
+    public Task<PartnerCourier?> CreatePartnerCourierAsync(Guid partnerId, PartnerCourierCreateRequest request, CancellationToken cancellationToken = default)
+        => PostAsync<PartnerCourier>($"/v1/partners/{partnerId}/couriers", request, cancellationToken);
+
+    public Task DeletePartnerCourierAsync(Guid partnerId, Guid courierId, CancellationToken cancellationToken = default)
+        => DeleteAsync($"/v1/partners/{partnerId}/couriers/{courierId}", cancellationToken);
+
+    /// <summary>Asigna (o reasigna) un repartidor al pedido y devuelve el link seguro para compartirle.</summary>
+    public Task<AssignCourierResult?> AssignCourierAsync(Guid orderId, Guid courierId, CancellationToken cancellationToken = default)
+        => PostAsync<AssignCourierResult>($"/v1/orders/{orderId}/assign-courier", new { courierId }, cancellationToken);
+
+    /// <summary>Cancela el envío (no la orden): revoca el link del repartidor y notifica al comprador.</summary>
+    public Task CancelDeliveryAsync(Guid orderId, CancellationToken cancellationToken = default)
+        => PostNoContentAsync($"/v1/orders/{orderId}/cancel-delivery", new { }, cancellationToken);
+
+    /// <summary>Slips de liquidación del transporte de los pedidos del negocio.</summary>
+    public Task<IReadOnlyList<PartnerDeliverySettlement>?> GetPartnerDeliverySettlementsAsync(Guid partnerId, CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PartnerDeliverySettlement>>($"/v1/partners/{partnerId}/delivery-settlements", cancellationToken);
+
+    /// <summary>Genera el link MercadoPago para pagar el envío al repartidor (tras la entrega).</summary>
+    public Task<DeliverySettlementPayResult?> PayDeliverySettlementAsync(Guid partnerId, Guid settlementId, CancellationToken cancellationToken = default)
+        => PostAsync<DeliverySettlementPayResult>($"/v1/partners/{partnerId}/delivery-settlements/{settlementId}/pay", new { }, cancellationToken);
+
+    public Task<Order?> UpdateOrderStatusAsync(Guid orderId, OrderStatusUpdateRequest request, CancellationToken cancellationToken = default)
+        => PatchAsync<Order>($"/v1/orders/{orderId}/status", request, cancellationToken);
+
+    public Task<Order?> CancelOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
+        => PostAsync<Order>($"/v1/orders/{orderId}/cancel", new { }, cancellationToken);
+
     public Task<IReadOnlyList<Booking>?> GetPartnerBookingsAsync(Guid partnerId, CancellationToken cancellationToken = default)
         => GetAsync<IReadOnlyList<Booking>>($"/v1/partners/{partnerId}/bookings", cancellationToken);
 
@@ -138,6 +169,23 @@ public sealed class PartnerApiClient : ApiClientBase
         CancellationToken cancellationToken = default)
         => PatchAsync<PartnerDto>($"/v1/partners/{partnerId}/web-links", request, cancellationToken);
 
+    public Task<IReadOnlyList<PartnerDeliveryProviderOption>?> GetPartnerDeliveryProvidersAsync(
+        Guid partnerId,
+        CancellationToken cancellationToken = default)
+        => GetAsync<IReadOnlyList<PartnerDeliveryProviderOption>>($"/v1/partners/{partnerId}/delivery-providers", cancellationToken);
+
+    /// <summary>Token de seguimiento para que el negocio vea el recorrido en vivo de su pedido.</summary>
+    public Task<OrderTrackingTokenResult?> GetOrderTrackingTokenAsync(
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+        => GetAsync<OrderTrackingTokenResult>($"/v1/orders/{orderId}/tracking-token", cancellationToken);
+
+    public Task<PartnerDto?> UpdatePartnerDeliveryPreferenceAsync(
+        Guid partnerId,
+        PartnerDeliveryPreferenceUpdateRequest request,
+        CancellationToken cancellationToken = default)
+        => PatchAsync<PartnerDto>($"/v1/partners/{partnerId}/delivery-preference", request, cancellationToken);
+
     public Task<Product?> CreateProductAsync(ProductCreateRequest request, CancellationToken cancellationToken = default)
         => PostAsync<Product>("/v1/products", request, cancellationToken);
 
@@ -160,6 +208,13 @@ public sealed class PartnerApiClient : ApiClientBase
         PartnerCatalogCategoryCreateRequest request,
         CancellationToken cancellationToken = default)
         => PostAsync<PartnerCatalogCategoryInfo>($"/v1/partners/{partnerId}/catalog-categories", request, cancellationToken);
+
+    public Task<PartnerCatalogCategoryInfo?> UpdatePartnerCatalogCategoryAsync(
+        Guid partnerId,
+        Guid categoryId,
+        PartnerCatalogCategoryUpdateRequest request,
+        CancellationToken cancellationToken = default)
+        => PatchAsync<PartnerCatalogCategoryInfo>($"/v1/partners/{partnerId}/catalog-categories/{categoryId}", request, cancellationToken);
 
     public Task DeletePartnerCatalogCategoryAsync(Guid partnerId, Guid categoryId, CancellationToken cancellationToken = default)
         => DeleteAsync($"/v1/partners/{partnerId}/catalog-categories/{categoryId}", cancellationToken);
@@ -390,7 +445,18 @@ public sealed record Product(
     DateTimeOffset UpdatedAt,
     ProductInventory? Inventory,
     IReadOnlyList<string>? ImageUrls = null,
-    IReadOnlyList<ProductImageInfo>? Images = null
+    IReadOnlyList<ProductImageInfo>? Images = null,
+    bool? InStock = null,
+    int? StockQuantity = null,
+    int? AvailableQuantity = null,
+    int? ReservedQuantity = null,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null
 );
 
 public sealed record ProductImageInfo(Guid Id, string Url, int SortOrder);
@@ -401,10 +467,18 @@ public sealed record PartnerCatalogCategoryInfo(
     Guid Id,
     Guid PartnerId,
     string Name,
+    Guid? ParentId,
     int SortOrder,
     bool IsActive);
 
-public sealed record PartnerCatalogCategoryCreateRequest(string Name, int? SortOrder = null);
+public sealed record PartnerCatalogCategoryCreateRequest(string Name, int? SortOrder = null, Guid? ParentId = null);
+
+public sealed record PartnerCatalogCategoryUpdateRequest(
+    string? Name = null,
+    int? SortOrder = null,
+    bool? IsActive = null,
+    Guid? ParentId = null,
+    bool? ClearParent = null);
 
 public sealed record ProductInventory(
     Guid ProductId,
@@ -455,8 +529,57 @@ public sealed record Order(
     string? Currency,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<OrderItem>? Items
+    IReadOnlyList<OrderItem>? Items,
+    double GrossAmount = 0,
+    double PlatformFeeAmount = 0,
+    double NetAmount = 0,
+    string? BuyerName = null,
+    string? BuyerPhone = null,
+    double? MercadoPagoFeeAmount = null,
+    string? DeliveryAddress = null,
+    string? DeliveryType = null,
+    string? DeliveryStatus = null,
+    Guid? CourierId = null
 );
+
+public sealed record PartnerCourier(
+    Guid Id,
+    Guid PartnerId,
+    string Name,
+    string Phone,
+    string? Company,
+    bool IsAvailable,
+    string? Email = null,
+    Guid? UserId = null,
+    bool MercadoPagoConnected = false);
+
+public sealed record PartnerCourierCreateRequest(string Name, string Phone, string? Company, string? Email = null);
+
+public sealed record AssignCourierResult(
+    Guid OrderId,
+    Guid CourierId,
+    string CourierName,
+    string CourierPhone,
+    string CourierLink,
+    string DeliveryStatus);
+
+public sealed record PartnerDeliverySettlement(
+    Guid Id,
+    Guid OrderId,
+    Guid PartnerId,
+    Guid? CourierId,
+    string? CourierName,
+    decimal GrossAmount,
+    decimal PlatformFeeAmount,
+    decimal? MercadoPagoFeeAmount,
+    decimal NetToCourierAmount,
+    string Currency,
+    string Status,
+    DateTimeOffset? SettledAt,
+    string? Notes,
+    DateTimeOffset CreatedAt);
+
+public sealed record DeliverySettlementPayResult(string InitPoint, string Status);
 
 public sealed record OrderItem(
     Guid Id,
@@ -466,6 +589,8 @@ public sealed record OrderItem(
     double UnitPrice,
     double TotalPrice
 );
+
+public sealed record OrderStatusUpdateRequest(string Status);
 
 public sealed record Booking(
     Guid Id,
@@ -589,6 +714,9 @@ public sealed record PartnerDto(
     string? Address,
     string? Phone,
     string? Email,
+    Guid? CountryId,
+    Guid? RegionId,
+    Guid? ComunaId,
     double? Latitude,
     double? Longitude,
     bool IsVisible,
@@ -609,7 +737,8 @@ public sealed record PartnerDto(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null
+    string? OtherLinkUrl = null,
+    Guid? PreferredDeliveryProviderId = null
 );
 
 public sealed record PartnerActivationStatus(
@@ -673,6 +802,19 @@ public sealed record PartnerBankAccountUpdateRequest(
     string? BankAccountHolderRut
 );
 
+public sealed record PartnerDeliveryProviderOption(
+    Guid Id,
+    string Name,
+    double BaseFee,
+    int? EstimatedMinutes,
+    Guid? RegionId,
+    Guid? ComunaId
+);
+
+public sealed record PartnerDeliveryPreferenceUpdateRequest(Guid? PreferredDeliveryProviderId);
+
+public sealed record OrderTrackingTokenResult(Guid OrderId, string Token);
+
 public sealed record ProductCreateRequest(
     Guid PartnerId,
     string Name,
@@ -684,7 +826,14 @@ public sealed record ProductCreateRequest(
     double? CostPrice,
     string? Currency,
     bool? IsActive,
-    int? InitialStock
+    int? InitialStock,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null
 );
 
 public sealed record ProductUpdateRequest(
@@ -696,7 +845,14 @@ public sealed record ProductUpdateRequest(
     double? Price,
     double? CostPrice,
     string? Currency,
-    bool? IsActive
+    bool? IsActive,
+    string? ProductAddress = null,
+    Guid? CountryId = null,
+    Guid? RegionId = null,
+    Guid? ComunaId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    IReadOnlyList<Guid>? DiscoverySubcategoryIds = null
 );
 
 public sealed record ProductInventoryUpdateRequest(

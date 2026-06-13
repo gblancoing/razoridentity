@@ -10,6 +10,18 @@ public sealed class OrderNotificationOptions
     public string? WhatsAppWebhookUrl { get; set; }
     public string? WhatsAppApiKey { get; set; }
     public SmtpOptions Smtp { get; set; } = new();
+
+    /// <summary>Cada cuántos segundos el worker barre el outbox de notificaciones.</summary>
+    public int WorkerIntervalSeconds { get; set; } = 15;
+
+    /// <summary>Reintentos máximos antes de marcar la notificación como fallida (terminal).</summary>
+    public int OutboxMaxAttempts { get; set; } = 5;
+
+    /// <summary>Base del backoff exponencial entre reintentos (segundos). 0 = reintento inmediato.</summary>
+    public int OutboxRetryBaseSeconds { get; set; } = 60;
+
+    /// <summary>Cantidad de notificaciones procesadas por tick del worker.</summary>
+    public int OutboxBatchSize { get; set; } = 25;
 }
 
 public sealed class SmtpOptions

@@ -1,0 +1,233 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+@inject LocaleService L
+
+<FormFieldHelp Label="@L.T("partner.catalog.a.storeSection")"
+               Tooltip="@L.T("partner.catalog.a.storeSection.tooltip")"
+               Help="@L.T("partner.catalog.a.storeSection.help")">
+    <div class="space-y-2">
+        <div class="flex flex-wrap items-end gap-2">
+            <div class="flex-1 min-w-[160px]">
+                <p class="mt-2 text-xs font-bold text-[#595c5d]">@L.T("partner.catalog.a.storeSection.category")</p>
+                <select class="@InputClass" value="@(_parentId?.ToString() ?? "")" @onchange="OnParentChanged">
+                    <option value="">@L.T("partner.catalog.a.storeSection.placeholder")</option>
+                    @foreach (var cat in Roots)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                </select>
+            </div>
+            <button type="button"
+                    class="mb-1 rounded-xl border border-[#3b6700]/40 px-3 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#a7f255]/15"
+                    @onclick="() => ToggleQuickCreate(false)">
+                @L.T("partner.catalog.a.storeSection.newCategory")
+            </button>
+        </div>
+
+        @if (_parentId is { } parentId)
+        {
+            var children = ChildrenOf(parentId);
+            <div class="flex flex-wrap items-end gap-2">
+                @if (children.Count > 0)
+                {
+                    <div class="flex-1 min-w-[160px]">
+                        <p class="mt-1 text-xs font-bold text-[#595c5d]">@L.T("partner.catalog.a.storeSection.subcategory")</p>
+                        <select class="@InputClass" value="@(SelectedChildId?.ToString() ?? "")" @onchange="OnChildChanged">
+                            <option value="">@L.T("partner.catalog.a.storeSection.subPlaceholder")</option>
+                            @foreach (var child in children)
+                            {
+                                <option value="@child.Id">@child.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <button type="button"
+                        class="mb-1 rounded-xl border border-[#3b6700]/40 px-3 py-2 text-xs font-bold text-[#3b6700] hover:bg-[#a7f255]/15"
+                        @onclick="() => ToggleQuickCreate(true)">
+                    @L.T("partner.catalog.a.storeSection.newSubcategory")
+                </button>
+            </div>
+        }
+
+        @if (_quickCreateOpen)
+        {
+            <div class="flex flex-wrap gap-2 rounded-xl border border-dashed border-[#3b6700]/40 bg-[#f8faf8] p-2">
+                <input class="flex-1 min-w-[140px] rounded-xl border border-[#dadddf] px-3 py-2 text-sm"
+                       placeholder="@(_quickCreateIsSub ? L.T("partner.catalog.a.storeSection.subPlaceholderNew") : L.T("partner.catalog.a.storeSection.placeholderNew"))"
+                       @bind="_quickCreateName" />
+                <button type="button"
+                        class="rounded-xl bg-[#3b6700] px-4 py-2 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                        disabled="@(_busy || string.IsNullOrWhiteSpace(_quickCreateName))"
+                        @onclick="QuickCreateAsync">
+                    @L.T("partner.catalog.a.storeSection.quickCreateSave")
+                </button>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <p class="text-xs font-medium text-red-600">@_error</p>
+        }
+    </div>
+</FormFieldHelp>
+
+@code {
+    [Parameter] public Guid PartnerId { get; set; }
+    [Parameter] public IReadOnlyList<PartnerApiModels.PartnerCatalogCategoryInfo> Categories { get; set; } = Array.Empty<PartnerApiModels.PartnerCatalogCategoryInfo>();
+    [Parameter] public Guid? SelectedId { get; set; }
+    [Parameter] public EventCallback<Guid?> SelectedIdChanged { get; set; }
+    [Parameter] public EventCallback CategoriesRefreshRequested { get; set; }
+    [Parameter] public string InputClass { get; set; } = "mt-2 w-full rounded-xl border border-[#dbe6e2] px-4 py-3 text-sm";
+
+    private Guid? _parentId;
+    private bool _quickCreateOpen;
+    private bool _quickCreateIsSub;
+    private string _quickCreateName = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    private List<PartnerApiModels.PartnerCatalogCategoryInfo> Roots => Categories
+        .Where(x => x.ParentId is null && x.IsActive)
+        .OrderBy(x => x.SortOrder)
+        .ThenBy(x => x.Name)
+        .ToList();
+
+    private List<PartnerApiModels.PartnerCatalogCategoryInfo> ChildrenOf(Guid parentId) => Categories
+        .Where(x => x.ParentId == parentId && x.IsActive)
+        .OrderBy(x => x.SortOrder)
+        .ThenBy(x => x.Name)
+        .ToList();
+
+    private Guid? SelectedChildId
+    {
+        get
+        {
+            if (SelectedId is not { } selected)
+            {
+                return null;
+            }
+
+            var item = Categories.FirstOrDefault(x => x.Id == selected);
+            return item?.ParentId is null ? null : item.Id;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (SelectedId is { } selected)
+        {
+            var item = Categories.FirstOrDefault(x => x.Id == selected);
+            if (item is not null)
+            {
+                _parentId = item.ParentId ?? item.Id;
+            }
+        }
+        else if (!_busy)
+        {
+            _parentId = null;
+        }
+    }
+
+    private async Task OnParentChanged(ChangeEventArgs e)
+    {
+        _parentId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        await SelectedIdChanged.InvokeAsync(_parentId);
+    }
+
+    private async Task OnChildChanged(ChangeEventArgs e)
+    {
+        var childId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : (Guid?)null;
+        await SelectedIdChanged.InvokeAsync(childId ?? _parentId);
+    }
+
+    private void ToggleQuickCreate(bool isSub)
+    {
+        if (isSub && _parentId is null)
+        {
+            return;
+        }
+
+        if (_quickCreateOpen && _quickCreateIsSub == isSub)
+        {
+            _quickCreateOpen = false;
+            return;
+        }
+
+        _quickCreateOpen = true;
+        _quickCreateIsSub = isSub;
+        _quickCreateName = string.Empty;
+        _error = null;
+    }
+
+    private async Task QuickCreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_quickCreateName) || PartnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var created = await PartnerApi.CreatePartnerCatalogCategoryAsync(
+                PartnerId,
+                new PartnerApiModels.PartnerCatalogCategoryCreateRequest(
+                    _quickCreateName.Trim(),
+                    ParentId: _quickCreateIsSub ? _parentId : null));
+            if (created is null)
+            {
+                _error = L.T("partner.catalog.a.sections.failed");
+                return;
+            }
+
+            await CategoriesRefreshRequested.InvokeAsync();
+
+            if (!_quickCreateIsSub)
+            {
+                _parentId = created.Id;
+            }
+
+            await SelectedIdChanged.InvokeAsync(created.Id);
+            _quickCreateOpen = false;
+            _quickCreateName = string.Empty;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = TryExtractApiMessage(ex.Message) ?? L.T("partner.catalog.a.sections.failed");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
+    }
+}

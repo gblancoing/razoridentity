@@ -1,0 +1,90 @@
+@page "/payouts"
+@using System.Globalization
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Payouts - ComunaClick.Admin</PageTitle>
+
+<PageHeader Eyebrow="Pagos a vendedores"
+            Title="Lotes de payout"
+            Description="Batches de liquidación por tenant y periodo. Los lotes pendientes agregan los items de cada vendedor para el pago masivo." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar payouts" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="AdminPayoutBatchListItemDto"
+               Items="_batches"
+               IsLoading="_isLoading"
+               EmptyTitle="Sin lotes"
+               EmptyDescription="Cuando se creen lotes de payout aparecerán aquí."
+               KeySelector="x => x.Id">
+        <HeaderTemplate>
+            <th>Tenant</th>
+            <th>Periodo</th>
+            <th>Items</th>
+            <th>Total neto</th>
+            <th>Estado</th>
+            <th>Creado</th>
+        </HeaderTemplate>
+        <RowTemplate Context="b">
+            <td class="cell-title">@b.TenantName</td>
+            <td class="cell-muted">@b.PeriodStart.ToString("dd MMM yyyy") – @b.PeriodEnd.ToString("dd MMM yyyy")</td>
+            <td class="cell-muted">@b.ItemCount</td>
+            <td class="cell-amount">@b.NetTotal.ToString("C0", Cl)</td>
+            <td>
+                <StatusBadge Status="@BatchStatusKind(b.Status)"
+                             Label="@BatchStatusLabel(b.Status)" />
+            </td>
+            <td class="cell-muted">@b.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", Cl)</td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private IReadOnlyList<AdminPayoutBatchListItemDto>? _batches;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _batches = await Client.GetPayoutBatchesAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string BatchStatusLabel(string s) => s switch
+    {
+        "open" => "Abierto",
+        "closed" => "Cerrado",
+        "paid" => "Pagado",
+        "failed" => "Fallido",
+        _ => s
+    };
+
+    private static string BatchStatusKind(string s) => s switch
+    {
+        "paid" => "active",
+        "open" or "closed" => "pending",
+        "failed" => "failed",
+        _ => "neutral"
+    };
+}

@@ -1,0 +1,14 @@
+<div class="empty-state">
+    <span class="material-symbols-outlined">@Icon</span>
+    <h3>@Title</h3>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p>@Description</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "inbox";
+    [Parameter] public string Title { get; set; } = "Sin resultados";
+    [Parameter] public string? Description { get; set; }
+}

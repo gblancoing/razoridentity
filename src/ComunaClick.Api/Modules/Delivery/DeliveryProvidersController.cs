@@ -41,16 +41,12 @@ public sealed class DeliveryProvidersController : ControllerBase
             return NotFound(new { message = "Partner not found." });
         }
 
+        // El transportista preferido del comercio lista primero; luego por
+        // especificidad de zona (comuna > región > global).
         var providers = await _db.DeliveryProviders.AsNoTracking()
-            .Where(x =>
-                x.IsActive &&
-                (!x.TenantId.HasValue || x.TenantId.Value == tenantId.Value) &&
-                (
-                    (x.ComunaId.HasValue && partner.ComunaId.HasValue && x.ComunaId.Value == partner.ComunaId.Value) ||
-                    (!x.ComunaId.HasValue && x.RegionId.HasValue && partner.RegionId.HasValue && x.RegionId.Value == partner.RegionId.Value) ||
-                    (!x.ComunaId.HasValue && !x.RegionId.HasValue)
-                ))
-            .OrderByDescending(x => x.ComunaId.HasValue)
+            .WhereServesPartner(partner)
+            .OrderByDescending(x => x.Id == partner.PreferredDeliveryProviderId)
+            .ThenByDescending(x => x.ComunaId.HasValue)
             .ThenByDescending(x => x.RegionId.HasValue)
             .ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);

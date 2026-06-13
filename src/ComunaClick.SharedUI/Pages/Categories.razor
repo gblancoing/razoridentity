@@ -1,97 +1,105 @@
-@page "/categorias"
-@inject ComunaClick.SharedUI.Services.LocaleService L
-@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
-@using ComunaClick.SharedUI.Services
-@implements IDisposable
-
-<PageTitle>Categorías - ComunaClic</PageTitle>
-
-<main class="max-w-7xl mx-auto px-4 py-10 space-y-8">
-    <header class="space-y-3">
-        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081]">Discovery local</p>
-        <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">Todas las categorías</h1>
-        <p class="text-sm text-[#595c5d]">Explora cada categoría con su imagen y entra al detalle de negocios, servicios y profesiones registradas.</p>
-    </header>
-
-    @if (_isLoading)
-    {
-        <BrandedLoading Title="Cargando categorías" Message="Estamos preparando el mapa visual de categorías." />
-    }
-    else if (_categories.Count == 0)
-    {
-        <StatusBanner Message="@_statusMessage" Level="warning" />
-    }
-    else
-    {
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            @foreach (var category in _categories)
-            {
-                <a href="@GetCategoryHref(category)"
-                   class="group rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:translate-y-[-2px] transition-transform">
-                    @if (!string.IsNullOrWhiteSpace(GetCategoryImage(category)))
-                    {
-                        <div class="h-56 bg-cover bg-center" style="@($"background-image:url('{GetCategoryImage(category)}')")"></div>
-                    }
-                    else
-                    {
-                        <div class="h-56 bg-cover bg-center" style="@BuildFallbackStyle(category)"></div>
-                    }
-                    <div class="p-5">
-                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Categoría publicada</p>
-                        <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@CategoryVisualService.ResolveDisplayName(category.Code, category.Name)</h2>
-                    </div>
-                </a>
-            }
-        </section>
-    }
-</main>
-
-@code {
-    private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _categories = new();
-    private bool _isLoading = true;
-    private string _statusMessage = "No encontramos categorías activas por ahora.";
-
-    protected override void OnInitialized()
-    {
-        L.OnChange += HandleChange;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            var items = await BuyerApi.GetProductCategoriesAsync();
-            if (items is not null)
-            {
-                _categories.AddRange(items);
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            _statusMessage = $"No se pudieron cargar las categorías ({(int?)ex.StatusCode ?? 0}).";
-        }
-        finally
-        {
-            _isLoading = false;
-        }
-    }
-
-    private string GetCategoryHref(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
-        => $"/categorias/{CategoryVisualService.ToSlug(category.Code, category.Name)}?code={Uri.EscapeDataString(category.Code)}";
-
-    private static string? GetCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
-        => CategoryVisualService.ResolveImage(CategoryVisualKind.Commerce, category.Code, category.Name);
-
-    private static string BuildFallbackStyle(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
-        => $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.08) 100%), url('{CategoryVisualService.ResolveImage(CategoryVisualKind.Commerce, category.Code, category.Name)}')";
-
-    private void HandleChange()
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
-    public void Dispose()
-    {
-        L.OnChange -= HandleChange;
-    }
-}
+@page "/categorias"
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@using ComunaClick.SharedUI.Services
+@implements IDisposable
+
+<PageTitle>Categorías - ComunaClic</PageTitle>
+
+<main class="max-w-7xl mx-auto px-4 py-10 space-y-8">
+    <header class="space-y-3">
+        <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081]">Discovery local</p>
+        <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">Todas las categorías</h1>
+        <p class="text-sm text-[#595c5d]">Explora cada categoría con su imagen y entra al detalle de negocios, servicios y profesiones registradas.</p>
+    </header>
+
+    @if (_isLoading)
+    {
+        <BrandedLoading Title="Cargando categorías" Message="Estamos preparando el mapa visual de categorías." />
+    }
+    else if (_commerce.Count == 0)
+    {
+        <StatusBanner Message="@_statusMessage" Level="warning" />
+    }
+    else
+    {
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            @foreach (var category in _commerce)
+            {
+                <a href="@GetCategoryHref(category)"
+                   class="group rounded-3xl overflow-hidden bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:translate-y-[-2px] transition-transform">
+                    @if (!string.IsNullOrWhiteSpace(GetCategoryImage(category)))
+                    {
+                        <div class="h-56 bg-cover bg-center" style="@($"background-image:url('{GetCategoryImage(category)}')")"></div>
+                    }
+                    else
+                    {
+                        <div class="h-56 bg-cover bg-center" style="@BuildFallbackStyle(category)"></div>
+                    }
+                    <div class="p-5">
+                        <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081] mb-2">Categoría publicada</p>
+                        <h2 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@CategoryVisualService.ResolveDisplayName(category.Code, category.Name)</h2>
+                    </div>
+                </a>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private readonly List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> _commerce = new();
+    private bool _isLoading = true;
+    private string _statusMessage = "No encontramos categorías activas por ahora.";
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var commerceItems = await BuyerApi.GetProductCategoriesAsync() ?? [];
+            _commerce.AddRange(DedupByDisplayName(commerceItems));
+        }
+        catch (HttpRequestException ex)
+        {
+            _statusMessage = $"No se pudieron cargar las categorías ({(int?)ex.StatusCode ?? 0}).";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetCategoryHref(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => $"/categorias/{CategoryVisualService.ToSlug(category.Code, category.Name)}?code={Uri.EscapeDataString(category.Code)}";
+
+    private static string? GetCategoryImage(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => CategoryVisualService.ResolveImage(CategoryVisualKind.Commerce, category.Code, category.Name);
+
+    private string BuildFallbackStyle(ComunaClick.Shared.Api.Buyer.PublicCategoryItem category)
+        => $"background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.08) 100%), url('{GetCategoryImage(category)}')";
+
+    private static List<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> DedupByDisplayName(IReadOnlyList<ComunaClick.Shared.Api.Buyer.PublicCategoryItem> items)
+        => items
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+            .GroupBy(x => CategoryVisualService.ResolveDisplayName(x.Code, x.Name), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g
+                .OrderByDescending(x => !string.IsNullOrWhiteSpace(x.ImageUrl))
+                .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .First())
+            .OrderBy(x => CategoryVisualService.ResolveDisplayName(x.Code, x.Name), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        L.OnChange -= HandleChange;
+    }
+}

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ComunaClick.Api.Integrations.Notifications;
 using ComunaClick.Api.Modules.Catalog;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
@@ -16,6 +17,8 @@ public sealed class MercadoPagoWebhookService
     private readonly MarketplaceAuditService _auditService;
     private readonly MarketplaceMetricsService _metrics;
     private readonly IProductInventoryService _inventoryService;
+    private readonly IOrderNotificationService _orderNotificationService;
+    private readonly ComunaClick.Api.Modules.Delivery.IDeliverySettlementService _deliverySettlementService;
 
     public MercadoPagoWebhookService(
         CoreDbContext db,
@@ -23,7 +26,9 @@ public sealed class MercadoPagoWebhookService
         MercadoPagoOAuthService oauthService,
         MarketplaceAuditService auditService,
         MarketplaceMetricsService metrics,
-        IProductInventoryService inventoryService)
+        IProductInventoryService inventoryService,
+        IOrderNotificationService orderNotificationService,
+        ComunaClick.Api.Modules.Delivery.IDeliverySettlementService deliverySettlementService)
     {
         _db = db;
         _client = client;
@@ -31,6 +36,8 @@ public sealed class MercadoPagoWebhookService
         _auditService = auditService;
         _metrics = metrics;
         _inventoryService = inventoryService;
+        _orderNotificationService = orderNotificationService;
+        _deliverySettlementService = deliverySettlementService;
     }
 
     public async Task<WebhookEvent> HandleAsync(HttpRequest request, string payloadJson, CancellationToken cancellationToken)
@@ -42,6 +49,7 @@ public sealed class MercadoPagoWebhookService
         var action = GetString(payload.RootElement, "action");
         var resourceId = GetString(payload.RootElement, "data", "id")
             ?? GetString(payload.RootElement, "id");
+        var collectorUserId = GetString(payload.RootElement, "user_id");
 
         var signatureValid = !string.IsNullOrWhiteSpace(resourceId) && _client.ValidateWebhookSignature(request, resourceId);
         var webhookEvent = new WebhookEvent
@@ -55,21 +63,10 @@ public sealed class MercadoPagoWebhookService
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        var duplicate = await _db.WebhookEvents
-            .IgnoreQueryFilters()
-            .AnyAsync(x => x.Topic == topic && x.Action == action && x.ResourceId == resourceId && x.Processed, cancellationToken);
-        if (duplicate)
-        {
-            webhookEvent.Processed = true;
-            webhookEvent.ProcessedAt = DateTimeOffset.UtcNow;
-            _db.WebhookEvents.Add(webhookEvent);
-            await _db.SaveChangesAsync(cancellationToken);
-            return webhookEvent;
-        }
-
         _db.WebhookEvents.Add(webhookEvent);
         await _db.SaveChangesAsync(cancellationToken);
 
+        // Security gate: never trust (or dedup) a webhook whose signature is invalid.
         if (!signatureValid)
         {
             webhookEvent.ErrorMessage = "Invalid Mercado Pago webhook signature.";
@@ -80,11 +77,23 @@ public sealed class MercadoPagoWebhookService
             return webhookEvent;
         }
 
+        // Idempotency: a signed event already processed must not be processed twice.
+        var duplicate = await _db.WebhookEvents
+            .IgnoreQueryFilters()
+            .AnyAsync(x => x.Topic == topic && x.Action == action && x.ResourceId == resourceId && x.Processed && x.Id != webhookEvent.Id, cancellationToken);
+        if (duplicate)
+        {
+            webhookEvent.Processed = true;
+            webhookEvent.ProcessedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+            return webhookEvent;
+        }
+
         try
         {
             if (!string.IsNullOrWhiteSpace(resourceId))
             {
-                await SyncPaymentAsync(resourceId, webhookEvent, cancellationToken);
+                await SyncPaymentAsync(resourceId, collectorUserId, webhookEvent, cancellationToken);
             }
 
             webhookEvent.Processed = true;
@@ -108,16 +117,37 @@ public sealed class MercadoPagoWebhookService
         var payment = await _db.Payments.FirstOrDefaultAsync(x => x.Id == paymentId, cancellationToken)
             ?? throw new InvalidOperationException("Payment not found.");
 
-        if (string.IsNullOrWhiteSpace(payment.MercadoPagoPaymentId) || !payment.SellerId.HasValue)
+        if (!payment.SellerId.HasValue)
         {
             return;
+        }
+
+        var mpPaymentId = payment.MercadoPagoPaymentId;
+        if (string.IsNullOrWhiteSpace(mpPaymentId))
+        {
+            if (!string.Equals(payment.Provider, "mercadopago", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(payment.ExternalReference))
+            {
+                return;
+            }
+
+            var token = await _oauthService.GetSellerAccessTokenAsync(payment.SellerId.Value, cancellationToken);
+            var found = await _client.SearchPaymentByExternalReferenceAsync(token, payment.ExternalReference, cancellationToken);
+            mpPaymentId = found?.Id?.ToString();
+            if (string.IsNullOrWhiteSpace(mpPaymentId))
+            {
+                return;
+            }
+
+            payment.MercadoPagoPaymentId = mpPaymentId;
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
         var webhookEvent = new WebhookEvent
         {
             Topic = "manual_sync",
             Action = "manual_sync",
-            ResourceId = payment.MercadoPagoPaymentId,
+            ResourceId = mpPaymentId,
             PayloadJson = "{}",
             SignatureValid = true,
             Processed = false,
@@ -125,23 +155,61 @@ public sealed class MercadoPagoWebhookService
         };
         _db.WebhookEvents.Add(webhookEvent);
         await _db.SaveChangesAsync(cancellationToken);
-        await SyncPaymentAsync(payment.MercadoPagoPaymentId, webhookEvent, cancellationToken);
+        await SyncPaymentAsync(mpPaymentId, collectorUserId: null, webhookEvent, cancellationToken);
         webhookEvent.Processed = true;
         webhookEvent.ProcessedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task SyncPaymentAsync(string mercadopagoPaymentId, WebhookEvent webhookEvent, CancellationToken cancellationToken)
+    private async Task SyncPaymentAsync(string mercadopagoPaymentId, string? collectorUserId, WebhookEvent webhookEvent, CancellationToken cancellationToken)
     {
         var payment = await _db.Payments.FirstOrDefaultAsync(x => x.MercadoPagoPaymentId == mercadopagoPaymentId, cancellationToken)
             ?? await _db.Payments.FirstOrDefaultAsync(x => x.ProviderToken == mercadopagoPaymentId, cancellationToken);
+
+        MercadoPagoPaymentDetailsResponse? details = null;
+
+        if (payment is null && !string.IsNullOrWhiteSpace(collectorUserId))
+        {
+            var sellerId = await _db.SellerMercadoPagoAccounts
+                .Where(x => x.MpUserId == collectorUserId)
+                .Select(x => (Guid?)x.SellerId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (sellerId.HasValue)
+            {
+                try
+                {
+                    var token = await _oauthService.GetSellerAccessTokenAsync(sellerId.Value, cancellationToken);
+                    details = await _client.GetPaymentAsync(token, mercadopagoPaymentId, cancellationToken);
+                    var extRef = details?.ExternalReference;
+                    if (!string.IsNullOrWhiteSpace(extRef))
+                    {
+                        payment = await _db.Payments.FirstOrDefaultAsync(
+                            p => p.Provider == "mercadopago" && p.ExternalReference == extRef, cancellationToken);
+                    }
+                }
+                catch (Exception)
+                {
+                    _metrics.Increment("webhook_match_errors");
+                }
+            }
+        }
+
         if (payment is null || !payment.SellerId.HasValue)
         {
             return;
         }
 
-        var accessToken = await _oauthService.GetSellerAccessTokenAsync(payment.SellerId.Value, cancellationToken);
-        var details = await _client.GetPaymentAsync(accessToken, mercadopagoPaymentId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(payment.MercadoPagoPaymentId))
+        {
+            payment.MercadoPagoPaymentId = mercadopagoPaymentId;
+        }
+
+        if (details is null)
+        {
+            var accessToken = await _oauthService.GetSellerAccessTokenAsync(payment.SellerId.Value, cancellationToken);
+            details = await _client.GetPaymentAsync(accessToken, mercadopagoPaymentId, cancellationToken);
+        }
         if (details is null)
         {
             return;
@@ -152,7 +220,8 @@ public sealed class MercadoPagoWebhookService
         payment.StatusDetail = details.StatusDetail;
         payment.PaymentMethod = details.PaymentMethodId ?? payment.PaymentMethod;
         payment.PaidAmount = details.TransactionAmount;
-        payment.DateApproved = details.DateApproved;
+        // MP devuelve date_approved con offset local (-04:00); Npgsql solo acepta UTC en timestamptz.
+        payment.DateApproved = details.DateApproved?.ToUniversalTime();
         payment.RawResponseJson = JsonSerializer.Serialize(details, JsonOptions);
         payment.LastEventId = $"{webhookEvent.Topic}:{webhookEvent.ResourceId}:{webhookEvent.Action}";
         payment.UpdatedAt = DateTimeOffset.UtcNow;
@@ -160,8 +229,11 @@ public sealed class MercadoPagoWebhookService
         var paymentFee = await _db.PaymentFees.FirstOrDefaultAsync(x => x.PaymentId == payment.Id, cancellationToken);
         if (paymentFee is not null && details.FeeDetails is not null)
         {
+            // fee_details incluye también application_fee (la comisión de la plataforma,
+            // que ya se muestra aparte): solo sumamos los cargos propios de Mercado Pago.
             paymentFee.MercadoPagoFeeAmount = details.FeeDetails
-                .Where(x => x.Amount.HasValue)
+                .Where(x => x.Amount.HasValue
+                    && !string.Equals(x.Type, "application_fee", StringComparison.OrdinalIgnoreCase))
                 .Sum(x => x.Amount!.Value);
         }
 
@@ -202,11 +274,12 @@ public sealed class MercadoPagoWebhookService
 
         if (payment.OrderId.HasValue && OrderInventoryFulfillment.IsPaidStatus(payment.Status))
         {
-            var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value, cancellationToken);
+            var order = await _db.Orders
+                .Include(x => x.Items)
+                .FirstOrDefaultAsync(x => x.Id == payment.OrderId.Value, cancellationToken);
             if (order is not null)
             {
-                var orderPreviousStatus = order.Status;
-                if (!OrderInventoryFulfillment.IsPaidStatus(orderPreviousStatus))
+                if (!OrderInventoryFulfillment.IsPaidStatus(order.Status))
                 {
                     order.Status = "paid";
                     order.UpdatedAt = DateTimeOffset.UtcNow;
@@ -216,10 +289,24 @@ public sealed class MercadoPagoWebhookService
                 await OrderInventoryFulfillment.TryFulfillPaidOrderAsync(
                     _db,
                     _inventoryService,
-                    payment.OrderId.Value,
-                    orderPreviousStatus,
+                    order,
                     "paid",
                     cancellationToken);
+
+                await _orderNotificationService.NotifyPartnerOrderPaidAsync(order.Id, cancellationToken);
+
+                // Liquidación del transporte: slip separado del split del comercio
+                // (bruto envío − fee MP prorrateado − comisión CC = neto transportista).
+                var settlement = await _deliverySettlementService.CreateForPaidOrderAsync(order, payment, cancellationToken);
+                if (settlement is not null && paymentFee?.MercadoPagoFeeAmount is > 0)
+                {
+                    var paymentGross = details.TransactionAmount ?? payment.Amount;
+                    await _deliverySettlementService.ReconcileMercadoPagoFeeAsync(
+                        order.Id,
+                        paymentFee.MercadoPagoFeeAmount.Value,
+                        paymentGross,
+                        cancellationToken);
+                }
             }
         }
         else if (OrderInventoryFulfillment.IsPaidStatus(payment.Status) &&
@@ -236,6 +323,17 @@ public sealed class MercadoPagoWebhookService
                     await _db.SaveChangesAsync(cancellationToken);
                 }
             }
+        }
+        else if (payment.ExternalReference.StartsWith(
+                     ComunaClick.Api.Modules.Delivery.DeliverySettlementPaymentService.ExternalReferencePrefix,
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            // Pago comercio → repartidor: aprueba ⇒ slip liquidado con el fee
+            // MP real de esta transacción; falla ⇒ slip vuelve a pending.
+            await _deliverySettlementService.ApplyCourierPaymentOutcomeAsync(
+                payment,
+                paymentFee?.MercadoPagoFeeAmount,
+                cancellationToken);
         }
     }
 

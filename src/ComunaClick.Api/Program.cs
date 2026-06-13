@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -42,6 +43,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("app", policy =>
         policy.WithOrigins(
+                "https://comunaclic.cl",
+                "https://www.comunaclic.cl",
                 "https://app.comunaclic.cl",
                 "https://admin.comunaclic.cl",
                 "https://localhost:5001",
@@ -66,12 +69,43 @@ builder.Services.AddDbContext<PaymentsDbContext>(options =>
     options.UseNpgsql(paymentsConn);
 });
 builder.Services.AddHostedService<JobsHostedService>();
+builder.Services.AddHostedService<NotificationOutboxHostedService>();
 builder.Services.AddScoped<SiteContentService>();
 builder.Services.Configure<OrderNotificationOptions>(builder.Configuration.GetSection("OrderNotifications"));
 builder.Services.Configure<BusinessRulesOptions>(builder.Configuration.GetSection(BusinessRulesOptions.SectionName));
 builder.Services.Configure<InventoryOptions>(builder.Configuration.GetSection(InventoryOptions.SectionName));
 builder.Services.AddHttpClient();
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.Configure<OrderTrackingOptions>(options =>
+{
+    builder.Configuration.GetSection(OrderTrackingOptions.SectionName).Bind(options);
+    if (string.IsNullOrWhiteSpace(options.TrackingTokenSecret))
+    {
+        options.TrackingTokenSecret = builder.Configuration["Orders:TrackingTokenSecret"]
+            ?? builder.Configuration["Jwt:SigningKey"]
+            ?? string.Empty;
+    }
+});
+builder.Services.AddScoped<IOrderTrackingTokenService, OrderTrackingTokenService>();
+builder.Services.Configure<ComunaClick.Api.Configuration.DeliveryOptions>(
+    builder.Configuration.GetSection(ComunaClick.Api.Configuration.DeliveryOptions.SectionName));
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryCourierTokenService, ComunaClick.Api.Modules.Delivery.DeliveryCourierTokenService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryService, ComunaClick.Api.Modules.Delivery.DeliveryService>();
+builder.Services.Configure<ComunaClick.Api.Configuration.DeliveryPricingOptions>(
+    builder.Configuration.GetSection(ComunaClick.Api.Configuration.DeliveryPricingOptions.SectionName));
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryFeeCalculator, ComunaClick.Api.Modules.Delivery.DeliveryFeeCalculator>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryPricingService, ComunaClick.Api.Modules.Delivery.DynamicDeliveryPricingService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliveryQuoteService, ComunaClick.Api.Modules.Delivery.DeliveryQuoteService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliverySettlementService, ComunaClick.Api.Modules.Delivery.DeliverySettlementService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.ICourierPayeeService, ComunaClick.Api.Modules.Delivery.CourierPayeeService>();
+builder.Services.AddScoped<ComunaClick.Api.Modules.Delivery.IDeliverySettlementPaymentService, ComunaClick.Api.Modules.Delivery.DeliverySettlementPaymentService>();
+builder.Services.AddScoped<ComunaClick.Api.Jobs.DeliveryTrackingCleanupJob>();
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IWhatsAppSender, WhatsAppWebhookSender>();
+builder.Services.AddScoped<NotificationOutboxProcessor>();
 builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddScoped<IInboxNotificationService, InboxNotificationService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<IGuestCustomerService, GuestCustomerService>();
 builder.Services.AddScoped<ICustomerLinkService, CustomerLinkService>();
@@ -91,6 +125,7 @@ builder.Services.Configure<MercadoPagoMarketplaceOptions>(options =>
     options.WebhookSecret = builder.Configuration["MP_WEBHOOK_SECRET"] ?? options.WebhookSecret;
     options.ApiBaseUrl = builder.Configuration["MP_API_BASE_URL"] ?? options.ApiBaseUrl;
     options.AppBaseUrl = builder.Configuration["APP_BASE_URL"] ?? options.AppBaseUrl;
+    options.WebhookBaseUrl = builder.Configuration["MP_WEBHOOK_BASE_URL"] ?? options.WebhookBaseUrl;
     options.EncryptionKey = builder.Configuration["ENCRYPTION_KEY"] ?? options.EncryptionKey;
 });
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
@@ -99,6 +134,8 @@ builder.Services.AddScoped<SellerMarketplaceService>();
 builder.Services.AddScoped<MercadoPagoOAuthService>();
 builder.Services.AddScoped<MarketplacePaymentService>();
 builder.Services.AddScoped<MercadoPagoWebhookService>();
+builder.Services.AddScoped<PaymentReconciliationJob>();
+builder.Services.AddScoped<ComunaClick.Api.Jobs.PendingOrderExpirationJob>();
 builder.Services.AddHttpClient<MercadoPagoMarketplaceClient>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Crm.CustomerAvatarStorage>();
 builder.Services.AddSingleton<ComunaClick.Api.Modules.Catalog.ServiceImageStorage>();
@@ -166,9 +203,33 @@ builder.Services.AddRateLimiter(options =>
         CreateFixedWindowLimiter(context, "public-write", builder.Configuration, "RateLimiting:PublicWrite", 20, 60));
     options.AddPolicy("webhook", context =>
         CreateFixedWindowLimiter(context, "webhook", builder.Configuration, "RateLimiting:Webhook", 120, 60));
+    // GPS de repartidores: particionado por token (query ?token=) para que un
+    // link abusivo no afecte a los demás repartidores; fallback a IP.
+    options.AddPolicy("courier-gps", context =>
+    {
+        var token = context.Request.Query["token"].ToString();
+        var section = builder.Configuration.GetSection("RateLimiting:CourierGps");
+        var permitLimit = Math.Max(1, section.GetValue("PermitLimit", 120));
+        var windowSeconds = Math.Max(1, section.GetValue("WindowSeconds", 60));
+        var partitionKey = string.IsNullOrWhiteSpace(token)
+            ? $"courier-gps:{GetRateLimitKey(context)}"
+            : $"courier-gps:tok:{token}";
+
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = TimeSpan.FromSeconds(windowSeconds),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
 });
 
 var app = builder.Build();
+
+// Aborta el arranque en producción si faltan secretos críticos o son placeholders.
+StartupSecretsValidator.ValidateOrThrow(app.Configuration, app.Environment);
 
 try
 {
@@ -236,6 +297,10 @@ app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
+
+// Hub de tracking en vivo del delivery (los clientes validan token al unirse al
+// grupo). CORS lo cubre el middleware global app.UseCors("app").
+app.MapHub<ComunaClick.Api.Modules.Delivery.DeliveryHub>("/deliveryHub");
 
 app.Run();
 

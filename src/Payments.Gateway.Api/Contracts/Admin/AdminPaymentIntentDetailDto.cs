@@ -12,4 +12,8 @@ public sealed record AdminPaymentIntentDetailDto(
     string RawResponse,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<AdminProviderEventDto> Events);
+    IReadOnlyList<AdminProviderEventDto> Events,
+    string? ReviewStatus,
+    string? ReviewNote,
+    DateTimeOffset? CoreNotifiedAt,
+    int CoreNotifyAttempts);

@@ -107,6 +107,69 @@ public sealed class PayoutsController : ControllerBase
         return Ok(batch);
     }
 
+    [HttpGet("/v1/admin/payouts/batches")]
+    [Authorize(Policy = "platform.admin")]
+    public async Task<ActionResult<IReadOnlyList<Admin.AdminPayoutBatchListItemDto>>> ListBatchesForAdmin(
+        [FromQuery] string? status,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to)
+    {
+        var query = _db.PayoutBatches.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var normalized = status.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Status.ToLower() == normalized);
+        }
+
+        if (from.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt <= to.Value);
+        }
+
+        var batches = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(500)
+            .Select(x => new
+            {
+                x.Id,
+                x.TenantId,
+                x.PeriodStart,
+                x.PeriodEnd,
+                x.Status,
+                x.CreatedAt,
+                ItemCount = x.Items.Count,
+                NetTotal = x.Items.Sum(i => (decimal?)i.NetAmount) ?? 0m
+            })
+            .ToListAsync();
+
+        var tenantIds = batches.Select(x => x.TenantId).Distinct().ToList();
+        var tenantNames = await _db.Tenants.AsNoTracking()
+            .Where(x => tenantIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name);
+
+        var items = batches
+            .Select(x => new Admin.AdminPayoutBatchListItemDto(
+                x.Id,
+                x.TenantId,
+                tenantNames.TryGetValue(x.TenantId, out var tenantName) ? tenantName : "(sin tenant)",
+                x.PeriodStart,
+                x.PeriodEnd,
+                x.Status,
+                x.ItemCount,
+                x.NetTotal,
+                x.CreatedAt))
+            .ToList();
+
+        return Ok(items);
+    }
+
     [HttpGet("/v1/partners/{partnerId:guid}/payouts")]
     [Authorize(Policy = "partner.staff")]
     public async Task<ActionResult<IEnumerable<PartnerPayoutItemResponse>>> ListByPartner(

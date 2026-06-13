@@ -1,0 +1,236 @@
+@page "/track/{OrderId:guid}"
+@layout BuyerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>@L.T("buyer.track.title")</PageTitle>
+
+<section class="max-w-3xl mx-auto space-y-6">
+    @if (_loading)
+    {
+        <BrandedLoading Title="@L.T("buyer.track.title")" Message="@L.T("buyer.track.loading")" />
+    }
+    else if (_snapshot is null)
+    {
+        <div class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-3 text-center">
+            <p class="text-lg font-bold text-[#2c2f30]">@L.T("buyer.track.notFound")</p>
+            <p class="text-sm text-[#595c5d]">@L.T("buyer.track.notFoundHint")</p>
+        </div>
+    }
+    else
+    {
+        <div class="rounded-[2rem] bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-5">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@L.T("buyer.track.eyebrow")</p>
+                <h1 class="mt-1 text-2xl md:text-3xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("buyer.track.heading") #@OrderId.ToString()[..8]</h1>
+            </div>
+
+            @* Timeline del envío: picked_up e in_transit se colapsan en "En tránsito". *@
+            <ol class="flex flex-wrap items-center gap-2">
+                @foreach (var step in TimelineSteps)
+                {
+                    var reached = StepReached(step.Key);
+                    var isCurrent = StepIsCurrent(step.Key);
+                    <li class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold
+                                     @(isCurrent ? "bg-[#3b6700] text-[#d9ffad]" : reached ? "bg-[#a7f255]/30 text-[#325800]" : "bg-[#eff1f2] text-[#7b8081]")">
+                            <span class="material-symbols-outlined text-[14px]">@(reached ? "check_circle" : "radio_button_unchecked")</span>
+                            @step.Label
+                        </span>
+                    </li>
+                }
+            </ol>
+
+            @if (IsCanceled)
+            {
+                <p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">@L.T("buyer.track.canceled")</p>
+            }
+            else
+            {
+                <p class="text-sm text-[#595c5d]">@CurrentStatusDescription</p>
+            }
+
+            <div id="@MapElementId" class="h-[360px] w-full overflow-hidden rounded-2xl border border-[#e3e6e8]"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#595c5d]">
+                @if (!string.IsNullOrWhiteSpace(_snapshot.OriginAddress))
+                {
+                    <p><span class="font-bold text-[#2c2f30]">@L.T("buyer.track.origin"):</span> @_snapshot.OriginAddress</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(_snapshot.DestinationAddress))
+                {
+                    <p><span class="font-bold text-[#2c2f30]">@L.T("buyer.track.destination"):</span> @_snapshot.DestinationAddress</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(_snapshot.CourierName))
+                {
+                    <p>
+                        <span class="font-bold text-[#2c2f30]">@L.T("buyer.track.courier"):</span>
+                        @_snapshot.CourierName@(string.IsNullOrWhiteSpace(_snapshot.CourierPhone) ? "" : $" · {_snapshot.CourierPhone}")
+                    </p>
+                }
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+
+    private string MapElementId => $"track-map-{OrderId:N}";
+
+    private ComunaClick.Shared.Api.Buyer.DeliverySnapshot? _snapshot;
+    private string? _token;
+    private string _status = "pending";
+    private bool _loading = true;
+    private bool _mapStarted;
+    private DotNetObjectReference<Track>? _selfRef;
+
+    private bool IsCanceled => _status == "canceled";
+
+    private IReadOnlyList<(string Key, string Label)> TimelineSteps =>
+    [
+        ("pending", L.T("buyer.track.status.pending")),
+        ("assigned", L.T("buyer.track.status.assigned")),
+        ("in_transit", L.T("buyer.track.status.inTransit")),
+        ("delivered", L.T("buyer.track.status.delivered"))
+    ];
+
+    // Orden lógico de los pasos; picked_up cuenta como in_transit en la UI.
+    private static int StepRank(string status) => status switch
+    {
+        "assigned" => 1,
+        "picked_up" or "in_transit" => 2,
+        "delivered" => 3,
+        _ => 0
+    };
+
+    private bool StepReached(string stepKey) => !IsCanceled && StepRank(_status) >= StepRank(stepKey);
+
+    private bool StepIsCurrent(string stepKey) => !IsCanceled && StepRank(_status) == StepRank(stepKey);
+
+    private string CurrentStatusDescription => _status switch
+    {
+        "assigned" => L.T("buyer.track.desc.assigned"),
+        "picked_up" or "in_transit" => L.T("buyer.track.desc.inTransit"),
+        "delivered" => L.T("buyer.track.desc.delivered"),
+        _ => L.T("buyer.track.desc.pending")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+        _token = ParseQueryValue(query, "token");
+
+        if (!string.IsNullOrWhiteSpace(_token))
+        {
+            try
+            {
+                _snapshot = await BuyerApi.GetDeliverySnapshotAsync(OrderId, _token);
+                _status = _snapshot?.DeliveryStatus ?? "pending";
+            }
+            catch (HttpRequestException)
+            {
+            }
+        }
+
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_mapStarted || _snapshot is null || string.IsNullOrWhiteSpace(_token))
+        {
+            return;
+        }
+
+        _mapStarted = true;
+        _selfRef = DotNetObjectReference.Create(this);
+        var apiBase = ApiOptions.Value.ApiBaseUrl.TrimEnd('/');
+
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.deliveryTracking.start", MapElementId, new
+            {
+                hubUrl = $"{apiBase}/deliveryHub",
+                snapshotUrl = $"{apiBase}/v1/public/delivery/{OrderId}?token={Uri.EscapeDataString(_token)}",
+                orderId = OrderId,
+                token = _token,
+                // Coordenadas implausibles (ej. 0,0 fuera de Chile en órdenes
+                // antiguas) se omiten para no dibujar marcadores en el océano.
+                origin = SanitizeCoords(_snapshot.OriginLat, _snapshot.OriginLng),
+                destination = SanitizeCoords(_snapshot.DestinationLat, _snapshot.DestinationLng),
+                courier = new { lat = _snapshot.LastLat, lng = _snapshot.LastLng },
+                status = _status,
+                labels = new
+                {
+                    origin = L.T("buyer.track.origin"),
+                    destination = L.T("buyer.track.destination"),
+                    courier = L.T("buyer.track.courier")
+                },
+                dotNetRef = _selfRef
+            });
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static object SanitizeCoords(double? lat, double? lng)
+        => lat.HasValue && lng.HasValue && ComunaClick.SharedUI.Services.GeoLocationValidator.IsWithinChile(lat.Value, lng.Value)
+            ? new { lat, lng }
+            : new { lat = (double?)null, lng = (double?)null };
+
+    [JSInvokable]
+    public Task OnDeliveryStatusChanged(string status)
+    {
+        _status = status?.Trim().ToLowerInvariant() ?? _status;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private static string? ParseQueryValue(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pieces = pair.Split('=', 2);
+            if (string.Equals(Uri.UnescapeDataString(pieces[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return pieces.Length > 1 ? Uri.UnescapeDataString(pieces[1]) : null;
+            }
+        }
+
+        return null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _selfRef?.Dispose();
+        if (_mapStarted)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("comunaclic.deliveryTracking.stop");
+            }
+            catch (JSException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+}

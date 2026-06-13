@@ -63,7 +63,36 @@
             </div>
         </section>
 
+        @* Controles de vista *@
+        <div class="flex items-center gap-2">
+            <button @onclick='() => _viewMode = "list"'
+                    class="@(_viewMode == "list" ? "bg-[#3b6700] text-[#d9ffad]" : "bg-white text-[#595c5d] border border-[#dadddf]") inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition">
+                <span class="material-symbols-outlined text-base">view_list</span> Lista
+            </button>
+            <button @onclick='() => _viewMode = "map"'
+                    class="@(_viewMode == "map" ? "bg-[#3b6700] text-[#d9ffad]" : "bg-white text-[#595c5d] border border-[#dadddf]") inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition">
+                <span class="material-symbols-outlined text-base">map</span> Mapa
+            </button>
+        </div>
+
+        @* Mapa *@
+        @if (_viewMode == "map")
+        {
+            @if (_searchItems.Count > 0)
+            {
+                <SearchResultsMap AllItems="@_searchItems" />
+            }
+            else
+            {
+                <div class="rounded-3xl border border-dashed border-[#dadddf] bg-[#faf8f3] px-5 py-8 text-center">
+                    <p class="text-sm font-medium text-[#2c2f30]">No hay coordenadas disponibles para mostrar el mapa.</p>
+                </div>
+            }
+        }
+
         @* Listado *@
+        @if (_viewMode == "list")
+        {
         <section class="space-y-4" aria-label="Listado de profesionales">
             @if (_errorMessage is not null)
             {
@@ -86,8 +115,16 @@
                             <a href="@row.Href"
                                class="group flex flex-col gap-4 rounded-3xl border border-[#e8eaec] bg-white p-4 shadow-[0_4px_24px_-12px_rgba(0,0,0,0.08)] transition hover:border-[#a7f255]/60 hover:shadow-[0_8px_32px_-12px_rgba(59,103,0,0.12)] sm:flex-row sm:items-stretch sm:gap-5 sm:p-5">
                                 <div class="flex shrink-0 items-center justify-center sm:items-stretch">
-                                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#3b6700]/10 text-lg font-black tracking-tight text-[#2c4a16] sm:h-20 sm:w-20 sm:text-xl"
-                                         aria-hidden="true">@row.Initials</div>
+                                    @if (!string.IsNullOrWhiteSpace(row.PhotoUrl))
+                                    {
+                                        <img src="@row.PhotoUrl" alt="@row.Name"
+                                             class="h-16 w-16 rounded-2xl object-cover sm:h-20 sm:w-20" />
+                                    }
+                                    else
+                                    {
+                                        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#3b6700]/10 text-lg font-black tracking-tight text-[#2c4a16] sm:h-20 sm:w-20 sm:text-xl"
+                                             aria-hidden="true">@row.Initials</div>
+                                    }
                                 </div>
                                 <div class="min-w-0 flex-1 text-left">
                                     <p class="text-lg font-black tracking-[-0.02em] text-[#2c2f30] group-hover:text-[#3b6700]">@row.Name</p>
@@ -109,6 +146,7 @@
                 </ul>
             }
         </section>
+        }
 
         <p class="text-center text-sm">
             <a href="/professionals" class="font-bold text-[#3b6700] hover:underline">← Todas las especialidades</a>
@@ -122,12 +160,14 @@
     private DiscoveryHubItem? _hub;
     private string? _bannerImage;
     private List<ProRow> _rows = new();
+    private List<SearchResultItem> _searchItems = new();
     private string _searchQuery = string.Empty;
     private string? _errorMessage;
     private bool _isLoading = true;
     private string? _codeFromQuery;
     private string? _qFromQuery;
     private string? _fetchKey;
+    private string _viewMode = "list";
 
     private IEnumerable<ProRow> FilteredRows
     {
@@ -151,6 +191,7 @@
         _errorMessage = null;
         _hub = DiscoveryHubCatalog.FindProfessionalBySlug(Slug);
         _rows = new();
+        _searchItems = new();
         _bannerImage = _hub is null
             ? null
             : CategoryVisualService.ResolveHubItemImage(_hub, isProfessional: true);
@@ -185,7 +226,7 @@
                 }
             }
 
-            if (_rows.Count == 0 && !string.IsNullOrWhiteSpace(effectiveQ))
+            if (!string.IsNullOrWhiteSpace(effectiveQ))
             {
                 var searchHits = await BuyerApi.SearchProfessionalsAsync(
                     query: effectiveQ,
@@ -193,10 +234,14 @@
                     limit: 100);
                 if (searchHits is { Count: > 0 })
                 {
-                    _rows = searchHits
+                    var profHits = searchHits
                         .Where(x => string.Equals(x.Type, "professional", StringComparison.OrdinalIgnoreCase))
-                        .Select(ProRow.FromSearch)
                         .ToList();
+                    _searchItems = profHits;
+                    if (_rows.Count == 0)
+                    {
+                        _rows = profHits.Select(ProRow.FromSearch).ToList();
+                    }
                 }
             }
         }
@@ -237,6 +282,7 @@
         public string? Subtitle { get; init; }
         public string? Excerpt { get; init; }
         public string Href { get; init; } = "";
+        public string? PhotoUrl { get; init; }
         public string Initials => ToInitials(Name);
 
         public static ProRow FromCategory(CategoryProfessionalItem p) => new()
@@ -244,7 +290,8 @@
             Name = p.Name?.Trim() ?? "Profesional",
             Subtitle = p.Specialty?.Trim(),
             Excerpt = Snippet(p.Bio, 200),
-            Href = $"/buyer/detail/professional/{p.Id}"
+            Href = $"/buyer/detail/professional/{p.Id}",
+            PhotoUrl = p.ProfilePhotoUrl
         };
 
         public static ProRow FromSearch(SearchResultItem s) => new()
@@ -252,7 +299,8 @@
             Name = s.Name?.Trim() ?? "Profesional",
             Subtitle = s.Category?.Trim(),
             Excerpt = null,
-            Href = !string.IsNullOrWhiteSpace(s.CtaHref) ? s.CtaHref! : $"/buyer/detail/professional/{s.Id}"
+            Href = !string.IsNullOrWhiteSpace(s.CtaHref) ? s.CtaHref! : $"/buyer/detail/professional/{s.Id}",
+            PhotoUrl = s.LogoUrl
         };
 
         private static string? Snippet(string? text, int max)

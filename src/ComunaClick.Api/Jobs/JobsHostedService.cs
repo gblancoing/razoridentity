@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -7,11 +8,13 @@ public sealed class JobsHostedService : BackgroundService
 {
     private readonly ILogger<JobsHostedService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public JobsHostedService(ILogger<JobsHostedService> logger, IConfiguration configuration)
+    public JobsHostedService(ILogger<JobsHostedService> logger, IConfiguration configuration, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _configuration = configuration;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -27,7 +30,30 @@ public sealed class JobsHostedService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("JobsHostedService tick at {Timestamp}.", DateTimeOffset.UtcNow);
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var job = scope.ServiceProvider.GetRequiredService<PaymentReconciliationJob>();
+                await job.RunAsync(stoppingToken);
+
+                // Cancelación formal de pedidos payment_pending vencidos (la
+                // reserva de stock ya se ignora en tiempo real al vencer).
+                var pendingExpiration = scope.ServiceProvider.GetRequiredService<PendingOrderExpirationJob>();
+                await pendingExpiration.RunAsync(stoppingToken);
+
+                // Retención del historial GPS de envíos terminados.
+                var deliveryCleanup = scope.ServiceProvider.GetRequiredService<DeliveryTrackingCleanupJob>();
+                await deliveryCleanup.RunAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Reconciliation tick failed.");
+            }
+
             await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken);
         }
     }

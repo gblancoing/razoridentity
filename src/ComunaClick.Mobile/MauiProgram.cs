@@ -25,6 +25,7 @@ public static class MauiProgram
 		builder.Services.AddScoped<LocaleService>();
 		builder.Services.AddScoped<UserMapLocationService>();
 		builder.Services.AddScoped<AuthStateService>();
+		builder.Services.AddScoped<CartState>();
 		builder.Services.AddScoped<ITokenStore, ComunaClick.Mobile.Services.SecureTokenStore>();
 		builder.Services.AddSingleton(new ComunaClick.Shared.Http.ApiOptions
 		{
@@ -56,6 +57,7 @@ public static class MauiProgram
 		builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerLeadService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerLeadService>();
 		builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerPayoutService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerPayoutService>();
 		builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerNotificationService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerNotificationService>();
+		builder.Services.AddScoped<ComunaClick.SharedUI.Services.Partner.PartnerNotificationsBadgeService>();
 
 		return builder.Build();
 	}

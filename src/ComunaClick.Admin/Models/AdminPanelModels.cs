@@ -86,7 +86,9 @@ public sealed record AdminAuditEventDto(
     string EntityId,
     string Action,
     string Description,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string? PreviousValues = null,
+    string? NewValues = null);
 
 public sealed record AdminUserDto(
     Guid Id,
@@ -98,6 +100,13 @@ public sealed record AdminUserDto(
 public sealed record AdminRoleDto(
     Guid Id,
     string Name);
+
+public sealed record AdminSellerFeeItemDto(
+    Guid SellerId,
+    string SellerName,
+    decimal FixedFeeAmount,
+    decimal PercentageFee,
+    bool IsActive);
 
 public sealed record AdminDeliveryProviderDto(
     Guid Id,

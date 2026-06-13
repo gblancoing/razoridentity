@@ -39,6 +39,11 @@
                                 <StatusBanner Level="@_statusLevel" Message="@_statusMessage" />
                             }
 
+                            <label class="flex items-start gap-3 rounded-2xl border border-[#dbe6e2] p-4 dark:border-white/10">
+                                <input type="checkbox" class="mt-1 rounded border-gray-300" @bind="_model.AcceptFlow" />
+                                <span class="text-sm leading-relaxed text-[#111816] dark:text-gray-200">@AcceptLabel</span>
+                            </label>
+
                             <div class="rounded-2xl border border-[#dbe6e2] bg-[#f8faf8] p-4 dark:border-white/10 dark:bg-[#10221c]">
                                 <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#3b6700]">@L.T("registerAccount.social.eyebrow")</p>
                                 <p class="mt-2 text-xs leading-relaxed text-[#4a5c52] dark:text-gray-300">@SocialHint</p>
@@ -116,11 +121,6 @@
                                 </div>
                             </div>
 
-                            <label class="flex items-start gap-3 rounded-2xl border border-[#dbe6e2] p-4 dark:border-white/10">
-                                <input type="checkbox" class="mt-1 rounded border-gray-300" @bind="_model.AcceptFlow" />
-                                <span class="text-sm leading-relaxed text-[#111816] dark:text-gray-200">@AcceptLabel</span>
-                            </label>
-
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <a href="/login" class="text-sm font-semibold text-[#61897c] hover:text-[#3b6700]">@L.T("registerAccount.preferLogin")</a>
                                 <button type="submit"
@@ -149,7 +149,7 @@
                 </div>
 
                 <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7b8081]">@L.T("registerAccount.chooseEyebrow")</p>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <a href="@RegisterUrl("natural")" class="@GetRoleCardClass("natural")">
                         <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">person</span>
                         <div>
@@ -169,6 +169,13 @@
                         <div>
                             <p class="font-bold text-[#111816] dark:text-white">@L.T("registerAccount.card.professional.title")</p>
                             <p class="mt-0.5 text-xs text-[#61897c] sm:text-[11px]">@L.T("registerAccount.card.professional.body")</p>
+                        </div>
+                    </a>
+                    <a href="@RegisterUrl("courier")" class="@GetRoleCardClass("courier")">
+                        <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">two_wheeler</span>
+                        <div>
+                            <p class="font-bold text-[#111816] dark:text-white">@L.T("registerAccount.card.courier.title")</p>
+                            <p class="mt-0.5 text-xs text-[#61897c] sm:text-[11px]">@L.T("registerAccount.card.courier.body")</p>
                         </div>
                     </a>
                 </div>
@@ -206,6 +213,21 @@
                                 <span>@L.T("registerAccount.next.commerce.3")</span>
                             </div>
                         }
+                        else if (IsCourier)
+                        {
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">mail</span>
+                                <span>@L.T("registerAccount.next.courier.1")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">two_wheeler</span>
+                                <span>@L.T("registerAccount.next.courier.2")</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="material-symbols-outlined shrink-0 text-[#3b6700] dark:text-primary">account_balance_wallet</span>
+                                <span>@L.T("registerAccount.next.courier.3")</span>
+                            </div>
+                        }
                         else
                         {
                             <div class="flex gap-3">
@@ -238,6 +260,13 @@
                         <p>@L.T("registerAccount.notice.commerce")</p>
                     </div>
                 }
+                else if (IsCourier)
+                {
+                    <div class="flex gap-3 rounded-[1.75rem] border border-emerald-200/80 bg-emerald-50/90 p-5 text-sm leading-relaxed text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-950/25 dark:text-emerald-100">
+                        <span class="material-symbols-outlined shrink-0 text-emerald-600 dark:text-emerald-300">info</span>
+                        <p>@L.T("registerAccount.notice.courier")</p>
+                    </div>
+                }
                 else
                 {
                     <div class="flex gap-3 rounded-[1.75rem] border border-violet-200/80 bg-violet-50/90 p-5 text-sm leading-relaxed text-violet-950 dark:border-violet-500/30 dark:bg-violet-950/25 dark:text-violet-100">
@@ -254,6 +283,7 @@
     private const string RoleNatural = "natural";
     private const string RoleCommerce = "commerce";
     private const string RoleProfessional = "professional";
+    private const string RoleCourier = "courier";
 
     private readonly RegisterAccountModel _model = new();
     private bool _loadingSession = true;
@@ -267,6 +297,7 @@
     private bool IsNatural => string.Equals(_role, RoleNatural, StringComparison.OrdinalIgnoreCase);
     private bool IsCommerce => string.Equals(_role, RoleCommerce, StringComparison.OrdinalIgnoreCase);
     private bool IsProfessional => string.Equals(_role, RoleProfessional, StringComparison.OrdinalIgnoreCase);
+    private bool IsCourier => string.Equals(_role, RoleCourier, StringComparison.OrdinalIgnoreCase);
     private bool IsPartnerPath => IsCommerce || IsProfessional;
 
     private string ReturnUrlQuery =>
@@ -279,6 +310,7 @@
     {
         RoleCommerce => L.T("registerAccount.form.title.commerce"),
         RoleProfessional => L.T("registerAccount.form.title.professional"),
+        RoleCourier => L.T("registerAccount.form.title.courier"),
         _ => L.T("registerAccount.form.title.natural")
     };
 
@@ -286,6 +318,7 @@
     {
         RoleCommerce => L.T("registerAccount.form.desc.commerce"),
         RoleProfessional => L.T("registerAccount.form.desc.professional"),
+        RoleCourier => L.T("registerAccount.form.desc.courier"),
         _ => L.T("registerAccount.form.desc.natural")
     };
 
@@ -293,6 +326,7 @@
     {
         RoleCommerce => L.T("registerAccount.commerce.eyebrow"),
         RoleProfessional => L.T("registerAccount.professional.eyebrow"),
+        RoleCourier => L.T("registerAccount.courier.eyebrow"),
         _ => L.T("registerAccount.natural.eyebrow")
     };
 
@@ -300,6 +334,7 @@
     {
         RoleCommerce => L.T("registerAccount.commerce.heroTitle"),
         RoleProfessional => L.T("registerAccount.professional.heroTitle"),
+        RoleCourier => L.T("registerAccount.courier.heroTitle"),
         _ => L.T("registerAccount.natural.heroTitle")
     };
 
@@ -307,6 +342,7 @@
     {
         RoleCommerce => L.T("registerAccount.commerce.heroDesc"),
         RoleProfessional => L.T("registerAccount.professional.heroDesc"),
+        RoleCourier => L.T("registerAccount.courier.heroDesc"),
         _ => L.T("registerAccount.natural.heroDesc")
     };
 
@@ -314,6 +350,7 @@
     {
         RoleCommerce => L.T("registerAccount.accept.commerce"),
         RoleProfessional => L.T("registerAccount.accept.professional"),
+        RoleCourier => L.T("registerAccount.accept.courier"),
         _ => L.T("registerAccount.accept.natural")
     };
 
@@ -321,6 +358,7 @@
     {
         RoleCommerce => L.T("registerAccount.submit.commerce"),
         RoleProfessional => L.T("registerAccount.submit.professional"),
+        RoleCourier => L.T("registerAccount.submit.courier"),
         _ => L.T("registerAccount.submit.natural")
     };
 
@@ -328,6 +366,7 @@
     {
         RoleCommerce => L.T("registerAccount.social.hint.commerce"),
         RoleProfessional => L.T("registerAccount.social.hint.professional"),
+        RoleCourier => L.T("registerAccount.social.hint.courier"),
         _ => L.T("registerAccount.social.hint.natural")
     };
 
@@ -363,6 +402,10 @@
                 if (IsPartnerPath)
                 {
                     Navigation.NavigateTo(RegistrationFlow.PartnerOnboardingPath(_role), true);
+                }
+                else if (IsCourier)
+                {
+                    Navigation.NavigateTo(AccountRoutes.Courier, true);
                 }
                 else
                 {
@@ -486,6 +529,7 @@
                 var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
                 if (string.Equals(value, RoleCommerce, StringComparison.OrdinalIgnoreCase)) return RoleCommerce;
                 if (string.Equals(value, RoleProfessional, StringComparison.OrdinalIgnoreCase)) return RoleProfessional;
+                if (string.Equals(value, RoleCourier, StringComparison.OrdinalIgnoreCase)) return RoleCourier;
                 if (string.Equals(value, RoleNatural, StringComparison.OrdinalIgnoreCase)) return RoleNatural;
             }
         }

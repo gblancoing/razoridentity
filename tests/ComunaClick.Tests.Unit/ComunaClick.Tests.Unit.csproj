@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ComunaClick.Api\ComunaClick.Api.csproj" />
+    <ProjectReference Include="..\..\src\ComunaClick.SharedUI\ComunaClick.SharedUI.csproj" />
   </ItemGroup>
 
 </Project>

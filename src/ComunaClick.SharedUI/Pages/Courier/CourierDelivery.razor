@@ -1,0 +1,423 @@
+@page "/courier/delivery/{OrderId:guid}"
+@layout BuyerLayout
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.Shared.Api.Buyer.BuyerApiClient BuyerApi
+@inject Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions> ApiOptions
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@*
+    Vista del repartidor (mobile-first, sin cuenta): se abre desde el link
+    seguro que el vendedor compartió por WhatsApp. Captura el GPS del navegador
+    y lo envía cada ~5s mientras el reparto está activo.
+*@
+<PageTitle>@L.T("courier.title")</PageTitle>
+
+<section class="max-w-md mx-auto space-y-4">
+    @if (_loading)
+    {
+        <BrandedLoading Title="@L.T("courier.title")" Message="@L.T("courier.loading")" />
+    }
+    else if (_snapshot is null)
+    {
+        <div class="rounded-[2rem] bg-white p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-3 text-center">
+            <p class="text-lg font-bold text-[#2c2f30]">@L.T("courier.invalidLink")</p>
+            <p class="text-sm text-[#595c5d]">@L.T("courier.invalidLinkHint")</p>
+        </div>
+    }
+    else
+    {
+        <div class="rounded-[2rem] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-4">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081]">@L.T("courier.eyebrow")</p>
+                <h1 class="mt-1 text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("courier.heading") #@OrderId.ToString()[..8]</h1>
+            </div>
+
+            <div class="space-y-2 text-sm text-[#595c5d]">
+                @if (!string.IsNullOrWhiteSpace(_snapshot.OriginAddress))
+                {
+                    <p><span class="font-bold text-[#2c2f30]">@L.T("courier.pickupAt"):</span> @_snapshot.OriginAddress</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(_snapshot.DestinationAddress))
+                {
+                    <p><span class="font-bold text-[#2c2f30]">@L.T("courier.deliverTo"):</span> @_snapshot.DestinationAddress</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(_snapshot.BuyerName) || !string.IsNullOrWhiteSpace(_snapshot.BuyerPhone))
+                {
+                    <p>
+                        <span class="font-bold text-[#2c2f30]">@L.T("courier.buyer"):</span>
+                        @string.Join(" · ", new[] { _snapshot.BuyerName, _snapshot.BuyerPhone }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                        @if (!string.IsNullOrWhiteSpace(_snapshot.BuyerPhone))
+                        {
+                            <a class="ml-2 font-bold text-[#3b6700] underline" href="@($"tel:{_snapshot.BuyerPhone}")">@L.T("courier.call")</a>
+                        }
+                    </p>
+                }
+            </div>
+
+            @if (IsFinished)
+            {
+                <p class="rounded-xl border px-4 py-3 text-sm font-semibold @(_status == "delivered" ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700")">
+                    @(_status == "delivered" ? L.T("courier.finishedDelivered") : L.T("courier.finishedCanceled"))
+                </p>
+            }
+            else
+            {
+                @* Mapa de contexto: dónde está el repartidor, el local y el cliente,
+                   para dimensionar el viaje antes de aceptar y durante el reparto. *@
+                <div id="@MapElementId" class="h-56 w-full overflow-hidden rounded-xl border border-[#e3e6e8]"></div>
+
+                @* Navegación giro a giro: se delega a la app que el repartidor ya usa
+                   (Google Maps o Waze) con el destino de la etapa actual cargado. *@
+                @if (NavTargetLabel is not null)
+                {
+                    <div class="space-y-2">
+                        <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@NavTargetLabel</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <a class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#dadddf] bg-white px-3 py-3 text-sm font-bold text-[#2c2f30]"
+                               href="@GoogleMapsHref" target="_blank" rel="noopener">
+                                <span class="material-symbols-outlined text-[18px]">map</span> Google Maps
+                            </a>
+                            <a class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#dadddf] bg-white px-3 py-3 text-sm font-bold text-[#2c2f30]"
+                               href="@WazeHref" target="_blank" rel="noopener">
+                                <span class="material-symbols-outlined text-[18px]">navigation</span> Waze
+                            </a>
+                        </div>
+                    </div>
+                }
+
+                @* Aviso permanente: con pantalla apagada el GPS se pausa (Wake Lock ayuda, pero no en todos los navegadores). *@
+                <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                    <span class="material-symbols-outlined align-middle text-[16px]">screen_lock_portrait</span>
+                    @L.T("courier.keepScreenOn")
+                </p>
+
+                <div class="rounded-xl border border-[#dbe6e2] bg-[#f8faf8] px-4 py-3 text-sm font-semibold @(_gpsActive ? "text-[#3b6700]" : "text-[#7b8081]")">
+                    <span class="material-symbols-outlined align-middle text-[18px] @(_gpsActive ? "animate-pulse" : "")">my_location</span>
+                    @(_gpsActive ? L.T("courier.gpsActive") : L.T("courier.gpsInactive"))
+                    @if (!string.IsNullOrWhiteSpace(_gpsError))
+                    {
+                        <span class="block text-xs font-normal text-red-600">@_gpsError</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_statusMessage))
+                {
+                    <p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">@_statusMessage</p>
+                }
+
+                <div class="space-y-3">
+                    @if (_status is "pending" or "assigned")
+                    {
+                        <button type="button"
+                                class="w-full rounded-2xl bg-[#3b6700] px-5 py-4 text-base font-bold text-[#d9ffad] disabled:opacity-60"
+                                disabled="@_busy"
+                                @onclick='() => UpdateStatusAsync("in_transit")'>
+                            @L.T("courier.action.pickedUp")
+                        </button>
+                    }
+                    @if (_status is "picked_up" or "in_transit")
+                    {
+                        <button type="button"
+                                class="w-full rounded-2xl bg-[#2c2f30] px-5 py-4 text-base font-bold text-white disabled:opacity-60"
+                                disabled="@_busy"
+                                @onclick='() => UpdateStatusAsync("delivered")'>
+                            @L.T("courier.action.delivered")
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+
+    private ComunaClick.Shared.Api.Buyer.DeliverySnapshot? _snapshot;
+    private string? _token;
+    private string _status = "pending";
+    private bool _loading = true;
+    private bool _busy;
+    private bool _gpsStarted;
+    private bool _gpsActive;
+    private string? _gpsError;
+    private string? _statusMessage;
+    private DotNetObjectReference<CourierDelivery>? _selfRef;
+    private System.Threading.Timer? _statusPollTimer;
+
+    private bool IsFinished => _status is "delivered" or "canceled";
+
+    private string MapElementId => $"courier-map-{OrderId:N}";
+
+    // Etapa actual del viaje: antes de recoger se navega al local; después, al cliente.
+    private bool HeadingToPickup => _status is "pending" or "assigned";
+
+    private (double? Lat, double? Lng, string? Address) NavTarget => HeadingToPickup
+        ? (_snapshot?.OriginLat, _snapshot?.OriginLng, _snapshot?.OriginAddress)
+        : (_snapshot?.DestinationLat, _snapshot?.DestinationLng, _snapshot?.DestinationAddress);
+
+    private string? NavTargetLabel
+    {
+        get
+        {
+            var (lat, lng, address) = NavTarget;
+            var hasTarget = IsPlausible(lat, lng) || !string.IsNullOrWhiteSpace(address);
+            return hasTarget ? L.T(HeadingToPickup ? "courier.nav.toPickup" : "courier.nav.toClient") : null;
+        }
+    }
+
+    private string GoogleMapsHref
+    {
+        get
+        {
+            var (lat, lng, address) = NavTarget;
+            var destination = IsPlausible(lat, lng)
+                ? $"{lat!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lng!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+                : CleanAddress(address);
+            return $"https://www.google.com/maps/dir/?api=1&destination={Uri.EscapeDataString(destination)}&travelmode=driving";
+        }
+    }
+
+    private string WazeHref
+    {
+        get
+        {
+            var (lat, lng, address) = NavTarget;
+            return IsPlausible(lat, lng)
+                ? $"https://waze.com/ul?ll={lat!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lng!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&navigate=yes"
+                : $"https://waze.com/ul?q={Uri.EscapeDataString(CleanAddress(address))}&navigate=yes";
+        }
+    }
+
+    private static bool IsPlausible(double? lat, double? lng)
+        => lat.HasValue && lng.HasValue
+        && ComunaClick.SharedUI.Services.GeoLocationValidator.IsWithinChile(lat.Value, lng.Value);
+
+    private static object SanitizeCoords(double? lat, double? lng)
+        => IsPlausible(lat, lng)
+            ? new { lat, lng }
+            : new { lat = (double?)null, lng = (double?)null };
+
+    // Quita prefijos tipo "[Envío por pagar] " que ensucian la búsqueda del navegador.
+    private static string CleanAddress(string? address)
+    {
+        var value = (address ?? string.Empty).Trim();
+        if (value.StartsWith('[') && value.IndexOf(']') is var end && end > 0)
+        {
+            value = value[(end + 1)..].Trim();
+        }
+
+        return value;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+        _token = ParseQueryValue(query, "token");
+
+        if (!string.IsNullOrWhiteSpace(_token))
+        {
+            try
+            {
+                _snapshot = await BuyerApi.GetDeliverySnapshotAsync(OrderId, _token);
+                _status = _snapshot?.DeliveryStatus ?? "pending";
+            }
+            catch (HttpRequestException)
+            {
+            }
+        }
+
+        _loading = false;
+
+        if (_snapshot is not null && !IsFinished)
+        {
+            // Si el vendedor cancela el envío desde su panel, esta vista lo detecta
+            // y detiene el GPS aunque el repartidor no toque nada.
+            _statusPollTimer = new System.Threading.Timer(
+                _ => _ = PollStatusAsync(),
+                null,
+                TimeSpan.FromSeconds(15),
+                TimeSpan.FromSeconds(15));
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_gpsStarted || _snapshot is null || string.IsNullOrWhiteSpace(_token) || IsFinished)
+        {
+            return;
+        }
+
+        _gpsStarted = true;
+        _selfRef = DotNetObjectReference.Create(this);
+        var apiBase = ApiOptions.Value.ApiBaseUrl.TrimEnd('/');
+
+        try
+        {
+            // El mapa parte primero (local y cliente); el marcador propio aparece
+            // con el primer fix del GPS que entrega courierGps.
+            await JS.InvokeVoidAsync("comunaclic.courierMap.start", MapElementId, new
+            {
+                origin = SanitizeCoords(_snapshot.OriginLat, _snapshot.OriginLng),
+                destination = SanitizeCoords(_snapshot.DestinationLat, _snapshot.DestinationLng),
+                labels = new
+                {
+                    origin = L.T("courier.pickupAt"),
+                    destination = L.T("courier.deliverTo"),
+                    self = L.T("courier.map.you")
+                }
+            });
+            await JS.InvokeVoidAsync("comunaclic.courierGps.start", new
+            {
+                endpoint = $"{apiBase}/api/courier/location",
+                orderId = OrderId,
+                token = _token,
+                intervalMs = 5000,
+                dotNetRef = _selfRef
+            });
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task UpdateStatusAsync(string status)
+    {
+        if (string.IsNullOrWhiteSpace(_token))
+        {
+            return;
+        }
+
+        _busy = true;
+        _statusMessage = null;
+        try
+        {
+            await BuyerApi.SendCourierStatusAsync(OrderId, status, _token);
+            _status = status;
+            if (IsFinished)
+            {
+                await StopGpsAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _statusMessage = L.T("courier.statusFailed");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task PollStatusAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_token) || IsFinished)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = await BuyerApi.GetDeliverySnapshotAsync(OrderId, _token);
+            var status = snapshot?.DeliveryStatus;
+            if (!string.IsNullOrWhiteSpace(status) && status != _status)
+            {
+                _status = status!;
+                if (IsFinished)
+                {
+                    await StopGpsAsync();
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            // Token revocado (envío cancelado/reasignado): detener el GPS.
+            _status = "canceled";
+            await StopGpsAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task StopGpsAsync()
+    {
+        _gpsActive = false;
+        _statusPollTimer?.Dispose();
+        _statusPollTimer = null;
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.courierGps.stop");
+            await JS.InvokeVoidAsync("comunaclic.courierMap.stop");
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    [JSInvokable]
+    public Task OnGpsSent(bool ok)
+    {
+        _gpsActive = ok;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnGpsError(string message)
+    {
+        _gpsActive = false;
+        _gpsError = string.IsNullOrWhiteSpace(message) ? L.T("courier.gpsError") : message;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnGpsUnavailable()
+    {
+        _gpsActive = false;
+        _gpsError = L.T("courier.gpsUnavailable");
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private static string? ParseQueryValue(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pieces = pair.Split('=', 2);
+            if (string.Equals(Uri.UnescapeDataString(pieces[0]), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return pieces.Length > 1 ? Uri.UnescapeDataString(pieces[1]) : null;
+            }
+        }
+
+        return null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _statusPollTimer?.Dispose();
+        _selfRef?.Dispose();
+        if (_gpsStarted)
+        {
+            await StopGpsAsync();
+        }
+    }
+}

@@ -1,5 +1,7 @@
 @inject LocaleService L
 @inject NavigationManager Navigation
+@inject ComunaClick.SharedUI.Services.Partner.PartnerNotificationsBadgeService NotificationsBadge
+@implements IDisposable
 
 <div class="lg:hidden">
     @if (_open)
@@ -27,7 +29,15 @@
                 <a href="/partner/payouts" class="@LinkClass("/partner/payouts")" @onclick="Close">@L.T("partner.nav.payouts")</a>
                 <a href="/partner/mercadopago" class="@LinkClass("/partner/mercadopago")" @onclick="Close">@L.T("partner.nav.mercadopago")</a>
                 <p class="px-3 pt-4 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-[#8a8f90]">@L.T("partner.nav.section.system")</p>
-                <a href="/partner/notifications" class="@LinkClass("/partner/notifications")" @onclick="Close">@L.T("partner.nav.notifications")</a>
+                <a href="/partner/notifications" class="@LinkClass("/partner/notifications")" @onclick="Close">
+                    <span class="flex items-center gap-2">
+                        @L.T("partner.nav.notifications")
+                        @if (NotificationsBadge.UnreadCount > 0)
+                        {
+                            <span class="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#dc2626] px-1.5 text-[10px] font-black text-white">@(NotificationsBadge.UnreadCount > 99 ? "99+" : NotificationsBadge.UnreadCount.ToString())</span>
+                        }
+                    </span>
+                </a>
                 <a href="/partner/messages" class="@LinkClass("/partner/messages")" @onclick="Close">@L.T("partner.nav.messages")</a>
                 <a href="/partner/settings" class="@LinkClass("/partner/settings")" @onclick="Close">@L.T("partner.nav.settings")</a>
             </div>
@@ -53,6 +63,18 @@
 
 @code {
     private bool _open;
+
+    protected override void OnInitialized()
+    {
+        NotificationsBadge.OnChange += HandleBadgeChange;
+    }
+
+    private void HandleBadgeChange()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => NotificationsBadge.OnChange -= HandleBadgeChange;
 
     private void Toggle() => _open = !_open;
 

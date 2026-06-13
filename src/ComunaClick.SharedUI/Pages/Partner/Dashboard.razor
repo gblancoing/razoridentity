@@ -36,6 +36,11 @@
         </section>
     }
 
+    @if (_loadFailed)
+    {
+        <StatusBanner Level="warning" Message="@_statusMessage" />
+    }
+
     @if (_activeBusiness is not null)
     {
         <section class="rounded-3xl bg-white p-6 md:p-8 border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
@@ -72,6 +77,20 @@
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                     @(_activeBusiness.IsVisible ? L.T("buyer.profile.company.panel.viewPublic") : L.T("buyer.profile.company.panel.previewDraft"))
                 </a>
+                <a href="@AccountRoutes.PartnerSettings"
+                   class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-2.5 text-sm font-bold hover:border-[#3b6700]/40">
+                    <span class="material-symbols-outlined text-[18px]">apartment</span>
+                    @L.T("partner.nav.settings")
+                </a>
+                @if (_activation is not null && _activation.IsVisible)
+                {
+                    <button class="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-2.5 text-sm font-bold"
+                            @onclick="() => ToggleVisibilityAsync(false)"
+                            disabled="@_isUpdatingVisibility">
+                        <span class="material-symbols-outlined text-[18px]">visibility_off</span>
+                        @L.T("partner.dashboard.action.unpublish")
+                    </button>
+                }
                 @if (_businesses.Count > 1)
                 {
                     <a href="/my-businesses"
@@ -85,24 +104,32 @@
     }
 
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <a href="/partner/catalog" class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors group">
-            <span class="material-symbols-outlined text-[32px] text-[#3b6700]">inventory_2</span>
-            <h2 class="mt-4 text-lg font-black text-[#2c2f30] group-hover:text-[#3b6700]">@L.T("partner.dashboard.hub.catalog.title")</h2>
-            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.dashboard.hub.catalog.desc")</p>
+        <a href="/partner/catalog" class="flex items-center gap-3 rounded-2xl border border-[#e3e6e8] bg-white p-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors group">
+            <span class="material-symbols-outlined text-[24px] text-[#3b6700]">inventory_2</span>
+            <span>
+                <span class="block text-sm font-black text-[#2c2f30] group-hover:text-[#3b6700]">@L.T("partner.dashboard.hub.catalog.title")</span>
+                <span class="block text-xs text-[#595c5d]">@L.T("partner.dashboard.hub.catalog.desc")</span>
+            </span>
         </a>
-        <a href="/partner/agenda" class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors group">
-            <span class="material-symbols-outlined text-[32px] text-[#3b6700]">calendar_month</span>
-            <h2 class="mt-4 text-lg font-black text-[#2c2f30] group-hover:text-[#3b6700]">@L.T("partner.dashboard.hub.agenda.title")</h2>
-            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.dashboard.hub.agenda.desc")</p>
+        <a href="/partner/agenda" class="flex items-center gap-3 rounded-2xl border border-[#e3e6e8] bg-white p-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors group">
+            <span class="material-symbols-outlined text-[24px] text-[#3b6700]">calendar_month</span>
+            <span>
+                <span class="block text-sm font-black text-[#2c2f30] group-hover:text-[#3b6700]">@L.T("partner.dashboard.hub.agenda.title")</span>
+                <span class="block text-xs text-[#595c5d]">@L.T("partner.dashboard.hub.agenda.desc")</span>
+            </span>
         </a>
-        <a href="@PublicPreviewHref" target="_blank" rel="noopener noreferrer" class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors group">
-            <span class="material-symbols-outlined text-[32px] text-[#3b6700]">storefront</span>
-            <h2 class="mt-4 text-lg font-black text-[#2c2f30] group-hover:text-[#3b6700]">@L.T("partner.dashboard.hub.company.title")</h2>
-            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.dashboard.hub.company.desc")</p>
+        <a href="@PublicPreviewHref" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 rounded-2xl border border-[#e3e6e8] bg-white p-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors group">
+            <span class="material-symbols-outlined text-[24px] text-[#3b6700]">storefront</span>
+            <span>
+                <span class="block text-sm font-black text-[#2c2f30] group-hover:text-[#3b6700]">@L.T("partner.dashboard.hub.company.title")</span>
+                <span class="block text-xs text-[#595c5d]">@L.T("partner.dashboard.hub.company.desc")</span>
+            </span>
         </a>
     </section>
 
-    @if (_activation is not null)
+    @* Checklist de activación: solo durante el onboarding. Una vez publicado y al 100%
+       deja de ocupar espacio (Despublicar queda en la tarjeta del negocio). *@
+    @if (_activation is not null && !(_activation.IsVisible && _activation.CompletionPercent >= 100))
     {
         <section class="rounded-3xl bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] border border-[#e3e6e8]">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
@@ -185,130 +212,55 @@
         </section>
     }
 
-    @if (_businesses.Count > 0)
-    {
-        <section class="rounded-3xl bg-white p-6 md:p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] border border-[#e3e6e8] space-y-6">
-            <div>
-                <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-[#7b8081] mb-3">@L.T("partner.dashboard.profile.badge")</p>
-                <h2 class="text-2xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.dashboard.profile.heading")</h2>
-                <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.dashboard.profile.desc")</p>
-            </div>
-
-            @if (_businesses.Count > 1)
-            {
-                <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.selectBusiness")</label>
-                    <select class="mt-2 w-full md:max-w-xl h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
-                            value="@(_editingBusinessId?.ToString())"
-                            @onchange="HandleBusinessSelectionChanged">
-                        @foreach (var business in _businesses)
-                        {
-                            <option value="@business.Id">@business.Name</option>
-                        }
-                    </select>
-                </div>
-            }
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.name")</label>
-                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
-                           @bind="_profileEditor.Name" />
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.address")</label>
-                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
-                           @bind="_profileEditor.Address" />
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.phone")</label>
-                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
-                           @bind="_profileEditor.Phone" />
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-[#2c2f30]">@L.T("partner.dashboard.profile.field.email")</label>
-                    <input class="mt-2 w-full h-11 rounded-2xl border border-[#dadddf] px-3 text-sm"
-                           @bind="_profileEditor.Email" />
-                </div>
-            </div>
-
-            <div class="flex flex-wrap gap-3">
-                <button class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] text-[#d9ffad] px-5 py-3 font-bold text-sm disabled:opacity-60"
-                        @onclick="SaveBusinessProfileAsync"
-                        disabled="@_isSavingProfile">
-                    <span class="material-symbols-outlined text-[18px]">save</span>
-                    @(_isSavingProfile ? L.T("partner.dashboard.profile.saving") : L.T("partner.dashboard.profile.save"))
-                </button>
-                <button class="inline-flex items-center gap-2 rounded-2xl border border-[#dadddf] bg-white text-[#2c2f30] px-5 py-3 font-bold text-sm"
-                        @onclick="ResetBusinessProfileEditor"
-                        disabled="@_isSavingProfile">
-                    <span class="material-symbols-outlined text-[18px]">restart_alt</span>
-                    @L.T("partner.dashboard.profile.reset")
-                </button>
-            </div>
-        </section>
-    }
+    @* El editor de datos públicos vive en Ajuste de empresa (link en la tarjeta del negocio). *@
 
     <div class="grid grid-cols-12 gap-6">
-        <div class="col-span-12 xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <article class="bg-white p-8 rounded-3xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@L.T("partner.dashboard.kpi.sales")</p>
-                <h3 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_ordersTotal</h3>
-                <div class="mt-2 flex items-center gap-2 text-xs text-[#595c5d]">
-                    <span class="material-symbols-outlined text-[15px]">calendar_month</span>
-                    @L.T("partner.dashboard.kpi.salesHint")
-                </div>
-            </article>
+        <div class="col-span-12 xl:col-span-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <article class="bg-white p-5 rounded-2xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.dashboard.kpi.sales")</p>
+                    <h3 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@_ordersTotal</h3>
+                    <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.dashboard.kpi.salesHint")</p>
+                </article>
 
-            <article class="bg-white p-8 rounded-3xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@L.T("partner.dashboard.kpi.bookings")</p>
-                <h3 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_bookingsCount</h3>
-                <div class="mt-2 flex items-center gap-2 text-xs text-[#595c5d]">
-                    <span class="material-symbols-outlined text-[15px]">check_circle</span>
-                    @L.T("partner.dashboard.kpi.bookingsHint")
-                </div>
-            </article>
+                <article class="bg-white p-5 rounded-2xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.dashboard.kpi.bookings")</p>
+                    <h3 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@_bookingsCount</h3>
+                    <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.dashboard.kpi.bookingsHint")</p>
+                </article>
 
-            <article class="bg-white p-8 rounded-3xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@L.T("partner.dashboard.kpi.leads")</p>
-                <h3 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_leadsCount</h3>
-                <div class="mt-2 flex items-center gap-2 text-xs text-[#595c5d]">
-                    <span class="material-symbols-outlined text-[15px]">bolt</span>
-                    @L.T("partner.dashboard.kpi.leadsHint")
-                </div>
-            </article>
+                <article class="bg-white p-5 rounded-2xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-2">@L.T("partner.dashboard.kpi.leads")</p>
+                    <h3 class="text-2xl font-black tracking-[-0.04em] text-[#2c2f30]">@_leadsCount</h3>
+                    <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.dashboard.kpi.leadsHint")</p>
+                </article>
+            </div>
 
-            <section class="col-span-1 md:col-span-3 bg-white rounded-3xl p-8 border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] min-h-[400px] flex flex-col">
-                <div class="flex justify-between items-center mb-10">
-                    <h4 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.dashboard.section.sales")</h4>
-                    <div class="flex gap-2">
-                        <span class="w-3 h-3 rounded-full bg-[#a7f255]/70"></span>
-                        <span class="w-3 h-3 rounded-full bg-[#a7f255]/30"></span>
-                    </div>
-                </div>
-
-                <div class="flex-1 border-2 border-dashed border-[#dadddf] rounded-3xl flex flex-col items-center justify-center bg-[#f7f8f8] px-6 text-center">
-                    <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)]">
-                        <span class="material-symbols-outlined text-[#3b6700] text-3xl">query_stats</span>
-                    </div>
-                    <p class="text-[#2c2f30] font-bold text-lg mb-2">@L.T("partner.dashboard.charts.preparing")</p>
-                    <p class="text-sm text-[#595c5d] max-w-md">@_statusMessage</p>
-                    <a class="mt-4 text-[#3b6700] font-bold hover:underline inline-flex items-center gap-1" href="@PrimaryActionHref">
-                        @L.T("partner.dashboard.charts.accessNow")
-                        <span class="material-symbols-outlined text-[18px]">arrow_right_alt</span>
-                    </a>
-                </div>
-            </section>
+            <a href="/partner/catalog"
+               class="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[#e3e6e8] bg-white p-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:border-[#3b6700]/40 transition-colors">
+                <span class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[22px] text-[#3b6700]">query_stats</span>
+                    <span class="text-sm font-bold text-[#2c2f30]">@L.T("partner.dashboard.section.sales")</span>
+                </span>
+                <span class="material-symbols-outlined text-[20px] text-[#7b8081]">arrow_right_alt</span>
+            </a>
         </div>
 
         <div class="col-span-12 xl:col-span-4 space-y-6">
-            <section class="bg-white p-8 rounded-3xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                <div class="flex justify-between items-center mb-8">
-                    <h4 class="text-xl font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.dashboard.section.bookings")</h4>
+            <section class="bg-white p-6 rounded-2xl border border-[#e3e6e8] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-base font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.dashboard.section.bookings")</h4>
                     <a class="text-[#3b6700] text-xs font-bold hover:underline" href="/partner/agenda">@L.T("partner.dashboard.bookings.viewAll")</a>
                 </div>
 
                 <div class="space-y-4">
+                    @if (_upcomingBookings.Count == 0)
+                    {
+                        <div class="rounded-2xl border border-dashed border-[#dadddf] bg-[#f7f8f8] p-5 text-center">
+                            <p class="text-sm font-bold text-[#2c2f30]">@L.T("partner.dashboard.bookings.empty")</p>
+                            <p class="mt-1 text-xs text-[#595c5d]">@L.T("partner.dashboard.bookings.emptyHint")</p>
+                        </div>
+                    }
                     @foreach (var slot in _upcomingBookings)
                     {
                         <div class="group flex items-center gap-4 p-4 rounded-2xl hover:bg-[#f5f6f7] transition-all border border-transparent hover:border-[#e3e6e8]">
@@ -327,7 +279,7 @@
                     }
                 </div>
 
-                <div class="mt-8 p-4 bg-[#a7f255]/20 rounded-2xl border-l-4 border-[#3b6700]">
+                <div class="mt-4 p-4 bg-[#a7f255]/20 rounded-2xl border-l-4 border-[#3b6700]">
                     <div class="flex gap-3">
                         <span class="material-symbols-outlined text-[#3b6700]">lightbulb</span>
                         <div>
@@ -340,7 +292,8 @@
                 </div>
             </section>
 
-            @if (_businesses.Count > 0)
+            @* Con un solo negocio, la tarjeta principal ya muestra esta información. *@
+            @if (_businesses.Count > 1)
             {
                 <section class="bg-[#eff1f2] p-6 rounded-3xl border border-[#dadddf]">
                     <div class="flex items-center justify-between gap-3 mb-6">
@@ -400,6 +353,7 @@
 
 @code {
     private string _statusMessage = string.Empty;
+    private bool _loadFailed;
     private string _ordersTotal = "$0";
     private int _bookingsCount;
     private int _leadsCount;
@@ -409,9 +363,7 @@
     private ComunaClick.Shared.Api.Partner.PartnerActivationStatus? _activation;
     private readonly List<ComunaClick.Shared.Api.Partner.PartnerDto> _businesses = new();
     private bool _isUpdatingVisibility;
-    private bool _isSavingProfile;
-    private Guid? _editingBusinessId;
-    private readonly BusinessProfileEditor _profileEditor = new();
+    private IReadOnlyList<ComunaClick.Shared.Api.Partner.Booking> _bookings = [];
     private List<BookingCard> _upcomingBookings = new();
 
     private string PrimaryActionHref => _activation is null
@@ -467,7 +419,6 @@
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
-        _upcomingBookings = BuildDemoBookings();
         SetDefaultStatusMessage();
     }
 
@@ -504,25 +455,30 @@
             if (businesses is not null)
             {
                 _businesses.AddRange(businesses);
-                ResetBusinessProfileEditor();
             }
 
-            _bookingsCount = bookings?.Count ?? 0;
-            _ordersTotal = orders is null ? "$0" : $"${orders.Sum(x => x.TotalAmount):N0}";
+            _bookings = bookings ?? [];
+            _upcomingBookings = BuildUpcomingBookings();
+            _bookingsCount = _bookings.Count;
+            _ordersTotal = orders is null ? "$0"
+                : $"${orders.Where(x => string.Equals(x.Status, "paid", StringComparison.OrdinalIgnoreCase)).Sum(x => x.TotalAmount):N0}";
             await LoadBusinessMetricsAsync(partnerId.Value);
             SetDefaultStatusMessage();
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
             _statusMessage = L.T("partner.dashboard.status.forbidden");
+            _loadFailed = true;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
             _statusMessage = L.T("partner.dashboard.status.notFound");
+            _loadFailed = true;
         }
         catch (HttpRequestException ex)
         {
             _statusMessage = string.Format(L.T("partner.dashboard.status.loadFailed"), (int?)ex.StatusCode ?? 0);
+            _loadFailed = true;
         }
     }
 
@@ -615,7 +571,7 @@
 
     private void HandleChange()
     {
-        _upcomingBookings = BuildDemoBookings();
+        _upcomingBookings = BuildUpcomingBookings();
         InvokeAsync(StateHasChanged);
     }
 
@@ -644,30 +600,12 @@
     private static bool HasExactLocation(ComunaClick.Shared.Api.Partner.PartnerDto business)
         => business.Latitude is not null && business.Longitude is not null;
 
-    private void HandleBusinessSelectionChanged(ChangeEventArgs args)
-    {
-        if (Guid.TryParse(args.Value?.ToString(), out var businessId))
-        {
-            _editingBusinessId = businessId;
-            PopulateEditor(GetEditableBusiness());
-        }
-    }
-
-    private void ResetBusinessProfileEditor()
-    {
-        var preferredId = AuthState.PartnerId;
-        _editingBusinessId = preferredId.HasValue && preferredId.Value != Guid.Empty
-            ? preferredId.Value
-            : _businesses.FirstOrDefault()?.Id;
-
-        PopulateEditor(GetEditableBusiness());
-    }
-
+    // El negocio activo de la sesión (la edición del perfil vive en Ajuste de empresa).
     private ComunaClick.Shared.Api.Partner.PartnerDto? GetEditableBusiness()
     {
-        if (_editingBusinessId.HasValue)
+        if (AuthState.PartnerId is { } partnerId && partnerId != Guid.Empty)
         {
-            var selected = _businesses.FirstOrDefault(x => x.Id == _editingBusinessId.Value);
+            var selected = _businesses.FirstOrDefault(x => x.Id == partnerId);
             if (selected is not null)
             {
                 return selected;
@@ -677,112 +615,53 @@
         return _businesses.FirstOrDefault();
     }
 
-    private void PopulateEditor(ComunaClick.Shared.Api.Partner.PartnerDto? business)
-    {
-        if (business is null)
-        {
-            _profileEditor.Name = string.Empty;
-            _profileEditor.Address = string.Empty;
-            _profileEditor.Phone = string.Empty;
-            _profileEditor.Email = string.Empty;
-            return;
-        }
-
-        _profileEditor.Name = business.Name ?? string.Empty;
-        _profileEditor.Address = business.Address ?? string.Empty;
-        _profileEditor.Phone = business.Phone ?? string.Empty;
-        _profileEditor.Email = business.Email ?? string.Empty;
-    }
-
-    private async Task SaveBusinessProfileAsync()
-    {
-        var business = GetEditableBusiness();
-        if (business is null)
-        {
-            _statusMessage = L.T("partner.dashboard.status.noBusinessSelected");
-            return;
-        }
-
-        var normalizedName = (_profileEditor.Name ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(normalizedName))
-        {
-            _statusMessage = L.T("partner.dashboard.status.nameRequired");
-            return;
-        }
-
-        _isSavingProfile = true;
-        _statusMessage = L.T("partner.dashboard.status.savingBusiness");
-        try
-        {
-            var updated = await PartnerApi.UpdatePartnerAsync(business.Id, new ComunaClick.Shared.Api.Partner.PartnerUpdateRequest(
-                business.Type,
-                normalizedName,
-                business.Rut,
-                NormalizeOptional(_profileEditor.Address),
-                NormalizeOptional(_profileEditor.Phone),
-                NormalizeOptional(_profileEditor.Email),
-                business.SubcategoryId,
-                business.Latitude,
-                business.Longitude,
-                business.IsVisible,
-                null));
-
-            if (updated is not null)
-            {
-                var index = _businesses.FindIndex(x => x.Id == updated.Id);
-                if (index >= 0)
-                {
-                    _businesses[index] = updated;
-                }
-
-                if (_activation is not null && AuthState.PartnerId == updated.Id)
-                {
-                    _activation = updated.Activation ?? _activation;
-                }
-
-                PopulateEditor(updated);
-            }
-
-            _statusMessage = L.T("partner.dashboard.status.businessSaved");
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
-        {
-            _statusMessage = L.T("partner.dashboard.status.businessConflict");
-        }
-        catch (HttpRequestException ex)
-        {
-            _statusMessage = string.Format(L.T("partner.dashboard.status.businessUpdateFailed"), (int?)ex.StatusCode ?? 0);
-        }
-        finally
-        {
-            _isSavingProfile = false;
-        }
-    }
-
-    private static string NormalizeOptional(string? value)
-        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-
     private void SetDefaultStatusMessage()
         => _statusMessage = L.T("partner.dashboard.status.salesEmpty");
 
-    private List<BookingCard> BuildDemoBookings() =>
-    [
-        new("calendar_today",
-            L.T("partner.dashboard.demo.booking1.title"),
-            L.T("partner.dashboard.demo.booking1.client"),
-            L.T("partner.dashboard.demo.booking1.time"),
-            L.T("partner.dashboard.demo.booking1.day")),
-        new("self_improvement",
-            L.T("partner.dashboard.demo.booking2.title"),
-            L.T("partner.dashboard.demo.booking2.client"),
-            L.T("partner.dashboard.demo.booking2.time"),
-            L.T("partner.dashboard.demo.booking2.day")),
-        new("spa",
-            L.T("partner.dashboard.demo.booking3.title"),
-            L.T("partner.dashboard.demo.booking3.client"),
-            L.T("partner.dashboard.demo.booking3.time"),
-            L.T("partner.dashboard.demo.booking3.day"))
-    ];
+    private List<BookingCard> BuildUpcomingBookings()
+    {
+        var now = DateTimeOffset.Now;
+        return _bookings
+            .Where(x => x.StartAt >= now.AddHours(-1))
+            .Where(x => !string.Equals(x.Status, "cancelled", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x.StartAt)
+            .Take(3)
+            .Select(x => new BookingCard(
+                "calendar_today",
+                BookingStatusLabel(x.Status),
+                $"${x.Amount:N0} {x.Currency}".TrimEnd(),
+                x.StartAt.ToLocalTime().ToString("HH:mm"),
+                BookingDayLabel(x.StartAt.ToLocalTime())))
+            .ToList();
+    }
+
+    private string BookingStatusLabel(string? status)
+    {
+        var normalized = status?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return L.T("partner.dashboard.bookings.item.title");
+        }
+
+        var key = $"partner.agenda.status.{normalized}";
+        var label = L.T(key);
+        return string.Equals(label, key, StringComparison.Ordinal)
+            ? L.T("partner.dashboard.bookings.item.title")
+            : label;
+    }
+
+    private string BookingDayLabel(DateTimeOffset startLocal)
+    {
+        var today = DateTime.Now.Date;
+        if (startLocal.Date == today)
+        {
+            return L.T("partner.dashboard.bookings.day.today");
+        }
+
+        return startLocal.Date == today.AddDays(1)
+            ? L.T("partner.dashboard.bookings.day.tomorrow")
+            : startLocal.ToString("dd MMM");
+    }
 
     public void Dispose()
     {
@@ -790,12 +669,4 @@
     }
 
     private sealed record BookingCard(string Icon, string Title, string Subtitle, string Time, string DayLabel);
-
-    private sealed class BusinessProfileEditor
-    {
-        public string Name { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
-        public string Phone { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-    }
 }

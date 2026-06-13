@@ -1,0 +1,576 @@
+@page "/partner/orders"
+@layout PartnerLayout
+@using System.Net
+@using System.Globalization
+@inject ComunaClick.SharedUI.Services.LocaleService L
+@inject ComunaClick.SharedUI.Services.AuthStateService AuthState
+@inject ComunaClick.Shared.Api.Partner.PartnerApiClient PartnerApi
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>@L.T("partner.orders.title")</PageTitle>
+
+<div class="space-y-8">
+    <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div>
+            <p class="text-[10px] uppercase tracking-[0.22em] font-bold text-[#7b8081] mb-3">@L.T("partner.orders.badge")</p>
+            <h1 class="text-4xl font-black tracking-[-0.04em] text-[#2c2f30]">@L.T("partner.orders.heading")</h1>
+            <p class="mt-2 text-sm text-[#595c5d]">@L.T("partner.orders.subtitle")</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            @foreach (var filter in OrderFilters)
+            {
+                <button type="button"
+                        class="@GetFilterClass(filter.Key)"
+                        @onclick="() => _selectedFilter = filter.Key">
+                    @filter.Label
+                </button>
+            }
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@L.T("partner.orders.metric.pending")</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@PendingCount</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@L.T("partner.orders.metric.pendingHint")</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@L.T("partner.orders.metric.total")</p>
+            <h2 class="text-4xl font-black tracking-[-0.05em] text-[#2c2f30]">@_items.Count</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@L.T("partner.orders.metric.totalHint")</p>
+        </article>
+        <article class="bg-white p-8 rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <p class="text-[10px] font-bold tracking-[0.15em] text-[#7b8081] mb-4">@L.T("partner.orders.metric.revenue")</p>
+            <h2 class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@PaidRevenueLabel</h2>
+            <p class="mt-2 text-xs text-[#595c5d]">@_statusMessage</p>
+        </article>
+    </div>
+
+    @if (AuthState.PartnerId is { } couriersPartnerId && couriersPartnerId != Guid.Empty)
+    {
+        <details class="rounded-[2rem] bg-white p-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <summary class="cursor-pointer px-2 text-sm font-bold text-[#2c2f30]">
+                <span class="material-symbols-outlined align-middle text-[18px] text-[#3b6700]">two_wheeler</span>
+                @L.T("partner.delivery.couriers.title")
+            </summary>
+            <div class="mt-3">
+                <PartnerCouriersPanel PartnerId="@couriersPartnerId" CouriersChanged="OnCouriersChanged" />
+            </div>
+        </details>
+
+        <details class="rounded-[2rem] bg-white p-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+            <summary class="cursor-pointer px-2 text-sm font-bold text-[#2c2f30]">
+                <span class="material-symbols-outlined align-middle text-[18px] text-[#3b6700]">receipt_long</span>
+                @L.T("partner.settlements.title")
+            </summary>
+            <div class="mt-3">
+                <PartnerDeliverySettlementsPanel @ref="_settlementsPanel"
+                                                 PartnerId="@couriersPartnerId"
+                                                 Orders="_items"
+                                                 SettlementsChanged="OnSettlementsLoaded"
+                                                 Changed="ReloadOrdersAsync" />
+            </div>
+        </details>
+    }
+
+    <section class="bg-[#eff1f2] rounded-[2rem] p-6 md:p-8">
+        <div class="space-y-4">
+            @if (_isLoading)
+            {
+                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
+                    <BrandedLoading Title="@(L.T("ui.loading"))" Message="@L.T("partner.orders.loading")" Compact="true" />
+                </div>
+            }
+            else if (FilteredOrders.Count == 0)
+            {
+                <div class="bg-white rounded-3xl p-8 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] text-center space-y-3">
+                    <p class="text-lg font-bold text-[#2c2f30]">@L.T("partner.orders.empty.title")</p>
+                    <p class="text-sm text-[#595c5d]">@EmptyStateMessage</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var order in FilteredOrders)
+                {
+                    var highlighted = _highlightOrderId == order.Id;
+                    <article id="order-@order.Id"
+                             class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] @(highlighted ? "ring-2 ring-[#3b6700]" : string.Empty)">
+                        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.orders.orderLabel") #@order.Id.ToString()[..8]</p>
+                                    <span class="@GetStatusClass(order.Status)">@MapStatus(order.Status)</span>
+                                </div>
+                                <p class="text-sm text-[#595c5d]">@FormatItems(order)</p>
+                                @if (!string.IsNullOrWhiteSpace(order.BuyerName) || !string.IsNullOrWhiteSpace(order.BuyerPhone))
+                                {
+                                    <p class="text-sm text-[#595c5d]">
+                                        <span class="font-bold text-[#2c2f30]">@L.T("partner.orders.buyer"):</span>
+                                        @string.Join(" · ", new[] { order.BuyerName, order.BuyerPhone }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                                    </p>
+                                }
+                                <p class="text-xs text-[#7b8081]">@FormatRelative(order.CreatedAt)</p>
+                            </div>
+                            <div class="text-left lg:text-right">
+                                <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@L.T("partner.orders.total")</p>
+                                <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@Money(order.TotalAmount, order.Currency)</p>
+                            </div>
+                        </div>
+                        @if (WhatsAppHref(order) is { } whatsAppHref)
+                        {
+                            <div class="mt-4">
+                                <a class="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2 text-xs font-bold text-white hover:bg-[#1ebe5b] transition-colors"
+                                   href="@whatsAppHref"
+                                   target="_blank"
+                                   rel="noopener">
+                                    <span class="material-symbols-outlined text-[16px]">@(IsDelivered(order) ? "volunteer_activism" : "chat")</span>
+                                    @L.T(IsDelivered(order) ? "partner.orders.action.whatsappDelivered" : "partner.orders.action.whatsapp")
+                                </a>
+                            </div>
+                        }
+                        <PartnerOrderDeliverySection Order="order" Couriers="_couriers" Settlement="SettlementFor(order.Id)" DeliveryChanged="ReloadOrdersAsync" />
+                        @if (CanManage(order))
+                        {
+                            <div class="mt-5 flex flex-wrap gap-2">
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad]"
+                                        @onclick='() => MarkPaidAsync(order.Id)'
+                                        disabled="@(_updatingOrderId == order.Id)">
+                                    @L.T("partner.orders.action.markPaid")
+                                </button>
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl border border-[#dadddf] px-4 py-2 text-xs font-bold text-[#2c2f30]"
+                                        @onclick='() => MarkProcessingAsync(order.Id)'
+                                        disabled="@(_updatingOrderId == order.Id)">
+                                    @L.T("partner.orders.action.processing")
+                                </button>
+                                <button type="button"
+                                        class="inline-flex items-center rounded-xl border border-[#fecaca] px-4 py-2 text-xs font-bold text-[#b42318]"
+                                        @onclick='() => CancelAsync(order.Id)'
+                                        disabled="@(_updatingOrderId == order.Id)">
+                                    @L.T("partner.orders.action.cancel")
+                                </button>
+                            </div>
+                        }
+                    </article>
+                }
+            }
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(_actionMessage))
+    {
+        <StatusBanner Message="@_actionMessage" Level="@_actionLevel" />
+    }
+</div>
+
+@code {
+    private readonly List<ComunaClick.Shared.Api.Partner.Order> _items = new();
+    private string _statusMessage = string.Empty;
+    private bool _isLoading;
+    private string _selectedFilter = "pending";
+    private Guid? _updatingOrderId;
+    private Guid? _highlightOrderId;
+    private string? _actionMessage;
+    private string _actionLevel = "info";
+
+    [SupplyParameterFromQuery(Name = "orderId")]
+    public Guid? OrderIdQuery { get; set; }
+
+    private IReadOnlyList<FilterOption> OrderFilters { get; } =
+    [
+        new("pending", "Pendientes"),
+        new("all", "Todos"),
+        new("paid", "Pagados"),
+        new("cancelled", "Cancelados")
+    ];
+
+    private List<ComunaClick.Shared.Api.Partner.Order> FilteredOrders => _items
+        .Where(MatchesFilter)
+        .OrderByDescending(x => x.CreatedAt)
+        .ToList();
+
+    private int PendingCount => _items.Count(IsPending);
+
+    private string PaidRevenueLabel
+    {
+        get
+        {
+            var paid = _items.Where(x => string.Equals(x.Status, "paid", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (paid.Count == 0)
+            {
+                return "$0";
+            }
+
+            var total = paid.Sum(x => x.TotalAmount);
+            var currency = paid[0].Currency ?? "CLP";
+            return Money(total, currency);
+        }
+    }
+
+    private string EmptyStateMessage => _selectedFilter switch
+    {
+        "pending" => L.T("partner.orders.empty.pending"),
+        "paid" => L.T("partner.orders.empty.paid"),
+        "cancelled" => L.T("partner.orders.empty.cancelled"),
+        _ => _statusMessage
+    };
+
+    protected override void OnInitialized()
+    {
+        L.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _highlightOrderId = OrderIdQuery;
+        _isLoading = true;
+        if (!AuthState.IsAuthenticated)
+        {
+            _statusMessage = L.T("partner.status.loginRequired");
+            _isLoading = false;
+            return;
+        }
+
+        var partnerId = AuthState.PartnerId;
+        if (partnerId is null || partnerId == Guid.Empty)
+        {
+            _statusMessage = L.T("partner.status.noPartner");
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            var orders = await PartnerApi.GetPartnerOrdersAsync(partnerId.Value);
+            if (orders is not null)
+            {
+                _items.AddRange(orders);
+            }
+
+            // Las liquidaciones las carga el panel hijo (PartnerDeliverySettlementsPanel),
+            // que es resiliente al prerender; nos las notifica vía OnSettlementsLoaded.
+
+            _statusMessage = _items.Count == 0
+                ? L.T("partner.orders.empty.title")
+                : L.T("partner.orders.loaded");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _statusMessage = L.T("partner.orders.forbidden");
+        }
+        catch (Exception)
+        {
+            _statusMessage = L.T("partner.orders.error");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _highlightOrderId is null)
+        {
+            return;
+        }
+
+        // Scroll por JS: NavigateTo("#...") resuelve contra la raíz del sitio y sacaba al usuario de la página.
+        await Task.Delay(100);
+        try
+        {
+            await JS.InvokeVoidAsync("comunaclic.scrollToElement", $"order-{_highlightOrderId}");
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private readonly List<ComunaClick.Shared.Api.Partner.PartnerCourier> _couriers = new();
+
+    private Task OnCouriersChanged(IReadOnlyList<ComunaClick.Shared.Api.Partner.PartnerCourier> couriers)
+    {
+        _couriers.Clear();
+        _couriers.AddRange(couriers);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    // Liquidaciones del transporte: el panel hijo las carga (carga autónoma,
+    // resiliente al prerender) y nos las notifica para el desglose inline por pedido.
+    private readonly List<ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement> _settlements = new();
+    private PartnerDeliverySettlementsPanel? _settlementsPanel;
+
+    private ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement? SettlementFor(Guid orderId)
+        => _settlements.FirstOrDefault(x => x.OrderId == orderId);
+
+    private void OnSettlementsLoaded(IReadOnlyList<ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement> settlements)
+    {
+        _settlements.Clear();
+        _settlements.AddRange(settlements);
+        StateHasChanged();
+    }
+
+    // Recarga las órdenes para reflejar el estado del envío tras asignar/cancelar.
+    private async Task ReloadOrdersAsync()
+    {
+        if (AuthState.PartnerId is not { } partnerId || partnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var orders = await PartnerApi.GetPartnerOrdersAsync(partnerId);
+            if (orders is not null)
+            {
+                _items.Clear();
+                _items.AddRange(orders);
+            }
+
+            // Refresca las liquidaciones desde el panel hijo (actualiza también
+            // el desglose inline vía OnSettlementsLoaded).
+            if (_settlementsPanel is not null)
+            {
+                await _settlementsPanel.RefreshAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task MarkPaidAsync(Guid orderId) => await UpdateStatusAsync(orderId, "paid", L.T("partner.orders.msg.paid"));
+
+    private async Task MarkProcessingAsync(Guid orderId) => await UpdateStatusAsync(orderId, "processing", L.T("partner.orders.msg.processing"));
+
+    private async Task CancelAsync(Guid orderId)
+    {
+        _updatingOrderId = orderId;
+        _actionMessage = null;
+        try
+        {
+            var updated = await PartnerApi.CancelOrderAsync(orderId);
+            if (updated is null)
+            {
+                _actionMessage = L.T("partner.orders.msg.error");
+                _actionLevel = "error";
+                return;
+            }
+
+            ReplaceOrder(updated);
+            _actionMessage = L.T("partner.orders.msg.cancelled");
+            _actionLevel = "success";
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionMessage = TryExtractApiMessage(ex.Message) ?? L.T("partner.orders.msg.error");
+            _actionLevel = "error";
+        }
+        finally
+        {
+            _updatingOrderId = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task UpdateStatusAsync(Guid orderId, string status, string successMessage)
+    {
+        _updatingOrderId = orderId;
+        _actionMessage = null;
+        try
+        {
+            var updated = await PartnerApi.UpdateOrderStatusAsync(
+                orderId,
+                new ComunaClick.Shared.Api.Partner.OrderStatusUpdateRequest(status));
+            if (updated is null)
+            {
+                _actionMessage = L.T("partner.orders.msg.error");
+                _actionLevel = "error";
+                return;
+            }
+
+            ReplaceOrder(updated);
+            _actionMessage = successMessage;
+            _actionLevel = "success";
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionMessage = TryExtractApiMessage(ex.Message) ?? L.T("partner.orders.msg.error");
+            _actionLevel = "error";
+        }
+        finally
+        {
+            _updatingOrderId = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static string? TryExtractApiMessage(string? httpError)
+    {
+        if (string.IsNullOrWhiteSpace(httpError))
+        {
+            return null;
+        }
+
+        var jsonStart = httpError.IndexOf('{');
+        if (jsonStart < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(httpError[jsonStart..]);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Link wa.me para avisar al comprador (null si no hay teléfono utilizable o el pedido está cancelado).
+    /// </summary>
+    private string? WhatsAppHref(ComunaClick.Shared.Api.Partner.Order order)
+    {
+        if (string.IsNullOrWhiteSpace(order.BuyerPhone)
+            || string.Equals(order.Status, "cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var phone = new string(order.BuyerPhone.Where(char.IsDigit).ToArray());
+        if (phone.Length < 8)
+        {
+            return null;
+        }
+
+        var firstName = string.IsNullOrWhiteSpace(order.BuyerName)
+            ? string.Empty
+            : $" {order.BuyerName.Trim().Split(' ')[0]}";
+        var shortId = order.Id.ToString()[..8];
+        var total = Money(order.TotalAmount, order.Currency);
+        // Entregado: mensaje de agradecimiento; si no, aviso de pago/pendiente.
+        var template = IsDelivered(order)
+            ? L.T("partner.orders.whatsapp.delivered")
+            : string.Equals(order.Status, "paid", StringComparison.OrdinalIgnoreCase)
+                ? L.T("partner.orders.whatsapp.paid")
+                : L.T("partner.orders.whatsapp.pending");
+        var message = string.Format(template, firstName, shortId, total);
+
+        return $"https://wa.me/{phone}?text={Uri.EscapeDataString(message)}";
+    }
+
+    private static bool IsDelivered(ComunaClick.Shared.Api.Partner.Order order)
+        => string.Equals(order.DeliveryStatus, "delivered", StringComparison.OrdinalIgnoreCase);
+
+    private void ReplaceOrder(ComunaClick.Shared.Api.Partner.Order updated)
+    {
+        var index = _items.FindIndex(x => x.Id == updated.Id);
+        if (index >= 0)
+        {
+            _items[index] = updated;
+        }
+    }
+
+    private bool MatchesFilter(ComunaClick.Shared.Api.Partner.Order order) => _selectedFilter switch
+    {
+        "pending" => IsPending(order),
+        "paid" => string.Equals(order.Status, "paid", StringComparison.OrdinalIgnoreCase),
+        "cancelled" => string.Equals(order.Status, "cancelled", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(order.Status, "canceled", StringComparison.OrdinalIgnoreCase),
+        _ => true
+    };
+
+    private static bool IsPending(ComunaClick.Shared.Api.Partner.Order order)
+    {
+        var status = order.Status?.Trim().ToLowerInvariant() ?? string.Empty;
+        return status is "payment_pending" or "processing";
+    }
+
+    private static bool CanManage(ComunaClick.Shared.Api.Partner.Order order) => IsPending(order);
+
+    private string GetFilterClass(string key)
+        => key == _selectedFilter
+            ? "inline-flex items-center rounded-full bg-[#2c2f30] text-white px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]"
+            : "inline-flex items-center rounded-full bg-white text-[#595c5d] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em]";
+
+    private static string GetStatusClass(string? status)
+    {
+        var normalized = status?.Trim().ToLowerInvariant() ?? string.Empty;
+        return normalized switch
+        {
+            "paid" => "inline-flex items-center rounded-full bg-[#d9ffad] px-3 py-1 text-[11px] font-bold text-[#325800]",
+            "payment_pending" or "processing" => "inline-flex items-center rounded-full bg-[#fff4d6] px-3 py-1 text-[11px] font-bold text-[#8a5b00]",
+            "cancelled" or "canceled" => "inline-flex items-center rounded-full bg-[#eff1f2] px-3 py-1 text-[11px] font-bold text-[#595c5d]",
+            _ => "inline-flex items-center rounded-full bg-[#eff1f2] px-3 py-1 text-[11px] font-bold text-[#2c2f30]"
+        };
+    }
+
+    private static string MapStatus(string? status) => status?.Trim().ToLowerInvariant() switch
+    {
+        "payment_pending" => "Pago pendiente",
+        "processing" => "En preparación",
+        "paid" => "Pagado",
+        "cancelled" or "canceled" => "Cancelado",
+        _ => status ?? "Desconocido"
+    };
+
+    private static string FormatItems(ComunaClick.Shared.Api.Partner.Order order)
+    {
+        if (order.Items is null || order.Items.Count == 0)
+        {
+            return "Sin detalle de ítems.";
+        }
+
+        return string.Join(" · ", order.Items.Select(x => $"{x.Quantity}× {x.ProductId.ToString()[..8]}"));
+    }
+
+    private static string Money(double amount, string? currency)
+    {
+        var culture = CultureInfo.GetCultureInfo("es-CL");
+        var formatted = amount.ToString("N0", culture);
+        return string.IsNullOrWhiteSpace(currency) ? $"${formatted}" : $"{currency} {formatted}";
+    }
+
+    private static string FormatRelative(DateTimeOffset date)
+    {
+        var elapsed = DateTimeOffset.Now - date;
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return "Hace instantes";
+        }
+
+        if (elapsed < TimeSpan.FromHours(1))
+        {
+            return $"Hace {Math.Max(1, (int)elapsed.TotalMinutes)} min";
+        }
+
+        if (elapsed < TimeSpan.FromDays(1))
+        {
+            return $"Hace {Math.Max(1, (int)elapsed.TotalHours)} h";
+        }
+
+        return date.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.OnChange -= HandleChange;
+
+    private sealed record FilterOption(string Key, string Label);
+}

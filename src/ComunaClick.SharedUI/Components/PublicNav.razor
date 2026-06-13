@@ -2,6 +2,8 @@
 @inject LocaleService L
 @inject AuthStateService AuthState
 @inject NavigationManager Navigation
+@inject CartState Cart
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <!-- fixed: siempre visible al hacer scroll; reservar espacio con el div posterior -->
@@ -41,6 +43,20 @@
 
                 <div class="ml-auto flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 lg:ml-0 lg:gap-2.5">
                     <a class="hidden whitespace-nowrap rounded px-1 py-0.5 text-[11px] font-semibold text-[#2c2f30] hover:bg-gray-100 hover:text-primary lg:inline xl:text-[12px]" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
+                    @* Carrito siempre visible (desktop y mobile), con badge de unidades. *@
+                    <a class="relative inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-[#2c2f30] hover:bg-gray-100 hover:text-primary"
+                       href="/buyer/cart"
+                       @onclick="CloseMenu"
+                       aria-label="@L.T("nav.cart")"
+                       title="@L.T("nav.cart")">
+                        <span class="material-symbols-outlined text-[22px] leading-none">shopping_cart</span>
+                        @if (Cart.Count > 0)
+                        {
+                            <span class="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white">
+                                @(Cart.Count > 99 ? "99+" : Cart.Count.ToString())
+                            </span>
+                        }
+                    </a>
                     <div class="hidden items-center border-l border-gray-200 pl-2 lg:flex">
                         <LanguageToggle />
                     </div>
@@ -98,6 +114,13 @@
                    @onclick="GoHome"
                    @onclick:preventDefault="true">@L.T("nav.home")</a>
                 <a class="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/ofertas" @onclick="CloseMenu">@L.T("nav.offers")</a>
+                <a class="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/10" href="/buyer/cart" @onclick="CloseMenu">
+                    <span>@L.T("nav.cart")</span>
+                    @if (Cart.Count > 0)
+                    {
+                        <span class="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-white">@Cart.Count</span>
+                    }
+                </a>
                 <div class="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
                     <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">@L.T("nav.language")</span>
                     <LanguageToggle />
@@ -141,6 +164,7 @@
     protected override void OnInitialized()
     {
         L.OnChange += HandleChange;
+        Cart.OnChange += HandleChange;
         Navigation.LocationChanged += OnLocationChanged;
         RefreshRegisterVisibility();
     }
@@ -168,6 +192,13 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            // Badge del carrito: el contador vive en localStorage (interop JS),
+            // por eso se lee recién acá y no durante el prerender.
+            await Cart.RefreshAsync(JSRuntime);
+        }
+
         if (_authInitialized)
         {
             return;
@@ -216,6 +247,7 @@
     public void Dispose()
     {
         L.OnChange -= HandleChange;
+        Cart.OnChange -= HandleChange;
         Navigation.LocationChanged -= OnLocationChanged;
     }
 }

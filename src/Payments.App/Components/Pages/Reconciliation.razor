@@ -1,0 +1,98 @@
+@page "/conciliacion"
+@inject PaymentGatewayAdminClient Client
+
+<PageTitle>Conciliación - Payments.App</PageTitle>
+
+<PageHeader Eyebrow="Conciliación"
+            Title="Discrepancias del gateway"
+            Description="Cruce de PaymentIntent, ProviderEvent y Charge: pagos estancados, intents sin eventos, cargos sin autorización y casos marcados para revisión." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar la conciliación" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="AdminReconciliationRowDto"
+               Items="_rows"
+               IsLoading="_isLoading"
+               EmptyTitle="Todo cuadra"
+               EmptyDescription="No se detectaron discrepancias entre intents, eventos y cargos."
+               EmptyIcon="task_alt"
+               KeySelector="RecKey">
+        <HeaderTemplate>
+            <th>Tipo</th>
+            <th>Referencia</th>
+            <th>Proveedor</th>
+            <th>Monto</th>
+            <th>Detalle</th>
+            <th>Fecha</th>
+        </HeaderTemplate>
+        <RowTemplate Context="row">
+            <td><StatusBadge Status="@row.Kind" Label="@KindLabel(row.Kind)" Kind="@KindBadge(row.Kind)" /></td>
+            <td>
+                @if (row.IntentId.HasValue)
+                {
+                    <a class="cell-title" href="@($"/transacciones/{row.IntentId}")">@(row.ExternalReference ?? row.IntentId.ToString())</a>
+                }
+                else
+                {
+                    <span class="cell-muted">@(row.ExternalReference ?? "—")</span>
+                }
+            </td>
+            <td class="cell-muted">@(row.Provider ?? "—")</td>
+            <td class="cell-amount">@(row.Amount?.ToString("C0", Cl) ?? "—")</td>
+            <td class="cell-muted">@row.Detail</td>
+            <td class="cell-muted">@row.OccurredAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", Cl)</td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private IReadOnlyList<AdminReconciliationRowDto>? _rows;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            _rows = await Client.GetReconciliationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static object RecKey(AdminReconciliationRowDto x)
+        => string.Concat(x.Kind, ":", x.IntentId?.ToString() ?? "", ":", x.OccurredAt.Ticks);
+
+    private static string KindLabel(string kind) => kind switch
+    {
+        "stuck_pending" => "Pendiente estancado",
+        "intent_without_events" => "Sin eventos",
+        "charge_without_auth" => "Cargo sin auth",
+        "flagged" => "En revisión",
+        _ => kind
+    };
+
+    private static string KindBadge(string kind) => kind switch
+    {
+        "flagged" or "charge_without_auth" => "failed",
+        _ => "pending"
+    };
+}
