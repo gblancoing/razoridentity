@@ -24,12 +24,25 @@
                             <span class="block text-xs text-[#7b8081]">@courier.Email</span>
                         }
                     </span>
-                    <span class="flex items-center gap-2">
+                    <span class="flex flex-wrap items-center gap-2">
                         @if (courier.UserId is not null)
                         {
+                            <span class="inline-flex items-center gap-1 rounded-full bg-[#e0f2fe] px-2.5 py-1 text-[10px] font-bold text-[#075985]">
+                                <span class="material-symbols-outlined text-[12px]">person_check</span>
+                                @L.T("partner.delivery.couriers.accountCreated")
+                            </span>
+                        }
+                        @if (courier.MercadoPagoConnected)
+                        {
                             <span class="inline-flex items-center gap-1 rounded-full bg-[#dcfce7] px-2.5 py-1 text-[10px] font-bold text-[#14532d]">
-                                <span class="material-symbols-outlined text-[12px]">verified</span>
-                                @L.T("partner.delivery.couriers.linked")
+                                <span class="material-symbols-outlined text-[12px]">account_balance_wallet</span>
+                                @L.T("partner.delivery.couriers.mpConnected")
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-1 text-[10px] font-bold text-[#8a5b00]">
+                                @L.T("partner.delivery.couriers.mpPending")
                             </span>
                         }
                         <button type="button"

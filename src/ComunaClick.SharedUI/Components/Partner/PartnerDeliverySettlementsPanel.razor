@@ -9,7 +9,11 @@
     con la acción de pago vía MercadoPago (collector = cuenta MP del repartidor,
     comisión ComunaClic como application_fee).
 *@
-@if (Settlements.Count == 0)
+@if (_loading)
+{
+    <p class="text-sm text-[#595c5d]">@L.T("account.courier.loading")</p>
+}
+else if (_settlements.Count == 0)
 {
     <p class="text-sm text-[#595c5d]">@L.T("partner.settlements.empty")</p>
 }
@@ -31,7 +35,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var settlement in Settlements.OrderByDescending(x => x.CreatedAt))
+                @foreach (var settlement in _settlements.OrderByDescending(x => x.CreatedAt))
                 {
                     var order = OrderFor(settlement.OrderId);
                     <tr class="border-b border-[#f0f1f2] align-middle">
@@ -95,15 +99,61 @@ else
 
 @code {
     [Parameter] public Guid PartnerId { get; set; }
-    [Parameter] public IReadOnlyList<PartnerApiModels.PartnerDeliverySettlement> Settlements { get; set; } = Array.Empty<PartnerApiModels.PartnerDeliverySettlement>();
     [Parameter] public IReadOnlyList<PartnerApiModels.Order> Orders { get; set; } = Array.Empty<PartnerApiModels.Order>();
     [Parameter] public EventCallback Changed { get; set; }
+    // Notifica al padre las liquidaciones cargadas (alimenta el desglose inline por pedido).
+    [Parameter] public EventCallback<IReadOnlyList<PartnerApiModels.PartnerDeliverySettlement>> SettlementsChanged { get; set; }
 
+    // El panel carga sus PROPIAS liquidaciones (igual que "Mis repartidores"),
+    // para no depender de la carga del padre que podía quedar vacía en prerender.
+    private readonly List<PartnerApiModels.PartnerDeliverySettlement> _settlements = new();
+    private bool _loading = true;
+    private bool _loaded;
     private Guid? _payingId;
     private string? _payMessage;
 
-    private decimal PendingTotal => Settlements.Where(x => x.Status != "settled").Sum(x => x.GrossAmount);
-    private decimal PaidTotal => Settlements.Where(x => x.Status == "settled").Sum(x => x.GrossAmount);
+    private decimal PendingTotal => _settlements.Where(x => x.Status != "settled").Sum(x => x.GrossAmount);
+    private decimal PaidTotal => _settlements.Where(x => x.Status == "settled").Sum(x => x.GrossAmount);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Cargar UNA sola vez con un PartnerId válido (patrón de PartnerCouriersPanel).
+        if (PartnerId != Guid.Empty && !_loaded)
+        {
+            _loaded = true;
+            await RefreshAsync();
+        }
+    }
+
+    /// <summary>Recarga las liquidaciones desde el API y avisa al padre.</summary>
+    public async Task RefreshAsync()
+    {
+        if (PartnerId == Guid.Empty)
+        {
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            var list = await PartnerApi.GetPartnerDeliverySettlementsAsync(PartnerId);
+            _settlements.Clear();
+            if (list is not null)
+            {
+                _settlements.AddRange(list);
+            }
+
+            await SettlementsChanged.InvokeAsync(_settlements.ToList());
+        }
+        catch (HttpRequestException)
+        {
+            // Sin liquidaciones: se mantiene el estado vacío.
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
 
     private PartnerApiModels.Order? OrderFor(Guid orderId)
         => Orders.FirstOrDefault(x => x.Id == orderId);
@@ -143,6 +193,7 @@ else
             // Abre el checkout de MercadoPago en pestaña nueva; el slip queda
             // "en proceso" y se liquida solo cuando el pago se apruebe (webhook).
             await JS.InvokeVoidAsync("open", result.InitPoint, "_blank");
+            await RefreshAsync();
             await Changed.InvokeAsync();
         }
         catch (HttpRequestException ex)

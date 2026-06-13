@@ -47,11 +47,27 @@ public sealed class CouriersController : ControllerBase
             return Forbid();
         }
 
-        var items = await _db.Couriers.AsNoTracking()
+        var couriers = await _db.Couriers.AsNoTracking()
             .Where(x => x.PartnerId == partnerId)
             .OrderBy(x => x.Name)
-            .Select(x => new CourierResponse(x.Id, x.PartnerId, x.Name, x.Phone, x.Company, x.IsAvailable, x.Email, x.UserId))
             .ToListAsync();
+
+        // Estado MP por repartidor (su fila Seller comparte Id con el courier):
+        // conectado = cuenta vinculada con token de acceso, lista para cobrar.
+        var courierIds = couriers.Select(x => x.Id).ToList();
+        var mpReady = await _db.SellerMercadoPagoAccounts.AsNoTracking()
+            .Where(a => courierIds.Contains(a.SellerId)
+                && a.ConnectionStatus == "connected"
+                && a.AccessTokenEncrypted != "")
+            .Select(a => a.SellerId)
+            .ToListAsync();
+        var mpReadySet = mpReady.ToHashSet();
+
+        var items = couriers
+            .Select(x => new CourierResponse(
+                x.Id, x.PartnerId, x.Name, x.Phone, x.Company, x.IsAvailable,
+                x.Email, x.UserId, mpReadySet.Contains(x.Id)))
+            .ToList();
 
         return Ok(items);
     }

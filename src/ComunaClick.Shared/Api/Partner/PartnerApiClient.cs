@@ -550,7 +550,8 @@ public sealed record PartnerCourier(
     string? Company,
     bool IsAvailable,
     string? Email = null,
-    Guid? UserId = null);
+    Guid? UserId = null,
+    bool MercadoPagoConnected = false);
 
 public sealed record PartnerCourierCreateRequest(string Name, string Phone, string? Company, string? Email = null);
 

@@ -66,7 +66,11 @@
                 @L.T("partner.settlements.title")
             </summary>
             <div class="mt-3">
-                <PartnerDeliverySettlementsPanel PartnerId="@couriersPartnerId" Settlements="_settlements" Orders="_items" Changed="ReloadOrdersAsync" />
+                <PartnerDeliverySettlementsPanel @ref="_settlementsPanel"
+                                                 PartnerId="@couriersPartnerId"
+                                                 Orders="_items"
+                                                 SettlementsChanged="OnSettlementsLoaded"
+                                                 Changed="ReloadOrdersAsync" />
             </div>
         </details>
     }
@@ -246,11 +250,8 @@
                 _items.AddRange(orders);
             }
 
-            var settlements = await PartnerApi.GetPartnerDeliverySettlementsAsync(partnerId.Value);
-            if (settlements is not null)
-            {
-                _settlements.AddRange(settlements);
-            }
+            // Las liquidaciones las carga el panel hijo (PartnerDeliverySettlementsPanel),
+            // que es resiliente al prerender; nos las notifica vía OnSettlementsLoaded.
 
             _statusMessage = _items.Count == 0
                 ? L.T("partner.orders.empty.title")
@@ -300,12 +301,20 @@
         return InvokeAsync(StateHasChanged);
     }
 
-    // Liquidaciones del transporte: el padre las carga UNA vez por recarga y
-    // las pasa a cada sección de envío (evita N requests por pedido).
+    // Liquidaciones del transporte: el panel hijo las carga (carga autónoma,
+    // resiliente al prerender) y nos las notifica para el desglose inline por pedido.
     private readonly List<ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement> _settlements = new();
+    private PartnerDeliverySettlementsPanel? _settlementsPanel;
 
     private ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement? SettlementFor(Guid orderId)
         => _settlements.FirstOrDefault(x => x.OrderId == orderId);
+
+    private void OnSettlementsLoaded(IReadOnlyList<ComunaClick.Shared.Api.Partner.PartnerDeliverySettlement> settlements)
+    {
+        _settlements.Clear();
+        _settlements.AddRange(settlements);
+        StateHasChanged();
+    }
 
     // Recarga las órdenes para reflejar el estado del envío tras asignar/cancelar.
     private async Task ReloadOrdersAsync()
@@ -324,11 +333,11 @@
                 _items.AddRange(orders);
             }
 
-            var settlements = await PartnerApi.GetPartnerDeliverySettlementsAsync(partnerId);
-            _settlements.Clear();
-            if (settlements is not null)
+            // Refresca las liquidaciones desde el panel hijo (actualiza también
+            // el desglose inline vía OnSettlementsLoaded).
+            if (_settlementsPanel is not null)
             {
-                _settlements.AddRange(settlements);
+                await _settlementsPanel.RefreshAsync();
             }
         }
         catch (HttpRequestException)

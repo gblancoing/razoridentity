@@ -26,7 +26,8 @@ public sealed record CourierResponse(
     string? Company,
     bool IsAvailable,
     string? Email = null,
-    Guid? UserId = null);
+    Guid? UserId = null,
+    bool MercadoPagoConnected = false);
 
 public sealed record AssignCourierRequest(Guid CourierId);
 

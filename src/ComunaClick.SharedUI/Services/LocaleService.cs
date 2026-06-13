@@ -1622,7 +1622,10 @@ public sealed class LocaleService
             ["partner.delivery.couriers.deleteBlocked"] = "No se puede eliminar: el repartidor tiene envíos activos.",
             ["partner.delivery.couriers.email"] = "Correo (para su cuenta)",
             ["partner.delivery.couriers.linked"] = "Cuenta vinculada",
-            ["partner.delivery.couriers.emailHint"] = "Si registrás su correo, el repartidor podrá crear su cuenta y ver sus viajes, ganancias y vincular su Mercado Pago.",
+            ["partner.delivery.couriers.accountCreated"] = "Cuenta creada",
+            ["partner.delivery.couriers.mpConnected"] = "MP conectado",
+            ["partner.delivery.couriers.mpPending"] = "MP sin conectar",
+            ["partner.delivery.couriers.emailHint"] = "Si registrás su correo, el repartidor podrá crear su cuenta y ver sus viajes, ganancias y vincular su Mercado Pago. \"MP conectado\" indica si ya podés pagarle el envío por Mercado Pago; si no, el pago es por transferencia/efectivo.",
 
             ["buyer.track.title"] = "Seguimiento del envío",
             ["buyer.track.eyebrow"] = "Envío en vivo",
@@ -3743,7 +3746,10 @@ public sealed class LocaleService
             ["partner.delivery.couriers.deleteBlocked"] = "Cannot delete: the courier has active deliveries.",
             ["partner.delivery.couriers.email"] = "Email (for their account)",
             ["partner.delivery.couriers.linked"] = "Account linked",
-            ["partner.delivery.couriers.emailHint"] = "If you register their email, the courier can create an account to see trips, earnings, and link their Mercado Pago.",
+            ["partner.delivery.couriers.accountCreated"] = "Account created",
+            ["partner.delivery.couriers.mpConnected"] = "MP connected",
+            ["partner.delivery.couriers.mpPending"] = "MP not connected",
+            ["partner.delivery.couriers.emailHint"] = "If you register their email, the courier can create an account to see trips, earnings, and link their Mercado Pago. \"MP connected\" shows whether you can already pay the delivery via Mercado Pago; if not, payment is by transfer/cash.",
 
             ["buyer.track.title"] = "Delivery tracking",
             ["buyer.track.eyebrow"] = "Live delivery",
