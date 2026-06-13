@@ -6,4 +6,8 @@ public sealed record AdminDashboardSummaryDto(
     int PendingCount,
     int FailedCount,
     int ActiveSubscriptionCandidates,
-    IReadOnlyList<AdminProviderBreakdownDto> Providers);
+    IReadOnlyList<AdminProviderBreakdownDto> Providers,
+    decimal CapturedToday,
+    decimal CapturedThisWeek,
+    decimal CapturedThisMonth,
+    AdminAlertsDto? Alerts);

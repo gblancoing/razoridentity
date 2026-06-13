@@ -1,0 +1,42 @@
+@if (IsOpen)
+{
+    <div class="dialog-backdrop" @onclick="HandleCancel">
+        <div class="dialog-card" @onclick:stopPropagation="true">
+            <h3>@Title</h3>
+            @if (!string.IsNullOrWhiteSpace(Message))
+            {
+                <p>@Message</p>
+            }
+            @ChildContent
+            <div class="dialog-actions">
+                <button class="btn btn-ghost" type="button" disabled="@IsBusy" @onclick="HandleCancel">@CancelText</button>
+                <button class="btn @(Danger ? "btn-danger" : "btn-primary")" type="button" disabled="@IsBusy" @onclick="HandleConfirm">
+                    @(IsBusy ? "Procesando…" : ConfirmText)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "Confirmar acción";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Confirmar";
+    [Parameter] public string CancelText { get; set; } = "Cancelar";
+    [Parameter] public bool Danger { get; set; }
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private async Task HandleCancel()
+    {
+        if (IsBusy) return;
+        await IsOpenChanged.InvokeAsync(false);
+        await OnCancel.InvokeAsync();
+    }
+
+    private Task HandleConfirm() => OnConfirm.InvokeAsync();
+}

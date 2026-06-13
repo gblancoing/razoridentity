@@ -1,0 +1,28 @@
+<span class="status-badge @CssClass">@(Label ?? Status)</span>
+
+@code {
+    [Parameter] public string Status { get; set; } = string.Empty;
+    [Parameter] public string? Label { get; set; }
+
+    /// Fuerza la variante visual ("success", "pending", "failed", "muted") sin depender del texto.
+    [Parameter] public string? Kind { get; set; }
+
+    private string CssClass => (Kind ?? Classify(Status)) switch
+    {
+        "success" => "status-success",
+        "pending" => "status-pending",
+        "failed" => "status-failed",
+        _ => "status-muted"
+    };
+
+    private static string Classify(string status) => status.Trim().ToLowerInvariant() switch
+    {
+        "captured" or "paid" or "settled" or "active" or "approved" or "succeeded" or "completed"
+            or "delivered" or "connected" or "won" or "published" or "visible" or "ok" => "success",
+        "pending" or "processing" or "in_progress" or "created" or "authorized" or "manual"
+            or "paused" or "in_transit" or "assigned" or "open" => "pending",
+        "failed" or "cancelled" or "canceled" or "rejected" or "error" or "expired" or "lost"
+            or "disconnected" or "flagged" => "failed",
+        _ => "muted"
+    };
+}

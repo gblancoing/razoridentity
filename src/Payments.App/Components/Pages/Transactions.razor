@@ -1,109 +1,187 @@
 @page "/transacciones"
 @inject PaymentGatewayAdminClient Client
+@inject IJSRuntime JS
+
+<PageTitle>Transacciones - Payments.App</PageTitle>
+
+<PageHeader Eyebrow="Transacciones"
+            Title="Listado operacional"
+            Description="Consulta pagos por proveedor, estado, rango de fechas, referencia externa o token del checkout." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar transacciones" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="PaymentTransactionSummary"
+               Items="_transactions"
+               IsLoading="_isLoading"
+               EmptyTitle="Sin transacciones"
+               EmptyDescription="Ajusta los filtros o espera nuevos pagos del gateway."
+               KeySelector="x => x.Id">
+        <FilterBar>
+            <div class="filter-field">
+                <label>Buscar</label>
+                <input class="filter-input" placeholder="Referencia o token" @bind="_search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+            </div>
+            <div class="filter-field">
+                <label>Proveedor</label>
+                <select class="filter-select" @bind="_provider">
+                    <option value="">Todos</option>
+                    <option value="transbank">Transbank</option>
+                    <option value="khipu">Khipu</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label>Estado</label>
+                <select class="filter-select" @bind="_status">
+                    <option value="">Todos</option>
+                    <option value="captured">Capturado</option>
+                    <option value="approved">Aprobado</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="failed">Fallido</option>
+                    <option value="rejected">Rechazado</option>
+                    <option value="cancelled">Cancelado</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label>Desde</label>
+                <input type="date" class="filter-input" @bind="_from" />
+            </div>
+            <div class="filter-field">
+                <label>Hasta</label>
+                <input type="date" class="filter-input" @bind="_to" />
+            </div>
+            <button class="btn btn-primary" type="button" @onclick="LoadAsync">
+                <span class="material-symbols-outlined">filter_alt</span>
+                Filtrar
+            </button>
+            <button class="btn btn-ghost" type="button" disabled="@_isExporting" @onclick="ExportAsync">
+                <span class="material-symbols-outlined">download</span>
+                @(_isExporting ? "Exportando…" : "Exportar CSV")
+            </button>
+        </FilterBar>
+        <HeaderTemplate>
+            <th>Referencia</th>
+            <th>Proveedor</th>
+            <th>Monto</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+        </HeaderTemplate>
+        <RowTemplate Context="item">
+            <td>
+                <a href="@($"/transacciones/{item.Id}")">
+                    <span class="cell-title">@item.ExternalReference</span><br />
+                    <span class="cell-muted">@item.ProviderToken</span>
+                </a>
+            </td>
+            <td><span class="provider-pill">@item.Provider</span></td>
+            <td class="cell-amount">@item.Amount.ToString("C0", Cl)</td>
+            <td><StatusBadge Status="@item.Status" Label="@StatusLabel(item.Status)" /></td>
+            <td class="cell-muted">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", Cl)</td>
+        </RowTemplate>
+    </DataTable>
+}
 
 @code {
-    private IReadOnlyList<PaymentTransactionSummary> _transactions = Array.Empty<PaymentTransactionSummary>();
-    private string _selectedProvider = "todos";
-    private string _selectedStatus = "todos";
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private IReadOnlyList<PaymentTransactionSummary>? _transactions;
+    private string _provider = string.Empty;
+    private string _status = string.Empty;
     private string _search = string.Empty;
+    private DateTime? _from;
+    private DateTime? _to;
+    private bool _isLoading = true;
+    private bool _isExporting;
     private string? _error;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
+        _isLoading = true;
+        _error = null;
+
         try
         {
-            _transactions = await Client.ListTransactionsAsync();
+            _transactions = await Client.ListTransactionsAsync(
+                NullIfEmpty(_provider),
+                NullIfEmpty(_status),
+                NullIfEmpty(_search),
+                FromFilter,
+                ToFilter);
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
-    private IEnumerable<PaymentTransactionSummary> FilteredTransactions => _transactions
-        .Where(x => _selectedProvider == "todos" || string.Equals(x.Provider, _selectedProvider, StringComparison.OrdinalIgnoreCase))
-        .Where(x => _selectedStatus == "todos" || string.Equals(x.Status, _selectedStatus, StringComparison.OrdinalIgnoreCase))
-        .Where(x => string.IsNullOrWhiteSpace(_search)
-            || x.ExternalReference.Contains(_search, StringComparison.OrdinalIgnoreCase)
-            || x.ProviderToken.Contains(_search, StringComparison.OrdinalIgnoreCase)
-            || x.CustomerLabel.Contains(_search, StringComparison.OrdinalIgnoreCase));
-}
-
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <section class="not-found-card">
-        <p class="eyebrow">Acceso</p>
-        <h1>No pudimos cargar transacciones</h1>
-        <p>@_error</p>
-    </section>
-}
-else
-{
-<section class="page-header">
-    <p class="eyebrow">Transacciones</p>
-    <h1>Listado operacional</h1>
-    <p class="page-description">Consulta pagos por proveedor, estado, referencia externa o token del checkout.</p>
-</section>
-
-<section class="panel-card filters-card">
-    <input class="search-input" placeholder="Buscar referencia, token o cliente" @bind="_search" @bind:event="oninput" />
-
-    <select class="filter-select" @bind="_selectedProvider">
-        <option value="todos">Todos los proveedores</option>
-        <option value="transbank">Transbank</option>
-        <option value="khipu">Khipu</option>
-        <option value="mercadopago">Mercado Pago</option>
-    </select>
-
-    <select class="filter-select" @bind="_selectedStatus">
-        <option value="todos">Todos los estados</option>
-        <option value="captured">Capturado</option>
-        <option value="pending">Pendiente</option>
-        <option value="failed">Fallido</option>
-        <option value="canceled">Cancelado</option>
-    </select>
-</section>
-
-<section class="panel-card">
-    <div class="transaction-table-head">
-        <span>Referencia</span>
-        <span>Proveedor</span>
-        <span>Monto</span>
-        <span>Estado</span>
-        <span>Fecha</span>
-    </div>
-
-    @foreach (var item in FilteredTransactions)
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
     {
-        <a class="transaction-table-row" href="@($"/transacciones/{item.Id}")">
-            <div>
-                <p class="row-title">@item.ExternalReference</p>
-                <p class="row-subtitle">@item.ProviderToken</p>
-            </div>
-            <p class="provider-pill">@item.Provider</p>
-            <p class="row-amount">@item.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</p>
-            <span class="@($"status-badge {StatusClass(item.Status)}")">@StatusLabel(item.Status)</span>
-            <p class="row-subtitle">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", CultureInfo.GetCultureInfo("es-CL"))</p>
-        </a>
+        if (e.Key == "Enter")
+        {
+            await LoadAsync();
+        }
     }
-</section>
-}
 
-@functions {
-    private static string StatusClass(string status) => status.ToLowerInvariant() switch
+    private async Task ExportAsync()
     {
-        "captured" => "status-success",
-        "pending" => "status-pending",
-        "failed" or "canceled" => "status-failed",
-        _ => "status-muted"
-    };
+        var token = Client.AccessToken;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _error = "No hay sesión activa para exportar.";
+            return;
+        }
+
+        _isExporting = true;
+        try
+        {
+            var url = Client.BuildTransactionsExportUrl(
+                NullIfEmpty(_provider),
+                NullIfEmpty(_status),
+                NullIfEmpty(_search),
+                FromFilter,
+                ToFilter);
+            await JS.InvokeVoidAsync("paymentsApp.downloadWithAuth", url, token,
+                $"transacciones_{DateTime.Now:yyyyMMdd_HHmm}.csv");
+        }
+        catch (Exception ex)
+        {
+            _error = $"No se pudo exportar: {ex.Message}";
+        }
+        finally
+        {
+            _isExporting = false;
+        }
+    }
+
+    private DateTimeOffset? FromFilter => _from.HasValue
+        ? new DateTimeOffset(DateTime.SpecifyKind(_from.Value.Date, DateTimeKind.Utc))
+        : null;
+
+    private DateTimeOffset? ToFilter => _to.HasValue
+        ? new DateTimeOffset(DateTime.SpecifyKind(_to.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc))
+        : null;
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static string StatusLabel(string status) => status.ToLowerInvariant() switch
     {
-        "captured" => "Capturado",
+        "captured" or "approved" => "Capturado",
         "pending" => "Pendiente",
-        "failed" => "Fallido",
-        "canceled" => "Cancelado",
+        "failed" or "rejected" => "Fallido",
+        "canceled" or "cancelled" => "Cancelado",
+        "expired" => "Expirado",
         _ => status
     };
 }

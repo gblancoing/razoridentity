@@ -1,12 +1,9 @@
 using ComunaClick.Admin.Services;
-using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-
-builder.Services.AddMudServices();
 
 builder.Services.AddSingleton<PaymentDashboardStore>();
 builder.Services.AddScoped<PaymentsWebTokenStore>();

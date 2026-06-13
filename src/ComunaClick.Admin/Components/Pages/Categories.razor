@@ -3,59 +3,81 @@
 
 <PageTitle>Categorías - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Catálogo</p>
-    <h1>Categorías y orden público</h1>
-    <p class="page-description">Ajusta nombre visible, orden y activación del catálogo principal.</p>
-</section>
+<PageHeader Eyebrow="Catálogo"
+            Title="Categorías y orden público"
+            Description="Ajusta nombre visible, orden y activación del catálogo principal." />
 
-<section class="panel-card">
-    <div class="panel-head"><div><p class="eyebrow">Categorías</p><h2>Gestión</h2></div></div>
-    @if (_items is null)
-    {
-        <p class="page-description">Cargando categorías...</p>
-    }
-    else
-    {
-        @foreach (var item in _items)
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar categorías" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <section class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Categorías</p><h2>Gestión</h2></div></div>
+        @if (_items is null)
         {
-            <div class="row-card">
-                <div>
-                    <p class="row-title">@item.Name</p>
-                    <p class="row-subtitle">@item.Code · Orden @item.SortOrder · @item.SubcategoryCount subcategorías</p>
-                </div>
-                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
-            </div>
-
-            @if (_editingId == item.Id)
+            <LoadingPanel Message="Cargando categorías…" />
+        }
+        else if (_items.Count == 0)
+        {
+            <EmptyState Title="Sin categorías" Description="No hay categorías configuradas." />
+        }
+        else
+        {
+            @foreach (var item in _items)
             {
-                <div class="panel-card">
-                    <label class="kpi-label">Nombre</label>
-                    <input class="filter-input" @bind="_name" />
-                    <label class="kpi-label">Orden</label>
-                    <input class="filter-input" type="number" @bind="_sortOrder" />
-                    <label class="kpi-label">Activa</label>
-                    <input type="checkbox" @bind="_isActive" />
-                    <div class="flex gap-3 mt-4">
-                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
-                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                <div class="row-card">
+                    <div>
+                        <p class="row-title">@item.Name</p>
+                        <p class="row-subtitle">@item.Code · Orden @item.SortOrder · @item.SubcategoryCount subcategorías</p>
                     </div>
+                    <button class="btn btn-ghost" type="button" @onclick="() => BeginEdit(item)">Editar</button>
                 </div>
+
+                @if (_editingId == item.Id)
+                {
+                    <div class="panel-card" style="margin:0.5rem 0 1rem">
+                        <label class="kpi-label">Nombre</label>
+                        <input class="filter-input" @bind="_name" />
+                        <label class="kpi-label">Orden</label>
+                        <input class="filter-input" type="number" @bind="_sortOrder" />
+                        <label class="kpi-label">Activa</label>
+                        <input type="checkbox" @bind="_isActive" />
+                        <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                            <button class="btn btn-primary" type="button" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                            <button class="btn btn-ghost" type="button" @onclick="Cancel">Cancelar</button>
+                        </div>
+                    </div>
+                }
             }
         }
-    }
-</section>
+    </section>
+}
 
 @code {
     private List<ComunaClick.Admin.Models.AdminCategoryListItemDto>? _items;
+    private string? _error;
     private Guid? _editingId;
     private string _name = string.Empty;
     private int _sortOrder;
     private bool _isActive;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _items = await Client.GetCategoriesAsync() ?? new();
+        _error = null;
+        try
+        {
+            _items = await Client.GetCategoriesAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private void BeginEdit(ComunaClick.Admin.Models.AdminCategoryListItemDto item)
@@ -66,10 +88,7 @@
         _isActive = item.IsActive;
     }
 
-    private void Cancel()
-    {
-        _editingId = null;
-    }
+    private void Cancel() => _editingId = null;
 
     private async Task SaveAsync(Guid id)
     {
@@ -77,10 +96,7 @@
         if (updated is not null && _items is not null)
         {
             var index = _items.FindIndex(x => x.Id == id);
-            if (index >= 0)
-            {
-                _items[index] = updated;
-            }
+            if (index >= 0) _items[index] = updated;
         }
         Cancel();
     }

@@ -11,6 +11,8 @@ public sealed class PaymentsDbContext : DbContext
     public DbSet<ProviderEvent> ProviderEvents => Set<ProviderEvent>();
     public DbSet<CustomerToken> CustomerTokens => Set<CustomerToken>();
     public DbSet<Charge> Charges => Set<Charge>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<SubscriptionAttempt> SubscriptionAttempts => Set<SubscriptionAttempt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,6 +32,10 @@ public sealed class PaymentsDbContext : DbContext
             entity.Property(x => x.AuthorizationCode).HasColumnName("authorization_code");
             entity.Property(x => x.RawResponse).HasColumnName("raw_response").HasColumnType("jsonb")
                 .HasDefaultValueSql("'{}'::jsonb");
+            entity.Property(x => x.ReviewStatus).HasColumnName("review_status");
+            entity.Property(x => x.ReviewNote).HasColumnName("review_note");
+            entity.Property(x => x.CoreNotifiedAt).HasColumnName("core_notified_at");
+            entity.Property(x => x.CoreNotifyAttempts).HasColumnName("core_notify_attempts").HasDefaultValue(0);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             entity.HasIndex(x => x.Status);
@@ -88,6 +94,45 @@ public sealed class PaymentsDbContext : DbContext
             entity.HasIndex(x => x.Status);
             entity.HasOne(x => x.CustomerToken).WithMany(x => x.Charges).HasForeignKey(x => x.CustomerTokenId);
             entity.HasOne(x => x.Intent).WithMany().HasForeignKey(x => x.IntentId);
+        });
+
+        modelBuilder.Entity<Subscription>(entity =>
+        {
+            entity.ToTable("subscriptions");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.CustomerId).HasColumnName("customer_id").IsRequired();
+            entity.Property(x => x.CustomerTokenId).HasColumnName("customer_token_id");
+            entity.Property(x => x.ExternalReference).HasColumnName("external_reference").IsRequired();
+            entity.Property(x => x.PlanName).HasColumnName("plan_name");
+            entity.Property(x => x.Provider).HasColumnName("provider").HasDefaultValue("transbank");
+            entity.Property(x => x.Amount).HasColumnName("amount").HasColumnType("numeric(14,2)");
+            entity.Property(x => x.Currency).HasColumnName("currency").HasDefaultValue("CLP");
+            entity.Property(x => x.BillingInterval).HasColumnName("billing_interval").HasDefaultValue("monthly");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.NextChargeAt).HasColumnName("next_charge_at");
+            entity.Property(x => x.CancelledAt).HasColumnName("cancelled_at");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.Status);
+            entity.HasIndex(x => x.CustomerId);
+            entity.HasIndex(x => x.ExternalReference);
+            entity.HasOne(x => x.CustomerToken).WithMany().HasForeignKey(x => x.CustomerTokenId);
+        });
+
+        modelBuilder.Entity<SubscriptionAttempt>(entity =>
+        {
+            entity.ToTable("subscription_attempts");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(x => x.SubscriptionId).HasColumnName("subscription_id");
+            entity.Property(x => x.IntentId).HasColumnName("intent_id");
+            entity.Property(x => x.ChargeId).HasColumnName("charge_id");
+            entity.Property(x => x.Status).HasColumnName("status").IsRequired();
+            entity.Property(x => x.ErrorMessage).HasColumnName("error_message");
+            entity.Property(x => x.AttemptedAt).HasColumnName("attempted_at").HasDefaultValueSql("now()");
+            entity.HasIndex(x => x.SubscriptionId);
+            entity.HasOne(x => x.Subscription).WithMany(x => x.Attempts).HasForeignKey(x => x.SubscriptionId);
         });
     }
 }

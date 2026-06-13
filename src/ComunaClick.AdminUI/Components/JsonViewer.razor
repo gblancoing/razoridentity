@@ -1,0 +1,33 @@
+@using System.Text.Json
+
+<details class="json-viewer" open="@Open">
+    <summary>@Title</summary>
+    <pre class="payload-box">@FormattedJson</pre>
+</details>
+
+@code {
+    [Parameter] public string? Json { get; set; }
+    [Parameter] public string Title { get; set; } = "Ver JSON";
+    [Parameter] public bool Open { get; set; }
+
+    private string FormattedJson
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Json))
+            {
+                return "(vacío)";
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(Json);
+                return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            }
+            catch (JsonException)
+            {
+                return Json;
+            }
+        }
+    }
+}

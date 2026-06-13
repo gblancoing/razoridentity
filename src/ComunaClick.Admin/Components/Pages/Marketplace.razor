@@ -1,0 +1,165 @@
+@page "/marketplace"
+@using System.Globalization
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Marketplace - ComunaClick.Admin</PageTitle>
+
+<PageHeader Eyebrow="Mercado Pago"
+            Title="Vendedores del marketplace"
+            Description="Estado de conexión OAuth de cada vendedor, comisiones vigentes y sincronización de pagos." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar vendedores" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="AdminSellerListItemDto"
+               Items="_items"
+               IsLoading="_isLoading"
+               EmptyTitle="Sin vendedores"
+               EmptyDescription="Cuando existan vendedores conectados aparecerán aquí."
+               KeySelector="x => x.Id">
+        <FilterBar>
+            <div class="filter-field">
+                <label>Buscar</label>
+                <input class="filter-input" placeholder="Nombre, email…" @bind="_search"
+                       @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+            </div>
+            <button class="btn btn-primary" type="button" @onclick="LoadAsync">
+                <span class="material-symbols-outlined">filter_alt</span>
+                Filtrar
+            </button>
+        </FilterBar>
+        <HeaderTemplate>
+            <th>Vendedor</th>
+            <th>Mercado Pago</th>
+            <th>MP User</th>
+            <th>Comisión</th>
+            <th>Pagos</th>
+            <th>Activo</th>
+            <th>Acciones</th>
+        </HeaderTemplate>
+        <RowTemplate Context="s">
+            <td>
+                <span class="cell-title">@s.Name</span><br />
+                <span class="cell-muted">@s.Email</span>
+            </td>
+            <td>
+                <StatusBadge Status="@MpStatusKind(s.MercadoPagoStatus)"
+                             Label="@MpStatusLabel(s.MercadoPagoStatus)" />
+                @if (s.ConnectedAt.HasValue)
+                {
+                    <br /><span class="cell-muted">@s.ConnectedAt.Value.ToLocalTime().ToString("dd MMM yyyy", Cl)</span>
+                }
+            </td>
+            <td class="cell-muted">@(s.MpUserId ?? "—")</td>
+            <td class="cell-amount">
+                @s.PercentageFee.ToString("N2")%
+                @if (s.FixedFeeAmount > 0)
+                {
+                    <br /><span class="cell-muted">+ @s.FixedFeeAmount.ToString("C0", Cl)</span>
+                }
+            </td>
+            <td class="cell-muted">@s.PaymentCount</td>
+            <td>
+                <StatusBadge Status="@(s.IsActive ? "active" : "inactive")"
+                             Label="@(s.IsActive ? "Activo" : "Inactivo")" />
+            </td>
+            <td>
+                @if (_syncingId != s.Id)
+                {
+                    <button class="btn btn-ghost" type="button" @onclick="() => SyncAsync(s.Id)">
+                        <span class="material-symbols-outlined">sync</span>
+                        Sync
+                    </button>
+                }
+                else
+                {
+                    <span class="cell-muted">Sincronizando…</span>
+                }
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@if (!string.IsNullOrWhiteSpace(_syncMessage))
+{
+    <section class="panel-card">
+        <p class="text-sm">@_syncMessage</p>
+    </section>
+}
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private IReadOnlyList<AdminSellerListItemDto>? _items;
+    private string _search = string.Empty;
+    private bool _isLoading = true;
+    private string? _error;
+    private Guid? _syncingId;
+    private string? _syncMessage;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _items = await Client.GetSellersAsync(search: NullIfEmpty(_search));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadAsync();
+    }
+
+    private async Task SyncAsync(Guid sellerId)
+    {
+        _syncingId = sellerId;
+        _syncMessage = null;
+        try
+        {
+            await Client.SyncMarketplacePaymentAsync(sellerId.ToString());
+            _syncMessage = "Sincronización iniciada. Los cambios de estado se reflejarán en minutos.";
+        }
+        catch (Exception ex)
+        {
+            _syncMessage = $"No se pudo sincronizar: {ex.Message}";
+        }
+        finally
+        {
+            _syncingId = null;
+        }
+    }
+
+    private static string? NullIfEmpty(string v) => string.IsNullOrWhiteSpace(v) ? null : v;
+
+    private static string MpStatusLabel(string s) => s switch
+    {
+        "connected" => "Conectado",
+        "pending" => "Pendiente",
+        "not_connected" => "Sin conectar",
+        _ => s
+    };
+
+    private static string MpStatusKind(string s) => s switch
+    {
+        "connected" => "active",
+        "pending" => "pending",
+        _ => "inactive"
+    };
+}

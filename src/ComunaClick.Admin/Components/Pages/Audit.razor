@@ -3,38 +3,82 @@
 
 <PageTitle>Auditoría - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Trazabilidad</p>
-    <h1>Actividad reciente</h1>
-    <p class="page-description">Consulta cambios recientes sobre tenants, partners y órdenes para tener una visión operativa rápida.</p>
-</section>
+<PageHeader Eyebrow="Trazabilidad"
+            Title="Actividad reciente"
+            Description="Cambios sobre tenants, partners, órdenes y otros recursos. Expande un evento para ver los valores anteriores y nuevos." />
 
-<section class="panel-card">
-    <div class="panel-head"><div><p class="eyebrow">Auditoría</p><h2>Timeline</h2></div></div>
-    @if (_items is null)
-    {
-        <p class="page-description">Cargando eventos...</p>
-    }
-    else
-    {
-        @foreach (var item in _items)
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar auditoría" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <section class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Auditoría</p><h2>Timeline</h2></div></div>
+        @if (_items is null)
         {
-            <div class="row-card">
-                <div>
-                    <p class="row-title">@item.Description</p>
-                    <p class="row-subtitle">@item.EntityType · @item.Action · @item.EntityId</p>
-                </div>
-                <p class="kpi-footnote">@item.OccurredAt.ToLocalTime().ToString("dd/MM HH:mm")</p>
+            <LoadingPanel Message="Cargando eventos…" />
+        }
+        else if (_items.Count == 0)
+        {
+            <EmptyState Title="Sin eventos" Description="Aún no hay actividad registrada." />
+        }
+        else
+        {
+            <div class="event-timeline">
+                @foreach (var item in _items)
+                {
+                    <div class="event-item">
+                        <div class="event-dot"></div>
+                        <div>
+                            <p class="row-title">@item.Description</p>
+                            <p class="row-subtitle">
+                                <StatusBadge Status="@ActionKind(item.Action)" Label="@item.Action" />
+                                &nbsp;@item.EntityType · @item.EntityId
+                            </p>
+                            <p class="row-subtitle">@item.OccurredAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</p>
+                            @if (!string.IsNullOrWhiteSpace(item.PreviousValues) && item.PreviousValues != "null")
+                            {
+                                <JsonViewer Title="Valores anteriores" Json="@item.PreviousValues" />
+                            }
+                            @if (!string.IsNullOrWhiteSpace(item.NewValues) && item.NewValues != "null")
+                            {
+                                <JsonViewer Title="Valores nuevos" Json="@item.NewValues" />
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         }
-    }
-</section>
+    </section>
+}
 
 @code {
     private List<ComunaClick.Admin.Models.AdminAuditEventDto>? _items;
+    private string? _error;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _items = await Client.GetAuditAsync() ?? new();
+        _error = null;
+        try
+        {
+            _items = await Client.GetAuditAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
     }
+
+    private static string ActionKind(string action) => action?.ToLowerInvariant() switch
+    {
+        "create" or "created" => "active",
+        "delete" or "deleted" => "failed",
+        "update" or "updated" or "patch" => "pending",
+        _ => "neutral"
+    };
 }

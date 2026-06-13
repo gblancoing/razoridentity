@@ -3,154 +3,148 @@
 
 <PageTitle>Partners - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Vitrina pública</p>
-    <h1>Partners y visibilidad</h1>
-    <p class="page-description">Revisa datos visibles, contacto y publicación de cada negocio registrado.</p>
-</section>
+<PageHeader Eyebrow="Vitrina pública"
+            Title="Partners y visibilidad"
+            Description="Revisa datos visibles, contacto, publicación y comisiones de cada negocio registrado." />
 
-<!-- Comisiones Marketplace -->
-<section class="panel-card" style="margin-bottom:1.5rem">
-    <div class="panel-head">
-        <div>
-            <p class="eyebrow">Marketplace</p>
-            <h2>Comisiones ComunaClic</h2>
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar partners" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <!-- Comisiones Marketplace -->
+    <section class="panel-card" style="margin-bottom:1.5rem">
+        <div class="panel-head">
+            <div><p class="eyebrow">Marketplace</p><h2>Comisiones ComunaClic</h2></div>
         </div>
-    </div>
-
-    <p class="page-description" style="margin-bottom:1rem">
-        Configura el porcentaje de comisión que ComunaClic cobra sobre cada venta procesada por Mercado Pago.
-        La comisión de MP (~3.19%) se suma aparte y la paga el vendedor directamente a MP.
-    </p>
-
-    <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
-        <div>
-            <label class="kpi-label">% Comisión ComunaClic (todos los vendedores)</label>
-            <input class="filter-input" type="number" step="0.01" min="0" max="30"
-                   style="width:140px"
-                   @bind="_globalFeePercent" />
-        </div>
-        <div>
-            <label class="kpi-label">Tarifa fija ($)</label>
-            <input class="filter-input" type="number" step="1" min="0"
-                   style="width:120px"
-                   @bind="_globalFixedFee" />
-        </div>
-        <button class="primary-link" disabled="@_feesBusy" @onclick="ApplyGlobalFeeAsync">
-            @(_feesBusy ? "Aplicando…" : "Aplicar a todos los vendedores")
-        </button>
-    </div>
-
-    @if (!string.IsNullOrEmpty(_feesMessage))
-    {
-        <p class="page-description" style="color:@(_feesOk ? "#3b6700" : "#c00");font-weight:600">
-            @_feesMessage
+        <p class="page-description" style="margin-bottom:1rem">
+            Configura el porcentaje de comisión que ComunaClic cobra sobre cada venta procesada por Mercado Pago.
+            La comisión de MP (~3.19%) se suma aparte y la paga el vendedor directamente a MP.
         </p>
-    }
-
-    @if (_fees is not null && _fees.Count > 0)
-    {
-        <table style="width:100%;border-collapse:collapse;font-size:0.83rem;margin-top:0.75rem">
-            <thead>
-                <tr style="text-align:left;color:#7b8081;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em">
-                    <th style="padding:6px 12px">Vendedor</th>
-                    <th style="padding:6px 12px;text-align:right">% Comisión</th>
-                    <th style="padding:6px 12px;text-align:right">Tarifa fija</th>
-                    <th style="padding:6px 12px"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var fee in _fees)
-                {
-                    <tr style="border-top:1px solid #f0f2f3">
-                        <td style="padding:6px 12px;font-weight:600">@fee.SellerName</td>
-                        <td style="padding:6px 12px;text-align:right">
-                            @if (_editingFeeId == fee.SellerId)
-                            {
-                                <input class="filter-input" type="number" step="0.01" min="0" max="30"
-                                       style="width:90px;text-align:right"
-                                       @bind="_editFeePercent" />
-                            }
-                            else
-                            {
-                                <span>@fee.PercentageFee.ToString("N2")%</span>
-                            }
-                        </td>
-                        <td style="padding:6px 12px;text-align:right">
-                            @if (_editingFeeId == fee.SellerId)
-                            {
-                                <input class="filter-input" type="number" step="1" min="0"
-                                       style="width:90px;text-align:right"
-                                       @bind="_editFixedFee" />
-                            }
-                            else
-                            {
-                                <span>$@fee.FixedFeeAmount.ToString("N0")</span>
-                            }
-                        </td>
-                        <td style="padding:6px 12px;text-align:right">
-                            @if (_editingFeeId == fee.SellerId)
-                            {
-                                <button class="primary-link" @onclick="() => SaveSellerFeeAsync(fee.SellerId)">Guardar</button>
-                                <button class="primary-link" @onclick="CancelFeeEdit" style="margin-left:8px">Cancelar</button>
-                            }
-                            else
-                            {
-                                <button class="primary-link" @onclick="() => BeginFeeEdit(fee)">Editar</button>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-</section>
-
-<!-- Partners / visibilidad -->
-<section class="panel-card">
-    <div class="panel-head"><div><p class="eyebrow">Partners</p><h2>Moderación</h2></div></div>
-    @if (_items is null)
-    {
-        <p class="page-description">Cargando partners...</p>
-    }
-    else
-    {
-        @foreach (var item in _items)
-        {
-            <div class="row-card">
-                <div>
-                    <p class="row-title">@item.Name</p>
-                    <p class="row-subtitle">@item.CategoryName / @item.SubcategoryName · @(item.IsVisible ? "Publicado" : "Oculto")</p>
-                </div>
-                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
+        <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+            <div class="filter-field">
+                <label>% Comisión ComunaClic (todos los vendedores)</label>
+                <input class="filter-input" type="number" step="0.01" min="0" max="30" style="width:140px" @bind="_globalFeePercent" />
             </div>
+            <div class="filter-field">
+                <label>Tarifa fija ($)</label>
+                <input class="filter-input" type="number" step="1" min="0" style="width:120px" @bind="_globalFixedFee" />
+            </div>
+            <button class="btn btn-primary" type="button" disabled="@_feesBusy" @onclick="ApplyGlobalFeeAsync">
+                @(_feesBusy ? "Aplicando…" : "Aplicar a todos")
+            </button>
+        </div>
+        @if (!string.IsNullOrEmpty(_feesMessage))
+        {
+            <p class="text-sm" style="color:@(_feesOk ? "var(--color-primary)" : "var(--status-error-fg)")">@_feesMessage</p>
+        }
+        @if (_fees is not null && _fees.Count > 0)
+        {
+            <div class="table-scroll" style="margin-top:0.75rem">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Vendedor</th>
+                            <th style="text-align:right">% Comisión</th>
+                            <th style="text-align:right">Tarifa fija</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var fee in _fees)
+                        {
+                            <tr>
+                                <td class="cell-title">@fee.SellerName</td>
+                                <td style="text-align:right">
+                                    @if (_editingFeeId == fee.SellerId)
+                                    {
+                                        <input class="filter-input" type="number" step="0.01" min="0" max="30"
+                                               style="width:90px;text-align:right" @bind="_editFeePercent" />
+                                    }
+                                    else { <span>@fee.PercentageFee.ToString("N2")%</span> }
+                                </td>
+                                <td style="text-align:right">
+                                    @if (_editingFeeId == fee.SellerId)
+                                    {
+                                        <input class="filter-input" type="number" step="1" min="0"
+                                               style="width:90px;text-align:right" @bind="_editFixedFee" />
+                                    }
+                                    else { <span>$@fee.FixedFeeAmount.ToString("N0")</span> }
+                                </td>
+                                <td style="text-align:right">
+                                    @if (_editingFeeId == fee.SellerId)
+                                    {
+                                        <button class="btn btn-primary" type="button" @onclick="() => SaveSellerFeeAsync(fee.SellerId)">Guardar</button>
+                                        <button class="btn btn-ghost" type="button" @onclick="CancelFeeEdit" style="margin-left:8px">Cancelar</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-ghost" type="button" @onclick="() => BeginFeeEdit(fee)">Editar</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
 
-            @if (_editingId == item.Id)
+    <!-- Partners / visibilidad -->
+    <section class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Partners</p><h2>Moderación</h2></div></div>
+        @if (_items is null)
+        {
+            <LoadingPanel Message="Cargando partners…" />
+        }
+        else if (_items.Count == 0)
+        {
+            <EmptyState Title="Sin partners" Description="No hay negocios registrados." />
+        }
+        else
+        {
+            @foreach (var item in _items)
             {
-                <div class="panel-card">
-                    <label class="kpi-label">Nombre</label>
-                    <input class="filter-input" @bind="_name" />
-                    <label class="kpi-label">Dirección</label>
-                    <input class="filter-input" @bind="_address" />
-                    <label class="kpi-label">Teléfono</label>
-                    <input class="filter-input" @bind="_phone" />
-                    <label class="kpi-label">Email</label>
-                    <input class="filter-input" @bind="_email" />
-                    <label class="kpi-label">Publicado</label>
-                    <input type="checkbox" @bind="_isVisible" />
-                    <div class="flex gap-3 mt-4">
-                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
-                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                <div class="row-card">
+                    <div>
+                        <p class="row-title">@item.Name</p>
+                        <p class="row-subtitle">@item.CategoryName / @item.SubcategoryName</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem">
+                        <StatusBadge Status="@(item.IsVisible ? "active" : "inactive")"
+                                     Label="@(item.IsVisible ? "Publicado" : "Oculto")" />
+                        <button class="btn btn-ghost" type="button" @onclick="() => BeginEdit(item)">Editar</button>
                     </div>
                 </div>
+
+                @if (_editingId == item.Id)
+                {
+                    <div class="panel-card" style="margin:0.5rem 0 1rem">
+                        <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
+                            <div class="filter-field"><label>Nombre</label><input class="filter-input" @bind="_name" /></div>
+                            <div class="filter-field"><label>Dirección</label><input class="filter-input" @bind="_address" /></div>
+                            <div class="filter-field"><label>Teléfono</label><input class="filter-input" @bind="_phone" /></div>
+                            <div class="filter-field"><label>Email</label><input class="filter-input" @bind="_email" /></div>
+                        </div>
+                        <label class="kpi-label">Publicado</label>
+                        <input type="checkbox" @bind="_isVisible" />
+                        <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                            <button class="btn btn-primary" type="button" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                            <button class="btn btn-ghost" type="button" @onclick="Cancel">Cancelar</button>
+                        </div>
+                    </div>
+                }
             }
         }
-    }
-</section>
+    </section>
+}
 
 @code {
-    // Partners
     private List<ComunaClick.Admin.Models.AdminPartnerListItemDto>? _items;
+    private string? _error;
     private Guid? _editingId;
     private string _name = string.Empty;
     private string? _address;
@@ -158,7 +152,6 @@
     private string? _email;
     private bool _isVisible;
 
-    // Fees global
     private List<ComunaClick.Admin.Models.AdminSellerFeeItemDto>? _fees;
     private decimal _globalFeePercent = 2.61m;
     private decimal _globalFixedFee = 0m;
@@ -166,55 +159,48 @@
     private string? _feesMessage;
     private bool _feesOk;
 
-    // Fee individual
     private Guid? _editingFeeId;
     private decimal _editFeePercent;
     private decimal _editFixedFee;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
     {
-        var partnersTask = Client.GetPartnersAsync();
-        var feesTask = Client.GetSellerFeesAsync();
-        await Task.WhenAll(partnersTask, feesTask);
-        _items = partnersTask.Result ?? new();
-        _fees = feesTask.Result ?? new();
-        if (_fees.Count > 0)
+        _error = null;
+        try
         {
-            _globalFeePercent = _fees[0].PercentageFee;
-            _globalFixedFee = _fees[0].FixedFeeAmount;
+            var partnersTask = Client.GetPartnersAsync();
+            var feesTask = Client.GetSellerFeesAsync();
+            await Task.WhenAll(partnersTask, feesTask);
+            _items = partnersTask.Result ?? new();
+            _fees = feesTask.Result ?? new();
+            if (_fees.Count > 0) { _globalFeePercent = _fees[0].PercentageFee; _globalFixedFee = _fees[0].FixedFeeAmount; }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
         }
     }
 
     private async Task ApplyGlobalFeeAsync()
     {
-        _feesBusy = true;
-        _feesMessage = null;
+        _feesBusy = true; _feesMessage = null;
         try
         {
             await Client.UpdateGlobalFeeAsync(_globalFeePercent, _globalFixedFee);
             if (_fees is not null)
-            {
                 _fees = _fees.Select(f => f with { PercentageFee = _globalFeePercent, FixedFeeAmount = _globalFixedFee }).ToList();
-            }
-            _feesMessage = $"✓ Comisión actualizada a {_globalFeePercent:N2}% para todos los vendedores activos.";
+            _feesMessage = $"Comisión actualizada a {_globalFeePercent:N2}% para todos los vendedores activos.";
             _feesOk = true;
         }
-        catch
-        {
-            _feesMessage = "Error al actualizar las comisiones. Intentá de nuevo.";
-            _feesOk = false;
-        }
-        finally
-        {
-            _feesBusy = false;
-        }
+        catch { _feesMessage = "Error al actualizar las comisiones. Intentá de nuevo."; _feesOk = false; }
+        finally { _feesBusy = false; }
     }
 
     private void BeginFeeEdit(ComunaClick.Admin.Models.AdminSellerFeeItemDto fee)
     {
-        _editingFeeId = fee.SellerId;
-        _editFeePercent = fee.PercentageFee;
-        _editFixedFee = fee.FixedFeeAmount;
+        _editingFeeId = fee.SellerId; _editFeePercent = fee.PercentageFee; _editFixedFee = fee.FixedFeeAmount;
     }
 
     private void CancelFeeEdit() => _editingFeeId = null;
@@ -227,55 +213,29 @@
             if (_fees is not null)
             {
                 var idx = _fees.FindIndex(f => f.SellerId == sellerId);
-                if (idx >= 0)
-                {
-                    _fees[idx] = _fees[idx] with { PercentageFee = _editFeePercent, FixedFeeAmount = _editFixedFee };
-                }
+                if (idx >= 0) _fees[idx] = _fees[idx] with { PercentageFee = _editFeePercent, FixedFeeAmount = _editFixedFee };
             }
-            _feesMessage = $"✓ Comisión del vendedor actualizada a {_editFeePercent:N2}%.";
-            _feesOk = true;
+            _feesMessage = $"Comisión del vendedor actualizada a {_editFeePercent:N2}%."; _feesOk = true;
         }
-        catch
-        {
-            _feesMessage = "Error al actualizar la comisión del vendedor.";
-            _feesOk = false;
-        }
-        finally
-        {
-            _editingFeeId = null;
-        }
+        catch { _feesMessage = "Error al actualizar la comisión del vendedor."; _feesOk = false; }
+        finally { _editingFeeId = null; }
     }
 
-    // Partners
     private void BeginEdit(ComunaClick.Admin.Models.AdminPartnerListItemDto item)
     {
-        _editingId = item.Id;
-        _name = item.Name;
-        _address = item.Address;
-        _phone = item.Phone;
-        _email = item.Email;
-        _isVisible = item.IsVisible;
+        _editingId = item.Id; _name = item.Name; _address = item.Address;
+        _phone = item.Phone; _email = item.Email; _isVisible = item.IsVisible;
     }
 
     private void Cancel() => _editingId = null;
 
     private async Task SaveAsync(Guid id)
     {
-        var updated = await Client.UpdatePartnerAsync(id, new
-        {
-            name = _name,
-            address = _address,
-            phone = _phone,
-            email = _email,
-            isVisible = _isVisible
-        });
+        var updated = await Client.UpdatePartnerAsync(id, new { name = _name, address = _address, phone = _phone, email = _email, isVisible = _isVisible });
         if (updated is not null && _items is not null)
         {
             var index = _items.FindIndex(x => x.Id == id);
-            if (index >= 0)
-            {
-                _items[index] = updated;
-            }
+            if (index >= 0) _items[index] = updated;
         }
         Cancel();
     }

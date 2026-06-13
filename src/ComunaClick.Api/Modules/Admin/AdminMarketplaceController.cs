@@ -1,3 +1,4 @@
+using ComunaClick.Api.Modules.Marketplace;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,73 @@ namespace ComunaClick.Api.Modules.Admin;
 public sealed class AdminMarketplaceController : ControllerBase
 {
     private readonly CoreDbContext _db;
+    private readonly MercadoPagoWebhookService _webhookService;
 
-    public AdminMarketplaceController(CoreDbContext db)
+    public AdminMarketplaceController(CoreDbContext db, MercadoPagoWebhookService webhookService)
     {
         _db = db;
+        _webhookService = webhookService;
+    }
+
+    [HttpGet("/v1/admin/sellers")]
+    public async Task<ActionResult<IReadOnlyList<AdminSellerListItemDto>>> ListSellers(CancellationToken cancellationToken)
+    {
+        var sellers = await _db.Sellers
+            .AsNoTracking()
+            .Include(x => x.MercadoPagoAccount)
+            .Include(x => x.FeeConfiguration)
+            .OrderBy(x => x.Name)
+            .Take(500)
+            .ToListAsync(cancellationToken);
+
+        if (sellers.Count == 0)
+        {
+            return Ok(Array.Empty<AdminSellerListItemDto>());
+        }
+
+        var sellerIds = sellers.Select(x => x.Id).ToList();
+        var paymentCounts = await _db.Payments
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(x => x.SellerId != null && sellerIds.Contains(x.SellerId.Value))
+            .GroupBy(x => x.SellerId!.Value)
+            .Select(g => new { SellerId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SellerId, x => x.Count, cancellationToken);
+
+        var items = sellers
+            .Select(x => new AdminSellerListItemDto(
+                x.Id,
+                x.TenantId,
+                x.Name,
+                x.Email,
+                x.IsActive,
+                x.MercadoPagoAccount?.ConnectionStatus ?? "disconnected",
+                x.MercadoPagoAccount?.MpUserId,
+                x.MercadoPagoAccount?.ConnectedAt,
+                x.FeeConfiguration?.PercentageFee ?? 0m,
+                x.FeeConfiguration?.FixedFeeAmount ?? 0m,
+                paymentCounts.TryGetValue(x.Id, out var count) ? count : 0,
+                x.UpdatedAt))
+            .ToList();
+
+        return Ok(items);
+    }
+
+    [HttpPost("payments/{id:guid}/sync")]
+    public async Task<IActionResult> RetryPaymentSync(Guid id, CancellationToken cancellationToken)
+    {
+        var exists = await _db.Payments
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == id, cancellationToken);
+
+        if (!exists)
+        {
+            return NotFound();
+        }
+
+        await _webhookService.SyncPaymentAsync(id, cancellationToken);
+        return Accepted();
     }
 
     [HttpGet("fees")]

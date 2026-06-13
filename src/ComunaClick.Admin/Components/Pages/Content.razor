@@ -3,51 +3,51 @@
 
 <PageTitle>Contenido - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Sitio público</p>
-    <h1>Hero y footer</h1>
-    <p class="page-description">Modifica el mensaje principal de la home y los enlaces sociales del footer sin tocar el código del sitio.</p>
-</section>
+<PageHeader Eyebrow="Sitio público"
+            Title="Hero y footer"
+            Description="Modifica el mensaje principal de la home y los enlaces sociales del footer sin tocar el código del sitio." />
 
-@if (_content is null)
+@if (!string.IsNullOrWhiteSpace(_error))
 {
-    <section class="not-found-card"><p>Cargando contenido...</p></section>
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar el contenido" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else if (_content is null)
+{
+    <section class="panel-card">
+        <LoadingPanel Message="Cargando contenido…" />
+    </section>
 }
 else
 {
-    <section class="dashboard-grid">
+    <section class="detail-grid">
         <article class="panel-card">
             <div class="panel-head"><div><p class="eyebrow">Home</p><h2>Hero principal</h2></div></div>
-            <label class="kpi-label">Título</label>
-            <input class="filter-input" @bind="_content.Home.Title" />
-            <label class="kpi-label">Subtítulo</label>
-            <textarea class="filter-input" @bind="_content.Home.Subtitle"></textarea>
-            <label class="kpi-label">Imagen</label>
-            <input class="filter-input" @bind="_content.Home.BackgroundImageUrl" />
-            <label class="kpi-label">CTA primario</label>
-            <input class="filter-input" @bind="_content.Home.PrimaryCtaLabel" />
-            <label class="kpi-label">Href primario</label>
-            <input class="filter-input" @bind="_content.Home.PrimaryCtaHref" />
-            <label class="kpi-label">CTA secundario</label>
-            <input class="filter-input" @bind="_content.Home.SecondaryCtaLabel" />
-            <label class="kpi-label">Href secundario</label>
-            <input class="filter-input" @bind="_content.Home.SecondaryCtaHref" />
+            <div class="filter-field"><label>Título</label><input class="filter-input" @bind="_content.Home.Title" /></div>
+            <div class="filter-field"><label>Subtítulo</label><textarea class="filter-input" @bind="_content.Home.Subtitle"></textarea></div>
+            <div class="filter-field"><label>Imagen de fondo (URL)</label><input class="filter-input" @bind="_content.Home.BackgroundImageUrl" /></div>
+            <div class="filter-field"><label>CTA primario</label><input class="filter-input" @bind="_content.Home.PrimaryCtaLabel" /></div>
+            <div class="filter-field"><label>Href primario</label><input class="filter-input" @bind="_content.Home.PrimaryCtaHref" /></div>
+            <div class="filter-field"><label>CTA secundario</label><input class="filter-input" @bind="_content.Home.SecondaryCtaLabel" /></div>
+            <div class="filter-field"><label>Href secundario</label><input class="filter-input" @bind="_content.Home.SecondaryCtaHref" /></div>
         </article>
 
         <article class="panel-card">
             <div class="panel-head"><div><p class="eyebrow">Footer</p><h2>Redes y copy</h2></div></div>
-            <label class="kpi-label">Copy</label>
-            <input class="filter-input" @bind="_content.Footer.CopyrightText" />
-            <label class="kpi-label">Instagram</label>
-            <input class="filter-input" @bind="_content.Footer.InstagramUrl" />
-            <label class="kpi-label">Facebook</label>
-            <input class="filter-input" @bind="_content.Footer.FacebookUrl" />
-            <label class="kpi-label">LinkedIn</label>
-            <input class="filter-input" @bind="_content.Footer.LinkedInUrl" />
-            <button class="primary-link mt-4" @onclick="SaveAsync">Guardar contenido</button>
-            @if (!string.IsNullOrWhiteSpace(_status))
+            <div class="filter-field"><label>Copyright</label><input class="filter-input" @bind="_content.Footer.CopyrightText" /></div>
+            <div class="filter-field"><label>Instagram</label><input class="filter-input" @bind="_content.Footer.InstagramUrl" /></div>
+            <div class="filter-field"><label>Facebook</label><input class="filter-input" @bind="_content.Footer.FacebookUrl" /></div>
+            <div class="filter-field"><label>LinkedIn</label><input class="filter-input" @bind="_content.Footer.LinkedInUrl" /></div>
+            <div style="margin-top:1.5rem">
+                <button class="btn btn-primary" type="button" @onclick="SaveAsync">
+                    <span class="material-symbols-outlined">save</span>
+                    Guardar contenido
+                </button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_statusMessage))
             {
-                <p class="page-description">@_status</p>
+                <p class="text-sm" style="margin-top:0.75rem">@_statusMessage</p>
             }
         </article>
     </section>
@@ -55,21 +55,35 @@ else
 
 @code {
     private ComunaClick.Admin.Models.SiteContentDto? _content;
-    private string? _status;
+    private string? _error;
+    private string? _statusMessage;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _content = await Client.GetSiteContentAsync();
+        _error = null;
+        try
+        {
+            _content = await Client.GetSiteContentAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private async Task SaveAsync()
     {
-        if (_content is null)
+        if (_content is null) return;
+        try
         {
-            return;
+            _content = await Client.SaveSiteContentAsync(_content);
+            _statusMessage = "Contenido actualizado correctamente.";
         }
-
-        _content = await Client.SaveSiteContentAsync(_content);
-        _status = "Contenido actualizado correctamente.";
+        catch (Exception ex)
+        {
+            _statusMessage = $"Error al guardar: {ex.Message}";
+        }
     }
 }

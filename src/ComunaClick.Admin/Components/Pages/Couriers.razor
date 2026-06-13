@@ -1,0 +1,128 @@
+@page "/couriers"
+@using System.Globalization
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Couriers - ComunaClick.Admin</PageTitle>
+
+<PageHeader Eyebrow="Transporte"
+            Title="Repartidores"
+            Description="Estado de cada repartidor: cuenta, conexión a Mercado Pago y liquidaciones pendientes." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar repartidores" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="AdminCourierListItemDto"
+               Items="_items"
+               IsLoading="_isLoading"
+               EmptyTitle="Sin repartidores"
+               EmptyDescription="Cuando existan repartidores registrados aparecerán aquí."
+               KeySelector="x => x.Id">
+        <FilterBar>
+            <div class="filter-field">
+                <label>Buscar</label>
+                <input class="filter-input" placeholder="Nombre, empresa, teléfono…" @bind="_search"
+                       @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+            </div>
+            <button class="btn btn-primary" type="button" @onclick="LoadAsync">
+                <span class="material-symbols-outlined">filter_alt</span>
+                Filtrar
+            </button>
+        </FilterBar>
+        <HeaderTemplate>
+            <th>Repartidor</th>
+            <th>Partner</th>
+            <th>Contacto</th>
+            <th>Cuenta</th>
+            <th>Mercado Pago</th>
+            <th>Liquidaciones pendientes</th>
+            <th>Disponible</th>
+        </HeaderTemplate>
+        <RowTemplate Context="c">
+            <td>
+                <span class="cell-title">@c.Name</span><br />
+                <span class="cell-muted">@c.Kind @(c.Company is not null ? $"· {c.Company}" : "")</span>
+            </td>
+            <td class="cell-muted">@c.PartnerName</td>
+            <td class="cell-muted">@c.Phone @(c.Email is not null ? $"· {c.Email}" : "")</td>
+            <td>
+                <StatusBadge Status="@(c.HasAccount ? "active" : "inactive")"
+                             Label="@(c.HasAccount ? "Con cuenta" : "Sin cuenta")" />
+            </td>
+            <td>
+                <StatusBadge Status="@MpStatusKind(c.MercadoPagoStatus)"
+                             Label="@MpStatusLabel(c.MercadoPagoStatus)" />
+            </td>
+            <td>
+                @if (c.PendingSettlements > 0)
+                {
+                    <span class="cell-title">@c.PendingSettlements slips</span><br />
+                    <span class="cell-amount">@c.PendingAmount.ToString("C0", Cl)</span>
+                }
+                else
+                {
+                    <span class="cell-muted">Al día</span>
+                }
+            </td>
+            <td>
+                <StatusBadge Status="@(c.IsAvailable ? "active" : "inactive")"
+                             Label="@(c.IsAvailable ? "Disponible" : "No disponible")" />
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private IReadOnlyList<AdminCourierListItemDto>? _items;
+    private string _search = string.Empty;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _items = await Client.GetCouriersAsync(search: NullIfEmpty(_search));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadAsync();
+    }
+
+    private static string? NullIfEmpty(string v) => string.IsNullOrWhiteSpace(v) ? null : v;
+
+    private static string MpStatusLabel(string s) => s switch
+    {
+        "connected" => "Conectado",
+        "pending" => "Pendiente",
+        "not_connected" => "Sin conectar",
+        _ => s
+    };
+
+    private static string MpStatusKind(string s) => s switch
+    {
+        "connected" => "active",
+        "pending" => "pending",
+        _ => "inactive"
+    };
+}

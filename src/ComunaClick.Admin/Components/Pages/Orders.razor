@@ -1,0 +1,187 @@
+@page "/ordenes"
+@using System.Globalization
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+@inject IJSRuntime JS
+
+<PageTitle>Órdenes - ComunaClick.Admin</PageTitle>
+
+<PageHeader Eyebrow="Operación"
+            Title="Órdenes de la plataforma"
+            Description="Historial global de pedidos con estado de pago, tipo de despacho y partner." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar órdenes" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="AdminOrderListItemDto"
+               Items="_result?.Items"
+               IsLoading="_isLoading"
+               EmptyTitle="Sin órdenes"
+               EmptyDescription="Ajusta los filtros o espera nuevas órdenes."
+               KeySelector="x => x.Id">
+        <FilterBar>
+            <div class="filter-field">
+                <label>Buscar</label>
+                <input class="filter-input" placeholder="Comprador, partner…" @bind="_search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+            </div>
+            <div class="filter-field">
+                <label>Estado</label>
+                <select class="filter-select" @bind="_status">
+                    <option value="">Todos</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="confirmed">Confirmado</option>
+                    <option value="preparing">En preparación</option>
+                    <option value="ready">Listo</option>
+                    <option value="in_transit">En camino</option>
+                    <option value="delivered">Entregado</option>
+                    <option value="cancelled">Cancelado</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label>Desde</label>
+                <input type="date" class="filter-input" @bind="_from" />
+            </div>
+            <div class="filter-field">
+                <label>Hasta</label>
+                <input type="date" class="filter-input" @bind="_to" />
+            </div>
+            <button class="btn btn-primary" type="button" @onclick="LoadAsync">
+                <span class="material-symbols-outlined">filter_alt</span>
+                Filtrar
+            </button>
+            <button class="btn btn-ghost" type="button" disabled="@_isExporting" @onclick="ExportAsync">
+                <span class="material-symbols-outlined">download</span>
+                @(_isExporting ? "Exportando…" : "Exportar CSV")
+            </button>
+        </FilterBar>
+        <HeaderTemplate>
+            <th>Orden</th>
+            <th>Partner</th>
+            <th>Comprador</th>
+            <th>Total</th>
+            <th>Despacho</th>
+            <th>Pago</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+        </HeaderTemplate>
+        <RowTemplate Context="item">
+            <td>
+                <a href="@($"/ordenes/{item.Id}")">
+                    <span class="cell-title">@item.Id.ToString()[..8]…</span>
+                </a>
+            </td>
+            <td class="cell-muted">@item.PartnerName</td>
+            <td class="cell-muted">@(item.BuyerName ?? item.BuyerEmail ?? "—")</td>
+            <td class="cell-amount">@item.TotalAmount.ToString("C0", Cl)</td>
+            <td>
+                @if (!string.IsNullOrWhiteSpace(item.DeliveryStatus))
+                {
+                    <StatusBadge Status="@item.DeliveryStatus" />
+                }
+                else
+                {
+                    <span class="cell-muted">@(item.DeliveryType ?? "—")</span>
+                }
+            </td>
+            <td>
+                @if (!string.IsNullOrWhiteSpace(item.PaymentStatus))
+                {
+                    <StatusBadge Status="@item.PaymentStatus" />
+                }
+                else
+                {
+                    <span class="cell-muted">—</span>
+                }
+            </td>
+            <td><StatusBadge Status="@item.Status" Label="@OrderStatusLabel(item.Status)" /></td>
+            <td class="cell-muted">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", Cl)</td>
+        </RowTemplate>
+    </DataTable>
+
+    @if (_result is not null)
+    {
+        <p class="kpi-footnote" style="text-align:right;margin-top:0.5rem">
+            Mostrando @(_result.Items.Count) de @_result.Total registros (pág. @_result.Page)
+        </p>
+    }
+}
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private AdminPagedResult<AdminOrderListItemDto>? _result;
+    private string _status = string.Empty;
+    private string _search = string.Empty;
+    private DateTime? _from;
+    private DateTime? _to;
+    private bool _isLoading = true;
+    private bool _isExporting;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            _result = await Client.GetOrdersAsync(
+                NullIfEmpty(_status), null, null,
+                NullIfEmpty(_search), FromFilter, ToFilter);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadAsync();
+    }
+
+    private async Task ExportAsync()
+    {
+        var token = Client.AccessToken;
+        if (string.IsNullOrWhiteSpace(token)) { _error = "Sin sesión activa."; return; }
+        _isExporting = true;
+        try
+        {
+            var url = Client.BuildOrdersExportUrl(NullIfEmpty(_status), null, NullIfEmpty(_search), FromFilter, ToFilter);
+            await JS.InvokeVoidAsync("comunaclicAdmin.downloadWithAuth", url, token,
+                $"ordenes_{DateTime.Now:yyyyMMdd_HHmm}.csv");
+        }
+        catch (Exception ex) { _error = $"No se pudo exportar: {ex.Message}"; }
+        finally { _isExporting = false; }
+    }
+
+    private DateTimeOffset? FromFilter => _from.HasValue
+        ? new DateTimeOffset(DateTime.SpecifyKind(_from.Value.Date, DateTimeKind.Utc)) : null;
+
+    private DateTimeOffset? ToFilter => _to.HasValue
+        ? new DateTimeOffset(DateTime.SpecifyKind(_to.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc)) : null;
+
+    private static string? NullIfEmpty(string v) => string.IsNullOrWhiteSpace(v) ? null : v;
+
+    private static string OrderStatusLabel(string s) => s switch
+    {
+        "pending" => "Pendiente",
+        "confirmed" => "Confirmado",
+        "preparing" => "Preparando",
+        "ready" => "Listo",
+        "in_transit" => "En camino",
+        "delivered" => "Entregado",
+        "cancelled" => "Cancelado",
+        _ => s
+    };
+}

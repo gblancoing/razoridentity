@@ -3,106 +3,69 @@
 @inject NavigationManager Navigation
 @implements IDisposable
 
-<MudThemeProvider Theme="_theme" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
-
 @if (!AuthState.IsInitialized)
 {
-    <MudLayout>
-        <MudMainContent>
-            <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height:100vh">
-                <MudStack AlignItems="AlignItems.Center" Spacing="4">
-                    <MudProgressCircular Color="Color.Success" Indeterminate="true" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">Validando acceso administrativo…</MudText>
-                </MudStack>
-            </MudContainer>
-        </MudMainContent>
-    </MudLayout>
+    <div class="admin-shell">
+        <main class="content-shell">
+            <article class="page-body">
+                <section class="not-found-card">
+                    <p class="eyebrow">ComunaClick.Admin</p>
+                    <h1>Validando acceso administrativo</h1>
+                    <p>Estamos verificando tu sesión en el panel central.</p>
+                </section>
+            </article>
+        </main>
+    </div>
 }
 else if (!AuthState.IsAuthenticated || !AuthState.IsPaymentsAdmin)
 {
-    <MudLayout>
-        <MudMainContent>
-            <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height:100vh">
-                <MudStack AlignItems="AlignItems.Center" Spacing="3">
-                    <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" Style="font-size:3rem" />
-                    <MudText Typo="Typo.h5">Acceso restringido</MudText>
-                    <MudText Color="Color.Secondary">Redirigiendo al login…</MudText>
-                </MudStack>
-            </MudContainer>
-        </MudMainContent>
-    </MudLayout>
+    <div class="admin-shell">
+        <main class="content-shell">
+            <article class="page-body">
+                <section class="not-found-card">
+                    <p class="eyebrow">ComunaClick.Admin</p>
+                    <h1>Acceso restringido</h1>
+                    <p>Redirigiendo al login…</p>
+                </section>
+            </article>
+        </main>
+    </div>
 }
 else
 {
-    <MudLayout>
-        <MudAppBar Elevation="0" Color="Color.Surface" Style="border-bottom:1px solid #e8e5dc; background:rgba(255,255,255,0.85); backdrop-filter:blur(18px);">
-            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                <MudText Typo="Typo.overline" Style="color:#61897c; letter-spacing:0.12em;">ComunaClic</MudText>
-                <MudText Typo="Typo.subtitle1" Style="font-family:'Manrope',sans-serif; font-weight:800; color:#111816;">Panel central de operación</MudText>
-            </MudStack>
-            <MudSpacer />
-            <MudChip T="string" Icon="@Icons.Material.Filled.AdminPanelSettings" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
-                @(AuthState.Tokens?.DisplayName ?? AuthState.Tokens?.Email ?? "Administrador")
-            </MudChip>
-            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" aria-label="Cerrar sesión" OnClick="Logout" />
-        </MudAppBar>
-
-        <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Responsive"
-                   Style="border-right:1px solid #e8e5dc; background:rgba(255,255,255,0.9); backdrop-filter:blur(18px);">
-            <MudDrawerHeader Style="padding:24px 20px 16px;">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudAvatar Style="background:linear-gradient(135deg,#22c55e,#2d9e4f); color:white; font-family:'Manrope',sans-serif; font-weight:800; border-radius:18px;">CA</MudAvatar>
-                    <MudStack Spacing="0">
-                        <MudText Typo="Typo.subtitle2" Style="font-family:'Manrope',sans-serif; font-weight:800;">ComunaClick.Admin</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@RoleLabel</MudText>
-                    </MudStack>
-                </MudStack>
-            </MudDrawerHeader>
-
-            <MudNavMenu>
-                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
-                <MudNavLink Href="/usuarios" Icon="@Icons.Material.Filled.Group">Usuarios</MudNavLink>
-                <MudNavLink Href="/tenants" Icon="@Icons.Material.Filled.Apartment">Tenants</MudNavLink>
-                <MudNavLink Href="/partners" Icon="@Icons.Material.Filled.Storefront">Partners</MudNavLink>
-                <MudNavLink Href="/categorias" Icon="@Icons.Material.Filled.Inventory2">Categorías</MudNavLink>
-                <MudNavLink Href="/delivery-providers" Icon="@Icons.Material.Filled.LocalShipping">Delivery</MudNavLink>
-                <MudNavLink Href="/contenido" Icon="@Icons.Material.Filled.EditNote">Contenido</MudNavLink>
-                <MudNavLink Href="/pagos" Icon="@Icons.Material.Filled.Payments">Pagos</MudNavLink>
-                <MudNavLink Href="/auditoria" Icon="@Icons.Material.Filled.History">Auditoría</MudNavLink>
-                <MudNavLink Href="/configuracion" Icon="@Icons.Material.Filled.Settings">Configuración</MudNavLink>
-            </MudNavMenu>
-        </MudDrawer>
-
-        <MudMainContent>
-            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-6">
-                @Body
-            </MudContainer>
-        </MudMainContent>
-    </MudLayout>
+    <AdminShell BrandInitials="CA"
+                BrandTitle="ComunaClick.Admin"
+                BrandSubtitle="Panel central"
+                TopbarLabel="ComunaClic"
+                TopbarTitle="Panel central de operación"
+                FooterLabel="Acceso"
+                FooterValue="@RoleLabel"
+                UserDisplay="@(AuthState.Tokens?.DisplayName ?? AuthState.Tokens?.Email ?? "Administrador")"
+                NavItems="_navItems"
+                OnLogout="Logout">
+        <Body>
+            @Body
+        </Body>
+    </AdminShell>
 }
 
 @code {
-    private bool _drawerOpen = true;
-
-    private MudTheme _theme = new MudTheme
+    private static readonly IReadOnlyList<AdminNavItem> _navItems = new[]
     {
-        PaletteLight = new PaletteLight
-        {
-            Primary = "#22c55e",
-            PrimaryContrastText = "#ffffff",
-            Secondary = "#61897c",
-            Success = "#2d9e4f",
-            Background = "#fffdf7",
-            Surface = "#ffffff",
-            AppbarBackground = "#00000000",
-            DrawerBackground = "#00000000",
-            TextPrimary = "#111816",
-            TextSecondary = "#61897c",
-        }
+        new AdminNavItem("/", "dashboard", "Dashboard", MatchAll: true),
+        new AdminNavItem("/ordenes", "receipt_long", "Órdenes"),
+        new AdminNavItem("/liquidaciones", "account_balance_wallet", "Liquidaciones"),
+        new AdminNavItem("/couriers", "directions_bike", "Couriers"),
+        new AdminNavItem("/marketplace", "storefront", "Marketplace"),
+        new AdminNavItem("/payouts", "payments", "Payouts"),
+        new AdminNavItem("/partners", "handshake", "Partners"),
+        new AdminNavItem("/usuarios", "group", "Usuarios"),
+        new AdminNavItem("/tenants", "apartment", "Tenants"),
+        new AdminNavItem("/categorias", "category", "Categorías"),
+        new AdminNavItem("/delivery-providers", "local_shipping", "Delivery"),
+        new AdminNavItem("/contenido", "edit_note", "Contenido"),
+        new AdminNavItem("/auditoria", "history", "Auditoría"),
+        new AdminNavItem("/configuracion", "settings", "Configuración")
     };
 
     private string RoleLabel =>
@@ -143,8 +106,6 @@ else
         await AuthState.ClearAsync();
         Navigation.NavigateTo("/login", true);
     }
-
-    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 
     public void Dispose()
     {

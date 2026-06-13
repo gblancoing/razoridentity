@@ -49,11 +49,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization(options =>
 {
+    // Escalating policies: each higher level includes all lower roles.
+    // tenant_admin / platform_admin satisfy all levels for backwards compatibility.
+    options.AddPolicy("payments.viewer", policy =>
+        policy.RequireAssertion(context => HasAnyRole(context.User,
+            "payments.viewer", "payments.operator", "payments.admin",
+            "tenant_admin", "platform_admin")));
+
+    options.AddPolicy("payments.operator", policy =>
+        policy.RequireAssertion(context => HasAnyRole(context.User,
+            "payments.operator", "payments.admin",
+            "tenant_admin", "platform_admin")));
+
     options.AddPolicy("payments.admin", policy =>
-        policy.RequireAssertion(context => HasAnyRole(context.User, "tenant_admin", "platform_admin")));
+        policy.RequireAssertion(context => HasAnyRole(context.User,
+            "payments.admin", "tenant_admin", "platform_admin")));
 });
 
 var app = builder.Build();
+
+await PaymentsSchemaBootstrap.ApplyAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,78 +1,136 @@
 @page "/suscripciones"
 @inject PaymentGatewayAdminClient Client
 
+<PageTitle>Suscripciones - Payments.App</PageTitle>
+
+<PageHeader Eyebrow="Suscripciones"
+            Title="Planes recurrentes"
+            Description="Suscripciones reales del gateway con estado, próximo cobro y resultado del último intento." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar suscripciones" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="AdminSubscriptionDto"
+               Items="_subscriptions"
+               IsLoading="_isLoading"
+               EmptyTitle="Sin suscripciones"
+               EmptyDescription="Cuando existan planes recurrentes activos aparecerán aquí."
+               KeySelector="x => x.Id">
+        <FilterBar>
+            <div class="filter-field">
+                <label>Buscar</label>
+                <input class="filter-input" placeholder="Referencia, cliente o plan" @bind="_search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+            </div>
+            <div class="filter-field">
+                <label>Estado</label>
+                <select class="filter-select" @bind="_status">
+                    <option value="">Todos</option>
+                    <option value="active">Activa</option>
+                    <option value="paused">Pausada</option>
+                    <option value="past_due">Con deuda</option>
+                    <option value="cancelled">Cancelada</option>
+                    <option value="expired">Expirada</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="button" @onclick="LoadAsync">
+                <span class="material-symbols-outlined">filter_alt</span>
+                Filtrar
+            </button>
+        </FilterBar>
+        <HeaderTemplate>
+            <th>Plan</th>
+            <th>Cliente</th>
+            <th>Monto</th>
+            <th>Próximo cobro</th>
+            <th>Último intento</th>
+            <th>Estado</th>
+        </HeaderTemplate>
+        <RowTemplate Context="item">
+            <td>
+                <a href="@($"/suscripciones/{item.Id}")">
+                    <span class="cell-title">@(item.PlanName ?? "Plan recurrente")</span><br />
+                    <span class="cell-muted">@item.ExternalReference · @item.Provider · @IntervalLabel(item.BillingInterval)</span>
+                </a>
+            </td>
+            <td class="cell-muted">@item.CustomerId</td>
+            <td class="cell-amount">@item.Amount.ToString("C0", Cl)</td>
+            <td class="cell-muted">@(item.NextChargeAt?.ToLocalTime().ToString("dd MMM yyyy", Cl) ?? "—")</td>
+            <td>
+                @if (item.LastAttemptAt.HasValue)
+                {
+                    <StatusBadge Status="@(item.LastAttemptStatus ?? "—")" />
+                    <br />
+                    <span class="cell-muted">@item.LastAttemptAt.Value.ToLocalTime().ToString("dd MMM yyyy", Cl)</span>
+                }
+                else
+                {
+                    <span class="cell-muted">Sin intentos</span>
+                }
+            </td>
+            <td><StatusBadge Status="@item.Status" Label="@StatusLabel(item.Status)" /></td>
+        </RowTemplate>
+    </DataTable>
+}
+
 @code {
-    private IReadOnlyList<PaymentSubscriptionSummary> _subscriptions = Array.Empty<PaymentSubscriptionSummary>();
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private IReadOnlyList<AdminSubscriptionDto>? _subscriptions;
+    private string _status = string.Empty;
+    private string _search = string.Empty;
+    private bool _isLoading = true;
     private string? _error;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
+        _isLoading = true;
+        _error = null;
+
         try
         {
-            _subscriptions = await Client.ListSubscriptionsAsync();
+            _subscriptions = await Client.ListSubscriptionsAsync(
+                string.IsNullOrWhiteSpace(_status) ? null : _status,
+                string.IsNullOrWhiteSpace(_search) ? null : _search);
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _isLoading = false;
+        }
     }
-}
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <section class="not-found-card">
-        <p class="eyebrow">Acceso</p>
-        <h1>No pudimos cargar suscripciones</h1>
-        <p>@_error</p>
-    </section>
-}
-else
-{
-<section class="page-header">
-    <p class="eyebrow">Suscripciones</p>
-    <h1>Planes recurrentes</h1>
-    <p class="page-description">Primera vista de control sobre suscripciones creadas desde botones de pago recurrente.</p>
-</section>
-
-<section class="subscription-grid">
-    @foreach (var subscription in _subscriptions)
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
     {
-        <article class="panel-card subscription-card">
-            <div class="panel-head">
-                <div>
-                    <p class="eyebrow">@subscription.Provider</p>
-                    <h2>@subscription.PlanName</h2>
-                </div>
-                <span class="@($"status-badge {StatusClass(subscription.Status)}")">@StatusLabel(subscription.Status)</span>
-            </div>
-
-            <dl class="detail-list">
-                <div><dt>Cliente</dt><dd>@subscription.CustomerLabel</dd></div>
-                <div><dt>Negocio</dt><dd>@subscription.BusinessLabel</dd></div>
-                <div><dt>Monto</dt><dd>@subscription.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-CL"))</dd></div>
-                <div><dt>Próximo cobro</dt><dd>@subscription.NextBillingAt.ToLocalTime().ToString("dd MMM yyyy", CultureInfo.GetCultureInfo("es-CL"))</dd></div>
-            </dl>
-        </article>
+        if (e.Key == "Enter")
+        {
+            await LoadAsync();
+        }
     }
-</section>
-}
 
-@functions {
-    private static string StatusClass(string status) => status.ToLowerInvariant() switch
+    private static string IntervalLabel(string interval) => interval.ToLowerInvariant() switch
     {
-        "active" => "status-success",
-        "trial" or "past_due" => "status-pending",
-        "paused" or "canceled" or "expired" => "status-failed",
-        _ => "status-muted"
+        "monthly" => "mensual",
+        "weekly" => "semanal",
+        "yearly" => "anual",
+        _ => interval
     };
 
     private static string StatusLabel(string status) => status.ToLowerInvariant() switch
     {
         "active" => "Activa",
-        "trial" => "Prueba",
-        "past_due" => "Con deuda",
         "paused" => "Pausada",
-        "canceled" => "Cancelada",
+        "past_due" => "Con deuda",
+        "cancelled" => "Cancelada",
         "expired" => "Expirada",
         _ => status
     };

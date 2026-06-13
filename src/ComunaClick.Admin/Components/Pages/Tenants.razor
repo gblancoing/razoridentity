@@ -3,79 +3,82 @@
 
 <PageTitle>Tenants - ComunaClick.Admin</PageTitle>
 
-<section class="page-header">
-    <p class="eyebrow">Organización</p>
-    <h1>Tenants y comunas</h1>
-    <p class="page-description">Administra el nombre, estado y timezone de los tenants del ecosistema.</p>
-</section>
+<PageHeader Eyebrow="Organización"
+            Title="Tenants y comunas"
+            Description="Administra el nombre, estado y timezone de los tenants del ecosistema." />
 
-<section class="panel-card">
-    <div class="panel-head"><div><p class="eyebrow">Tenants</p><h2>Gestión</h2></div></div>
-    @if (!string.IsNullOrWhiteSpace(_status))
-    {
-        <p class="page-description">@_status</p>
-    }
-
-    @if (_isLoading)
-    {
-        <p class="page-description">Cargando tenants...</p>
-    }
-    else
-    {
-        @foreach (var item in _items)
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar tenants" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <section class="panel-card">
+        <div class="panel-head"><div><p class="eyebrow">Tenants</p><h2>Gestión</h2></div></div>
+        @if (_isLoading)
         {
-            <div class="row-card">
-                <div>
-                    <p class="row-title">@item.Name</p>
-                    <p class="row-subtitle">@item.ComunaName · @item.Timezone · @item.PartnerCount partners</p>
-                </div>
-                <button class="primary-link" @onclick="() => BeginEdit(item)">Editar</button>
-            </div>
-
-            @if (_editingId == item.Id)
+            <LoadingPanel Message="Cargando tenants…" />
+        }
+        else if (_items.Count == 0)
+        {
+            <EmptyState Title="Sin tenants" Description="No hay tenants registrados en el ecosistema." />
+        }
+        else
+        {
+            @foreach (var item in _items)
             {
-                <div class="panel-card">
-                    <label class="kpi-label">Nombre</label>
-                    <input class="filter-input" @bind="_name" />
-                    <label class="kpi-label">Timezone</label>
-                    <input class="filter-input" @bind="_timezone" />
-                    <label class="kpi-label">Activo</label>
-                    <input type="checkbox" @bind="_isActive" />
-                    <div class="flex gap-3 mt-4">
-                        <button class="primary-link" @onclick="() => SaveAsync(item.Id)">Guardar</button>
-                        <button class="primary-link" @onclick="Cancel">Cancelar</button>
+                <div class="row-card">
+                    <div>
+                        <p class="row-title">@item.Name</p>
+                        <p class="row-subtitle">@item.ComunaName · @item.Timezone · @item.PartnerCount partners</p>
                     </div>
+                    <button class="btn btn-ghost" type="button" @onclick="() => BeginEdit(item)">Editar</button>
                 </div>
+
+                @if (_editingId == item.Id)
+                {
+                    <div class="panel-card" style="margin:0.5rem 0 1rem">
+                        <label class="kpi-label">Nombre</label>
+                        <input class="filter-input" @bind="_name" />
+                        <label class="kpi-label">Timezone</label>
+                        <input class="filter-input" @bind="_timezone" />
+                        <label class="kpi-label">Activo</label>
+                        <input type="checkbox" @bind="_isActive" />
+                        <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                            <button class="btn btn-primary" type="button" @onclick="() => SaveAsync(item.Id)">Guardar</button>
+                            <button class="btn btn-ghost" type="button" @onclick="Cancel">Cancelar</button>
+                        </div>
+                    </div>
+                }
             }
         }
-    }
-</section>
+    </section>
+}
 
 @code {
     private List<ComunaClick.Admin.Models.AdminTenantListItemDto> _items = new();
     private bool _isLoading = true;
-    private string? _status;
+    private string? _error;
     private Guid? _editingId;
     private string _name = string.Empty;
     private string _timezone = "America/Santiago";
     private bool _isActive;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadAsync();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
         _isLoading = true;
+        _error = null;
         try
         {
             _items = await Client.GetTenantsAsync() ?? new();
-            _status = _items.Count == 0 ? "No hay tenants disponibles." : null;
         }
         catch (Exception ex)
         {
-            _status = $"No fue posible cargar tenants: {ex.Message}";
+            _error = ex.Message;
         }
         finally
         {
@@ -91,10 +94,7 @@
         _isActive = item.IsActive;
     }
 
-    private void Cancel()
-    {
-        _editingId = null;
-    }
+    private void Cancel() => _editingId = null;
 
     private async Task SaveAsync(Guid id)
     {
@@ -102,10 +102,7 @@
         if (updated is not null)
         {
             var index = _items.FindIndex(x => x.Id == id);
-            if (index >= 0)
-            {
-                _items[index] = updated;
-            }
+            if (index >= 0) _items[index] = updated;
         }
         Cancel();
     }

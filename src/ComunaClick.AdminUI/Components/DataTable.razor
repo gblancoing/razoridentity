@@ -1,0 +1,83 @@
+@typeparam TItem
+
+<section class="panel-card">
+    @if (Header is not null)
+    {
+        <div class="panel-head">
+            @Header
+        </div>
+    }
+    @if (FilterBar is not null)
+    {
+        <div class="filter-bar">@FilterBar</div>
+    }
+    @if (IsLoading)
+    {
+        <LoadingPanel Message="@LoadingMessage" />
+    }
+    else if (Items is null || Items.Count == 0)
+    {
+        <EmptyState Icon="@EmptyIcon" Title="@EmptyTitle" Description="@EmptyDescription" />
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>@HeaderTemplate</tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in PagedItems)
+                    {
+                        <tr @key="KeySelector?.Invoke(item) ?? item">@RowTemplate(item)</tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (TotalPages > 1)
+        {
+            <Paginator Page="_page" TotalPages="TotalPages" OnPageChanged="HandlePageChanged" />
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public IReadOnlyList<TItem>? Items { get; set; }
+    [Parameter] public RenderFragment HeaderTemplate { get; set; } = default!;
+    [Parameter] public RenderFragment<TItem> RowTemplate { get; set; } = default!;
+    [Parameter] public RenderFragment? Header { get; set; }
+    [Parameter] public RenderFragment? FilterBar { get; set; }
+    [Parameter] public Func<TItem, object>? KeySelector { get; set; }
+    [Parameter] public int PageSize { get; set; } = 20;
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public string LoadingMessage { get; set; } = "Cargando…";
+    [Parameter] public string EmptyIcon { get; set; } = "inbox";
+    [Parameter] public string EmptyTitle { get; set; } = "Sin resultados";
+    [Parameter] public string? EmptyDescription { get; set; }
+
+    private int _page = 1;
+    private IReadOnlyList<TItem>? _lastItems;
+
+    private int TotalPages => Items is null or { Count: 0 }
+        ? 1
+        : (int)Math.Ceiling(Items.Count / (double)Math.Max(1, PageSize));
+
+    private IEnumerable<TItem> PagedItems =>
+        Items?.Skip((_page - 1) * PageSize).Take(PageSize) ?? Enumerable.Empty<TItem>();
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_lastItems, Items))
+        {
+            _lastItems = Items;
+            _page = 1;
+        }
+
+        if (_page > TotalPages)
+        {
+            _page = TotalPages;
+        }
+    }
+
+    private void HandlePageChanged(int page) => _page = page;
+}

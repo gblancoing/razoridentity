@@ -1,0 +1,21 @@
+<section class="kpi-card">
+    <div class="kpi-head">
+        <p class="kpi-label">@Label</p>
+        @if (!string.IsNullOrWhiteSpace(Icon))
+        {
+            <span class="material-symbols-outlined">@Icon</span>
+        }
+    </div>
+    <h2>@Value</h2>
+    @if (!string.IsNullOrWhiteSpace(Footnote))
+    {
+        <p class="kpi-footnote">@Footnote</p>
+    }
+</section>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public string? Footnote { get; set; }
+    [Parameter] public string? Icon { get; set; }
+}

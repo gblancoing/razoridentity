@@ -1,0 +1,172 @@
+@page "/liquidaciones"
+@using System.Globalization
+@inject ComunaClick.Admin.Services.AdminApiClient Client
+
+<PageTitle>Liquidaciones - ComunaClick.Admin</PageTitle>
+
+<PageHeader Eyebrow="Transporte"
+            Title="Liquidaciones de delivery"
+            Description="Slips pendientes y liquidados de cada repartidor. El monto neto es lo que recibe el repartidor tras descontar comisiones de plataforma y Mercado Pago." />
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <section class="panel-card">
+        <ErrorPanel Title="No pudimos cargar liquidaciones" Message="@_error" OnRetry="LoadAsync" />
+    </section>
+}
+else
+{
+    <DataTable TItem="AdminDeliverySettlementDto"
+               Items="_items"
+               IsLoading="_isLoading"
+               EmptyTitle="Sin liquidaciones"
+               EmptyDescription="Cuando existan slips de transporte aparecerán aquí."
+               KeySelector="x => x.Id">
+        <FilterBar>
+            <div class="filter-field">
+                <label>Estado</label>
+                <select class="filter-select" @bind="_status">
+                    <option value="">Todos</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="settled">Liquidado</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label>Desde</label>
+                <input type="date" class="filter-input" @bind="_from" />
+            </div>
+            <div class="filter-field">
+                <label>Hasta</label>
+                <input type="date" class="filter-input" @bind="_to" />
+            </div>
+            <button class="btn btn-primary" type="button" @onclick="LoadAsync">
+                <span class="material-symbols-outlined">filter_alt</span>
+                Filtrar
+            </button>
+        </FilterBar>
+        <HeaderTemplate>
+            <th>Orden</th>
+            <th>Repartidor</th>
+            <th>Bruto</th>
+            <th>Fee plataforma</th>
+            <th>Fee MP</th>
+            <th>Neto repartidor</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </HeaderTemplate>
+        <RowTemplate Context="slip">
+            <td>
+                <a class="cell-title" href="@($"/ordenes/{slip.OrderId}")">@slip.OrderId.ToString()[..8]…</a>
+            </td>
+            <td class="cell-muted">@(slip.CourierName ?? "—")</td>
+            <td class="cell-amount">@slip.GrossAmount.ToString("C0", Cl)</td>
+            <td class="cell-amount">@slip.PlatformFeeAmount.ToString("C0", Cl)</td>
+            <td class="cell-amount">@(slip.MercadoPagoFeeAmount?.ToString("C0", Cl) ?? "—")</td>
+            <td class="cell-amount" style="font-weight:700">@slip.NetToCourierAmount.ToString("C0", Cl)</td>
+            <td>
+                <StatusBadge Status="@slip.Status"
+                             Label="@(slip.Status == "settled" ? "Liquidado" : "Pendiente")" />
+                @if (slip.SettledAt.HasValue)
+                {
+                    <br /><span class="cell-muted">@slip.SettledAt.Value.ToLocalTime().ToString("dd MMM yyyy", Cl)</span>
+                }
+            </td>
+            <td>
+                @if (slip.Status != "settled")
+                {
+                    <button class="btn btn-primary" type="button"
+                            disabled="@(_busy == slip.Id)"
+                            @onclick="() => OpenSettle(slip)">
+                        @if (_busy == slip.Id)
+                        {
+                            <span>Liquidando…</span>
+                        }
+                        else
+                        {
+                            <span class="material-symbols-outlined">check_circle</span>
+                            <span>Marcar liquidado</span>
+                        }
+                    </button>
+                }
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+<ConfirmDialog @bind-IsOpen="_dialogOpen"
+               Title="Marcar como liquidado"
+               Message="@($"Se registrará el pago de {_pendingSlip?.NetToCourierAmount.ToString("C0", Cl)} al repartidor {_pendingSlip?.CourierName}. Esta acción no se puede deshacer.")"
+               ConfirmText="Liquidar"
+               Danger="false"
+               IsBusy="@(_busy is not null)"
+               OnConfirm="ConfirmSettleAsync" />
+
+@code {
+    private static readonly CultureInfo Cl = CultureInfo.GetCultureInfo("es-CL");
+
+    private IReadOnlyList<AdminDeliverySettlementDto>? _items;
+    private string _status = string.Empty;
+    private DateTime? _from;
+    private DateTime? _to;
+    private bool _isLoading = true;
+    private string? _error;
+    private Guid? _busy;
+    private bool _dialogOpen;
+    private AdminDeliverySettlementDto? _pendingSlip;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _items = await Client.GetSettlementsAsync(
+                NullIfEmpty(_status), null, FromFilter, ToFilter);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OpenSettle(AdminDeliverySettlementDto slip)
+    {
+        _pendingSlip = slip;
+        _dialogOpen = true;
+    }
+
+    private async Task ConfirmSettleAsync()
+    {
+        if (_pendingSlip is null) return;
+        _busy = _pendingSlip.Id;
+        _dialogOpen = false;
+        try
+        {
+            await Client.SettleAsync(_pendingSlip.Id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"No se pudo liquidar: {ex.Message}";
+        }
+        finally
+        {
+            _busy = null;
+            _pendingSlip = null;
+        }
+    }
+
+    private DateTimeOffset? FromFilter => _from.HasValue
+        ? new DateTimeOffset(DateTime.SpecifyKind(_from.Value.Date, DateTimeKind.Utc)) : null;
+
+    private DateTimeOffset? ToFilter => _to.HasValue
+        ? new DateTimeOffset(DateTime.SpecifyKind(_to.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc)) : null;
+
+    private static string? NullIfEmpty(string v) => string.IsNullOrWhiteSpace(v) ? null : v;
+}

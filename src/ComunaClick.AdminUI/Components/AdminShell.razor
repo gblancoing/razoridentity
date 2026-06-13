@@ -1,0 +1,94 @@
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<div class="admin-shell @(_sidebarOpen ? "sidebar-open" : null)">
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <div class="brand-icon">@BrandInitials</div>
+            <div>
+                <p class="brand-title">@BrandTitle</p>
+                <p class="brand-subtitle">@BrandSubtitle</p>
+            </div>
+        </a>
+
+        <nav class="sidebar-nav">
+            @foreach (var item in NavItems)
+            {
+                <NavLink href="@item.Href" Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)" class="nav-item">
+                    <span class="material-symbols-outlined">@item.Icon</span>
+                    @item.Label
+                </NavLink>
+            }
+        </nav>
+
+        <div class="sidebar-footer">
+            <p class="footer-label">@FooterLabel</p>
+            <p class="footer-value">@FooterValue</p>
+            @if (OnLogout.HasDelegate)
+            {
+                <button class="primary-link mt-4" type="button" @onclick="OnLogout">Cerrar sesión</button>
+            }
+        </div>
+    </aside>
+
+    <div class="sidebar-scrim" @onclick="CloseSidebar"></div>
+
+    <main class="content-shell">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" type="button" aria-label="Abrir menú" @onclick="ToggleSidebar">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+                <div>
+                    <p class="topbar-label">@TopbarLabel</p>
+                    <p class="topbar-title">@TopbarTitle</p>
+                </div>
+            </div>
+            <div class="user-pill">
+                <span class="material-symbols-outlined">admin_panel_settings</span>
+                @UserDisplay
+            </div>
+        </header>
+
+        <article class="page-body">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    [Parameter] public string BrandInitials { get; set; } = "CC";
+    [Parameter] public string BrandTitle { get; set; } = string.Empty;
+    [Parameter] public string BrandSubtitle { get; set; } = string.Empty;
+    [Parameter] public string TopbarLabel { get; set; } = "ComunaClic";
+    [Parameter] public string TopbarTitle { get; set; } = string.Empty;
+    [Parameter] public string FooterLabel { get; set; } = "Acceso";
+    [Parameter] public string FooterValue { get; set; } = string.Empty;
+    [Parameter] public string UserDisplay { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<AdminNavItem> NavItems { get; set; } = Array.Empty<AdminNavItem>();
+    [Parameter] public EventCallback OnLogout { get; set; }
+    [Parameter] public RenderFragment? Body { get; set; }
+
+    private bool _sidebarOpen;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (!_sidebarOpen) return;
+        _sidebarOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+
+    private void CloseSidebar() => _sidebarOpen = false;
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= HandleLocationChanged;
+    }
+}

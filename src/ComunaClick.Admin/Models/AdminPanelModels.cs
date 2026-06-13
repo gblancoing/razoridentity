@@ -86,7 +86,9 @@ public sealed record AdminAuditEventDto(
     string EntityId,
     string Action,
     string Description,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string? PreviousValues = null,
+    string? NewValues = null);
 
 public sealed record AdminUserDto(
     Guid Id,

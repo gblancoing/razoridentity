@@ -1,0 +1,23 @@
+<div class="bar-list">
+    @foreach (var item in Items)
+    {
+        var pct = MaxValue <= 0 ? 0 : Math.Clamp(item.Value / MaxValue * 100d, 0d, 100d);
+        <div class="bar-item">
+            <div class="bar-meta">
+                <span>@item.Label</span>
+                <span>@(item.DisplayValue ?? item.Value.ToString("N0"))</span>
+            </div>
+            <div class="bar-track">
+                <div class="bar-fill" style="width:@(pct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    public sealed record BarItem(string Label, double Value, string? DisplayValue = null);
+
+    [Parameter] public IReadOnlyList<BarItem> Items { get; set; } = Array.Empty<BarItem>();
+
+    private double MaxValue => Items.Count == 0 ? 0 : Items.Max(x => x.Value);
+}

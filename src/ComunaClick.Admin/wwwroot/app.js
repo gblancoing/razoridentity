@@ -1,5 +1,19 @@
 window.comunaclicAdmin = window.comunaclicAdmin || {};
 
+window.comunaclicAdmin.downloadWithAuth = async function (url, token, filename) {
+  const response = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (!response.ok) throw new Error("Descarga fallida (" + response.status + ")");
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename || "export.csv";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+};
+
 window.comunaclicAdmin.getTokens = function () {
   try {
     return localStorage.getItem("payments.tokens") || "";
