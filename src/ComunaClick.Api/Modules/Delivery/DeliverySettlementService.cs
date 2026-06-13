@@ -33,7 +33,7 @@ public interface IDeliverySettlementService
     /// Cambia status a "manual_confirming" y registra el método en Notes.
     /// El transportista debe confirmar el recibo desde su portal para marcar "settled".
     /// </summary>
-    Task<(bool Ok, string? Error)> DeclareManualPaymentAsync(Guid settlementId, Guid partnerId, string method, CancellationToken cancellationToken = default);
+    Task<(bool Ok, string? Error)> DeclareManualPaymentAsync(Guid settlementId, Guid partnerId, string method, string? notes = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// El transportista confirma que recibió el pago manual declarado por el comercio.
@@ -90,10 +90,6 @@ public sealed class DeliverySettlementService : IDeliverySettlementService
 
         var existing = await _db.DeliverySettlements
             .FirstOrDefaultAsync(x => x.OrderId == order.Id, cancellationToken);
-        if (existing is not null)
-        {
-            return existing;
-        }
 
         var gross = FeeCalculator.RoundClp(order.DeliveryFee);
         var ccFee = _feeCalculator.Calculate(
@@ -101,10 +97,28 @@ public sealed class DeliverySettlementService : IDeliverySettlementService
             _options.Commission.FixedFeeAmount,
             _options.Commission.PercentageFee);
 
-        // El fee MP puede no estar conciliado aún (llega con el webhook); el
-        // neto se recalcula en ReconcileMercadoPagoFeeAsync. Pago manual (sin
-        // MP) ⇒ fee MP = 0 definitivo.
-        var mpFee = payment is null ? 0m : (decimal?)null;
+        // Para pagos manuales, MP ya cobró su tasa cuando el comprador pagó →
+        // se aplica la tasa configurada como estimación. Para pagos vía MP el
+        // fee real llega por webhook y se concilia en ReconcileMercadoPagoFeeAsync.
+        var mpFeeForManual = FeeCalculator.RoundClp(gross * _options.Commission.MercadoPagoFeeRate / 100m);
+        var mpFee = payment is null ? mpFeeForManual : (decimal?)null;
+
+        if (existing is not null)
+        {
+            // Si el settlement todavía no fue confirmado, recalcular con las tasas
+            // actuales (corrige settlements creados con configuración incorrecta).
+            if (existing.Status is not ("settled" or "manual_confirming"))
+            {
+                existing.PlatformFeeAmount = ccFee.TotalPlatformFeeAmount;
+                existing.MercadoPagoFeeAmount = mpFee;
+                existing.NetToCourierAmount = FeeCalculator.RoundClp(
+                    gross - ccFee.TotalPlatformFeeAmount - (mpFee ?? 0m));
+                existing.UpdatedAt = DateTimeOffset.UtcNow;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+            return existing;
+        }
+
         var settlement = new DeliverySettlement
         {
             Id = Guid.NewGuid(),
@@ -227,7 +241,7 @@ public sealed class DeliverySettlementService : IDeliverySettlementService
         }
     }
 
-    public async Task<(bool Ok, string? Error)> DeclareManualPaymentAsync(Guid settlementId, Guid partnerId, string method, CancellationToken cancellationToken = default)
+    public async Task<(bool Ok, string? Error)> DeclareManualPaymentAsync(Guid settlementId, Guid partnerId, string method, string? notes = null, CancellationToken cancellationToken = default)
     {
         var normalized = method.Trim().ToLowerInvariant();
         if (normalized is not ("cash" or "transfer"))
@@ -248,8 +262,14 @@ public sealed class DeliverySettlementService : IDeliverySettlementService
         }
 
         var methodLabel = normalized == "cash" ? "efectivo" : "transferencia bancaria";
+        var notesText = $"Comercio declaró pago en {methodLabel}. Esperando confirmación del transportista.";
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            notesText += $" Nota: {notes.Trim()}";
+        }
+
         settlement.Status = "manual_confirming";
-        settlement.Notes = $"Comercio declaró pago en {methodLabel}. Esperando confirmación del transportista.";
+        settlement.Notes = notesText;
         settlement.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
         return (true, null);

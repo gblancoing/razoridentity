@@ -63,6 +63,14 @@ public sealed class DeliveryCommissionOptions
     /// <summary>Componente fijo en CLP de la comisión ComunaClic del transporte.</summary>
     public decimal FixedFeeAmount { get; set; }
 
-    /// <summary>Componente porcentual (ej. 10 = 10%) de la comisión ComunaClic del transporte.</summary>
-    public decimal PercentageFee { get; set; } = 10m;
+    /// <summary>Componente porcentual ComunaClic (ej. 2.61 = 2.61%) sobre el bruto del envío.</summary>
+    public decimal PercentageFee { get; set; } = 2.61m;
+
+    /// <summary>
+    /// Tasa MercadoPago aplicada al bruto del envío (ej. 3.49 = 3.49%).
+    /// Para pagos vía MP el fee real se concilia con el webhook; para pagos
+    /// manuales se aplica esta tasa estimada porque MP ya cobró ese porcentaje
+    /// al comercio cuando el comprador pagó.
+    /// </summary>
+    public decimal MercadoPagoFeeRate { get; set; } = 3.49m;
 }

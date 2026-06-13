@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using ComunaClick.Api.Persistence;
 using ComunaClick.Api.Security;
 using Microsoft.AspNetCore.Authorization;
@@ -63,8 +64,7 @@ public sealed class DeliverySettlementsController : ControllerBase
             return Forbid();
         }
 
-        var items = await QuerySettlements()
-            .Where(x => x.Settlement.PartnerId == partnerId)
+        var items = await QuerySettlements(x => x.PartnerId == partnerId)
             .Take(200)
             .ToListAsync(HttpContext.RequestAborted);
 
@@ -75,14 +75,14 @@ public sealed class DeliverySettlementsController : ControllerBase
     [HttpGet("/v1/admin/delivery-settlements")]
     public async Task<ActionResult<IReadOnlyList<DeliverySettlementResponse>>> ListAll([FromQuery] string? status)
     {
-        var query = QuerySettlements();
+        Expression<Func<Persistence.Entities.DeliverySettlement, bool>>? predicate = null;
         if (!string.IsNullOrWhiteSpace(status))
         {
             var normalized = status.Trim().ToLowerInvariant();
-            query = query.Where(x => x.Settlement.Status == normalized);
+            predicate = x => x.Status == normalized;
         }
 
-        var items = await query.Take(500).ToListAsync(HttpContext.RequestAborted);
+        var items = await QuerySettlements(predicate).Take(500).ToListAsync(HttpContext.RequestAborted);
         return Ok(items.Select(ToResponse).ToList());
     }
 
@@ -122,8 +122,74 @@ public sealed class DeliverySettlementsController : ControllerBase
             return Forbid();
         }
 
-        var (ok, error) = await _settlements.DeclareManualPaymentAsync(id, partnerId, request.Method, HttpContext.RequestAborted);
+        var (ok, error) = await _settlements.DeclareManualPaymentAsync(id, partnerId, request.Method, request.Notes, HttpContext.RequestAborted);
         return ok ? Ok(new { ok = true, status = "manual_confirming" }) : BadRequest(new { message = error });
+    }
+
+    /// <summary>
+    /// Devuelve la liquidación existente para un pedido (sin crearla).
+    /// 404 si aún no existe.
+    /// </summary>
+    [Authorize(Policy = "partner.staff")]
+    [HttpGet("/v1/partners/{partnerId:guid}/orders/{orderId:guid}/settlement")]
+    public async Task<ActionResult<DeliverySettlementResponse>> GetSettlement(Guid partnerId, Guid orderId)
+    {
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db, User, partnerId, _tenantContext.TenantId, _tenantContext.PartnerId, HttpContext.RequestAborted);
+        if (access != PartnerAccessResult.Allowed)
+        {
+            return Forbid();
+        }
+
+        var item = await QuerySettlements(x => x.OrderId == orderId && x.PartnerId == partnerId)
+            .FirstOrDefaultAsync(HttpContext.RequestAborted);
+
+        return item is null ? NotFound() : Ok(ToResponse(item));
+    }
+
+    /// <summary>
+    /// Crea (o devuelve el existente) el slip de liquidación de envío para un pedido
+    /// pagado con delivery. Permite al comercio registrar manualmente una liquidación
+    /// cuando no fue generada automáticamente (ej. webhook de MP no disparó).
+    /// </summary>
+    [Authorize(Policy = "partner.staff")]
+    [HttpPost("/v1/partners/{partnerId:guid}/orders/{orderId:guid}/settlement")]
+    public async Task<ActionResult<DeliverySettlementResponse>> EnsureSettlement(Guid partnerId, Guid orderId)
+    {
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db, User, partnerId, _tenantContext.TenantId, _tenantContext.PartnerId, HttpContext.RequestAborted);
+        if (access != PartnerAccessResult.Allowed)
+        {
+            return Forbid();
+        }
+
+        var order = await _db.Orders.AsNoTracking()
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == orderId && x.PartnerId == partnerId, HttpContext.RequestAborted);
+        if (order is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado." });
+        }
+
+        if (!string.Equals(order.DeliveryType, "delivery", StringComparison.OrdinalIgnoreCase) || order.DeliveryFee <= 0)
+        {
+            return BadRequest(new { message = "Este pedido no tiene costo de envío liquidable." });
+        }
+
+        var settlement = await _settlements.CreateForPaidOrderAsync(order, payment: null, HttpContext.RequestAborted);
+        if (settlement is null)
+        {
+            return BadRequest(new { message = "No se pudo crear la liquidación. Verifica que el pedido esté pagado y tenga delivery." });
+        }
+
+        var courierName = settlement.CourierId.HasValue
+            ? await _db.Couriers.IgnoreQueryFilters()
+                .Where(c => c.Id == settlement.CourierId.Value)
+                .Select(c => c.Name)
+                .FirstOrDefaultAsync(HttpContext.RequestAborted)
+            : null;
+
+        return Ok(ToResponse(new SettlementRow(settlement, courierName)));
     }
 
     /// <summary>Marca el slip como liquidado (la transferencia al transportista ya se efectuó).</summary>
@@ -151,20 +217,24 @@ public sealed class DeliverySettlementsController : ControllerBase
             return NotFound();
         }
 
-        var item = await QuerySettlements()
-            .FirstOrDefaultAsync(x => x.Settlement.OrderId == orderId, HttpContext.RequestAborted);
+        var item = await QuerySettlements(x => x.OrderId == orderId)
+            .FirstOrDefaultAsync(HttpContext.RequestAborted);
         return item is null ? NotFound() : Ok(ToResponse(item));
     }
 
-    private IQueryable<SettlementRow> QuerySettlements()
-        => _db.DeliverySettlements.AsNoTracking()
-            .OrderByDescending(x => x.CreatedAt)
+    private IQueryable<SettlementRow> QuerySettlements(
+        Expression<Func<Persistence.Entities.DeliverySettlement, bool>>? predicate = null)
+    {
+        var q = _db.DeliverySettlements.AsNoTracking();
+        if (predicate is not null) q = q.Where(predicate);
+        return q.OrderByDescending(x => x.CreatedAt)
             .Select(x => new SettlementRow(
                 x,
                 _db.Couriers.IgnoreQueryFilters()
                     .Where(c => c.Id == x.CourierId)
                     .Select(c => c.Name)
                     .FirstOrDefault()));
+    }
 
     private static DeliverySettlementResponse ToResponse(SettlementRow row)
         => new(
@@ -188,4 +258,4 @@ public sealed class DeliverySettlementsController : ControllerBase
 
 public sealed record DeliverySettlementSettleRequest(string? Notes);
 
-public sealed record DeliverySettlementManualPayRequest(string Method);
+public sealed record DeliverySettlementManualPayRequest(string Method, string? Notes = null);

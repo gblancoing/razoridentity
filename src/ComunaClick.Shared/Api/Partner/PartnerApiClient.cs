@@ -54,8 +54,25 @@ public sealed class PartnerApiClient : ApiClientBase
         => PostAsync<DeliverySettlementPayResult>($"/v1/partners/{partnerId}/delivery-settlements/{settlementId}/pay", new { }, cancellationToken);
 
     /// <summary>Declara pago manual (efectivo o transferencia) al transportista. El transportista debe confirmar el recibo.</summary>
-    public Task<object?> DeclareManualPaymentAsync(Guid partnerId, Guid settlementId, string method, CancellationToken cancellationToken = default)
-        => PostAsync<object>($"/v1/partners/{partnerId}/delivery-settlements/{settlementId}/pay-manual", new { method }, cancellationToken);
+    public Task<object?> DeclareManualPaymentAsync(Guid partnerId, Guid settlementId, string method, string? notes = null, CancellationToken cancellationToken = default)
+        => PostAsync<object>($"/v1/partners/{partnerId}/delivery-settlements/{settlementId}/pay-manual", new { method, notes }, cancellationToken);
+
+    /// <summary>Obtiene la liquidación existente de un pedido sin crearla. Devuelve null si no existe.</summary>
+    public async Task<PartnerDeliverySettlement?> GetDeliverySettlementAsync(Guid partnerId, Guid orderId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await GetAsync<PartnerDeliverySettlement>($"/v1/partners/{partnerId}/orders/{orderId}/settlement", cancellationToken);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Crea (o devuelve el existente) el slip de liquidación para un pedido entregado sin settlement.</summary>
+    public Task<PartnerDeliverySettlement?> EnsureDeliverySettlementAsync(Guid partnerId, Guid orderId, CancellationToken cancellationToken = default)
+        => PostAsync<PartnerDeliverySettlement>($"/v1/partners/{partnerId}/orders/{orderId}/settlement", new { }, cancellationToken);
 
     public Task<Order?> UpdateOrderStatusAsync(Guid orderId, OrderStatusUpdateRequest request, CancellationToken cancellationToken = default)
         => PatchAsync<Order>($"/v1/orders/{orderId}/status", request, cancellationToken);

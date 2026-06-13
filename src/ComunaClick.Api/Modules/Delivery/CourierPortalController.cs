@@ -50,7 +50,10 @@ public sealed record CourierEarningsItemResponse(
     string OrderShortId,
     DateTimeOffset CreatedAt,
     decimal NetAmount,
-    string Status);
+    string Status,
+    string? PartnerName = null,
+    Guid? SettlementId = null,
+    string? Notes = null);
 
 public sealed record CourierEarningsResponse(
     decimal SettledTotal,
@@ -208,13 +211,22 @@ public sealed class CourierPortalController : ControllerBase
         var pending = settlements.Where(x => x.Status is "pending" or "processing").ToList();
         var manual = settlements.Where(x => x.Status == "manual").ToList();
 
-        var recent = settlements.Take(10)
+        var recentSettlements = settlements.Take(10).ToList();
+        var earningPartnerIds = recentSettlements.Select(x => x.PartnerId).Distinct().ToList();
+        var earningPartnerNames = await _db.Partners.IgnoreQueryFilters().AsNoTracking()
+            .Where(x => earningPartnerIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+
+        var recent = recentSettlements
             .Select(x => new CourierEarningsItemResponse(
                 x.OrderId,
                 x.OrderId.ToString()[..8],
                 x.CreatedAt,
                 x.NetToCourierAmount,
-                x.Status))
+                x.Status,
+                earningPartnerNames.TryGetValue(x.PartnerId, out var pName) ? pName : null,
+                x.Id,
+                x.Notes))
             .ToList();
 
         return Ok(new CourierEarningsResponse(

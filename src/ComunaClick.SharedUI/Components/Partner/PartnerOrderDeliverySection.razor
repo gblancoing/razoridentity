@@ -124,7 +124,86 @@
         @* Liquidación del envío: visible tras la entrega. El cliente pagó UNA
            vez al negocio; aquí el negocio paga el envío al repartidor vía MP
            (el neto cae directo en la cuenta MP del repartidor). *@
-        @if (Settlement is not null && Status == "delivered")
+        @if (EffectiveSettlement is null && Status == "delivered" && IsDeliveryOrder && Order.DeliveryFee > 0)
+        {
+            <div class="rounded-xl border border-[#fed7aa] bg-[#fff7ed] p-3 space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@L.T("partner.delivery.settlement.title")</span>
+                    <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold bg-[#ffedd5] text-[#9a3412]">Sin registrar</span>
+                </div>
+                <p class="text-xs text-[#7c2d12]">
+                    <span class="font-semibold">⚠ Este pedido tiene un costo de delivery pendiente de liquidar al transportista.</span><br />
+                    Monto a pagar: <span class="font-bold">@FormatClp((decimal)Order.DeliveryFee)</span>
+                </p>
+                @if (!string.IsNullOrWhiteSpace(_createAndPayMessage))
+                {
+                    <p class="text-xs font-medium @(_createSuccess ? "text-[#14532d]" : "text-red-600")">@_createAndPayMessage</p>
+                }
+                @if (!_showCreateWithPayModal)
+                {
+                    <button type="button"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#ea580c] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+                            disabled="@_preparingSettlement"
+                            @onclick="PrepareAndShowModalAsync">
+                        <span class="material-symbols-outlined text-[16px]">receipt_long</span>
+                        @(_preparingSettlement ? "Calculando..." : "Registrar y pagar al transportista")
+                    </button>
+                }
+                else
+                {
+                    <div class="rounded-xl border border-[#e3e6e8] bg-[#f8faf8] p-3 space-y-3">
+                        <p class="text-xs font-bold text-[#2c2f30]">¿Cómo pagaste al transportista?</p>
+                        <div class="rounded-lg bg-[#f0fbe0] border border-[#a7f255]/50 p-2 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-[#595c5d]">Bruto (tarifa cobrada al cliente)</span>
+                                <span class="font-semibold text-[#2c2f30]">@FormatClp(_pendingSettlement?.GrossAmount ?? (decimal)Order.DeliveryFee)</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-[#595c5d]">Comisión ComunaClic</span>
+                                <span class="text-[#595c5d]">−@FormatClp(_pendingSettlement?.PlatformFeeAmount ?? 0m)</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-[#595c5d]">Comisión MercadoPago (est.)</span>
+                                <span class="text-[#595c5d]">~−@FormatClp(_pendingSettlement?.MercadoPagoFeeAmount ?? 0m)</span>
+                            </div>
+                            <div class="flex justify-between border-t border-[#a7f255]/40 mt-1 pt-1 font-bold">
+                                <span class="text-[#325800]">Neto a pagar al transportista</span>
+                                <span class="text-[#3b6700]">@FormatClp(_pendingSettlement?.NetToCourierAmount ?? (decimal)Order.DeliveryFee)</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" class="@ManualMethodClass(_createMethod, "cash")" @onclick='() => _createMethod = "cash"'>
+                                <span class="material-symbols-outlined text-[18px]">payments</span>
+                                Efectivo
+                            </button>
+                            <button type="button" class="@ManualMethodClass(_createMethod, "transfer")" @onclick='() => _createMethod = "transfer"'>
+                                <span class="material-symbols-outlined text-[18px]">account_balance</span>
+                                Transferencia
+                            </button>
+                        </div>
+                        <textarea class="w-full rounded-xl border border-[#dadddf] p-2.5 text-xs placeholder:text-[#b0b5b6]"
+                                  rows="2"
+                                  placeholder="Notas opcionales (ej. 'Transferencia al RUT 12.3... por $2.434')"
+                                  @bind="_createNotes" />
+                        <div class="flex gap-2">
+                            <button type="button"
+                                    class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad] disabled:opacity-60"
+                                    disabled="@(_createAndPayBusy || _createMethod is null)"
+                                    @onclick="CreateAndDeclarePaymentAsync">
+                                @(_createAndPayBusy ? "Registrando..." : "Confirmar pago")
+                            </button>
+                            <button type="button"
+                                    class="inline-flex items-center rounded-xl border border-[#dadddf] px-4 py-2 text-xs font-bold text-[#595c5d]"
+                                    disabled="@_createAndPayBusy"
+                                    @onclick="() => { _showCreateWithPayModal = false; _createMethod = null; _createNotes = null; }">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (EffectiveSettlement is not null && Status == "delivered")
         {
             <div class="rounded-xl border border-[#dadddf] bg-white p-3 space-y-2">
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -133,26 +212,26 @@
                 </div>
 
                 @* Nombre del transportista que realizó el servicio *@
-                @if (!string.IsNullOrWhiteSpace(Settlement.CourierName))
+                @if (!string.IsNullOrWhiteSpace(EffectiveSettlement!.CourierName))
                 {
                     <p class="text-xs text-[#595c5d]">
                         <span class="material-symbols-outlined align-middle text-[13px] text-[#3b6700]">two_wheeler</span>
-                        <span class="font-semibold text-[#2c2f30]">Transportista:</span> @Settlement.CourierName
+                        <span class="font-semibold text-[#2c2f30]">Transportista:</span> @EffectiveSettlement!.CourierName
                     </p>
                 }
 
                 <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[#595c5d]">
                     <dt>@L.T("partner.delivery.settlement.gross")</dt>
-                    <dd class="text-right font-semibold text-[#2c2f30]">@FormatClp(Settlement.GrossAmount)</dd>
+                    <dd class="text-right font-semibold text-[#2c2f30]">@FormatClp(EffectiveSettlement!.GrossAmount)</dd>
                     <dt>@L.T("partner.delivery.settlement.ccFee")</dt>
-                    <dd class="text-right">−@FormatClp(Settlement.PlatformFeeAmount)</dd>
+                    <dd class="text-right">−@FormatClp(EffectiveSettlement!.PlatformFeeAmount)</dd>
                     <dt>@L.T("partner.delivery.settlement.mpFee")</dt>
-                    <dd class="text-right">@(Settlement.Status == "settled" ? "−" : "~−")@FormatClp(Settlement.MercadoPagoFeeAmount ?? 0m)</dd>
+                    <dd class="text-right">@(EffectiveSettlement!.Status == "settled" ? "−" : "~−")@FormatClp(EffectiveSettlement!.MercadoPagoFeeAmount ?? 0m)</dd>
                     <dt class="font-bold text-[#2c2f30]">@L.T("partner.delivery.settlement.net")</dt>
-                    <dd class="text-right font-bold text-[#3b6700]">@FormatClp(Settlement.NetToCourierAmount)</dd>
+                    <dd class="text-right font-bold text-[#3b6700]">@FormatClp(EffectiveSettlement!.NetToCourierAmount)</dd>
                 </dl>
 
-                @if (Settlement.Status is "pending" or "manual" or "processing")
+                @if (EffectiveSettlement!.Status is "pending" or "manual" or "processing")
                 {
                     <div class="space-y-2">
                         <button type="button"
@@ -171,17 +250,17 @@
                         </button>
                     </div>
                 }
-                else if (Settlement.Status == "manual_confirming")
+                else if (EffectiveSettlement!.Status == "manual_confirming")
                 {
                     <div class="rounded-lg border border-[#fef9c3] bg-[#fefce8] p-2.5 text-xs text-[#854d0e]">
                         <p class="font-semibold">⏳ Esperando confirmación del transportista</p>
-                        @if (!string.IsNullOrWhiteSpace(Settlement.Notes))
+                        @if (!string.IsNullOrWhiteSpace(EffectiveSettlement!.Notes))
                         {
-                            <p class="mt-1 text-[#78350f]">@Settlement.Notes</p>
+                            <p class="mt-1 text-[#78350f]">@EffectiveSettlement!.Notes</p>
                         }
                     </div>
                 }
-                else if (Settlement.Status == "settled")
+                else if (EffectiveSettlement!.Status == "settled")
                 {
                     <p class="text-xs font-semibold text-[#14532d]">@L.T("partner.delivery.settlement.paid")</p>
                 }
@@ -193,13 +272,13 @@
                         <p class="text-xs font-bold text-[#2c2f30]">¿Cómo pagaste al transportista?</p>
                         <div class="grid grid-cols-2 gap-2">
                             <button type="button"
-                                    class="@ManualMethodClass("cash")"
+                                    class="@ManualMethodClass(_manualMethod, "cash")"
                                     @onclick='() => _manualMethod = "cash"'>
                                 <span class="material-symbols-outlined text-[18px]">payments</span>
                                 Efectivo
                             </button>
                             <button type="button"
-                                    class="@ManualMethodClass("transfer")"
+                                    class="@ManualMethodClass(_manualMethod, "transfer")"
                                     @onclick='() => _manualMethod = "transfer"'>
                                 <span class="material-symbols-outlined text-[18px]">account_balance</span>
                                 Transferencia
@@ -257,6 +336,17 @@
     private string? _manualMethod;
     private bool _manualPayBusy;
     private string? _manualPayMessage;
+    private bool _showCreateWithPayModal;
+    private bool _preparingSettlement;
+    private PartnerApiModels.PartnerDeliverySettlement? _pendingSettlement;
+    private string? _createMethod;
+    private string? _createNotes;
+    private bool _createAndPayBusy;
+    private string? _createAndPayMessage;
+    private bool _createSuccess;
+    // Liquidación cargada directamente (cuando el panel padre no la entrega a tiempo).
+    private PartnerApiModels.PartnerDeliverySettlement? _directSettlement;
+    private bool _directSettlementChecked;
     // Mapa en vivo del recorrido.
     private bool _mapOpen;
     private bool _mapBusy;
@@ -269,9 +359,39 @@
 
     private string MapElementId => $"partner-track-map-{Order.Id:N}";
 
+    // Liquidación efectiva: la del padre tiene prioridad; si no, la cargada directamente.
+    private PartnerApiModels.PartnerDeliverySettlement? EffectiveSettlement => Settlement ?? _directSettlement;
+
     private bool IsDeliveryOrder =>
         string.Equals(Order.DeliveryType, "delivery", StringComparison.OrdinalIgnoreCase)
         || !string.IsNullOrWhiteSpace(Order.DeliveryAddress);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Si el padre no entregó liquidación y nunca buscamos una directa, buscarla ahora.
+        if (Settlement is null
+            && !_directSettlementChecked
+            && Status == "delivered"
+            && IsDeliveryOrder
+            && Order.DeliveryFee > 0)
+        {
+            _directSettlementChecked = true;
+            try
+            {
+                _directSettlement = await PartnerApi.GetDeliverySettlementAsync(Order.PartnerId, Order.Id);
+            }
+            catch (HttpRequestException)
+            {
+                // Sin liquidación registrada todavía.
+            }
+        }
+
+        // Cuando el padre entrega la liquidación, descartar la local (ya no hace falta).
+        if (Settlement is not null && _directSettlement is not null)
+        {
+            _directSettlement = null;
+        }
+    }
 
     // El estado en vivo (SignalR, con el mapa abierto) prima sobre el del DTO.
     private string Status => _liveStatus ?? Order.DeliveryStatus?.Trim().ToLowerInvariant() ?? "pending";
@@ -332,7 +452,7 @@
         }
     }
 
-    private string SettlementStatusLabel => Settlement?.Status switch
+    private string SettlementStatusLabel => EffectiveSettlement?.Status switch
     {
         "settled" => L.T("partner.delivery.settlement.status.settled"),
         "processing" => L.T("partner.delivery.settlement.status.processing"),
@@ -341,7 +461,7 @@
         _ => L.T("partner.delivery.settlement.status.pending")
     };
 
-    private string SettlementBadgeClass => "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold " + Settlement?.Status switch
+    private string SettlementBadgeClass => "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold " + EffectiveSettlement?.Status switch
     {
         "settled" => "bg-[#dcfce7] text-[#14532d]",
         "processing" => "bg-[#fff4d6] text-[#8a5b00]",
@@ -355,7 +475,7 @@
 
     private async Task PaySettlementAsync()
     {
-        if (Settlement is null)
+        if (EffectiveSettlement is null)
         {
             return;
         }
@@ -364,7 +484,7 @@
         _payMessage = null;
         try
         {
-            var result = await PartnerApi.PayDeliverySettlementAsync(Settlement.PartnerId, Settlement.Id);
+            var result = await PartnerApi.PayDeliverySettlementAsync(EffectiveSettlement.PartnerId, EffectiveSettlement.Id);
             if (result is null || string.IsNullOrWhiteSpace(result.InitPoint))
             {
                 _payMessage = L.T("partner.delivery.settlement.payFailed");
@@ -386,9 +506,76 @@
         }
     }
 
+    private async Task PrepareAndShowModalAsync()
+    {
+        _preparingSettlement = true;
+        _createAndPayMessage = null;
+        _createSuccess = false;
+        try
+        {
+            _pendingSettlement = await PartnerApi.EnsureDeliverySettlementAsync(Order.PartnerId, Order.Id);
+            if (_pendingSettlement is null)
+            {
+                _createAndPayMessage = "No se pudo calcular la liquidación. Verifica que el pedido esté pagado y tenga delivery.";
+                return;
+            }
+
+            // Si la liquidación ya fue procesada, recargar el panel del padre
+            // para mostrar el estado real en lugar del modal de declaración.
+            if (_pendingSettlement.Status is "settled" or "manual_confirming")
+            {
+                _pendingSettlement = null;
+                await DeliveryChanged.InvokeAsync();
+                return;
+            }
+
+            _showCreateWithPayModal = true;
+        }
+        catch (HttpRequestException ex)
+        {
+            _createAndPayMessage = TryExtractApiMessage(ex.Message) ?? "Error al preparar la liquidación. Intenta nuevamente.";
+        }
+        finally
+        {
+            _preparingSettlement = false;
+        }
+    }
+
+    private async Task CreateAndDeclarePaymentAsync()
+    {
+        if (_createMethod is null || _pendingSettlement is null) return;
+
+        _createAndPayBusy = true;
+        _createAndPayMessage = null;
+        try
+        {
+            // El settlement ya fue creado en PrepareAndShowModalAsync; solo declarar el método.
+            await PartnerApi.DeclareManualPaymentAsync(_pendingSettlement.PartnerId, _pendingSettlement.Id, _createMethod, notes: _createNotes);
+
+            _createSuccess = true;
+            _createAndPayMessage = "✔ Pago registrado. El transportista debe confirmar el recibo.";
+            _showCreateWithPayModal = false;
+            _pendingSettlement = null;
+            _createMethod = null;
+            _createNotes = null;
+            _directSettlement = null;
+            _directSettlementChecked = false;
+            await DeliveryChanged.InvokeAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _createSuccess = false;
+            _createAndPayMessage = TryExtractApiMessage(ex.Message) ?? "Error al registrar el pago. Intenta nuevamente.";
+        }
+        finally
+        {
+            _createAndPayBusy = false;
+        }
+    }
+
     private async Task DeclareManualPaymentAsync()
     {
-        if (Settlement is null || _manualMethod is null)
+        if (EffectiveSettlement is null || _manualMethod is null)
         {
             return;
         }
@@ -397,9 +584,11 @@
         _manualPayMessage = null;
         try
         {
-            await PartnerApi.DeclareManualPaymentAsync(Settlement.PartnerId, Settlement.Id, _manualMethod);
+            await PartnerApi.DeclareManualPaymentAsync(EffectiveSettlement.PartnerId, EffectiveSettlement.Id, _manualMethod);
             _showManualModal = false;
             _manualMethod = null;
+            _directSettlement = null;
+            _directSettlementChecked = false;
             await DeliveryChanged.InvokeAsync();
         }
         catch (HttpRequestException ex)
@@ -412,11 +601,10 @@
         }
     }
 
-    private string ManualMethodClass(string method)
+    private static string ManualMethodClass(string? selected, string method)
     {
-        var selected = _manualMethod == method;
         return "flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-xs font-bold transition-colors " +
-               (selected
+               (selected == method
                    ? "border-[#3b6700] bg-[#f0fbe0] text-[#3b6700]"
                    : "border-[#dadddf] bg-white text-[#595c5d] hover:border-[#3b6700]");
     }

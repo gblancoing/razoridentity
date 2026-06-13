@@ -6,7 +6,7 @@
 @inject ComunaClick.SharedUI.Services.LocaleService L
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
-@implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>@L.T("account.courier.title")</PageTitle>
 
@@ -55,6 +55,10 @@
             </button>
             <button type="button" class="@TabClass("earnings")" @onclick='() => SetTab("earnings")'>
                 <span class="material-symbols-outlined text-[16px]">payments</span> @L.T("account.courier.tabs.earnings")
+                @if (_pendingConfirmCount > 0)
+                {
+                    <span class="ml-1 inline-flex items-center justify-center rounded-full bg-[#f59e0b] text-white text-[10px] font-bold leading-none px-1.5 py-0.5">@_pendingConfirmCount</span>
+                }
             </button>
             <button type="button" class="@TabClass("mp")" @onclick='() => SetTab("mp")'>
                 <span class="material-symbols-outlined text-[16px]">account_balance_wallet</span> @L.T("account.courier.tabs.mp")
@@ -99,7 +103,7 @@
                             {
                                 <div class="rounded-xl border border-[#fbbf24] bg-[#fffbeb] p-2.5 space-y-2">
                                     <p class="text-xs font-semibold text-[#92400e]">
-                                        💰 El comercio declaró que ya te pagó
+                                        💰 @(string.IsNullOrWhiteSpace(trip.PartnerName) ? "El comercio" : trip.PartnerName) declaró que ya te pagó
                                     </p>
                                     @if (!string.IsNullOrWhiteSpace(trip.SettlementNotes))
                                     {
@@ -157,14 +161,64 @@
                     }
                     else
                     {
+                        <div class="space-y-2">
                         @foreach (var item in _earnings.Recent)
                         {
-                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#f0f1f2] py-2 text-sm last:border-0">
-                                <span class="font-semibold text-[#2c2f30]">#@item.OrderShortId</span>
-                                <span class="text-xs text-[#7b8081]">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
-                                <span class="font-bold text-[#3b6700]">@FormatClp(item.NetAmount)</span>
-                                <span class="@EarningBadgeClass(item.Status)">@EarningStatusLabel(item.Status)</span>
-                            </div>
+                            @if (item.Status == "manual_confirming")
+                            {
+                                <div class="rounded-xl border border-[#fbbf24] bg-[#fffbeb] p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <span class="font-semibold text-[#2c2f30] text-sm">#@item.OrderShortId</span>
+                                            <span class="ml-2 text-xs text-[#7b8081]">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
+                                        </div>
+                                        <span class="@EarningBadgeClass(item.Status)">@EarningStatusLabel(item.Status)</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[11px] text-[#92400e]">💰 @(string.IsNullOrWhiteSpace(item.PartnerName) ? "El comercio" : item.PartnerName) declaró que ya te pagó</span>
+                                        <span class="text-lg font-black text-[#3b6700]">@FormatClp(item.NetAmount)</span>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(item.Notes))
+                                    {
+                                        <p class="text-xs text-[#78350f] rounded-lg bg-[#fef3c7] px-2 py-1.5">@item.Notes</p>
+                                    }
+                                    @if (item.SettlementId.HasValue)
+                                    {
+                                        <button type="button"
+                                                class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#3b6700] px-4 py-2.5 text-xs font-bold text-[#d9ffad] disabled:opacity-60"
+                                                disabled="@(_confirmingSettlementId == item.SettlementId)"
+                                                @onclick="() => ConfirmEarningReceiptAsync(item.SettlementId.Value)">
+                                            <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                            @(_confirmingSettlementId == item.SettlementId ? "Confirmando..." : "Confirmar que recibí el pago")
+                                        </button>
+                                    }
+                                </div>
+                            }
+                            else if (item.Status == "settled")
+                            {
+                                <div class="rounded-xl border border-[#86efac] bg-[#f0fdf4] px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <span class="font-semibold text-[#2c2f30] text-sm">#@item.OrderShortId</span>
+                                        <span class="ml-2 text-xs text-[#7b8081]">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
+                                    </div>
+                                    <span class="text-base font-bold text-[#3b6700]">@FormatClp(item.NetAmount)</span>
+                                    <span class="@EarningBadgeClass(item.Status)">✔ @EarningStatusLabel(item.Status)</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#f0f1f2] py-2 text-sm last:border-0">
+                                    <span class="font-semibold text-[#2c2f30]">#@item.OrderShortId</span>
+                                    <span class="text-xs text-[#7b8081]">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
+                                    <span class="font-bold text-[#3b6700]">@FormatClp(item.NetAmount)</span>
+                                    <span class="@EarningBadgeClass(item.Status)">@EarningStatusLabel(item.Status)</span>
+                                </div>
+                            }
+                        }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(_confirmMessage))
+                        {
+                            <p class="text-xs font-medium text-red-600">@_confirmMessage</p>
                         }
                     }
                 </section>
@@ -230,6 +284,9 @@
     private string? _mpMessage;
     private Guid? _confirmingSettlementId;
     private string? _confirmMessage;
+    private int _pendingConfirmCount;
+    private PeriodicTimer? _refreshTimer;
+    private bool _disposed;
 
     private ComunaClick.Shared.Api.Buyer.CourierMe? _me;
     private ComunaClick.Shared.Api.Buyer.CourierTripsPage? _trips;
@@ -282,8 +339,8 @@
             _me = await BuyerApi.GetCourierMeAsync();
             if (_me?.Items is { Count: > 0 })
             {
-                _trips = await BuyerApi.GetCourierTripsAsync(_tripFilter);
-                _earnings = await BuyerApi.GetCourierEarningsAsync();
+                await LoadEarningsAndTripsAsync();
+                StartRefreshTimer();
             }
         }
         catch (HttpRequestException)
@@ -297,6 +354,33 @@
         }
     }
 
+    private async Task LoadEarningsAndTripsAsync()
+    {
+        _trips = await BuyerApi.GetCourierTripsAsync(_tripFilter);
+        _earnings = await BuyerApi.GetCourierEarningsAsync();
+        _pendingConfirmCount = _earnings?.Recent.Count(x => x.Status == "manual_confirming") ?? 0;
+    }
+
+    private void StartRefreshTimer()
+    {
+        if (_refreshTimer is not null) return;
+        _refreshTimer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        _ = PollAsync();
+    }
+
+    private async Task PollAsync()
+    {
+        while (!_disposed && _refreshTimer is not null && await _refreshTimer.WaitForNextTickAsync())
+        {
+            try
+            {
+                await LoadEarningsAndTripsAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+            catch { /* ignorar en background */ }
+        }
+    }
+
     private void SetTab(string tab)
     {
         _tab = tab;
@@ -307,7 +391,7 @@
         _tripFilter = filter;
         try
         {
-            _trips = await BuyerApi.GetCourierTripsAsync(_tripFilter);
+            await LoadEarningsAndTripsAsync();
         }
         catch (HttpRequestException)
         {
@@ -377,8 +461,28 @@
         try
         {
             await BuyerApi.ConfirmSettlementReceiptAsync(settlementId);
-            // Recarga los viajes para reflejar el nuevo estado "settled".
-            _trips = await BuyerApi.GetCourierTripsAsync(_tripFilter);
+            await LoadEarningsAndTripsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _confirmMessage = "No se pudo confirmar el pago. Intenta nuevamente.";
+        }
+        finally
+        {
+            _confirmingSettlementId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmEarningReceiptAsync(Guid settlementId)
+    {
+        _confirmingSettlementId = settlementId;
+        _confirmMessage = null;
+        StateHasChanged();
+        try
+        {
+            await BuyerApi.ConfirmSettlementReceiptAsync(settlementId);
+            await LoadEarningsAndTripsAsync();
         }
         catch (HttpRequestException)
         {
@@ -457,5 +561,12 @@
 
     private void HandleChange() => InvokeAsync(StateHasChanged);
 
-    public void Dispose() => L.OnChange -= HandleChange;
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+        L.OnChange -= HandleChange;
+        await Task.CompletedTask;
+    }
 }

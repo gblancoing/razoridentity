@@ -22,6 +22,65 @@
   inyectado en `OrderCheckoutService`. El cliente nunca define el `DeliveryFee`
   (H7 cerrado). Redondeo CLP con `FeeCalculator.RoundClp`.
 
+## Comisiones y cálculo del neto al transportista
+
+### Tasas vigentes (configuradas en `DeliveryPricing:Commission` en appsettings)
+
+| Concepto | Tasa | Sobre |
+|---|---|---|
+| Comisión ComunaClic (`PercentageFee`) | **2,61%** | Bruto del envío |
+| Tasa MercadoPago (`MercadoPagoFeeRate`) | **3,49%** | Bruto del envío |
+| **Total descuentos** | **6,10%** | |
+
+### Fórmula
+
+```
+netoTransportista = brutoEnvío − (brutoEnvío × 2,61%) − (brutoEnvío × 3,49%)
+```
+
+**Ejemplo real para envío de $2.800:**
+
+| Concepto | Monto |
+|---|---|
+| Bruto cobrado al cliente | $2.800 |
+| − Comisión ComunaClic (2,61%) | −$73 |
+| − Comisión MercadoPago (3,49%) | −$98 |
+| **Neto al transportista** | **$2.629** |
+
+### Notas sobre el fee MercadoPago
+
+- **Pagos vía MP (Checkout Pro):** el fee real llega por webhook (`fee_details`)
+  y se concilia en `ReconcileMercadoPagoFeeAsync`, prorrateado por el peso del
+  envío dentro del bruto total del pago (`feeMP × envío / brutoPago`). El valor
+  final reemplaza la estimación inicial.
+- **Pagos manuales (efectivo/transferencia):** MP ya cobró su tasa cuando el
+  comprador pagó. Se aplica la `MercadoPagoFeeRate` configurada (3,49%) como
+  estimación definitiva desde la creación del settlement.
+- El **residuo de redondeo CLP se asigna siempre al neto del transportista**:
+  `bruto = feeMP + feeCC + neto` cuadra exacto.
+
+### Dónde está configurado
+
+Archivo: `src/ComunaClick.Api/appsettings.json`
+
+```json
+"DeliveryPricing": {
+  "Commission": {
+    "FixedFeeAmount": 0,
+    "PercentageFee": 2.61,
+    "MercadoPagoFeeRate": 3.49
+  }
+}
+```
+
+> **Importante:** el deploy script restaura `appsettings.json` en el servidor
+> desde el backup. Si se actualizan las tasas, editar también el archivo en el
+> servidor vía SSH para que el cambio sea inmediato, y actualizar el backup:
+> ```bash
+> sudo python3 -c "import json; ..."   # ver deploy_comunaclic.sh
+> sudo systemctl restart comunaclic-api.service
+> ```
+
 ## El transportista como prestador con cuenta MercadoPago
 
 Decisión de modelado: el courier obtiene su **propia fila `Seller` con
@@ -42,40 +101,53 @@ Decisión documentada: **MercadoPago marketplace admite UN solo collector por
 pago**. Cobrar el envío en un checkout aparte obligaría al comprador a pagar
 dos veces. Por eso el comprador paga UNA vez (collector = comercio) y la
 liquidación del transportista queda como **registro separado y auditable**
-(`core.delivery_settlements`, 1 por orden):
+(`core.delivery_settlements`, 1 por orden).
+
+### Estados del slip
 
 ```
-netoTransportista = brutoEnvío − feeMP(prorrateado) − comisiónComunaClic
+pending ──► processing ──► settled          (flujo vía MercadoPago)
+   │
+   └──► manual ──► manual_confirming ──► settled   (flujo pago directo)
 ```
 
-- Comisión CC del transporte: `FeeCalculator.Calculate` con
-  `DeliveryPricing:Commission` (fijo + %, default 10%).
-- Fee MP: NO se inventa; se concilia con el `fee_details` real del webhook
-  (excluyendo `application_fee`) **prorrateado** por el peso del envío dentro
-  del bruto del pago (`feeMP × envío / brutoPago`).
-- El **residuo de redondeo CLP se asigna siempre al neto del transportista**:
-  `bruto = feeMP + feeCC + neto` cuadra exacto (verificado por tests).
-- Pago manual (transferencia/efectivo, sin MP): slip con `feeMP = 0`.
-- Estados: `pending` (liquidable vía MP), `manual` (courier sin cuenta MP
-  *checkout ready* → pago directo marcado como tal), `settled` (transferido;
-  `POST /v1/admin/delivery-settlements/{id}/settle`).
-- El slip se crea al confirmarse el pago (webhook MP o mark-paid manual) y se
-  vincula al courier al asignarlo (la asignación puede ser posterior al pago).
+| Estado | Descripción |
+|---|---|
+| `pending` | Courier con cuenta MP *checkout ready*; esperando que el comercio pague. |
+| `processing` | Link de Checkout Pro creado; esperando aprobación de MP. |
+| `manual` | Courier sin cuenta MP; el comercio debe pagar directamente (efectivo/transferencia). |
+| `manual_confirming` | Comercio declaró que ya pagó; esperando confirmación del transportista. |
+| `settled` | Pago confirmado (por MP webhook o por el transportista manualmente). |
 
-### Consulta (autorización)
+### Flujo pago vía MercadoPago (courier con cuenta MP)
 
-- Negocio: `GET /v1/partners/{partnerId}/delivery-settlements` (partner.staff).
-- Admin: `GET /v1/admin/delivery-settlements?status=` (platform.admin).
-- Transportista: `GET /api/courier/settlement?orderId&token=` con el mismo
-  token seguro del reparto (sin cuenta de usuario).
+1. Comercio ve tarjeta "Liquidación del envío" en el pedido entregado.
+2. Clic en **"Pagar envío al repartidor"** → se genera link de Checkout Pro.
+3. Comprador paga en pestaña nueva; el webhook MP liquida el slip automáticamente.
+4. El fee MP real del webhook reemplaza la estimación; neto recalculado → `settled`.
 
-### Nota contable (importante para configurar la comisión)
+### Flujo pago manual (courier sin cuenta MP o preferencia del comercio)
 
-El `application_fee` del comercio hoy se calcula sobre el bruto TOTAL del pago
-(productos + envío). Si la comisión del transporte (`DeliveryPricing:Commission`)
-es igual al porcentaje del comercio, el traspaso del neto al courier deja al
-comercio exactamente con el neto de sus productos (los descuentos se cancelan).
-Si difieren, el delta queda en el comercio — calibrar ambas comisiones juntas.
+1. Comercio hace clic en **"Declarar pago (efectivo / transferencia)"**.
+2. Selecciona método de pago y agrega nota opcional (ej. número de transferencia).
+3. El slip pasa a `manual_confirming`; el transportista recibe aviso en su panel.
+4. En "Mis ganancias" el transportista ve la fila en amarillo con el monto y la nota.
+5. Clic en **"Confirmar recibo"** → el slip pasa a `settled` (verde).
+
+### Idempotencia y recálculo
+
+`CreateForPaidOrderAsync` es idempotente: si ya existe un slip para la orden,
+lo retorna. **Excepción:** si el slip existente está en estado `pending` o
+`manual` (no confirmado), recalcula las comisiones con las tasas actuales de
+`appsettings` antes de retornarlo. Esto corrige automáticamente slips creados
+con tasas de configuración incorrectas.
+
+### Consultas por rol
+
+- **Comercio:** `GET /v1/partners/{partnerId}/delivery-settlements` (`partner.staff`)
+- **Admin:** `GET /v1/admin/delivery-settlements?status=` (`platform.admin`)
+- **Transportista (portal):** `GET /v1/courier/me/earnings` y `GET /v1/courier/me/trips`
+- **Transportista (sin cuenta):** `GET /api/courier/settlement?orderId&token=` con token seguro del reparto
 
 ## Pago del envío al repartidor (comercio → courier vía MercadoPago)
 
@@ -92,20 +164,29 @@ el collector es el repartidor** (su cuenta MP vinculada):
   estimado**, recalcula el neto (residuo de redondeo al neto) y marca `settled`.
   Un pago rechazado/cancelado devuelve el slip a `pending` (se puede reintentar).
 
-Estados del slip: `pending → processing (link creado) → settled`; `manual`
-queda para couriers sin cuenta MP (pago directo/efectivo, liquidable desde el
-endpoint admin de settle).
+### Endpoint
 
-- Endpoint: `POST /v1/partners/{partnerId}/delivery-settlements/{id}/pay`
-  (partner.staff) → `{ initPoint }`. Idempotente: con un pago pendiente
-  devuelve el mismo link; tras un rechazo reutiliza la misma fila Payment con
-  una preference nueva (mismo external reference).
-- UI: en Pedidos del negocio, tarjeta "Liquidación del envío" (desglose bruto /
-  comisión CC / fee MP / neto) con botón **"Pagar envío al repartidor"** cuando
-  el envío está entregado.
+`POST /v1/partners/{partnerId}/delivery-settlements/{id}/pay` (`partner.staff`)
+→ `{ initPoint }`. Idempotente: con un pago pendiente devuelve el mismo link;
+tras un rechazo reutiliza la misma fila Payment con una preference nueva.
 
-### Futuro
+### Nota contable
 
-La liquidación manual desde admin se mantiene para los casos `manual` (courier
-sin cuenta MP). Si MP habilita money-transfer API, podría automatizarse también
-ese caso; el destino ya queda verificado por el OAuth del courier.
+El `application_fee` del comercio se calcula sobre el bruto TOTAL del pago
+(productos + envío). Si la comisión del transporte (`DeliveryPricing:Commission`)
+es igual al porcentaje del comercio, el traspaso del neto al courier deja al
+comercio exactamente con el neto de sus productos (los descuentos se cancelan).
+Si difieren, el delta queda en el comercio — calibrar ambas comisiones juntas.
+
+## Clases clave
+
+| Clase / Interfaz | Ubicación | Rol |
+|---|---|---|
+| `DeliveryPricingOptions` | `Api/Configuration/` | Opciones de tarificación dinámica + comisiones |
+| `DeliveryCommissionOptions` | `Api/Configuration/` | `PercentageFee` (CC) + `MercadoPagoFeeRate` |
+| `FeeCalculator` | `Api/Modules/Marketplace/` | `Calculate(gross, fixed, pct)` + `RoundClp` |
+| `DeliverySettlementService` | `Api/Modules/Delivery/` | CRUD de slips, recálculo, flujo manual |
+| `DeliverySettlementsController` | `Api/Modules/Delivery/` | Endpoints partner + admin |
+| `CourierPortalController` | `Api/Modules/Delivery/` | Ganancias, viajes, confirmación recibo |
+| `PartnerOrderDeliverySection` | `SharedUI/Components/Partner/` | UI comercio: modal pago, desglose |
+| `CourierPanel` | `SharedUI/Pages/Account/` | UI transportista: "Mis ganancias" |

@@ -15,7 +15,10 @@
 }
 else if (_settlements.Count == 0)
 {
-    <p class="text-sm text-[#595c5d]">@L.T("partner.settlements.empty")</p>
+    <div class="rounded-xl border border-[#dbe6e2] bg-[#f8faf8] p-4 text-sm text-[#595c5d] space-y-1">
+        <p class="font-semibold text-[#2c2f30]">Sin liquidaciones de envío registradas.</p>
+        <p>Si tienes pedidos con delivery entregado pendientes de pago al transportista, ve a la pestaña <span class="font-semibold">Pedidos</span>, abre el pedido y usa el botón <span class="font-semibold">"Registrar y pagar al transportista"</span>.</p>
+    </div>
 }
 else
 {
@@ -142,16 +145,17 @@ else
             {
                 _settlements.AddRange(list);
             }
-
-            await SettlementsChanged.InvokeAsync(_settlements.ToList());
         }
         catch (HttpRequestException)
         {
-            // Sin liquidaciones: se mantiene el estado vacío.
+            // On error, keep existing settlements.
         }
         finally
         {
             _loading = false;
+            // Siempre notificar al padre con el estado actual (éxito o error).
+            await SettlementsChanged.InvokeAsync(_settlements.ToList());
+            await InvokeAsync(StateHasChanged);
         }
     }
 

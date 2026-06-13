@@ -812,7 +812,10 @@ public sealed record CourierEarningsItem(
     string OrderShortId,
     DateTimeOffset CreatedAt,
     double NetAmount,
-    string? Status);
+    string? Status,
+    string? PartnerName = null,
+    Guid? SettlementId = null,
+    string? Notes = null);
 
 public sealed record CourierEarnings(
     double SettledTotal,
