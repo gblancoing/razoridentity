@@ -534,6 +534,10 @@ public sealed class BuyerApiClient : ApiClientBase
     public Task<CourierMpDisconnect?> DisconnectCourierMercadoPagoAsync(Guid courierId, CancellationToken cancellationToken = default)
         => PostAsync<CourierMpDisconnect>($"/v1/courier/me/{courierId}/mercadopago/disconnect", new { }, cancellationToken);
 
+    /// <summary>El transportista confirma el recibo del pago manual declarado por el comercio.</summary>
+    public Task<object?> ConfirmSettlementReceiptAsync(Guid settlementId, CancellationToken cancellationToken = default)
+        => PostAsync<object>($"/v1/courier/me/settlements/{settlementId}/confirm", new { }, cancellationToken);
+
     public Task<PublicDeliveryQuoteResponse?> GetDeliveryQuoteAsync(
         Guid partnerId,
         double? destinationLat = null,
@@ -793,7 +797,9 @@ public sealed record CourierTrip(
     DateTimeOffset UpdatedAt,
     double? NetAmount,
     string? SettlementStatus,
-    string? Currency);
+    string? Currency,
+    Guid? SettlementId = null,
+    string? SettlementNotes = null);
 
 public sealed record CourierTripsPage(
     IReadOnlyList<CourierTrip> Items,

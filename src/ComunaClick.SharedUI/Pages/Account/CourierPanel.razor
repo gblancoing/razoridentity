@@ -78,7 +78,7 @@
                 {
                     @foreach (var trip in _trips.Items)
                     {
-                        <div class="rounded-2xl border border-[#eceae6] p-4 space-y-1.5">
+                        <div class="rounded-2xl border @(trip.SettlementStatus == "manual_confirming" ? "border-[#fbbf24]" : "border-[#eceae6]") p-4 space-y-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <p class="text-sm font-bold text-[#2c2f30]">#@trip.OrderShortId · @trip.PartnerName</p>
                                 <span class="@TripBadgeClass(trip.DeliveryStatus)">@TripStatusLabel(trip.DeliveryStatus)</span>
@@ -89,11 +89,39 @@
                             }
                             <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-[#7b8081]">
                                 <span>@trip.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>
-                                @if (trip.NetAmount is double net)
+                                @if (trip.NetAmount is not null)
                                 {
-                                    <span class="font-bold text-[#3b6700]">@L.T("account.courier.trips.net"): @FormatClp(net)</span>
+                                    <span class="font-bold text-[#3b6700]">@L.T("account.courier.trips.net"): @FormatClp((double)trip.NetAmount)</span>
                                 }
                             </div>
+                            @* Notificación de pago manual declarado por el comercio *@
+                            @if (trip.SettlementStatus == "manual_confirming" && trip.SettlementId.HasValue)
+                            {
+                                <div class="rounded-xl border border-[#fbbf24] bg-[#fffbeb] p-2.5 space-y-2">
+                                    <p class="text-xs font-semibold text-[#92400e]">
+                                        💰 El comercio declaró que ya te pagó
+                                    </p>
+                                    @if (!string.IsNullOrWhiteSpace(trip.SettlementNotes))
+                                    {
+                                        <p class="text-xs text-[#78350f]">@trip.SettlementNotes</p>
+                                    }
+                                    <button type="button"
+                                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad] disabled:opacity-60"
+                                            disabled="@(_confirmingSettlementId == trip.SettlementId)"
+                                            @onclick="() => ConfirmReceiptAsync(trip.SettlementId.Value)">
+                                        <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                        @(_confirmingSettlementId == trip.SettlementId ? "Confirmando..." : "Confirmar que recibí el pago")
+                                    </button>
+                                    @if (!string.IsNullOrWhiteSpace(_confirmMessage) && _confirmingSettlementId == trip.SettlementId)
+                                    {
+                                        <p class="text-xs font-medium text-red-600">@_confirmMessage</p>
+                                    }
+                                </div>
+                            }
+                            else if (trip.SettlementStatus == "settled")
+                            {
+                                <p class="text-xs font-semibold text-[#14532d]">✔ Pago confirmado</p>
+                            }
                         </div>
                     }
                     @if (_trips.TotalCount > _trips.Items.Count)
@@ -200,6 +228,8 @@
     private bool _mpConnectedBanner;
     private Guid? _linkingCourierId;
     private string? _mpMessage;
+    private Guid? _confirmingSettlementId;
+    private string? _confirmMessage;
 
     private ComunaClick.Shared.Api.Buyer.CourierMe? _me;
     private ComunaClick.Shared.Api.Buyer.CourierTripsPage? _trips;
@@ -339,6 +369,28 @@
         }
     }
 
+    private async Task ConfirmReceiptAsync(Guid settlementId)
+    {
+        _confirmingSettlementId = settlementId;
+        _confirmMessage = null;
+        StateHasChanged();
+        try
+        {
+            await BuyerApi.ConfirmSettlementReceiptAsync(settlementId);
+            // Recarga los viajes para reflejar el nuevo estado "settled".
+            _trips = await BuyerApi.GetCourierTripsAsync(_tripFilter);
+        }
+        catch (HttpRequestException)
+        {
+            _confirmMessage = "No se pudo confirmar el pago. Intenta nuevamente.";
+        }
+        finally
+        {
+            _confirmingSettlementId = null;
+            StateHasChanged();
+        }
+    }
+
     private async Task CopyEmailAsync()
     {
         if (string.IsNullOrWhiteSpace(MyEmail))
@@ -386,6 +438,7 @@
     {
         "settled" => L.T("partner.delivery.settlement.status.settled"),
         "processing" => L.T("partner.delivery.settlement.status.processing"),
+        "manual_confirming" => "Pago declarado",
         "manual" => L.T("partner.delivery.settlement.status.manual"),
         _ => L.T("partner.delivery.settlement.status.pending")
     };
@@ -394,6 +447,7 @@
     {
         "settled" => "bg-[#dcfce7] text-[#14532d]",
         "processing" => "bg-[#fff4d6] text-[#8a5b00]",
+        "manual_confirming" => "bg-[#fef9c3] text-[#854d0e]",
         "manual" => "bg-[#eff1f2] text-[#595c5d]",
         _ => "bg-[#e0f2fe] text-[#075985]"
     };

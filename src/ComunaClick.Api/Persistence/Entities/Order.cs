@@ -36,6 +36,10 @@ public sealed class Order
     public string? DeliveryStatus { get; set; }
     /// <summary>Repartidor asignado al envío.</summary>
     public Guid? CourierId { get; set; }
+
+    /// <summary>Nombre del repartidor asignado (de Couriers); solo para respuestas del panel partner.</summary>
+    [NotMapped]
+    public string? CourierName { get; set; }
     /// <summary>Clave aleatoria por asignación: viaja dentro del HMAC del token del
     /// repartidor; regenerarla o limpiarla revoca todos los tokens anteriores.</summary>
     public string? CourierTokenKey { get; set; }

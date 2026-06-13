@@ -29,6 +29,19 @@ public interface IDeliverySettlementService
     Task<(bool Ok, string? Error)> MarkSettledAsync(Guid settlementId, string? notes, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// El comercio declara que ya pagó al transportista (efectivo o transferencia).
+    /// Cambia status a "manual_confirming" y registra el método en Notes.
+    /// El transportista debe confirmar el recibo desde su portal para marcar "settled".
+    /// </summary>
+    Task<(bool Ok, string? Error)> DeclareManualPaymentAsync(Guid settlementId, Guid partnerId, string method, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// El transportista confirma que recibió el pago manual declarado por el comercio.
+    /// Solo válido cuando el status es "manual_confirming".
+    /// </summary>
+    Task<(bool Ok, string? Error)> ConfirmManualReceiptAsync(Guid settlementId, Guid courierId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Resultado del pago comercio → repartidor (external reference cc-delivery-*):
     /// aprobado ⇒ slip liquidado con el fee MP REAL de esa transacción;
     /// rechazado/cancelado ⇒ el slip vuelve a pending para reintentar el link.
@@ -212,6 +225,56 @@ public sealed class DeliverySettlementService : IDeliverySettlementService
             settlement.UpdatedAt = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task<(bool Ok, string? Error)> DeclareManualPaymentAsync(Guid settlementId, Guid partnerId, string method, CancellationToken cancellationToken = default)
+    {
+        var normalized = method.Trim().ToLowerInvariant();
+        if (normalized is not ("cash" or "transfer"))
+        {
+            return (false, "Método de pago inválido. Use 'cash' o 'transfer'.");
+        }
+
+        var settlement = await _db.DeliverySettlements
+            .FirstOrDefaultAsync(x => x.Id == settlementId && x.PartnerId == partnerId, cancellationToken);
+        if (settlement is null)
+        {
+            return (false, "Liquidación no encontrada.");
+        }
+
+        if (settlement.Status is "settled")
+        {
+            return (false, "Esta liquidación ya fue confirmada.");
+        }
+
+        var methodLabel = normalized == "cash" ? "efectivo" : "transferencia bancaria";
+        settlement.Status = "manual_confirming";
+        settlement.Notes = $"Comercio declaró pago en {methodLabel}. Esperando confirmación del transportista.";
+        settlement.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return (true, null);
+    }
+
+    public async Task<(bool Ok, string? Error)> ConfirmManualReceiptAsync(Guid settlementId, Guid courierId, CancellationToken cancellationToken = default)
+    {
+        var settlement = await _db.DeliverySettlements
+            .FirstOrDefaultAsync(x => x.Id == settlementId && x.CourierId == courierId, cancellationToken);
+        if (settlement is null)
+        {
+            return (false, "Liquidación no encontrada.");
+        }
+
+        if (settlement.Status != "manual_confirming")
+        {
+            return (false, "La liquidación no está en espera de confirmación.");
+        }
+
+        settlement.Status = "settled";
+        settlement.SettledAt = DateTimeOffset.UtcNow;
+        settlement.Notes = (settlement.Notes ?? string.Empty) + " Confirmado por el transportista.";
+        settlement.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return (true, null);
     }
 
     /// <summary>

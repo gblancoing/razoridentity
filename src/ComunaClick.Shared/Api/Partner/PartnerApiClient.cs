@@ -53,6 +53,10 @@ public sealed class PartnerApiClient : ApiClientBase
     public Task<DeliverySettlementPayResult?> PayDeliverySettlementAsync(Guid partnerId, Guid settlementId, CancellationToken cancellationToken = default)
         => PostAsync<DeliverySettlementPayResult>($"/v1/partners/{partnerId}/delivery-settlements/{settlementId}/pay", new { }, cancellationToken);
 
+    /// <summary>Declara pago manual (efectivo o transferencia) al transportista. El transportista debe confirmar el recibo.</summary>
+    public Task<object?> DeclareManualPaymentAsync(Guid partnerId, Guid settlementId, string method, CancellationToken cancellationToken = default)
+        => PostAsync<object>($"/v1/partners/{partnerId}/delivery-settlements/{settlementId}/pay-manual", new { method }, cancellationToken);
+
     public Task<Order?> UpdateOrderStatusAsync(Guid orderId, OrderStatusUpdateRequest request, CancellationToken cancellationToken = default)
         => PatchAsync<Order>($"/v1/orders/{orderId}/status", request, cancellationToken);
 
@@ -539,7 +543,8 @@ public sealed record Order(
     string? DeliveryAddress = null,
     string? DeliveryType = null,
     string? DeliveryStatus = null,
-    Guid? CourierId = null
+    Guid? CourierId = null,
+    string? CourierName = null
 );
 
 public sealed record PartnerCourier(
@@ -587,7 +592,8 @@ public sealed record OrderItem(
     Guid ProductId,
     int Quantity,
     double UnitPrice,
-    double TotalPrice
+    double TotalPrice,
+    string? ProductName = null
 );
 
 public sealed record OrderStatusUpdateRequest(string Status);

@@ -35,7 +35,9 @@ public sealed record CourierTripResponse(
     DateTimeOffset UpdatedAt,
     decimal? NetAmount,
     string? SettlementStatus,
-    string Currency);
+    string Currency,
+    Guid? SettlementId = null,
+    string? SettlementNotes = null);
 
 public sealed record CourierTripsPageResponse(
     IReadOnlyList<CourierTripResponse> Items,
@@ -75,15 +77,18 @@ public sealed class CourierPortalController : ControllerBase
     private readonly CoreDbContext _db;
     private readonly ICourierPayeeService _payeeService;
     private readonly Marketplace.MercadoPagoOAuthService _mpOAuth;
+    private readonly IDeliverySettlementService _settlementService;
 
     public CourierPortalController(
         CoreDbContext db,
         ICourierPayeeService payeeService,
-        Marketplace.MercadoPagoOAuthService mpOAuth)
+        Marketplace.MercadoPagoOAuthService mpOAuth,
+        IDeliverySettlementService settlementService)
     {
         _db = db;
         _payeeService = payeeService;
         _mpOAuth = mpOAuth;
+        _settlementService = settlementService;
     }
 
     [HttpGet]
@@ -176,7 +181,9 @@ public sealed class CourierPortalController : ControllerBase
                 order.UpdatedAt,
                 settlement?.NetToCourierAmount,
                 settlement?.Status,
-                settlement?.Currency ?? order.Currency ?? "CLP");
+                settlement?.Currency ?? order.Currency ?? "CLP",
+                settlement?.Id,
+                settlement?.Notes);
         }).ToList();
 
         return Ok(new CourierTripsPageResponse(items, page, pageSize, totalCount));
@@ -257,6 +264,35 @@ public sealed class CourierPortalController : ControllerBase
         }
 
         return Ok(new { courierId, disconnected = true });
+    }
+
+    /// <summary>
+    /// El transportista confirma el recibo de un pago manual declarado por el comercio
+    /// (efectivo o transferencia). Requiere que el slip esté en "manual_confirming".
+    /// </summary>
+    [HttpPost("settlements/{settlementId:guid}/confirm")]
+    public async Task<IActionResult> ConfirmSettlementReceipt(
+        Guid settlementId,
+        CancellationToken cancellationToken)
+    {
+        var mine = await ResolveMyCouriersAsync(cancellationToken);
+        if (mine.Count == 0)
+        {
+            return NotFound();
+        }
+
+        var courierIds = mine.Select(x => x.Id).ToList();
+
+        // Verificar que el settlement pertenece a uno de mis courier IDs.
+        var settlement = await _db.DeliverySettlements.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Id == settlementId && x.CourierId.HasValue && courierIds.Contains(x.CourierId.Value), cancellationToken);
+        if (settlement is null)
+        {
+            return NotFound();
+        }
+
+        var (ok, error) = await _settlementService.ConfirmManualReceiptAsync(settlementId, settlement.CourierId!.Value, cancellationToken);
+        return ok ? Ok(new { ok = true }) : BadRequest(new { message = error });
     }
 
     /// <summary>El repartidor se marca disponible / no disponible.</summary>

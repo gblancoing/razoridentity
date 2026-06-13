@@ -98,12 +98,27 @@
                     <article id="order-@order.Id"
                              class="bg-white rounded-3xl p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] @(highlighted ? "ring-2 ring-[#3b6700]" : string.Empty)">
                         <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-                            <div class="space-y-3">
+                            <div class="space-y-2 flex-1 min-w-0">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <p class="text-lg font-black tracking-[-0.03em] text-[#2c2f30]">@L.T("partner.orders.orderLabel") #@order.Id.ToString()[..8]</p>
                                     <span class="@GetStatusClass(order.Status)">@MapStatus(order.Status)</span>
                                 </div>
-                                <p class="text-sm text-[#595c5d]">@FormatItems(order)</p>
+                                @* Detalle de ítems con nombres de productos *@
+                                @if (order.Items is { Count: > 0 })
+                                {
+                                    <ul class="space-y-0.5">
+                                        @foreach (var item in order.Items)
+                                        {
+                                            <li class="flex items-baseline justify-between gap-3 text-sm text-[#595c5d]">
+                                                <span>
+                                                    <span class="font-semibold text-[#2c2f30]">@item.Quantity×</span>
+                                                    @(!string.IsNullOrWhiteSpace(item.ProductName) ? item.ProductName : item.ProductId.ToString()[..8])
+                                                </span>
+                                                <span class="text-xs whitespace-nowrap">@Money(item.UnitPrice, order.Currency) c/u</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
                                 @if (!string.IsNullOrWhiteSpace(order.BuyerName) || !string.IsNullOrWhiteSpace(order.BuyerPhone))
                                 {
                                     <p class="text-sm text-[#595c5d]">
@@ -111,9 +126,31 @@
                                         @string.Join(" · ", new[] { order.BuyerName, order.BuyerPhone }.Where(x => !string.IsNullOrWhiteSpace(x)))
                                     </p>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(order.CourierName))
+                                {
+                                    <p class="text-sm text-[#595c5d]">
+                                        <span class="material-symbols-outlined align-middle text-[14px] text-[#3b6700]">two_wheeler</span>
+                                        <span class="font-bold text-[#2c2f30]">Transportista:</span> @order.CourierName
+                                    </p>
+                                }
                                 <p class="text-xs text-[#7b8081]">@FormatRelative(order.CreatedAt)</p>
                             </div>
-                            <div class="text-left lg:text-right">
+                            <div class="text-left lg:text-right shrink-0">
+                                @* Desglose: subtotal productos + costo delivery *@
+                                @if (order.DeliveryFee > 0)
+                                {
+                                    <div class="mb-2 text-right space-y-0.5">
+                                        <p class="text-xs text-[#595c5d]">
+                                            <span class="text-[#7b8081]">Productos</span>
+                                            <span class="ml-2 font-semibold text-[#2c2f30]">@Money(order.Subtotal, order.Currency)</span>
+                                        </p>
+                                        <p class="text-xs text-[#595c5d]">
+                                            <span class="material-symbols-outlined align-middle text-[12px] text-[#3b6700]">local_shipping</span>
+                                            <span class="text-[#7b8081]">Delivery</span>
+                                            <span class="ml-2 font-semibold text-[#3b6700]">@Money(order.DeliveryFee, order.Currency)</span>
+                                        </p>
+                                    </div>
+                                }
                                 <p class="text-[10px] uppercase tracking-[0.16em] font-bold text-[#7b8081]">@L.T("partner.orders.total")</p>
                                 <p class="text-2xl font-black tracking-[-0.04em] text-[#3b6700]">@Money(order.TotalAmount, order.Currency)</p>
                             </div>

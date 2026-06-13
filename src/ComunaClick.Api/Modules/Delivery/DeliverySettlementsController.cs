@@ -107,6 +107,25 @@ public sealed class DeliverySettlementsController : ControllerBase
             : Ok(new { initPoint = link.InitPoint, status = link.Status });
     }
 
+    /// <summary>
+    /// El comercio declara que pagó al transportista en efectivo o por transferencia bancaria.
+    /// Deja el slip en "manual_confirming" hasta que el transportista confirme el recibo.
+    /// </summary>
+    [Authorize(Policy = "partner.staff")]
+    [HttpPost("/v1/partners/{partnerId:guid}/delivery-settlements/{id:guid}/pay-manual")]
+    public async Task<IActionResult> PayManual(Guid partnerId, Guid id, [FromBody] DeliverySettlementManualPayRequest request)
+    {
+        var access = await PartnerAccessAuthorization.EnsurePartnerAccessAsync(
+            _db, User, partnerId, _tenantContext.TenantId, _tenantContext.PartnerId, HttpContext.RequestAborted);
+        if (access != PartnerAccessResult.Allowed)
+        {
+            return Forbid();
+        }
+
+        var (ok, error) = await _settlements.DeclareManualPaymentAsync(id, partnerId, request.Method, HttpContext.RequestAborted);
+        return ok ? Ok(new { ok = true, status = "manual_confirming" }) : BadRequest(new { message = error });
+    }
+
     /// <summary>Marca el slip como liquidado (la transferencia al transportista ya se efectuó).</summary>
     [Authorize(Policy = "platform.admin")]
     [HttpPost("/v1/admin/delivery-settlements/{id:guid}/settle")]
@@ -168,3 +187,5 @@ public sealed class DeliverySettlementsController : ControllerBase
 }
 
 public sealed record DeliverySettlementSettleRequest(string? Notes);
+
+public sealed record DeliverySettlementManualPayRequest(string Method);

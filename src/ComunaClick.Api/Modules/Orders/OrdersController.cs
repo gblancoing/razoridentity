@@ -205,6 +205,22 @@ public sealed class OrdersController : ControllerBase
                 select new { OrderId = grouped.Key, Fee = grouped.Sum() })
             .ToDictionaryAsync(x => x.OrderId, x => x.Fee);
 
+        // Nombres de productos para mostrar en el detalle del pedido.
+        var productIds = orders.SelectMany(x => x.Items).Select(x => x.ProductId).Distinct().ToList();
+        var productNames = await _db.Products.AsNoTracking()
+            .Where(x => productIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name);
+
+        // Nombres de repartidores asignados.
+        var courierIds = orders.Where(x => x.CourierId.HasValue).Select(x => x.CourierId!.Value).Distinct().ToList();
+        var courierNames = courierIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.Couriers.IgnoreQueryFilters().AsNoTracking()
+                .Where(x => courierIds.Contains(x.Id))
+                .Select(x => new { x.Id, x.Name })
+                .ToDictionaryAsync(x => x.Id, x => x.Name);
+
         foreach (var order in orders)
         {
             if (customers.TryGetValue(order.CustomerId, out var customer))
@@ -216,6 +232,19 @@ public sealed class OrdersController : ControllerBase
             if (mpFees.TryGetValue(order.Id, out var mpFee))
             {
                 order.MercadoPagoFeeAmount = mpFee;
+            }
+
+            if (order.CourierId.HasValue && courierNames.TryGetValue(order.CourierId.Value, out var courierName))
+            {
+                order.CourierName = courierName;
+            }
+
+            foreach (var item in order.Items)
+            {
+                if (productNames.TryGetValue(item.ProductId, out var productName))
+                {
+                    item.ProductName = productName;
+                }
             }
         }
 

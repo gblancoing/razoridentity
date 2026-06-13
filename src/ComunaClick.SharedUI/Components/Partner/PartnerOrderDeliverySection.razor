@@ -131,6 +131,16 @@
                     <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#7b8081]">@L.T("partner.delivery.settlement.title")</span>
                     <span class="@SettlementBadgeClass">@SettlementStatusLabel</span>
                 </div>
+
+                @* Nombre del transportista que realizó el servicio *@
+                @if (!string.IsNullOrWhiteSpace(Settlement.CourierName))
+                {
+                    <p class="text-xs text-[#595c5d]">
+                        <span class="material-symbols-outlined align-middle text-[13px] text-[#3b6700]">two_wheeler</span>
+                        <span class="font-semibold text-[#2c2f30]">Transportista:</span> @Settlement.CourierName
+                    </p>
+                }
+
                 <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[#595c5d]">
                     <dt>@L.T("partner.delivery.settlement.gross")</dt>
                     <dd class="text-right font-semibold text-[#2c2f30]">@FormatClp(Settlement.GrossAmount)</dd>
@@ -144,17 +154,76 @@
 
                 @if (Settlement.Status is "pending" or "manual" or "processing")
                 {
-                    <button type="button"
-                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#009ee3] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
-                            disabled="@_payBusy"
-                            @onclick="PaySettlementAsync">
-                        <span class="material-symbols-outlined text-[16px]">payments</span>
-                        @(_payBusy ? L.T("partner.delivery.settlement.paying") : L.T("partner.delivery.settlement.pay"))
-                    </button>
+                    <div class="space-y-2">
+                        <button type="button"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#009ee3] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+                                disabled="@(_payBusy || _showManualModal)"
+                                @onclick="PaySettlementAsync">
+                            <span class="material-symbols-outlined text-[16px]">payments</span>
+                            @(_payBusy ? L.T("partner.delivery.settlement.paying") : L.T("partner.delivery.settlement.pay"))
+                        </button>
+                        <button type="button"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#3b6700] bg-white px-4 py-2.5 text-xs font-bold text-[#3b6700] disabled:opacity-60"
+                                disabled="@(_payBusy || _showManualModal)"
+                                @onclick="() => _showManualModal = true">
+                            <span class="material-symbols-outlined text-[16px]">handshake</span>
+                            Declarar pago (efectivo / transferencia)
+                        </button>
+                    </div>
+                }
+                else if (Settlement.Status == "manual_confirming")
+                {
+                    <div class="rounded-lg border border-[#fef9c3] bg-[#fefce8] p-2.5 text-xs text-[#854d0e]">
+                        <p class="font-semibold">⏳ Esperando confirmación del transportista</p>
+                        @if (!string.IsNullOrWhiteSpace(Settlement.Notes))
+                        {
+                            <p class="mt-1 text-[#78350f]">@Settlement.Notes</p>
+                        }
+                    </div>
                 }
                 else if (Settlement.Status == "settled")
                 {
                     <p class="text-xs font-semibold text-[#14532d]">@L.T("partner.delivery.settlement.paid")</p>
+                }
+
+                @* Modal de pago manual: seleccionar método *@
+                @if (_showManualModal)
+                {
+                    <div class="rounded-xl border border-[#e3e6e8] bg-[#f8faf8] p-3 space-y-3">
+                        <p class="text-xs font-bold text-[#2c2f30]">¿Cómo pagaste al transportista?</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button"
+                                    class="@ManualMethodClass("cash")"
+                                    @onclick='() => _manualMethod = "cash"'>
+                                <span class="material-symbols-outlined text-[18px]">payments</span>
+                                Efectivo
+                            </button>
+                            <button type="button"
+                                    class="@ManualMethodClass("transfer")"
+                                    @onclick='() => _manualMethod = "transfer"'>
+                                <span class="material-symbols-outlined text-[18px]">account_balance</span>
+                                Transferencia
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button"
+                                    class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#3b6700] px-4 py-2 text-xs font-bold text-[#d9ffad] disabled:opacity-60"
+                                    disabled="@(_manualPayBusy || _manualMethod is null)"
+                                    @onclick="DeclareManualPaymentAsync">
+                                @(_manualPayBusy ? "Registrando..." : "Confirmar pago")
+                            </button>
+                            <button type="button"
+                                    class="inline-flex items-center rounded-xl border border-[#dadddf] px-4 py-2 text-xs font-bold text-[#595c5d]"
+                                    disabled="@_manualPayBusy"
+                                    @onclick="() => { _showManualModal = false; _manualMethod = null; }">
+                                Cancelar
+                            </button>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(_manualPayMessage))
+                        {
+                            <p class="text-xs font-medium text-red-600">@_manualPayMessage</p>
+                        }
+                    </div>
                 }
 
                 @if (!string.IsNullOrWhiteSpace(_payMessage))
@@ -184,6 +253,10 @@
     private string? _message;
     private bool _payBusy;
     private string? _payMessage;
+    private bool _showManualModal;
+    private string? _manualMethod;
+    private bool _manualPayBusy;
+    private string? _manualPayMessage;
     // Mapa en vivo del recorrido.
     private bool _mapOpen;
     private bool _mapBusy;
@@ -263,6 +336,7 @@
     {
         "settled" => L.T("partner.delivery.settlement.status.settled"),
         "processing" => L.T("partner.delivery.settlement.status.processing"),
+        "manual_confirming" => "Pago declarado",
         "manual" => L.T("partner.delivery.settlement.status.manual"),
         _ => L.T("partner.delivery.settlement.status.pending")
     };
@@ -271,6 +345,7 @@
     {
         "settled" => "bg-[#dcfce7] text-[#14532d]",
         "processing" => "bg-[#fff4d6] text-[#8a5b00]",
+        "manual_confirming" => "bg-[#fef9c3] text-[#854d0e]",
         "manual" => "bg-[#eff1f2] text-[#595c5d]",
         _ => "bg-[#e0f2fe] text-[#075985]"
     };
@@ -309,6 +384,41 @@
         {
             _payBusy = false;
         }
+    }
+
+    private async Task DeclareManualPaymentAsync()
+    {
+        if (Settlement is null || _manualMethod is null)
+        {
+            return;
+        }
+
+        _manualPayBusy = true;
+        _manualPayMessage = null;
+        try
+        {
+            await PartnerApi.DeclareManualPaymentAsync(Settlement.PartnerId, Settlement.Id, _manualMethod);
+            _showManualModal = false;
+            _manualMethod = null;
+            await DeliveryChanged.InvokeAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _manualPayMessage = TryExtractApiMessage(ex.Message) ?? "No se pudo registrar el pago. Intenta nuevamente.";
+        }
+        finally
+        {
+            _manualPayBusy = false;
+        }
+    }
+
+    private string ManualMethodClass(string method)
+    {
+        var selected = _manualMethod == method;
+        return "flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-xs font-bold transition-colors " +
+               (selected
+                   ? "border-[#3b6700] bg-[#f0fbe0] text-[#3b6700]"
+                   : "border-[#dadddf] bg-white text-[#595c5d] hover:border-[#3b6700]");
     }
 
     private static string? TryExtractApiMessage(string? httpError)
