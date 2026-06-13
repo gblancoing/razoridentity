@@ -5,4 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ComunaClick.Admin</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ComunaClick.AdminUI\ComunaClick.AdminUI.csproj" />
+  </ItemGroup>
 </Project>
