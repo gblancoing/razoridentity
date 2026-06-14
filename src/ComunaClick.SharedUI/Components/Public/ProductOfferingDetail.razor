@@ -5,14 +5,14 @@
 
 <div class="overflow-hidden rounded-[2rem] border border-[#e3e6e8] bg-white shadow-[0_24px_80px_-40px_rgba(0,0,0,0.18)]">
     <section class="relative min-h-[320px] lg:min-h-[380px]">
-        <div class="absolute inset-0 bg-[#0f1210]"></div>
         <button type="button"
                 class="absolute inset-0 z-[1] cursor-zoom-in border-0 bg-cover bg-center p-0"
                 style="@HeroStyle"
                 aria-label="@L.T("public.product.gallery.expand")"
                 @onclick="() => OpenLightbox(_galleryIndex)">
         </button>
-        <div class="absolute inset-0 bg-gradient-to-br from-[#0a0c0a]/92 via-[#0a0c0a]/50 to-[#1a2e0b]/35 pointer-events-none"></div>
+        <div class="absolute inset-0 bg-gradient-to-br from-[#0a0c0a]/30 via-[#0a0c0a]/15 to-[#1a2e0b]/5 pointer-events-none"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-[#0a0c0a]/35 via-transparent to-transparent pointer-events-none"></div>
 
         <div class="relative z-10 flex min-h-[320px] flex-col justify-end p-6 sm:p-10 lg:min-h-[380px]">
             @if (!string.IsNullOrWhiteSpace(PartnerLogoUrl) || !string.IsNullOrWhiteSpace(PartnerName))
