@@ -2,65 +2,65 @@
 @inject ComunaClick.SharedUI.Services.AuthStateService AuthState
 @implements IDisposable
 
-<!-- Barra superior fija — z-index 9999 para estar sobre cualquier hero animado -->
-<div style="position:fixed;top:0;left:0;right:0;z-index:9999;
-            background:#ffffff;
-            border-bottom:1px solid #e5e7eb;
-            box-shadow:0 2px 8px rgba(0,0,0,0.08);
-            padding-top:env(safe-area-inset-top,0px);
-            will-change:transform">
-    <div style="display:flex;align-items:center;justify-content:space-between;
-                height:56px;padding:0 16px">
+<!-- Layout columna flex: header estático + scroll en contenido -->
+<!-- No usa position:fixed que falla en MAUI Android WebView con edge-to-edge -->
+<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
 
-        <!-- Logo -->
-        <a href="/" style="display:flex;align-items:center;text-decoration:none">
-            <img src="_content/ComunaClick.SharedUI/logo.png"
-                 alt="ComunaClic"
-                 style="height:34px;width:auto" />
-        </a>
+    <!-- Barra superior: estática, no se desplaza con el scroll -->
+    <div style="flex-shrink:0;
+                background:#ffffff;
+                border-bottom:1px solid #e5e7eb;
+                box-shadow:0 2px 8px rgba(0,0,0,0.08);
+                padding-top:env(safe-area-inset-top,0px)">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    height:56px;padding:0 16px">
 
-        <!-- Acciones derecha -->
-        <div style="display:flex;align-items:center;gap:10px">
-
-            <!-- Carrito -->
-            <a href="/buyer/cart"
-               style="display:flex;align-items:center;justify-content:center;
-                      width:40px;height:40px;border-radius:50%;text-decoration:none;color:#2c2f30">
-                <span class="material-symbols-outlined" style="font-size:22px">shopping_cart</span>
+            <!-- Logo -->
+            <a href="/" style="display:flex;align-items:center;text-decoration:none">
+                <img src="_content/ComunaClick.SharedUI/logo.png"
+                     alt="ComunaClic"
+                     style="height:34px;width:auto" />
             </a>
 
-            @if (!_isAuthenticated)
-            {
-                <!-- Iniciar sesión -->
-                <a href="/login"
-                   style="background:#3d6a00;color:#ffffff;
-                          padding:8px 16px;border-radius:999px;
-                          font-size:13px;font-weight:700;
-                          text-decoration:none;white-space:nowrap;
-                          box-shadow:0 2px 6px rgba(61,106,0,0.3)">
-                    Iniciar sesión
-                </a>
-            }
-            else
-            {
-                <!-- Avatar cuenta -->
-                <a href="/account/buyer"
+            <!-- Acciones derecha -->
+            <div style="display:flex;align-items:center;gap:10px">
+
+                <!-- Carrito -->
+                <a href="/buyer/cart"
                    style="display:flex;align-items:center;justify-content:center;
                           width:40px;height:40px;border-radius:50%;
-                          background:#f3f4f6;text-decoration:none;color:#2c2f30">
-                    <span class="material-symbols-outlined" style="font-size:22px">person</span>
+                          text-decoration:none;color:#2c2f30">
+                    <span class="material-symbols-outlined" style="font-size:22px">shopping_cart</span>
                 </a>
-            }
+
+                @if (!_isAuthenticated)
+                {
+                    <a href="/login"
+                       style="background:#3d6a00;color:#ffffff;
+                              padding:8px 16px;border-radius:999px;
+                              font-size:13px;font-weight:700;
+                              text-decoration:none;white-space:nowrap">
+                        Iniciar sesión
+                    </a>
+                }
+                else
+                {
+                    <a href="/account/buyer"
+                       style="display:flex;align-items:center;justify-content:center;
+                              width:40px;height:40px;border-radius:50%;
+                              background:#f3f4f6;text-decoration:none;color:#2c2f30">
+                        <span class="material-symbols-outlined" style="font-size:22px">person</span>
+                    </a>
+                }
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Espaciador: empuja el contenido debajo de la barra fija -->
-<div style="height:calc(56px + env(safe-area-inset-top,0px));flex-shrink:0" aria-hidden="true"></div>
+    <!-- Área de contenido: hace scroll -->
+    <div style="flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch">
+        @Body
+    </div>
 
-<!-- Contenido de la página -->
-<div style="width:100%;min-width:0;flex:1">
-    @Body
 </div>
 
 @code {
