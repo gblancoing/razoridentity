@@ -139,9 +139,10 @@
                 }
                 else
                 {
+                    <a class="block rounded-lg bg-primary px-3 py-2.5 text-center text-sm font-bold text-white shadow-sm" href="/login" @onclick="CloseMenu">@L.T("nav.login")</a>
                     @if (!_hideRegisterCta)
                     {
-                        <a class="block rounded-lg border-2 border-primary px-3 py-2 text-sm font-bold text-primary" href="/register?role=commerce" @onclick="CloseMenu">@RegisterCtaLabel</a>
+                        <a class="block rounded-lg border-2 border-primary px-3 py-2 text-center text-sm font-bold text-primary" href="/register?role=commerce" @onclick="CloseMenu">@RegisterCtaLabel</a>
                     }
                 }
             </div>
