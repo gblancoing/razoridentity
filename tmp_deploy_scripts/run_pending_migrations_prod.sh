@@ -22,6 +22,7 @@ MIGRATIONS=(
   20260602_service_geo_coordinates.sql
   20260603_commerce_home_improvement_gardening.sql
   20260604_product_geo_discovery.sql
+  20260616_partner_shipping_methods.sql
 )
 
 remote() { ssh "${ssh_opts[@]}" "${SSH_USER}@${HOST}" "$@"; }

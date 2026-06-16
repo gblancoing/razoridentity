@@ -34,14 +34,16 @@ public static class MauiProgram
 		builder.Services.AddScoped<ITokenStore, ComunaClick.Mobile.Services.SecureTokenStore>();
 
 		// Configuración de API (producción)
-		builder.Services.AddSingleton(new ComunaClick.Shared.Http.ApiOptions
+		var apiOptions = new ComunaClick.Shared.Http.ApiOptions
 		{
 			ApiBaseUrl = "https://api.comunaclic.cl",
 			AclBaseUrl = "https://acl.comunaclic.cl",
 			DefaultTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
 			DefaultPartnerId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
 			DefaultProfessionalId = Guid.Parse("33333333-3333-3333-3333-333333333333")
-		});
+		};
+		builder.Services.AddSingleton(apiOptions);
+		builder.Services.AddSingleton(Microsoft.Extensions.Options.Options.Create(apiOptions));
 
 		// HttpClient base (requerido por ScopedApiHttpClientFactory)
 		builder.Services.AddHttpClient();

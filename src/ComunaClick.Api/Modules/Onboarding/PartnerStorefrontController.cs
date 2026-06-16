@@ -197,6 +197,32 @@ public sealed class PartnerStorefrontController : ControllerBase
     return access == PartnerAccessResult.Allowed;
   }
 
+  [HttpPatch("shipping")]
+  public async Task<ActionResult<PartnerStorefrontResponse>> UpdateShipping(
+    Guid partnerId,
+    PartnerShippingMethodsUpdateRequest request)
+  {
+    var partner = await _db.Partners.FirstOrDefaultAsync(x => x.Id == partnerId);
+    if (partner is null)
+    {
+      return NotFound();
+    }
+
+    if (!await CanAccessAsync(partnerId))
+    {
+      return Forbid();
+    }
+
+    partner.ShippingCourierPaidEnabled = request.CourierPaid;
+    partner.ShippingFreeOverAmountEnabled = request.FreeOverAmount;
+    partner.ShippingFreeOverAmount = request.FreeOverAmount ? request.FreeOverAmountValue : null;
+    partner.ShippingDeliveryZoneEnabled = request.DeliveryZone;
+    partner.ShippingFreeEnabled = request.Free;
+    partner.UpdatedAt = DateTimeOffset.UtcNow;
+    await _db.SaveChangesAsync();
+    return Ok(ToResponse(partner));
+  }
+
   private static PartnerStorefrontResponse ToResponse(ComunaClick.Api.Persistence.Entities.Partner partner)
     => new(
       partner.Id,
@@ -207,7 +233,12 @@ public sealed class PartnerStorefrontController : ControllerBase
       partner.StorefrontHighlight1,
       partner.StorefrontHighlight2,
       partner.StorefrontHighlight3,
-      $"/buyer/detail/partner/{partner.Id}");
+      $"/buyer/detail/partner/{partner.Id}",
+      partner.ShippingCourierPaidEnabled,
+      partner.ShippingFreeOverAmountEnabled,
+      partner.ShippingFreeOverAmount,
+      partner.ShippingDeliveryZoneEnabled,
+      partner.ShippingFreeEnabled);
 
   private static string? Normalize(string? value)
     => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

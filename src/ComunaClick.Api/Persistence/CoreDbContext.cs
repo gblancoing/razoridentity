@@ -200,6 +200,11 @@ public sealed class CoreDbContext : DbContext
             entity.Property(x => x.BankAccountHolder).HasColumnName("bank_account_holder");
             entity.Property(x => x.BankAccountHolderRut).HasColumnName("bank_account_holder_rut");
             entity.Property(x => x.PreferredDeliveryProviderId).HasColumnName("preferred_delivery_provider_id");
+            entity.Property(x => x.ShippingCourierPaidEnabled).HasColumnName("shipping_courier_paid_enabled").HasDefaultValue(false);
+            entity.Property(x => x.ShippingFreeOverAmountEnabled).HasColumnName("shipping_free_over_amount_enabled").HasDefaultValue(false);
+            entity.Property(x => x.ShippingFreeOverAmount).HasColumnName("shipping_free_over_amount").HasColumnType("numeric(12,2)");
+            entity.Property(x => x.ShippingDeliveryZoneEnabled).HasColumnName("shipping_delivery_zone_enabled").HasDefaultValue(false);
+            entity.Property(x => x.ShippingFreeEnabled).HasColumnName("shipping_free_enabled").HasDefaultValue(false);
             entity.Property(x => x.WebsiteUrl).HasColumnName("website_url");
             entity.Property(x => x.InstagramUrl).HasColumnName("instagram_url");
             entity.Property(x => x.FacebookUrl).HasColumnName("facebook_url");

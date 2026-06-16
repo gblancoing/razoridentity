@@ -226,21 +226,47 @@ else
                         <p class="text-xs text-[#61897c]">@_deliveryHint</p>
                     }
                     <div class="space-y-2">
-                        <label class="flex items-start gap-2 cursor-pointer">
-                            <input type="radio" name="deliveryMode" checked="@(_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)" disabled="@_isSubmitting"
-                                   @onchange="() => SetDeliveryMode(GuestCheckoutDeliveryHelper.ModeHome)" />
-                            <span class="text-sm">@L.T("buyer.checkout.delivery.home")</span>
-                        </label>
-                        <label class="flex items-start gap-2 cursor-pointer">
-                            <input type="radio" name="deliveryMode" checked="@(_deliveryMode == GuestCheckoutDeliveryHelper.ModeFree)" disabled="@_isSubmitting"
-                                   @onchange="() => SetDeliveryMode(GuestCheckoutDeliveryHelper.ModeFree)" />
-                            <span class="text-sm">@L.T("buyer.checkout.delivery.free")</span>
-                        </label>
-                        <label class="flex items-start gap-2 cursor-pointer">
-                            <input type="radio" name="deliveryMode" checked="@(_deliveryMode == GuestCheckoutDeliveryHelper.ModePayOnDelivery)" disabled="@_isSubmitting"
-                                   @onchange="() => SetDeliveryMode(GuestCheckoutDeliveryHelper.ModePayOnDelivery)" />
-                            <span class="text-sm">@L.T("buyer.checkout.delivery.payOnDelivery")</span>
-                        </label>
+                        @if (ShowDeliveryMode(GuestCheckoutDeliveryHelper.ModeHome))
+                        {
+                            var homeEnabled = IsDeliveryModeEnabled(GuestCheckoutDeliveryHelper.ModeHome);
+                            <label class="flex items-start gap-2 @(homeEnabled ? "cursor-pointer" : "cursor-not-allowed opacity-50")">
+                                <input type="radio" name="deliveryMode" checked="@(_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)"
+                                       disabled="@(_isSubmitting || !homeEnabled)"
+                                       @onchange="() => SetDeliveryMode(GuestCheckoutDeliveryHelper.ModeHome)" />
+                                <span class="text-sm">
+                                    @DeliveryModeHomeLabel
+                                    @if (!homeEnabled)
+                                    {
+                                        <span class="block text-xs text-[#9b4b4b]">No disponible: tu ubicación está fuera del radio de 20 km</span>
+                                    }
+                                </span>
+                            </label>
+                        }
+                        @if (ShowDeliveryMode(GuestCheckoutDeliveryHelper.ModeFree))
+                        {
+                            var freeEnabled = IsDeliveryModeEnabled(GuestCheckoutDeliveryHelper.ModeFree);
+                            var faltante = freeEnabled ? 0 : (double)(_partnerProfile!.ShippingFreeOverAmount ?? 0) - NumericSubtotal;
+                            <label class="flex items-start gap-2 @(freeEnabled ? "cursor-pointer" : "cursor-not-allowed opacity-50")">
+                                <input type="radio" name="deliveryMode" checked="@(_deliveryMode == GuestCheckoutDeliveryHelper.ModeFree)"
+                                       disabled="@(_isSubmitting || !freeEnabled)"
+                                       @onchange="() => SetDeliveryMode(GuestCheckoutDeliveryHelper.ModeFree)" />
+                                <span class="text-sm">
+                                    @DeliveryModeFreeLabel
+                                    @if (!freeEnabled && faltante > 0)
+                                    {
+                                        <span class="block text-xs text-[#9b4b4b]">Agregá $@($"{faltante:N0}") más para desbloquear el envío gratis</span>
+                                    }
+                                </span>
+                            </label>
+                        }
+                        @if (ShowDeliveryMode(GuestCheckoutDeliveryHelper.ModePayOnDelivery))
+                        {
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="deliveryMode" checked="@(_deliveryMode == GuestCheckoutDeliveryHelper.ModePayOnDelivery)" disabled="@_isSubmitting"
+                                       @onchange="() => SetDeliveryMode(GuestCheckoutDeliveryHelper.ModePayOnDelivery)" />
+                                <span class="text-sm">@DeliveryModePayOnDeliveryLabel</span>
+                            </label>
+                        }
                     </div>
                     @if (_deliveryMode == GuestCheckoutDeliveryHelper.ModeHome)
                     {
@@ -478,6 +504,8 @@ else
     private bool _partnerAcceptsOnlinePayment;
     private bool _isCartMode;
     private readonly List<CheckoutCartGroup> _cartGroups = new();
+
+    private ComunaClick.Shared.Api.Buyer.PartnerProfileSummary? _partnerProfile;
 
     // Cotización de despacho (modo producto único). El monto es informativo:
     // el server siempre recalcula el fee al crear la orden.
@@ -784,6 +812,84 @@ else
         ApplySuccess(order.Id, order.CustomerId, order.Status, order.TotalAmount);
         _statusMessage = $"{L.T("buyer.status.orderCreated")} #{order.Id}";
         _statusLevel = "success";
+    }
+
+    private bool AnyShippingConfigured => _partnerProfile is not null &&
+        (_partnerProfile.ShippingDeliveryZoneEnabled || _partnerProfile.ShippingFreeEnabled ||
+         _partnerProfile.ShippingFreeOverAmountEnabled || _partnerProfile.ShippingCourierPaidEnabled);
+
+    private bool ShowDeliveryMode(string mode)
+    {
+        if (!AnyShippingConfigured) return true;
+        if (mode == GuestCheckoutDeliveryHelper.ModeHome) return _partnerProfile!.ShippingDeliveryZoneEnabled;
+        if (mode == GuestCheckoutDeliveryHelper.ModeFree) return _partnerProfile!.ShippingFreeEnabled || _partnerProfile!.ShippingFreeOverAmountEnabled;
+        if (mode == GuestCheckoutDeliveryHelper.ModePayOnDelivery) return _partnerProfile!.ShippingCourierPaidEnabled;
+        return true;
+    }
+
+    private string DeliveryModeHomeLabel =>
+        AnyShippingConfigured && _partnerProfile!.ShippingDeliveryZoneEnabled
+            ? "Delivery a zonas cercanas"
+            : L.T("buyer.checkout.delivery.home");
+
+    private string DeliveryModeFreeLabel
+    {
+        get
+        {
+            if (!AnyShippingConfigured) return L.T("buyer.checkout.delivery.free");
+            var p = _partnerProfile!;
+            if (p.ShippingFreeEnabled && !p.ShippingFreeOverAmountEnabled) return "Envío siempre gratis";
+            if (p.ShippingFreeOverAmountEnabled && p.ShippingFreeOverAmount is > 0)
+                return $"Envío gratis desde ${p.ShippingFreeOverAmount:N0}";
+            return "Envío gratis";
+        }
+    }
+
+    private string DeliveryModePayOnDeliveryLabel =>
+        AnyShippingConfigured && _partnerProfile!.ShippingCourierPaidEnabled
+            ? "Envío por pagar (courier a elección)"
+            : L.T("buyer.checkout.delivery.payOnDelivery");
+
+    private double NumericSubtotal => _isCartMode
+        ? _cartGroups.Sum(g => g.Cart.Subtotal)
+        : Quantity * UnitPrice;
+
+    private bool IsFreeShippingAmountMet
+    {
+        get
+        {
+            if (_partnerProfile is null) return true;
+            if (_partnerProfile.ShippingFreeEnabled) return true;
+            if (!_partnerProfile.ShippingFreeOverAmountEnabled) return true;
+            if (_partnerProfile.ShippingFreeOverAmount is null or <= 0) return true;
+            return NumericSubtotal >= (double)_partnerProfile.ShippingFreeOverAmount;
+        }
+    }
+
+    private bool IsDeliveryZoneOutOfRange =>
+        _isCartMode ? _cartGroups.Any(g => g.QuoteOutOfRange) : _quoteOutOfRange;
+
+    private bool IsDeliveryModeEnabled(string mode)
+    {
+        if (mode == GuestCheckoutDeliveryHelper.ModeFree) return IsFreeShippingAmountMet;
+        if (mode == GuestCheckoutDeliveryHelper.ModeHome) return !IsDeliveryZoneOutOfRange;
+        return true;
+    }
+
+    private void EnsureDeliveryModeValid()
+    {
+        if (IsDeliveryModeEnabled(_deliveryMode)) return;
+        var candidates = _deliveryMode == GuestCheckoutDeliveryHelper.ModeFree
+            ? new[] { GuestCheckoutDeliveryHelper.ModeHome, GuestCheckoutDeliveryHelper.ModePayOnDelivery }
+            : new[] { GuestCheckoutDeliveryHelper.ModePayOnDelivery, GuestCheckoutDeliveryHelper.ModeFree, GuestCheckoutDeliveryHelper.ModeHome };
+        foreach (var m in candidates)
+        {
+            if (ShowDeliveryMode(m) && IsDeliveryModeEnabled(m))
+            {
+                _deliveryMode = m;
+                return;
+            }
+        }
     }
 
     private void SetDeliveryMode(string mode)
@@ -1346,6 +1452,8 @@ else
             : Quantity * UnitPrice;
         _subtotal = $"{subtotal:N0}";
 
+        EnsureDeliveryModeValid();
+
         var fee = _deliveryMode == GuestCheckoutDeliveryHelper.ModeHome
             ? (_isCartMode ? _cartGroups.Sum(g => g.QuotedFee) : _deliveryFee)
             : 0;
@@ -1387,6 +1495,14 @@ else
         _tenantId = product.TenantId;
         _inStock = product.InStock;
         _maxAvailable = product.AvailableQuantity ?? product.StockQuantity ?? 0;
+
+        try
+        {
+            var profileResponse = await BuyerApi.GetPartnerProfileAsync(product.PartnerId);
+            _partnerProfile = profileResponse?.Partner;
+        }
+        catch (HttpRequestException) { }
+
         var suggested = GuestCheckoutDeliveryHelper.DetectSuggestedMode(product.Description);
         if (suggested is not null)
         {
@@ -1396,6 +1512,15 @@ else
         else
         {
             _deliveryHint = null;
+        }
+
+        // Si el modo por defecto no está habilitado según la config del comercio, auto-seleccionar el primero disponible.
+        if (!ShowDeliveryMode(_deliveryMode))
+        {
+            foreach (var m in new[] { GuestCheckoutDeliveryHelper.ModeHome, GuestCheckoutDeliveryHelper.ModeFree, GuestCheckoutDeliveryHelper.ModePayOnDelivery })
+            {
+                if (ShowDeliveryMode(m)) { _deliveryMode = m; break; }
+            }
         }
         if (_maxAvailable > 0 && Quantity > _maxAvailable)
         {

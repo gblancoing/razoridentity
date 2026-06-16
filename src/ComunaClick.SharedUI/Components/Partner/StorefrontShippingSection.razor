@@ -1,0 +1,155 @@
+@using PartnerApiModels = ComunaClick.Shared.Api.Partner
+@inject PartnerApiModels.PartnerApiClient PartnerApi
+
+<article class="rounded-3xl border border-[#e3e6e8] bg-white p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] space-y-6">
+    <div class="flex items-start gap-4">
+        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eff8e0] text-[#3b6700]">
+            <span class="material-symbols-outlined text-[24px]">local_shipping</span>
+        </span>
+        <div>
+            <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8081]">PASO 4</p>
+            <h2 class="mt-1 text-lg font-black text-[#2c2f30]">Métodos de envío</h2>
+            <p class="mt-1 text-sm text-[#595c5d]">Elegí los métodos de despacho que ofrecés. Podés activar más de uno.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_status))
+    {
+        <div class="rounded-xl px-4 py-3 text-sm font-semibold @(_statusOk ? "bg-[#eff8e0] text-[#3b6700]" : "bg-red-50 text-red-700")">
+            @_status
+        </div>
+    }
+
+    <div class="space-y-3">
+        <!-- Envíos por pagar -->
+        <label class="flex items-start gap-3 cursor-pointer rounded-2xl border border-[#e3e6e8] p-4 hover:border-[#b5d47b] @(_courierPaid ? "border-[#3b6700] bg-[#fafff5]" : "")">
+            <input type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-[#3b6700]"
+                   @bind="_courierPaid" />
+            <div>
+                <p class="text-sm font-bold text-[#2c2f30]">Envíos por pagar</p>
+                <p class="text-xs text-[#595c5d]">El cliente paga y coordina el despacho con el courier de su preferencia (ej: BluExpress u otro).</p>
+            </div>
+        </label>
+
+        <!-- Envío gratis sobre monto -->
+        <label class="flex items-start gap-3 cursor-pointer rounded-2xl border border-[#e3e6e8] p-4 hover:border-[#b5d47b] @(_freeOverAmount ? "border-[#3b6700] bg-[#fafff5]" : "")">
+            <input type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-[#3b6700]"
+                   @bind="_freeOverAmount" />
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold text-[#2c2f30]">Envío gratis a partir de un monto mínimo</p>
+                <p class="text-xs text-[#595c5d]">El envío es gratis cuando el pedido supera el valor que definas.</p>
+                @if (_freeOverAmount)
+                {
+                    <div class="mt-2 flex items-center gap-2">
+                        <span class="text-sm font-semibold text-[#595c5d]">$</span>
+                        <input type="number"
+                               min="0"
+                               step="1000"
+                               class="w-36 rounded-xl border border-[#dadddf] px-3 py-1.5 text-sm focus:border-[#3b6700] focus:ring-1 focus:ring-[#3b6700]/30"
+                               placeholder="Ej: 30000"
+                               @bind="_freeOverAmountValue" />
+                        <span class="text-xs text-[#7b8081]">CLP</span>
+                    </div>
+                }
+            </div>
+        </label>
+
+        <!-- Delivery a zonas cercanas -->
+        <label class="flex items-start gap-3 cursor-pointer rounded-2xl border border-[#e3e6e8] p-4 hover:border-[#b5d47b] @(_deliveryZone ? "border-[#3b6700] bg-[#fafff5]" : "")">
+            <input type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-[#3b6700]"
+                   @bind="_deliveryZone" />
+            <div>
+                <p class="text-sm font-bold text-[#2c2f30]">Delivery a zonas cercanas</p>
+                <p class="text-xs text-[#595c5d]">Usás el sistema de repartidores de la plataforma para despachos locales.</p>
+                @if (_deliveryZone)
+                {
+                    <a href="/partner/settings#despacho"
+                       class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#3b6700] hover:underline">
+                        <span class="material-symbols-outlined text-[14px]">settings</span>
+                        Configurar repartidores
+                    </a>
+                }
+            </div>
+        </label>
+
+        <!-- Envíos siempre gratis -->
+        <label class="flex items-start gap-3 cursor-pointer rounded-2xl border border-[#e3e6e8] p-4 hover:border-[#b5d47b] @(_free ? "border-[#3b6700] bg-[#fafff5]" : "")">
+            <input type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-[#3b6700]"
+                   @bind="_free" />
+            <div>
+                <p class="text-sm font-bold text-[#2c2f30]">Envíos siempre gratis</p>
+                <p class="text-xs text-[#595c5d]">Asumís el costo de despacho en todos los pedidos.</p>
+            </div>
+        </label>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 border-t border-[#eceae6] pt-5">
+        <button type="button"
+                class="inline-flex items-center gap-2 rounded-2xl bg-[#3b6700] px-6 py-3 text-sm font-bold text-[#d9ffad] disabled:opacity-60"
+                disabled="@_saving"
+                @onclick="SaveAsync">
+            <span class="material-symbols-outlined text-[18px]">save</span>
+            @(_saving ? "Guardando…" : "Guardar métodos de envío")
+        </button>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public Guid PartnerId { get; set; }
+    [Parameter] public PartnerApiModels.PartnerStorefrontSettings? Settings { get; set; }
+    [Parameter] public EventCallback<PartnerApiModels.PartnerStorefrontSettings> OnSaved { get; set; }
+
+    private bool _courierPaid;
+    private bool _freeOverAmount;
+    private decimal? _freeOverAmountValue;
+    private bool _deliveryZone;
+    private bool _free;
+    private bool _saving;
+    private string? _status;
+    private bool _statusOk;
+
+    protected override void OnParametersSet()
+    {
+        if (Settings is not null)
+        {
+            _courierPaid = Settings.ShippingCourierPaidEnabled;
+            _freeOverAmount = Settings.ShippingFreeOverAmountEnabled;
+            _freeOverAmountValue = Settings.ShippingFreeOverAmount;
+            _deliveryZone = Settings.ShippingDeliveryZoneEnabled;
+            _free = Settings.ShippingFreeEnabled;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _status = null;
+        try
+        {
+            var updated = await PartnerApi.UpdatePartnerShippingMethodsAsync(
+                PartnerId,
+                new PartnerApiModels.PartnerShippingMethodsUpdateRequest(
+                    _courierPaid,
+                    _freeOverAmount,
+                    _freeOverAmountValue,
+                    _deliveryZone,
+                    _free));
+
+            if (updated is not null)
+            {
+                _status = "Métodos de envío guardados.";
+                _statusOk = true;
+                await OnSaved.InvokeAsync(updated);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _status = "No se pudo guardar. Intentá de nuevo.";
+            _statusOk = false;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

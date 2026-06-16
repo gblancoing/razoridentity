@@ -1472,7 +1472,12 @@ public sealed record PartnerProfileSummary(
     string? TikTokUrl = null,
     string? YouTubeUrl = null,
     string? OtherLinkLabel = null,
-    string? OtherLinkUrl = null
+    string? OtherLinkUrl = null,
+    bool ShippingCourierPaidEnabled = false,
+    bool ShippingFreeOverAmountEnabled = false,
+    decimal? ShippingFreeOverAmount = null,
+    bool ShippingDeliveryZoneEnabled = false,
+    bool ShippingFreeEnabled = false
 );
 
 public sealed record PartnerProfileProduct(

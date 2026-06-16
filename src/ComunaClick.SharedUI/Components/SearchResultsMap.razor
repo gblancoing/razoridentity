@@ -19,6 +19,10 @@
     {
         <div class="px-5 py-10 text-center text-sm text-[#61897c]">@L.T("search.page.mapEmpty")</div>
     }
+    else if (_leafletUnavailable)
+    {
+        <div class="px-5 py-10 text-center text-sm text-[#61897c]">@L.T("search.page.mapEmpty")</div>
+    }
     else
     {
         <div id="@_mapElementId"
@@ -40,6 +44,7 @@
 
     private readonly string _mapElementId = $"search-results-map-{Guid.NewGuid():N}";
     private bool _mapRendered;
+    private bool _leafletUnavailable;
     private string _itemsSignature = string.Empty;
     private int _mappableCount;
 
@@ -57,7 +62,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_mapRendered || _mappableCount == 0)
+        if (_mapRendered || _leafletUnavailable || _mappableCount == 0)
         {
             return;
         }
@@ -73,6 +78,11 @@
         catch (InvalidOperationException)
         {
             // Prerender / SSR: map renders on next pass.
+        }
+        catch (Microsoft.JSInterop.JSException)
+        {
+            // Leaflet no disponible en este contexto (p. ej. MAUI WebView sin red o scripts no cargados).
+            _leafletUnavailable = true;
         }
     }
 

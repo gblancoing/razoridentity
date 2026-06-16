@@ -349,6 +349,12 @@ public sealed class PartnerApiClient : ApiClientBase
         CancellationToken cancellationToken = default)
         => PatchAsync<PartnerStorefrontSettings>($"/v1/partners/{partnerId}/storefront", request, cancellationToken);
 
+    public Task<PartnerStorefrontSettings?> UpdatePartnerShippingMethodsAsync(
+        Guid partnerId,
+        PartnerShippingMethodsUpdateRequest request,
+        CancellationToken cancellationToken = default)
+        => PatchAsync<PartnerStorefrontSettings>($"/v1/partners/{partnerId}/storefront/shipping", request, cancellationToken);
+
     public async Task<PartnerStorefrontSettings?> UploadPartnerBannerAsync(
         Guid partnerId,
         Stream fileStream,
@@ -836,6 +842,13 @@ public sealed record PartnerDeliveryProviderOption(
 
 public sealed record PartnerDeliveryPreferenceUpdateRequest(Guid? PreferredDeliveryProviderId);
 
+public sealed record PartnerShippingMethodsUpdateRequest(
+    bool CourierPaid,
+    bool FreeOverAmount,
+    decimal? FreeOverAmountValue,
+    bool DeliveryZone,
+    bool Free);
+
 public sealed record OrderTrackingTokenResult(Guid OrderId, string Token);
 
 public sealed record ProductCreateRequest(
@@ -957,7 +970,12 @@ public sealed record PartnerStorefrontSettings(
     string? StorefrontHighlight1,
     string? StorefrontHighlight2,
     string? StorefrontHighlight3,
-    string? PublicProfilePath);
+    string? PublicProfilePath,
+    bool ShippingCourierPaidEnabled = false,
+    bool ShippingFreeOverAmountEnabled = false,
+    decimal? ShippingFreeOverAmount = null,
+    bool ShippingDeliveryZoneEnabled = false,
+    bool ShippingFreeEnabled = false);
 
 public sealed record PartnerStorefrontUpdateRequest(
     string? StorefrontTagline,

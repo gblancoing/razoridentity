@@ -33,6 +33,11 @@ public sealed class Partner
     public string? BankAccountHolderRut { get; set; }
     /// <summary>Transportista preferido para despachos; null = automático por zona.</summary>
     public Guid? PreferredDeliveryProviderId { get; set; }
+    public bool ShippingCourierPaidEnabled { get; set; }
+    public bool ShippingFreeOverAmountEnabled { get; set; }
+    public decimal? ShippingFreeOverAmount { get; set; }
+    public bool ShippingDeliveryZoneEnabled { get; set; }
+    public bool ShippingFreeEnabled { get; set; }
     public string? WebsiteUrl { get; set; }
     public string? InstagramUrl { get; set; }
     public string? FacebookUrl { get; set; }

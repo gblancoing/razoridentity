@@ -12,6 +12,9 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<EnableDefaultCssItems>false</EnableDefaultCssItems>
 
+		<!-- Sin empaquetado MSIX en debug para poder depurar desde VS Code -->
+		<WindowsPackageType Condition="'$(Configuration)' == 'Debug'">None</WindowsPackageType>
+
 		<!-- Display name -->
 		<ApplicationTitle>ComunaClick.Mobile</ApplicationTitle>
 

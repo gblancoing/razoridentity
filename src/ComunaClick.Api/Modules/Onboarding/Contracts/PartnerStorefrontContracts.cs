@@ -9,7 +9,12 @@ public sealed record PartnerStorefrontResponse(
   string? StorefrontHighlight1,
   string? StorefrontHighlight2,
   string? StorefrontHighlight3,
-  string PublicProfilePath);
+  string PublicProfilePath,
+  bool ShippingCourierPaidEnabled = false,
+  bool ShippingFreeOverAmountEnabled = false,
+  decimal? ShippingFreeOverAmount = null,
+  bool ShippingDeliveryZoneEnabled = false,
+  bool ShippingFreeEnabled = false);
 
 public sealed record PartnerStorefrontUpdateRequest(
   string? StorefrontTagline,
@@ -19,6 +24,13 @@ public sealed record PartnerStorefrontUpdateRequest(
   string? StorefrontHighlight3,
   bool? RemoveBanner,
   bool? RemoveLogo);
+
+public sealed record PartnerShippingMethodsUpdateRequest(
+  bool CourierPaid,
+  bool FreeOverAmount,
+  decimal? FreeOverAmountValue,
+  bool DeliveryZone,
+  bool Free);
 
 public sealed record ProfessionalStorefrontResponse(
   Guid ProfessionalId,
