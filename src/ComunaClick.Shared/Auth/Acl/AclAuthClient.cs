@@ -55,9 +55,21 @@ public sealed class AclAuthClient : IAuthClient
         return ToTokens(auth);
     }
 
-    public Task LogoutAsync(CancellationToken cancellationToken = default)
+    public async Task LogoutAsync(string? refreshToken = null, CancellationToken cancellationToken = default)
     {
-        return Task.CompletedTask;
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return;
+        }
+
+        try
+        {
+            await _httpClient.PostAsJsonAsync("/v1/auth/logout", new { RefreshToken = refreshToken }, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            // Logout es best-effort: si ACL no responde, el borrado de cookie ya cierra la sesión del navegador.
+        }
     }
 
     private static AuthTokens ToTokens(AuthResponse? auth)

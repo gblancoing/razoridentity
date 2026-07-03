@@ -242,12 +242,17 @@
             Logger.LogInformation("Login submit started for {Email}", Email);
             var recaptchaToken = await ExecuteRecaptchaAsync();
             var options = ApiOptions.Value;
-            var tokens = await AuthClient.LoginAsync(new ComunaClick.Shared.Auth.LoginRequest(
-                Email,
-                Password,
-                options.DefaultTenantId,
-                null,
-                recaptchaToken));
+            // La sesión se crea vía fetch same-origin: el host emite la cookie HttpOnly con el refresh
+            // token y solo devuelve el access token (nunca el refresh) al navegador.
+            var json = await JSRuntime.InvokeAsync<string>("comunaclic.sessionLogin",
+                Email, Password, options.DefaultTenantId?.ToString(), null, recaptchaToken);
+            var session = ParseSession(json);
+            if (session is null)
+            {
+                _errorMessage = L.T("login.error") ?? "No pudimos iniciar sesión. Verifica tus datos.";
+                return;
+            }
+            var tokens = session.ToTokens();
             await AuthState.SetTokensAsync(tokens);
             var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
             await PersistAccountRoleAfterLoginAsync(isPersonalAccount);
@@ -266,6 +271,8 @@
             _isSubmitting = false;
         }
     }
+
+    private static SessionResponse? ParseSession(string? json) => SessionResponse.Parse(json);
 
     private async Task<string?> ExecuteRecaptchaAsync()
     {
@@ -311,11 +318,15 @@
         try
         {
             var options = ApiOptions.Value;
-            var tokens = await AuthClient.LoginExternalAsync(new ComunaClick.Shared.Auth.ExternalLoginRequest(
-                ComunaClick.Shared.Auth.ExternalProvider.Google,
-                idToken,
-                TenantId: options.DefaultTenantId,
-                PartnerId: null));
+            var json = await JSRuntime.InvokeAsync<string>("comunaclic.sessionGoogle",
+                idToken, options.DefaultTenantId?.ToString(), null);
+            var session = ParseSession(json);
+            if (session is null)
+            {
+                _errorMessage = "No se pudo completar el inicio con Google.";
+                return false;
+            }
+            var tokens = session.ToTokens();
             await AuthState.SetTokensAsync(tokens);
             var isPersonalAccount = !tokens.PartnerId.HasValue || tokens.PartnerId == Guid.Empty;
             await PersistAccountRoleAfterLoginAsync(isPersonalAccount);

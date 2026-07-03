@@ -318,8 +318,10 @@
         _statusLevel = "info";
         try
         {
-            var refreshed = await AuthClient.RefreshAsync(AuthState.Tokens.RefreshToken, partner.TenantId, partner.Id);
-            await AuthState.SetTokensAsync(refreshed);
+            if (!await AuthState.SwitchScopeAsync(partner.TenantId, partner.Id))
+            {
+                throw new InvalidOperationException("No se pudo activar la sesión del negocio. Vuelve a iniciar sesión.");
+            }
             Navigation.NavigateTo("/partner", true);
         }
         catch (Exception ex)

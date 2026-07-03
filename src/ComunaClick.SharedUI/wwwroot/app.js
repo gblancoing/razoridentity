@@ -57,9 +57,21 @@ window.comunaclic.setLang = function (lang) {
   }
 };
 
+// Hardening de sesión: el ACCESS token vive solo en sessionStorage (por pestaña, sin refresh token).
+// El REFRESH token nunca toca JS: viaja en la cookie HttpOnly __Host-cc_rt emitida por el host.
+window.comunaclic._SESSION_TOKENS_KEY = "comunaclic.session.tokens";
+window.comunaclic._SESSION_FLAG_KEY = "comunaclic.session"; // marcador no sensible (¿hubo sesión?)
+
+// Migración: elimina cualquier token viejo (incl. refresh) que quedó en localStorage.
+try {
+  localStorage.removeItem("comunaclic.tokens");
+} catch {
+  // Ignore storage errors
+}
+
 window.comunaclic.getTokens = function () {
   try {
-    return localStorage.getItem("comunaclic.tokens") || "";
+    return sessionStorage.getItem(window.comunaclic._SESSION_TOKENS_KEY) || "";
   } catch {
     return "";
   }
@@ -67,7 +79,8 @@ window.comunaclic.getTokens = function () {
 
 window.comunaclic.setTokens = function (json) {
   try {
-    localStorage.setItem("comunaclic.tokens", json);
+    sessionStorage.setItem(window.comunaclic._SESSION_TOKENS_KEY, json);
+    localStorage.setItem(window.comunaclic._SESSION_FLAG_KEY, "1");
   } catch {
     // Ignore storage errors
   }
@@ -75,10 +88,82 @@ window.comunaclic.setTokens = function (json) {
 
 window.comunaclic.clearTokens = function () {
   try {
-    localStorage.removeItem("comunaclic.tokens");
+    sessionStorage.removeItem(window.comunaclic._SESSION_TOKENS_KEY);
+    localStorage.removeItem(window.comunaclic._SESSION_FLAG_KEY);
   } catch {
     // Ignore storage errors
   }
+};
+
+window.comunaclic.hadSession = function () {
+  try {
+    return localStorage.getItem(window.comunaclic._SESSION_FLAG_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+// Helpers de sesión: hacen el fetch same-origin a /auth/session/* para que la cookie HttpOnly
+// se emita/adjunte sola. Devuelven el JSON (string) para que el circuito lo hidrate. El header
+// X-CC-Session fuerza preflight (defensa CSRF junto con SameSite=Strict + validación de Origin).
+window.comunaclic._sessionFetch = async function (path, body) {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CC-Session": "1"
+      },
+      body: JSON.stringify(body || {})
+    });
+
+    if (!response.ok) {
+      return "";
+    }
+
+    return await response.text();
+  } catch {
+    return "";
+  }
+};
+
+window.comunaclic.sessionLogin = function (email, password, tenantId, partnerId, recaptchaToken) {
+  return window.comunaclic._sessionFetch("/auth/session/login", {
+    email: email,
+    password: password,
+    tenantId: tenantId || null,
+    partnerId: partnerId || null,
+    recaptchaToken: recaptchaToken || null
+  });
+};
+
+window.comunaclic.sessionRegister = function (name, email, password, recaptchaToken) {
+  return window.comunaclic._sessionFetch("/auth/session/register", {
+    name: name,
+    email: email,
+    password: password,
+    recaptchaToken: recaptchaToken || null
+  });
+};
+
+window.comunaclic.sessionGoogle = function (idToken, tenantId, partnerId) {
+  return window.comunaclic._sessionFetch("/auth/session/google", {
+    idToken: idToken,
+    tenantId: tenantId || null,
+    partnerId: partnerId || null
+  });
+};
+
+window.comunaclic.sessionRefresh = function (tenantId, partnerId) {
+  return window.comunaclic._sessionFetch("/auth/session/refresh", {
+    tenantId: tenantId || null,
+    partnerId: partnerId || null
+  });
+};
+
+window.comunaclic.sessionLogout = function () {
+  return window.comunaclic._sessionFetch("/auth/session/logout", {});
 };
 
 window.comunaclic.getCustomerId = function () {

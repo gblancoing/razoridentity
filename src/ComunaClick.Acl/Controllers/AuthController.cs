@@ -229,6 +229,30 @@ public sealed class AuthController : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(LogoutRequest request)
+    {
+        // Revoca el refresh token para que "cerrar sesión" lo invalide de inmediato en servidor
+        // (la cookie del host solo deja de enviarse; sin esto seguiría siendo válido hasta expirar).
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            return Ok();
+        }
+
+        var pepper = _configuration["Jwt:RefreshTokenPepper"];
+        var tokenHash = TokenHasher.Hash(request.RefreshToken.Trim(), pepper);
+        var refreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
+
+        if (refreshToken is not null && !refreshToken.RevokedAt.HasValue)
+        {
+            refreshToken.RevokedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        // Respuesta uniforme: no revela si el token existía.
+        return Ok();
+    }
+
     [HttpPost("google")]
     public async Task<ActionResult<AuthResponse>> Google(SocialLoginRequest request, CancellationToken cancellationToken)
     {

@@ -72,6 +72,8 @@ public sealed class WebTokenStore : ITokenStore
         _sessionTokens.Current = null;
         try
         {
+            // Revoca el refresh token en ACL y borra la cookie HttpOnly del host, además del sessionStorage.
+            await _jsRuntime.InvokeVoidAsync("comunaclic.sessionLogout", cancellationToken);
             await _jsRuntime.InvokeVoidAsync("comunaclic.clearTokens", cancellationToken);
         }
         catch (InvalidOperationException)

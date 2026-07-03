@@ -486,13 +486,15 @@
         try
         {
             var recaptchaToken = await ExecuteRecaptchaAsync();
-            var tokens = await AuthClient.RegisterAsync(new ComunaClick.Shared.Auth.RegisterRequest(
-                _model.Name.Trim(),
-                _model.Email.Trim(),
-                _model.Password,
-                recaptchaToken));
+            var registerJson = await JSRuntime.InvokeAsync<string>("comunaclic.sessionRegister",
+                _model.Name.Trim(), _model.Email.Trim(), _model.Password, recaptchaToken);
+            var registerSession = SessionResponse.Parse(registerJson);
+            if (registerSession is null)
+            {
+                throw new InvalidOperationException("No se pudo crear la cuenta. Verifica los datos e intenta de nuevo.");
+            }
 
-            await AuthState.SetTokensAsync(tokens);
+            await AuthState.SetTokensAsync(registerSession.ToTokens());
             await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", _role);
             if (IsNatural)
             {
@@ -676,12 +678,14 @@
         try
         {
             var options = ApiOptions.Value;
-            var tokens = await AuthClient.LoginExternalAsync(new ComunaClick.Shared.Auth.ExternalLoginRequest(
-                ComunaClick.Shared.Auth.ExternalProvider.Google,
-                idToken,
-                TenantId: options.DefaultTenantId,
-                PartnerId: null));
-            await AuthState.SetTokensAsync(tokens);
+            var googleJson = await JSRuntime.InvokeAsync<string>("comunaclic.sessionGoogle",
+                idToken, options.DefaultTenantId?.ToString(), null);
+            var googleSession = SessionResponse.Parse(googleJson);
+            if (googleSession is null)
+            {
+                throw new InvalidOperationException("No se pudo completar el registro con Google.");
+            }
+            await AuthState.SetTokensAsync(googleSession.ToTokens());
 
             var intent = await JSRuntime.InvokeAsync<RegisterIntentDto?>("comunaclic.consumeRegisterIntent");
             var role = RegistrationFlow.NormalizeRole(intent?.Role ?? _role);

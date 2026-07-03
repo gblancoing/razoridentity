@@ -36,20 +36,20 @@
             return;
         }
 
-        var refresh = AuthState.Tokens?.RefreshToken;
-        if (string.IsNullOrWhiteSpace(refresh))
+        if (AuthState.Tokens is null)
         {
             return;
         }
 
         try
         {
-            var refreshed = await AuthClient.RefreshAsync(refresh, TenantId, PartnerId);
-            await AuthState.SetTokensAsync(refreshed);
+            // Re-scopea a este partner vía cookie (web) / refresh token (mobile). Si falla, igual
+            // navegamos: el panel puede pedir re-login.
+            await AuthState.SwitchScopeAsync(TenantId, PartnerId);
         }
         catch
         {
-            // Si el refresh falla, igual navegamos: el panel puede pedir re-login.
+            // Silencioso: la navegación continúa.
         }
     }
 }

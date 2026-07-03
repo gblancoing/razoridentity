@@ -5,8 +5,8 @@ namespace ComunaClick.Shared.Api.Partner;
 
 public sealed class PartnerApiClient : ApiClientBase
 {
-    public PartnerApiClient(HttpClient httpClient, Auth.Interfaces.ITokenStore tokenStore, Auth.Interfaces.IAuthClient authClient)
-        : base(httpClient, tokenStore, authClient)
+    public PartnerApiClient(HttpClient httpClient, Auth.Interfaces.ITokenStore tokenStore, ITokenRefresher tokenRefresher)
+        : base(httpClient, tokenStore, tokenRefresher)
     {
     }
 

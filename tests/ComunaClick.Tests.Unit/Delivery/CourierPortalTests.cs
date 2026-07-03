@@ -13,7 +13,7 @@ namespace ComunaClick.Tests.Unit.Delivery;
 public sealed class CourierPortalTests
 {
     private static CourierPortalController CreateController(CoreDbContext db, Guid userId, string email)
-        => new(db, new CourierPayeeService(db), mpOAuth: null!)
+        => new(db, new CourierPayeeService(db), mpOAuth: null!, TestDb.CreateSettlementService(db))
         {
             ControllerContext = new ControllerContext
             {

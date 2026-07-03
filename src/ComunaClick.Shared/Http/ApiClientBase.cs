@@ -12,13 +12,13 @@ public abstract class ApiClientBase
 
     private readonly HttpClient _httpClient;
     private readonly ITokenStore _tokenStore;
-    private readonly IAuthClient _authClient;
+    private readonly ITokenRefresher _tokenRefresher;
 
-    protected ApiClientBase(HttpClient httpClient, ITokenStore tokenStore, IAuthClient authClient)
+    protected ApiClientBase(HttpClient httpClient, ITokenStore tokenStore, ITokenRefresher tokenRefresher)
     {
         _httpClient = httpClient;
         _tokenStore = tokenStore;
-        _authClient = authClient;
+        _tokenRefresher = tokenRefresher;
     }
 
     protected async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken = default)
@@ -129,30 +129,11 @@ public abstract class ApiClientBase
 
     private async Task<bool> TryRefreshAsync(CancellationToken cancellationToken)
     {
+        // El refresco depende del mecanismo de cada host (cookie en web, refresh token guardado en
+        // mobile); no exigimos que el store tenga refresh token porque en web ya no lo guarda.
         var tokens = await _tokenStore.GetAsync(cancellationToken);
-        if (tokens is null || string.IsNullOrWhiteSpace(tokens.RefreshToken))
-        {
-            return false;
-        }
-
-        try
-        {
-            var refreshed = await _authClient.RefreshAsync(
-                tokens.RefreshToken,
-                tokens.TenantId,
-                tokens.PartnerId,
-                cancellationToken);
-            await _tokenStore.SaveAsync(refreshed, cancellationToken);
-            return true;
-        }
-        catch (HttpRequestException)
-        {
-            return false;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
+        var refreshed = await _tokenRefresher.RefreshAsync(tokens, cancellationToken);
+        return refreshed is not null;
     }
 
     private static HttpRequestMessage Clone(HttpRequestMessage request)

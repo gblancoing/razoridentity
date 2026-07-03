@@ -1,3 +1,4 @@
+using ComunaClick.App.Auth;
 using ComunaClick.App.Components;
 using Microsoft.AspNetCore.CookiePolicy;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -39,22 +40,19 @@ builder.Services.Configure<ComunaClick.Shared.Http.ApiOptions>(builder.Configura
 builder.Services.AddHttpClient<ComunaClick.Shared.Auth.Acl.AclAuthClient>((sp, client) =>
 {
     var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.AclBaseUrl);
-});
-builder.Services.AddHttpClient<ComunaClick.Shared.Auth.Acl.AclAuthClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ComunaClick.Shared.Http.ApiOptions>>().Value;
     client.BaseAddress = new Uri(options.AclBaseUrl.TrimEnd('/') + "/");
 });
 builder.Services.AddScoped<ComunaClick.Shared.Auth.Interfaces.IAuthClient>(sp =>
     sp.GetRequiredService<ComunaClick.Shared.Auth.Acl.AclAuthClient>());
+// Web: el refresh se hace por cookie HttpOnly vía fetch same-origin (ver SessionEndpoints).
+builder.Services.AddScoped<ComunaClick.Shared.Http.ITokenRefresher, ComunaClick.SharedUI.Services.CookieSessionTokenRefresher>();
 builder.Services.AddScoped<ComunaClick.Shared.Api.Buyer.BuyerApiClient>(sp =>
 {
     var http = ComunaClick.SharedUI.Http.ScopedApiHttpClientFactory.CreateClient(sp);
     return new ComunaClick.Shared.Api.Buyer.BuyerApiClient(
         http,
         sp.GetRequiredService<ComunaClick.Shared.Auth.Interfaces.ITokenStore>(),
-        sp.GetRequiredService<ComunaClick.Shared.Auth.Interfaces.IAuthClient>());
+        sp.GetRequiredService<ComunaClick.Shared.Http.ITokenRefresher>());
 });
 builder.Services.AddScoped<ComunaClick.Shared.Api.Partner.PartnerApiClient>(sp =>
 {
@@ -62,7 +60,7 @@ builder.Services.AddScoped<ComunaClick.Shared.Api.Partner.PartnerApiClient>(sp =
     return new ComunaClick.Shared.Api.Partner.PartnerApiClient(
         http,
         sp.GetRequiredService<ComunaClick.Shared.Auth.Interfaces.ITokenStore>(),
-        sp.GetRequiredService<ComunaClick.Shared.Auth.Interfaces.IAuthClient>());
+        sp.GetRequiredService<ComunaClick.Shared.Http.ITokenRefresher>());
 });
 builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerCatalogService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerCatalogService>();
 builder.Services.AddScoped<ComunaClick.Shared.Partner.Interfaces.IPartnerBookingService, ComunaClick.SharedUI.Services.Partner.PartnerApiPartnerBookingService>();
@@ -128,6 +126,8 @@ app.Use(async (context, next) =>
 
 app.UseStaticFiles();
 app.UseAntiforgery();
+
+app.MapSessionEndpoints();
 
 app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(ComunaClick.SharedUI.Pages.Home).Assembly)

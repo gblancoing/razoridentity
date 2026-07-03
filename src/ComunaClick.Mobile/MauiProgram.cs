@@ -56,6 +56,8 @@ public static class MauiProgram
 		});
 		builder.Services.AddScoped<ComunaClick.Shared.Auth.Interfaces.IAuthClient>(sp =>
 			sp.GetRequiredService<ComunaClick.Shared.Auth.Acl.AclAuthClient>());
+		// Mobile: refresh con el refresh token guardado en almacenamiento seguro (sin cookie).
+		builder.Services.AddScoped<ComunaClick.Shared.Http.ITokenRefresher, ComunaClick.Mobile.Services.AclTokenRefresher>();
 
 		// API Clients con bearer token autenticado (mismo patrón que Program.cs del web)
 		builder.Services.AddScoped<ComunaClick.Shared.Api.Buyer.BuyerApiClient>(sp =>
@@ -64,7 +66,7 @@ public static class MauiProgram
 			return new ComunaClick.Shared.Api.Buyer.BuyerApiClient(
 				http,
 				sp.GetRequiredService<ITokenStore>(),
-				sp.GetRequiredService<ComunaClick.Shared.Auth.Interfaces.IAuthClient>());
+				sp.GetRequiredService<ComunaClick.Shared.Http.ITokenRefresher>());
 		});
 		builder.Services.AddScoped<ComunaClick.Shared.Api.Partner.PartnerApiClient>(sp =>
 		{
@@ -72,7 +74,7 @@ public static class MauiProgram
 			return new ComunaClick.Shared.Api.Partner.PartnerApiClient(
 				http,
 				sp.GetRequiredService<ITokenStore>(),
-				sp.GetRequiredService<ComunaClick.Shared.Auth.Interfaces.IAuthClient>());
+				sp.GetRequiredService<ComunaClick.Shared.Http.ITokenRefresher>());
 		});
 
 		// Servicios de partner

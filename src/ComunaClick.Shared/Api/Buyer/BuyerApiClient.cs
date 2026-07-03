@@ -7,8 +7,8 @@ namespace ComunaClick.Shared.Api.Buyer;
 
 public sealed class BuyerApiClient : ApiClientBase
 {
-    public BuyerApiClient(HttpClient httpClient, Auth.Interfaces.ITokenStore tokenStore, Auth.Interfaces.IAuthClient authClient)
-        : base(httpClient, tokenStore, authClient)
+    public BuyerApiClient(HttpClient httpClient, Auth.Interfaces.ITokenStore tokenStore, ITokenRefresher tokenRefresher)
+        : base(httpClient, tokenStore, tokenRefresher)
     {
     }
 

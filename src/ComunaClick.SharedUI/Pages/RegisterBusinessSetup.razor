@@ -472,8 +472,7 @@
 
             if (partner is not null)
             {
-                var refreshed = await AuthClient.RefreshAsync(AuthState.Tokens.RefreshToken, partner.TenantId, partner.Id);
-                await AuthState.SetTokensAsync(refreshed);
+                await AuthState.SwitchScopeAsync(partner.TenantId, partner.Id);
                 await JSRuntime.InvokeVoidAsync("comunaclic.setAccountRole", WizardFlow);
                 if (string.Equals(_model.Type, "C", StringComparison.OrdinalIgnoreCase))
                 {
@@ -538,10 +537,9 @@
             }
 
             var pick = partners[0];
-            if (AuthState.Tokens?.RefreshToken is { } refresh)
+            if (AuthState.Tokens is not null)
             {
-                var refreshed = await AuthClient.RefreshAsync(refresh, pick.TenantId, pick.Id);
-                await AuthState.SetTokensAsync(refreshed);
+                await AuthState.SwitchScopeAsync(pick.TenantId, pick.Id);
             }
 
             var welcome = pick.Activation?.NextStep;
